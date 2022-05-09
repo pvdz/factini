@@ -41,6 +41,11 @@ pub struct Cell {
   // And the center piece, which is special because it may have to merge or divide
   pub segment_c_part: Part,
   pub segment_c_at: u64,
+  // The center segment has to track where its part came from and where it'll be going to
+  pub segment_c_from: CellPort, // This is basically tracked to paint it properly
+  pub segment_c_to: CellPort,
+  // A part on the center segment is stuck at 50% while all valid target segments are full
+  pub segment_c_blocked: bool,
 
   // Required input for this machine. Can be none. Can require up to three things.
   // There should be no gap, meaning if there are two inputs, then 3 should always be the none part
@@ -56,11 +61,21 @@ pub struct Cell {
   pub machine_output_have: Part, // Will sit at factory for as long as there is no out with space
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CellKind {
   Empty,
   Belt,
   Machine,
+}
+
+// Ports connect cells. Each cell has their own side of a connection. A port is incoming, outgoing
+// or none. A port orientation is up, right, down, or left. Probably will rename this to PortDir.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum CellPort {
+  Up,
+  Right,
+  Down,
+  Left,
 }
 
 pub fn empty_cell(x: usize, y: usize) -> Cell {
@@ -88,6 +103,9 @@ pub fn empty_cell(x: usize, y: usize) -> Cell {
     segment_l_at: 0,
     segment_c_part: part_none(x, y),
     segment_c_at: 0,
+    segment_c_from: CellPort::Up,
+    segment_c_to: CellPort::Up,
+    segment_c_blocked: true,
     machine_input_1_want: part_none(x, y),
     machine_input_1_have: part_none(x, y),
     machine_input_2_want: part_none(x, y),
@@ -125,6 +143,9 @@ pub fn belt_cell(x: usize, y: usize, belt: BeltMeta) -> Cell {
     segment_l_at: 0,
     segment_c_part: part_none(x, y),
     segment_c_at: 0,
+    segment_c_from: CellPort::Up,
+    segment_c_to: CellPort::Up,
+    segment_c_blocked: true,
     machine_input_1_want: part_none(x, y),
     machine_input_1_have: part_none(x, y),
     machine_input_2_want: part_none(x, y),
@@ -163,6 +184,9 @@ pub fn machine_cell(x: usize, y: usize, machine: Machine, input1: Part, input2: 
     segment_l_at: 0,
     segment_c_part: part_none(x, y),
     segment_c_at: 0,
+    segment_c_from: CellPort::Up,
+    segment_c_to: CellPort::Up,
+    segment_c_blocked: true,
     machine_input_1_want: input1,
     machine_input_1_have: part_none(x, y),
     machine_input_2_want: input2,

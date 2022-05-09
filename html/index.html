@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head>
+
+</head>
+<body>
+<script>
+  function log(s) {
+    console.log('(rust)', s);
+  }
+  function dnow() {
+    return Date.now();
+  }
+</script>
+<script type="module">
+  console.log('(html) start');
+  import('../pkg/factini.js').then(x => {
+    console.log('x:', x);
+    console.log(x.start);
+    x.default();
+    x.start();
+  }, (e) => console.error(e));
+  console.log('(html) started');
+</script>
+</body>
+</html>

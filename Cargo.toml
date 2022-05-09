@@ -3,8 +3,44 @@ name = "factini"
 version = "0.1.0"
 edition = "2018"
 
-[dependencies]
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+futures = "*"
+wasm-bindgen = { version = "0.2", features = [] }
+# these two are necessary for async in wasm in browser
+wasm-bindgen-futures = "0.4.*"
+js-sys = "0.3.*"
+# enables dumping panics to console.log in js
+console_error_panic_hook = "*"
 
-[[bin]]
-name = "factini"
+# No support for target-specific lib and none is coming any time soon either: https://github.com/rust-lang/cargo/issues/4881
+[lib]
+# Error: crate-type must be cdylib to compile to wasm32-unknown-unknown. Add the following to your Cargo.toml file:
+# meh?
+crate-type = ["cdylib", "rlib"]
+## can't find library `miners`, rename file to `src/lib.rs` or specify lib.path
+## :facepalm:
 path = "src/main.rs"
+
+#[dependencies.js-sys]
+#version = "0.3.*"
+#features = [
+#    'Date',
+#]
+
+[dependencies.web-sys]
+version = "0.3.4"
+features = [
+    'console',
+    'CanvasRenderingContext2d',
+    'CssStyleDeclaration',
+    'Document',
+    'Element',
+    'EventTarget',
+    'HtmlCanvasElement',
+    'HtmlElement',
+    'HtmlImageElement',
+    'MouseEvent',
+    'Node',
+    'Performance',
+    'Window',
+]

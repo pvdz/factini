@@ -1,4 +1,4 @@
-use crate::PartKind;
+use super::part::*;
 
 pub struct Demand {
   pub x: usize,

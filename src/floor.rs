@@ -104,8 +104,8 @@ pub fn empty_floor() -> Floor {
 
 
 pub fn test_floor() -> Floor {
-  let machine1 = machine_cell(2, 2, Machine::None, Part { kind: PartKind::Doll, icon: 'd'}, part_none(2, 2), part_none(2, 2), Part { kind: PartKind::Car, icon: 'c'}, -15, -3);
-  let machine2 = machine_cell(2, 2, Machine::None, Part { kind: PartKind::Flamingo, icon: 'f'}, Part { kind: PartKind::Fire, icon: 'b'}, part_none(2, 2), Part { kind: PartKind::Doll, icon: 'd'}, -25, -10);
+  let machine1 = machine_cell(2, 2, Machine::Composer, Part { kind: PartKind::BlueWand, icon: 'b'}, part_none(2, 2), part_none(2, 2), Part { kind: PartKind::GoldenBlueWand, icon: 'g'}, -15, -3);
+  let machine2 = machine_cell(2, 2, Machine::Smasher, Part { kind: PartKind::WoodenStick, icon: 'w'}, Part { kind: PartKind::Sapphire, icon: 's'}, part_none(2, 2), Part { kind: PartKind::BlueWand, icon: 'd'}, -25, -10);
   return Floor {
     width: 5,
     height: 5,

@@ -5,13 +5,13 @@ pub struct Part {
   pub icon: char,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum PartKind {
   None,
-  Car,
-  Doll,
-  Fire,
-  Flamingo,
+  Sapphire,
+  WoodenStick,
+  BlueWand,
+  GoldenBlueWand,
 }
 
 pub fn part_none(x: usize, y: usize) -> Part {
