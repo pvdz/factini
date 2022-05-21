@@ -8,12 +8,13 @@ use std::collections::VecDeque;
 
 pub mod belt;
 pub mod cell;
-pub mod demand;
+pub mod direction;
 pub mod factory;
 pub mod floor;
 pub mod machine;
 pub mod options;
 pub mod part;
+pub mod segment;
 pub mod state;
 pub mod supply;
 
@@ -25,7 +26,7 @@ fn main() {
   println!("start");
 
   // Static state configuration (can still be changed by user)
-  let mut options = options::create_options();
+  let mut options = options::create_options(1.0);
 
   // General app state
   let mut state = state::State {};
@@ -39,12 +40,14 @@ fn main() {
   // might be useful to set consistency thresholds ("you need to maintain this efficiency for at
   // least 10s").
 
-  while factory.ticks < (120 * options::ONE_SECOND) {
+  // while factory.ticks < (120 * options::ONE_SECOND) {
+  loop {
     factory::tick_factory(&mut options, &mut state, &mut factory);
 
     if (factory.ticks % options.print_factory_interval) == 0 {
       println!("{:200}", ' ');
-      println!("{:200}", ' ');
+      println!("factory @ {} {:200}", factory.ticks, ' ');
+      println!("machine TL {:?} {:?} {:?} -> {:?}", factory.floor.cells[8].machine_input_1_have.kind, factory.floor.cells[8].machine_input_2_have.kind, factory.floor.cells[8].machine_input_3_have.kind, factory.floor.cells[8].machine_output_have.kind);
       println!("{}", factory::serialize_cli(&factory));
       // print!("\x1b[{}A\n", 60);
     }

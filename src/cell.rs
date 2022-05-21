@@ -2,6 +2,7 @@ use super::belt::*;
 use super::options::*;
 use super::machine::*;
 use super::part::*;
+use super::segment::*;
 use super::state::*;
 
 #[derive(Debug)]
@@ -26,39 +27,37 @@ pub struct Cell {
   pub offset_segment: u8,
   pub offset_center: u8,
 
-  // Each belt has five potential segments in a 3x3 grid; one to each cardinal side and the center
-  // (In the future there may also be the double corner case, but same difference.)
-  // Each segment can hold one part and has to track it and when it started moving it
-  pub segment_u_part: Part,
-  pub segment_u_at: u64,
-  pub segment_r_part: Part,
-  pub segment_r_at: u64,
-  pub segment_d_part: Part,
-  pub segment_d_at: u64,
-  pub segment_l_part: Part,
-  pub segment_l_at: u64,
-
-  // And the center piece, which is special because it may have to merge or divide
-  pub segment_c_part: Part,
-  pub segment_c_at: u64,
-  // The center segment has to track where its part came from and where it'll be going to
-  pub segment_c_from: CellPort, // This is basically tracked to paint it properly
-  pub segment_c_to: CellPort,
-  // A part on the center segment is stuck at 50% while all valid target segments are full
-  pub segment_c_blocked: bool,
+  // A belt can have up to 5 segments; they form a cross in a 3x3 grid inside a cell (u, r, d, l, c)
+  // Machine and empty cells have segments with none-parts.
+  pub segments: [Segment; 5],
 
   // Required input for this machine. Can be none. Can require up to three things.
   // There should be no gap, meaning if there are two inputs, then 3 should always be the none part
+  // An input that is empty but reserved can not unblock another segment
   pub machine_input_1_want: Part,
   pub machine_input_1_have: Part,
+  pub machine_input_1_claimed: bool,
   pub machine_input_2_want: Part,
   pub machine_input_2_have: Part,
+  pub machine_input_2_claimed: bool,
   pub machine_input_3_want: Part,
   pub machine_input_3_have: Part,
+  pub machine_input_3_claimed: bool,
   // Output is mandatory and should not be None (or maybe? free trash anyone?)
   pub machine_start_at: u64,
   pub machine_output_want: Part,
   pub machine_output_have: Part, // Will sit at factory for as long as there is no out with space
+
+  pub demand_part: Part, // The part that this demander is waiting for
+  pub demand_part_price: i32, // Amount of money you receive when supplying the proper part
+  pub demand_trash_price: i32, // Penalty you pay for giving the wrong part
+
+  pub supply_part: Part, // Current part that's moving out
+  pub supply_part_at: u64, // Last time part was generated
+  pub supply_last_part_out_at: u64, // Last time a part left this supply
+  pub supply_interval: u64, // Generate new part every this many ticks
+  pub supply_gives: Part, // The example Part that this supply will generate
+  pub supply_part_price: i32, // Cost when dispensing one part
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -66,6 +65,8 @@ pub enum CellKind {
   Empty,
   Belt,
   Machine,
+  Supply,
+  Demand,
 }
 
 // Ports connect cells. Each cell has their own side of a connection. A port is incoming, outgoing
@@ -78,10 +79,10 @@ pub enum CellPort {
   Left,
 }
 
-pub fn empty_cell(x: usize, y: usize) -> Cell {
+pub const fn empty_cell(x: usize, y: usize) -> Cell {
   Cell {
     kind: CellKind::Empty,
-    belt: BELT_NONE,
+    belt: CELL_BELT_NONE,
     machine: Machine::None,
     ticks: 0,
     x,
@@ -93,32 +94,46 @@ pub fn empty_cell(x: usize, y: usize) -> Cell {
     speed: 0,
     offset_segment: 0,
     offset_center: 0,
-    segment_u_part: part_none(x, y),
-    segment_u_at: 0,
-    segment_r_part: part_none(x, y),
-    segment_r_at: 0,
-    segment_d_part: part_none(x, y),
-    segment_d_at: 0,
-    segment_l_part: part_none(x, y),
-    segment_l_at: 0,
-    segment_c_part: part_none(x, y),
-    segment_c_at: 0,
-    segment_c_from: CellPort::Up,
-    segment_c_to: CellPort::Up,
-    segment_c_blocked: true,
-    machine_input_1_want: part_none(x, y),
-    machine_input_1_have: part_none(x, y),
-    machine_input_2_want: part_none(x, y),
-    machine_input_2_have: part_none(x, y),
-    machine_input_3_want: part_none(x, y),
-    machine_input_3_have: part_none(x, y),
+    segments: [
+      segment_none(SegmentDirection::UP),
+      segment_none(SegmentDirection::RIGHT),
+      segment_none(SegmentDirection::DOWN),
+      segment_none(SegmentDirection::LEFT),
+      segment_none(SegmentDirection::CENTER),
+    ],
+    machine_input_1_want: part_none(),
+    machine_input_1_have: part_none(),
+    machine_input_1_claimed: false,
+    machine_input_2_want: part_none(),
+    machine_input_2_have: part_none(),
+    machine_input_2_claimed: false,
+    machine_input_3_want: part_none(),
+    machine_input_3_have: part_none(),
+    machine_input_3_claimed: false,
     machine_start_at: 0,
-    machine_output_want: part_none(x, y),
-    machine_output_have: part_none(x, y),
+    machine_output_want: part_none(),
+    machine_output_have: part_none(),
+    demand_part: part_none(),
+    demand_part_price: 0,
+    demand_trash_price: 0,
+    supply_part: part_none(),
+    supply_part_at: 0,
+    supply_last_part_out_at: 0,
+    supply_interval: 0,
+    supply_gives: part_none(),
+    supply_part_price: 0,
   }
 }
 
 pub fn belt_cell(x: usize, y: usize, belt: BeltMeta) -> Cell {
+  let segments = [
+    segment_create(SegmentDirection::UP, belt.direction_u),
+    segment_create(SegmentDirection::RIGHT, belt.direction_r),
+    segment_create(SegmentDirection::DOWN, belt.direction_d),
+    segment_create(SegmentDirection::LEFT, belt.direction_l),
+    segment_some(SegmentDirection::CENTER, Port::None),
+  ];
+
   Cell {
     kind: CellKind::Belt,
     belt,
@@ -133,35 +148,35 @@ pub fn belt_cell(x: usize, y: usize, belt: BeltMeta) -> Cell {
     speed: 10000,
     offset_segment: 0,
     offset_center: 0,
-    segment_u_part: part_none(x, y),
-    segment_u_at: 0,
-    segment_r_part: part_none(x, y),
-    segment_r_at: 0,
-    segment_d_part: part_none(x, y),
-    segment_d_at: 0,
-    segment_l_part: part_none(x, y),
-    segment_l_at: 0,
-    segment_c_part: part_none(x, y),
-    segment_c_at: 0,
-    segment_c_from: CellPort::Up,
-    segment_c_to: CellPort::Up,
-    segment_c_blocked: true,
-    machine_input_1_want: part_none(x, y),
-    machine_input_1_have: part_none(x, y),
-    machine_input_2_want: part_none(x, y),
-    machine_input_2_have: part_none(x, y),
-    machine_input_3_want: part_none(x, y),
-    machine_input_3_have: part_none(x, y),
+    segments,
+    machine_input_1_want: part_none(),
+    machine_input_1_have: part_none(),
+    machine_input_1_claimed: false,
+    machine_input_2_want: part_none(),
+    machine_input_2_have: part_none(),
+    machine_input_2_claimed: false,
+    machine_input_3_want: part_none(),
+    machine_input_3_have: part_none(),
+    machine_input_3_claimed: false,
     machine_start_at: 0,
-    machine_output_want: part_none(x, y),
-    machine_output_have: part_none(x, y),
+    machine_output_want: part_none(),
+    machine_output_have: part_none(),
+    demand_part: part_none(),
+    demand_part_price: 0,
+    demand_trash_price: 0,
+    supply_part: part_none(),
+    supply_part_at: 0,
+    supply_last_part_out_at: 0,
+    supply_interval: 0,
+    supply_gives: part_none(),
+    supply_part_price: 0,
   }
 }
 
 pub fn machine_cell(x: usize, y: usize, machine: Machine, input1: Part, input2: Part, input3: Part, output: Part, machine_production_price: i32, machine_trash_price: i32) -> Cell {
   Cell {
     kind: CellKind::Machine,
-    belt: BELT_NONE,
+    belt: CELL_MACHINE,
     machine,
     ticks: 0,
     x,
@@ -174,27 +189,129 @@ pub fn machine_cell(x: usize, y: usize, machine: Machine, input1: Part, input2: 
     offset_segment: 0,
     offset_center: 0,
     // Not sure if and how these are used for machine cells. TBD
-    segment_u_part: part_none(x, y),
-    segment_u_at: 0,
-    segment_r_part: part_none(x, y),
-    segment_r_at: 0,
-    segment_d_part: part_none(x, y),
-    segment_d_at: 0,
-    segment_l_part: part_none(x, y),
-    segment_l_at: 0,
-    segment_c_part: part_none(x, y),
-    segment_c_at: 0,
-    segment_c_from: CellPort::Up,
-    segment_c_to: CellPort::Up,
-    segment_c_blocked: true,
+    segments: [
+      segment_none(SegmentDirection::UP),
+      segment_none(SegmentDirection::RIGHT),
+      segment_none(SegmentDirection::DOWN),
+      segment_none(SegmentDirection::LEFT),
+      segment_none(SegmentDirection::CENTER),
+    ],
     machine_input_1_want: input1,
-    machine_input_1_have: part_none(x, y),
+    machine_input_1_have: part_none(),
+    machine_input_1_claimed: false,
     machine_input_2_want: input2,
-    machine_input_2_have: part_none(x, y),
+    machine_input_2_have: part_none(),
+    machine_input_2_claimed: false,
     machine_input_3_want: input3,
-    machine_input_3_have: part_none(x, y),
+    machine_input_3_have: part_none(),
+    machine_input_3_claimed: false,
     machine_start_at: 0,
     machine_output_want: output,
-    machine_output_have: part_none(x, y),
+    machine_output_have: part_none(),
+    demand_part: part_none(),
+    demand_part_price: 0,
+    demand_trash_price: 0,
+    supply_part: part_none(),
+    supply_part_at: 0,
+    supply_last_part_out_at: 0,
+    supply_interval: 0,
+    supply_gives: part_none(),
+    supply_part_price: 0,
+  }
+}
+
+pub fn supply_cell(x: usize, y: usize, belt: BeltMeta, part: Part, speed: u64, interval: u64, price: i32) -> Cell {
+  let segments = [
+    segment_none(SegmentDirection::UP),
+    segment_none(SegmentDirection::RIGHT),
+    segment_none(SegmentDirection::DOWN),
+    segment_none(SegmentDirection::LEFT),
+    segment_none(SegmentDirection::CENTER),
+  ];
+
+  Cell {
+    kind: CellKind::Supply,
+    belt,
+    machine: Machine::None,
+    ticks: 0,
+    x,
+    y,
+    belt_tick_price: 0,
+    machine_production_price: 0,
+    machine_trash_price: 0,
+    marked: false,
+    speed,
+    offset_segment: 0,
+    offset_center: 0,
+    segments,
+    machine_input_1_want: part_none(),
+    machine_input_1_have: part_none(),
+    machine_input_1_claimed: false,
+    machine_input_2_want: part_none(),
+    machine_input_2_have: part_none(),
+    machine_input_2_claimed: false,
+    machine_input_3_want: part_none(),
+    machine_input_3_have: part_none(),
+    machine_input_3_claimed: false,
+    machine_start_at: 0,
+    machine_output_want: part_none(),
+    machine_output_have: part_none(),
+    demand_part: part_none(),
+    demand_part_price: 0,
+    demand_trash_price: 0,
+    supply_part: part_none(),
+    supply_part_at: 0,
+    supply_last_part_out_at: 0,
+    supply_interval: interval,
+    supply_gives: part,
+    supply_part_price: price,
+  }
+}
+
+pub fn demand_cell(x: usize, y: usize, belt: BeltMeta, part: Part, speed: u64, part_price: i32, trash_price: i32) -> Cell {
+  let segments = [
+    segment_none(SegmentDirection::UP),
+    segment_none(SegmentDirection::RIGHT),
+    segment_none(SegmentDirection::DOWN),
+    segment_none(SegmentDirection::LEFT),
+    segment_none(SegmentDirection::CENTER),
+  ];
+
+  Cell {
+    kind: CellKind::Demand,
+    belt,
+    machine: Machine::None,
+    ticks: 0,
+    x,
+    y,
+    belt_tick_price: 0,
+    machine_production_price: 0,
+    machine_trash_price: 0,
+    marked: false,
+    speed,
+    offset_segment: 0,
+    offset_center: 0,
+    segments,
+    machine_input_1_want: part_none(),
+    machine_input_1_have: part_none(),
+    machine_input_1_claimed: false,
+    machine_input_2_want: part_none(),
+    machine_input_2_have: part_none(),
+    machine_input_2_claimed: false,
+    machine_input_3_want: part_none(),
+    machine_input_3_have: part_none(),
+    machine_input_3_claimed: false,
+    machine_start_at: 0,
+    machine_output_want: part_none(),
+    machine_output_have: part_none(),
+    demand_part: part,
+    demand_part_price: part_price,
+    demand_trash_price: trash_price,
+    supply_part: part_none(),
+    supply_part_at: 0,
+    supply_last_part_out_at: 0,
+    supply_interval: 0,
+    supply_gives: part_none(),
+    supply_part_price: 0,
   }
 }

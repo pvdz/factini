@@ -2,19 +2,15 @@ use std::collections::VecDeque;
 
 use super::belt::*;
 use super::cell::*;
-use super::demand::*;
 use super::floor::*;
 use super::options::*;
 use super::machine::*;
 use super::part::*;
+use super::segment::*;
 use super::state::*;
 use super::supply::*;
 
 const ONE_SECOND: u64 = 10000;
-
-const OUT: u8 = 0;
-const CENTER: u8 = 1;
-const IN: u8 = 2;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum HasHole {
@@ -26,30 +22,26 @@ enum HasHole {
 pub struct Factory {
   pub ticks: u64,
   pub floor: Floor,
-  pub prio: Vec<(usize, usize)>,
-  pub suppliers: Vec<Supply>,
-  pub demanders: Vec<Demand>,
+  pub fsum: usize, // floor.width * floor.height
+  pub prio: Vec<usize>,
   pub stats: (VecDeque<(i32, u64)>, usize, i32, i32, i32), // ((price_delta, time), one_second_size, one_second_sum, ten_second_sum, belt_cell_count)
 }
 
-pub fn create_factory(_options: &mut Options, _state: &mut State) -> Factory {
+pub fn create_factory(options: &mut Options, _state: &mut State) -> Factory {
   let mut floor = test_floor();
-  let demanders = vec!(
-    Demand {x: 1, y: 4, part_kind: PartKind::GoldenBlueWand, part_price: 10000, trash_price: -1000},
-  );
+  let fsum = (floor.width + 2) * (floor.height + 2);
 
-  let prio: Vec<(usize, usize)> = sort_cells(&mut floor, &demanders);
-  println!("The prio: {:?}", prio);
+  let prio: Vec<usize> = create_prio_list(options, &mut floor);
+  println!("The prio coords: {:?}", prio);
+  let kinds : Vec<CellKind> = prio.iter().map(|coord| floor.cells[*coord].kind).collect();
+  println!("The prio cells : {:?}", kinds);
+  println!("\n\n");
 
   return Factory {
     ticks: 0,
     floor,
+    fsum,
     prio,
-    suppliers: vec!(
-      Supply {x: 2, y: 0, ticks: 0, interval: 10000, part: part_none(0, 0), part_at: 0, last_part_out_at: 0, speed: 10000, stamp: Part { kind: PartKind::WoodenStick, icon: 'w'}, part_price: -600},
-      Supply {x: 4, y: 3, ticks: 0, interval: 10000, part: part_none(0, 0), part_at: 0, last_part_out_at: 0, speed: 10000, stamp: Part { kind: PartKind::Sapphire, icon: 's'}, part_price: -800}
-    ),
-    demanders,
     stats: (
       VecDeque::new(), // vec<(cost_delta, at_tick)> // Up to 100k ticks worth of cost deltas
       0, // one_second_size // Number of elements in cost_deltas that wrap the last 10k ticks
@@ -60,9 +52,52 @@ pub fn create_factory(_options: &mut Options, _state: &mut State) -> Factory {
   };
 }
 
-fn should_be_marked(cell: &Cell, cell_u: &Cell, cell_r: &Cell, cell_d: &Cell, cell_l: &Cell) -> bool {
-  // This function is used when determining tick order per cell. This is called for each cell,
-  // potentially multiple times, and should return whether it should get the current level of prio.
+fn should_mark_belt_check_port(cell2: &Cell, port: Port, port2: Port) -> bool {
+  // This cell is next in priority when each port must be one of;
+  // - a none port
+  // - an inbound port
+  // - connected to a cell that's already marked
+  // - (connected to an empty cell; these are auto-marked)
+  // - connected to a supply
+  // - connected to the outbound port of a belt
+
+  return cell2.marked ||
+    port != Port::Outbound ||
+    match cell2.kind {
+      CellKind::Empty => panic!("empty cells should be .marked by default"),
+      CellKind::Belt => {
+        // Check if the outbound port is connected to the inbound port of a port
+        // If this cell can deliver to cell2 then this cell should always be processed after
+        // cell2 and since cell2 was not marked, this cell is not next.
+        port2 != Port::Inbound
+      }
+      CellKind::Machine => {
+        // Machines auto-configure the port to invert-match the other side
+        // This cell should always be processed after the machine it supplies to and since
+        // the machine was not .marked, this cell can not be next in line.
+        false
+      }
+      CellKind::Supply => {
+        // Outbound to suppliers? I think not. This connection is broken so ignore it.
+        true
+      }
+      CellKind::Demand => panic!("all demanders should be .marked and not reach this point"),
+    };
+}
+fn should_mark_machine_check_port(cell2: &Cell, port2: Port) -> bool {
+  // Machines auto-configure their ports to invert-match the other side
+  // Machines are next in the priority order when all the neighbors they can supply to are marked
+  // They do not supply to anything other than belts
+
+  return cell2.marked || cell2.kind != CellKind::Belt || port2 != Port::Inbound;
+}
+fn should_be_marked_for_cell_sorting(options: &Options, cell: &Cell, cell_u: &Cell, cell_r: &Cell, cell_d: &Cell, cell_l: &Cell) -> bool {
+  // When determining cell processing order, should this be considered the next priority?
+  // A cell is next in the list when all its outputs are either not connected outbound ports
+  // or connected to cells that are already marked.
+  // Machines and belts can have multiple outbound ports and they may not be connected anyways.
+  // Suppliers only have one outbound port.
+  // Demanders should already be marked at this point.
 
   if cell.marked {
     // This cell was already gathered in a previous step so ignore it here
@@ -72,46 +107,62 @@ fn should_be_marked(cell: &Cell, cell_u: &Cell, cell_r: &Cell, cell_d: &Cell, ce
   match cell.kind {
     CellKind::Empty => return false,
     CellKind::Belt => {
-      // All ports are
-      // - connected to an empty cell, or
-      // - not outports, or
-      // - connected to marked cells, or
-      // - not connected to inports and not connected to machine
-
+      // Check all ports
+      if options.trace_priority_step {
+        println!(
+          "    - {:?} {:?} {:?} {:?} {:?},  {:?} {:?} {:?} {:?} {:?},  {:?} {:?} {:?} {:?} {:?},  {:?} {:?} {:?} {:?} {:?}",
+          (cell_u.x, cell_u.y), cell_u.marked, cell_u.kind, cell.belt.direction_u, cell_u.belt.direction_d,
+          (cell_r.x, cell_r.y), cell_r.marked, cell_r.kind, cell.belt.direction_r, cell_r.belt.direction_l,
+          (cell_d.x, cell_d.y), cell_d.marked, cell_d.kind, cell.belt.direction_d, cell_d.belt.direction_u,
+          (cell_l.x, cell_l.y), cell_l.marked, cell_l.kind, cell.belt.direction_l, cell_l.belt.direction_r,
+        );
+      }
       return
-        (cell_u.marked || cell_u.kind == CellKind::Empty || cell.belt.direction_u != BeltDirection::Out || (cell_u.kind == CellKind::Belt && cell_u.belt.direction_d != BeltDirection::In)) &&
-        (cell_r.marked || cell_r.kind == CellKind::Empty || cell.belt.direction_r != BeltDirection::Out || (cell_r.kind == CellKind::Belt && cell_r.belt.direction_l != BeltDirection::In)) &&
-        (cell_d.marked || cell_d.kind == CellKind::Empty || cell.belt.direction_d != BeltDirection::Out || (cell_d.kind == CellKind::Belt && cell_d.belt.direction_u != BeltDirection::In)) &&
-        (cell_l.marked || cell_l.kind == CellKind::Empty || cell.belt.direction_l != BeltDirection::Out || (cell_l.kind == CellKind::Belt && cell_l.belt.direction_r != BeltDirection::In))
+        should_mark_belt_check_port(cell_u, cell.belt.direction_u, cell_u.belt.direction_d) &&
+          should_mark_belt_check_port(cell_r, cell.belt.direction_r, cell_r.belt.direction_l) &&
+          should_mark_belt_check_port(cell_d, cell.belt.direction_d, cell_d.belt.direction_u) &&
+          should_mark_belt_check_port(cell_l, cell.belt.direction_l, cell_l.belt.direction_r)
       ;
     },
     CellKind::Machine => {
-      // All ports are
-      // - connected to an empty cell, or
-      // - connected to marked cells, or
-      // - connected to another machine (which does not work), or
-      // - not connected to inports
-
+      // Check all ports
+      if options.trace_priority_step {
+        println!(
+          "    - {:?} {:?} {:?} {:?},  {:?} {:?} {:?} {:?},  {:?} {:?} {:?} {:?},  {:?} {:?} {:?} {:?}",
+          (cell_u.x, cell_u.y), cell_u.marked, cell_u.kind, cell_u.belt.direction_d,
+          (cell_r.x, cell_r.y), cell_r.marked, cell_r.kind, cell_r.belt.direction_l,
+          (cell_d.x, cell_d.y), cell_d.marked, cell_d.kind, cell_d.belt.direction_u,
+          (cell_l.x, cell_l.y), cell_l.marked, cell_l.kind, cell_l.belt.direction_r,
+        );
+      }
       return
-        (cell_u.marked || cell_u.kind != CellKind::Belt || (cell_u.kind == CellKind::Belt && cell_u.belt.direction_d != BeltDirection::In)) &&
-        (cell_r.marked || cell_r.kind != CellKind::Belt || (cell_r.kind == CellKind::Belt && cell_r.belt.direction_l != BeltDirection::In)) &&
-        (cell_d.marked || cell_d.kind != CellKind::Belt || (cell_d.kind == CellKind::Belt && cell_d.belt.direction_u != BeltDirection::In)) &&
-        (cell_l.marked || cell_l.kind != CellKind::Belt || (cell_l.kind == CellKind::Belt && cell_l.belt.direction_r != BeltDirection::In))
+        should_mark_machine_check_port(cell_u, cell_u.belt.direction_d) &&
+          should_mark_machine_check_port(cell_r, cell_r.belt.direction_l) &&
+          should_mark_machine_check_port(cell_d, cell_d.belt.direction_u) &&
+          should_mark_machine_check_port(cell_l, cell_l.belt.direction_r)
       ;
+    }
+    CellKind::Supply => {
+      // Supplies are always the last cell in the priority list so return false here
+      false
+    }
+    CellKind::Demand => {
+      panic!("Demands should be marked by now. This should not be reachable.");
     }
   }
 }
-
-fn sort_cells(floor: &mut Floor, demanders: &Vec<Demand>) -> Vec<(usize, usize)> {
+fn create_prio_list(options: &Options, floor: &mut Floor) -> Vec<usize> {
+  println!("create_prio_list()... options.trace_priority_step={}", options.trace_priority_step);
   // Collect cells by marking them and putting their coords in a vec. In the end the vec must have
-  // all non-empty cells and should tick in that order. This way you work around the belt wanting
-  // to unload onto another belt that is currently full but would be empty after this tick as well.
+  // all non-empty cells and the factory game tick should traverse cells in that order. This way
+  // you work around the belt wanting to unload onto another belt that is currently full but would
+  // be empty after this tick as well.
   //
   // While there are tiles left;
   // - start with unprocessed Demands
   //   - mark all their neighbors with outgoing paths to this Demand
   // - while there are cells not in the list yet
-  //   - find all cells where all outgoing paths are connected to marked cells or not at all
+  //   - find all cells where all outgoing paths lead to marked or inaccessible cells
   //     - mark them and put them in the list
   // - while there are still unprocessed cells left
   //   - pick a random one. maybe prefer
@@ -119,843 +170,897 @@ fn sort_cells(floor: &mut Floor, demanders: &Vec<Demand>) -> Vec<(usize, usize)>
   //     - not connected to suppliers
   //     - pick furthest distance to supplier?
 
-  let cell_none = empty_cell(0, 0);
+  // This will be the priority list of cells to visit and in this order
+  let mut out: Vec<usize> = vec!();
 
-  let mut out: Vec<(usize, usize)> = vec!();
+  let w = floor.width + 2;
+  let h = floor.height + 2;
+  let fsum = floor.fsum;
 
-  // println!("sort_cells\n- start with demanders");
-  for demand in demanders {
-    let x = demand.x;
-    let y = demand.y;
-    // The cell will exist, regardless of whether it's a belt, machine or none cell.
-    floor.cells[x][y].marked = true;
-    out.push((x, y));
-  }
+  let mut demand_connects = vec!();
+  for coord in 0..fsum {
+    if options.trace_priority_step { println!("- kind {} {:?} {:?} {} {}", coord, floor.cells[coord].kind, to_xy(coord, w), floor.cells[coord].x, floor.cells[coord].y); }
+    match floor.cells[coord].kind {
+      CellKind::Demand => {
+        out.push(coord);
 
-  // println!("- iteratively follow the trail");
-  let mut found_something = true;
-  let mut some_left = true;
-  let w = floor.width;
-  let h = floor.height;
-  while found_something && some_left {
-    // println!("  - loop");
-    found_something = false;
-    for x in 0..w {
-      for y in 0..h {
-        if should_be_marked(
-          &floor.cells[x][y],
-          if y == 0 { &cell_none } else { &floor.cells[x][y-1] },
-          if x == w-1 { &cell_none } else { &floor.cells[x+1][y] },
-          if y == h-1 { &cell_none } else { &floor.cells[x][y+1] },
-          if x == 0 { &cell_none } else { &floor.cells[x-1][y] },
-        ) {
-          // println!("    - adding {} {}", x, y);
-          floor.cells[x][y].marked = true;
-          out.push((x, y));
-          found_something = true;
-        } else {
-          some_left = true;
-        }
+        let (x, y) = to_xy(coord, w);
+        let coord2 =
+          if x == 0 {
+            to_coord(w,x + 1, y)
+          } else if y == 0 {
+            to_coord(w, x, y + 1)
+          } else if x == w - 1 {
+            to_coord(w, x - 1, y)
+          } else if y == h - 1 {
+            to_coord(w, x, y - 1)
+          } else {
+            panic!("a demand must live on the edge of the floor");
+          };
+
+        floor.cells[coord].marked = true;
+        floor.cells[coord2].marked = true;
+        if options.trace_priority_step { println!("- Adding {} as the cell that is connected to a Demand at {}", coord2, coord); }
+        demand_connects.push(coord2);
       }
+      CellKind::Empty => {
+        floor.cells[coord].marked = true;
+      }
+      CellKind::Belt => {}
+      CellKind::Machine => {}
+      CellKind::Supply => {}
     }
   }
 
-  // println!("- now add the remaining {} in random order", 25-out.len());
-  for x in 0..floor.width {
-    for y in 0..floor.height {
-      if floor.cells[x][y].kind != CellKind::Empty {
-        if !floor.cells[x][y].marked {
-          out.push((x, y));
-          // println!("- adding {} {}", x, y);
-        } else {
-          // println!("- skipping {} {} because marked", x, y);
-        }
+  if options.trace_priority_step {
+    println!("- out {:?}", demand_connects);
+    println!("- connected to demanders {:?}", demand_connects);
+  }
+
+  // out contains all demanders now. push them as the next step in priority.
+  for coord in demand_connects {
+    out.push(coord);
+  }
+
+  if options.trace_priority_step {
+    println!("- after step 1 {:?}", out);
+  }
+
+  // println!("- iteratively follow the trail");
+  let mut stepped = 1;
+  let mut found_something = true;
+  let mut some_left = true;
+  let w = floor.width + 2;
+  let h = floor.height + 2;
+  while found_something && some_left {
+    stepped += 1;
+    // println!("  - loop");
+    found_something = false;
+
+    // Only walk inside cells. Assume there's always an up/right/down/left neighbor cell.
+    for coord in w..fsum-w {
+      if coord % w == 0 || coord % w == w - 1 { continue; } // Skip edge cells (none/supply/demand)
+
+      if options.trace_priority_step && !floor.cells[coord].marked { println!(" - kind {} {:?} {:?} {} {}", coord, floor.cells[coord].kind, to_xy(coord, w), floor.cells[coord].x, floor.cells[coord].y); }
+      if
+      should_be_marked_for_cell_sorting(
+        options,
+        &floor.cells[coord],
+        &floor.cells[to_coord_up(coord, w)],
+        &floor.cells[to_coord_right(coord, w)],
+        &floor.cells[to_coord_down(coord, w)],
+        &floor.cells[to_coord_left(coord, w)],
+      )
+      {
+        if options.trace_priority_step { println!("    - adding {:?}", to_xy(coord, w)); }
+        floor.cells[coord].marked = true;
+        out.push(coord);
+        found_something = true;
       } else {
-        // println!("- skipping {} {} because empty", x, y);
+        some_left = true;
       }
+    }
+
+    if options.trace_priority_step { println!("- after step {}: {:?}", stepped, out); }
+  }
+  if options.trace_priority_step { println!("- done with connected cells. now adding remaining unmarked non-empty cells..."); }
+
+  // Gather the remaining cells. This means not all cells are properly hooked up (or there's
+  // a circular loop or something). In that case accept a sub-optimal tick order.
+  for coord in 0..fsum {
+    let (x, y) = to_xy(coord, w);
+    if !floor.cells[coord].marked && floor.cells[coord].kind != CellKind::Empty {
+      if options.trace_priority_step{ println!("  - adding {} {:?}", coord, (x, y)); }
+      out.push(coord);
+      floor.cells[coord].marked = true; // Kinda pointless
     }
   }
 
   return out;
 }
 
-pub fn tick_factory(options: &mut Options, state: &mut State, factory: &mut Factory) {
-  factory.ticks += 1; // offset 1
+fn progress(ticks: u64, since: u64, range: u64) -> f64 {
+  return (ticks - since) as f64 / (range as f64);
+}
 
-  let ticks = factory.ticks;
+fn b2b_belts_connected_outbound_to_inbound(factory: &mut Factory, coord: usize, dir: SegmentDirection, ocoord: usize, odir: SegmentDirection) -> bool {
+  assert_eq!(factory.floor.cells[coord].kind, CellKind::Belt, "ports_outbound_to_inbound; this cell should be asserted to be a belt: {:?}", factory.floor.cells[coord].kind);
+  assert_eq!(factory.floor.cells[ocoord].kind, CellKind::Belt, "ports_outbound_to_inbound; this cell should be asserted to be a belt: {:?}", factory.floor.cells[ocoord].kind);
 
-  for (x, y) in factory.prio.to_vec() {
-    factory.floor.cells[x][y].ticks += 1;
+  // Check if the cell at coord is connected to the cell at ocoord from outbound to inbound.
 
-    match factory.floor.cells[x][y].kind {
-      CellKind::Empty => {
+  return factory.floor.cells[coord].segments[dir as usize].port == Port::Outbound && factory.floor.cells[ocoord].segments[odir as usize].port == Port::Inbound;
+}
+fn b2b_outbound_segment_ready_to_send(factory: &mut Factory, coord: usize, dir: SegmentDirection) -> bool {
+  assert_eq!(factory.floor.cells[coord].kind, CellKind::Belt, "outbound_segment_ready_to_send; this cell should be asserted to be a belt: {:?}", factory.floor.cells[coord].kind);
 
+  let cell = &factory.floor.cells[coord];
+  let segment: &Segment = &cell.segments[dir as usize];
+
+  // Check if the segment at coord is not empty and is allocated and on/over 100% progress
+
+  return cell.kind == CellKind::Belt && segment.allocated && segment.part.kind != PartKind::None && (factory.ticks - segment.at) >= cell.speed;
+}
+fn b2b_inbound_segment_ready_to_receive(factory: &mut Factory, ocoord: usize, odir: SegmentDirection) -> bool {
+  assert_eq!(factory.floor.cells[ocoord].kind, CellKind::Belt, "inbound_segment_ready_to_receive; this cell should be asserted to be a belt: {:?}", factory.floor.cells[ocoord].kind);
+
+  let cell = &factory.floor.cells[ocoord];
+  let segment: &Segment = &cell.segments[odir as usize];
+
+  // Check if the segment at coord is not empty and is allocated and on/over 100% progress
+
+  return segment.part.kind == PartKind::None || segment.allocated;
+}
+fn b2b_move_part(options: &mut Options, _state: &mut State, factory: &mut Factory, coord: usize, dir: SegmentDirection, ocoord: usize, odir: SegmentDirection) {
+  if options.print_moves || options.print_moves_belt { println!("({}) b2b_move_part(options, state, {}:{:?}, {}:{:?})", factory.ticks, coord, dir, ocoord, odir); }
+
+  factory.floor.cells[ocoord].segments[odir as usize].part = factory.floor.cells[coord].segments[dir as usize].part.clone();
+  factory.floor.cells[ocoord].segments[odir as usize].at = factory.ticks;
+  factory.floor.cells[ocoord].segments[odir as usize].from = dir;
+  factory.floor.cells[ocoord].segments[odir as usize].allocated = false;
+  factory.floor.cells[ocoord].segments[odir as usize].claimed = false;
+
+  factory.floor.cells[coord].segments[dir as usize].part = part_none();
+  factory.floor.cells[coord].segments[dir as usize].at = 0;
+  factory.floor.cells[coord].segments[dir as usize].allocated = false;
+  // factory.floor.cells[coord].segments[dir as usize].claimed = false;
+}
+fn b2b_outbound_segment_ready_to_allocate(factory: &mut Factory, coord: usize, dir: SegmentDirection) -> bool {
+  assert_eq!(factory.floor.cells[coord].kind, CellKind::Belt, "outbound_segment_ready_to_send; this cell should be asserted to be a belt: {:?}", factory.floor.cells[coord].kind);
+
+  let cell = &factory.floor.cells[coord];
+  let segment: &Segment = &cell.segments[dir as usize];
+
+  // Check if the segment at coord is outbound, not empty, is allocated and on/over 100% progress
+
+  return segment.port == Port::Outbound && !segment.allocated && segment.part.kind != PartKind::None && (factory.ticks - segment.at) >= (cell.speed / 2);
+}
+fn b2b_inbound_segment_ready_to_claim(factory: &mut Factory, ocoord: usize, odir: SegmentDirection) -> bool {
+  assert_eq!(factory.floor.cells[ocoord].kind, CellKind::Belt, "inbound_segment_ready_to_receive; this cell should be asserted to be a belt: {:?}", factory.floor.cells[ocoord].kind);
+
+  let cell = &factory.floor.cells[ocoord];
+  let segment: &Segment = &cell.segments[odir as usize];
+
+  // Check if the segment at coord is inbound, and empty or allocated, and not yet claimed
+
+  return segment.port == Port::Inbound && !segment.claimed && (segment.part.kind == PartKind::None || segment.allocated);
+}
+fn b2b_allocate_part(options: &mut Options, _state: &mut State, factory: &mut Factory, coord: usize, dir: SegmentDirection, ocoord: usize, odir: SegmentDirection) {
+  if options.print_choices || options.print_choices_belt { println!("({}) b2b_allocate_part({}:{:?}, {}:{:?})", factory.ticks, coord, dir, ocoord, odir); }
+
+  factory.floor.cells[coord].segments[dir as usize].allocated = true;
+  factory.floor.cells[ocoord].segments[odir as usize].claimed = true;
+}
+fn b2b_step(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize, dir: SegmentDirection, ocoord: usize, odir: SegmentDirection) {
+  assert_eq!(factory.floor.cells[coord].kind, CellKind::Belt, "b2b_step(); this cell should be asserted to be a belt: {:?}", factory.floor.cells[coord].kind);
+  // Note: ocoord may not be a belt
+
+  if factory.floor.cells[ocoord].kind != CellKind::Belt {
+    return;
+  }
+  // Ok coord is a belt :)
+
+  // if coord == 10 {
+  //   let ticks = factory.ticks;
+  //   println!("({}) {}:{:?}~{}:{:?} ->  {}", ticks, coord, dir, ocoord, odir, b2b_belts_connected_outbound_to_inbound(factory, coord, dir, ocoord, odir));
+  // }
+
+
+  // When moving between belt cells, we only move from outbound segment to inbound segment
+
+  if b2b_belts_connected_outbound_to_inbound(factory, coord, dir, ocoord, odir) {
+
+    // if coord == 10 {
+    //   let ticks = factory.ticks;
+    //   println!("({}) {}:{:?}~{}:{:?} ->  {} {}", ticks, coord, dir, ocoord, odir, b2b_outbound_segment_ready_to_send(factory, coord, dir), b2b_outbound_segment_ready_to_allocate(factory, coord, dir));
+    // }
+
+
+    if b2b_outbound_segment_ready_to_send(factory, coord, dir) {
+      // if coord == 10 {
+      //   let ticks = factory.ticks;
+      //   println!("({}) {}:{:?}~{}:{:?} ->  no no this was fine", ticks, coord, dir, ocoord, odir, );
+      // }
+
+      if b2b_inbound_segment_ready_to_receive(factory, ocoord, odir) {
+        b2b_move_part(options, state, factory, coord, dir, ocoord, odir);
       }
-      CellKind::Belt => {
-        let mut stage: u8 = 0; // 0 = outgoing segments, 1 = center, 2 = incoming segments
-
-        // By rotating the segment to start with, we can indirectly control an alternating flow
-        // of objects when they are competing with other segments to give from or receive to
-        // the segment in the center. If we always started from zero then in the same cadence
-        // the same segment would always win and the other segments never get a chance.
-        let current_segment_index: u8 = factory.floor.cells[x][y].offset_segment;
-        factory.floor.cells[x][y].offset_segment = (current_segment_index + 1) % 4;
-
-        // Loop three times, each iteration considers only segments of that kind (outgoing, center, incoming)
-        while stage <= 2 {
-
-          if stage != CENTER {
-
-            // Go through all segment edges, rotate the start
-            let mut segments_checked: u8 = 0;
-            let mut segment_index = current_segment_index;
-            while segments_checked < 4 {
-              segment_index += 1;
-              if segment_index >= 4 {
-                segment_index = 0;
-              }
-
-              // Check if any item would move off this cell. If so, check if it can move to the neighbor
-              if
-                segment_index == 0 &&
-                is_current_phase(factory.floor.cells[x][y].belt.direction_u, stage) &&
-                factory.floor.cells[x][y].segment_u_part.kind != PartKind::None
-              {
-                if (ticks - factory.floor.cells[x][y].segment_u_at) >= factory.floor.cells[x][y].speed {
-                  // The part reached the other side of this segment. If possible it should be handed
-                  // off to the next segment, machine, or demand.
-                  match factory.floor.cells[x][y].belt.direction_u {
-                    BeltDirection::In => {
-                      // Hand it off to the center segment
-                      if factory.floor.cells[x][y].segment_c_part.kind == PartKind::None {
-                        factory.floor.cells[x][y].segment_c_part = factory.floor.cells[x][y].segment_u_part.clone();
-                        factory.floor.cells[x][y].segment_c_at = ticks;
-                        factory.floor.cells[x][y].segment_u_part = part_none(x, y);
-                        if options.print_moves || options.print_moves_belt { println!("{} Handed from up segment to center segment", ticks); }
-                      }
-                      // else do nothing. The part is stuck because the center segment already has a part
-                    }
-                    BeltDirection::Out => {
-                      // Hand it off to the neighbor cell above this cell
-                      if y == 0 {
-                        // This must be a Demand or otherwise this is a noop
-                        for demand in &factory.demanders {
-                          if demand.x == x && demand.y == y {
-                            // Sell the part off to the Demand
-                            let kind = factory.floor.cells[x][y].segment_u_part.kind;
-                            if demand.part_kind == kind {
-                              if options.print_moves || options.print_moves_demand { println!("{} Sold a {:?} from up segment to Demand, price: {}", ticks, kind, demand.part_price); }
-                              add_price_delta(options, state, &mut factory.stats, factory.ticks, demand.part_price);
-                            } else {
-                              if options.print_moves || options.print_moves_demand { println!("{} Trashed a {:?} from up segment to Demand, price: {}", ticks, kind, demand.trash_price); }
-                              add_price_delta(options, state, &mut factory.stats, factory.ticks, demand.trash_price);
-                            }
-                            factory.floor.cells[x][y].segment_u_part = part_none(x, y);
-                            break;
-                          }
-                        }
-                      } else {
-                        match factory.floor.cells[x][y-1].kind {
-                          CellKind::Empty => {
-                            // noop
-                          }
-                          CellKind::Belt => {
-                            if
-                              // Check if neighbor belt actually takes from this side
-                              factory.floor.cells[x][y-1].belt.direction_d == BeltDirection::In &&
-                              // The part would be put on the down segment so check if that's available
-                              factory.floor.cells[x][y-1].segment_d_part.kind == PartKind::None
-                            {
-                              factory.floor.cells[x][y-1].segment_d_part = factory.floor.cells[x][y].segment_u_part.clone();
-                              factory.floor.cells[x][y-1].segment_d_at = ticks;
-                              factory.floor.cells[x][y].segment_u_part = part_none(x, y);
-                              if options.print_moves || options.print_moves_belt { println!("{} Handed from up segment to neighbor down segment", ticks); }
-                            }
-                            // else do nothing; there is no belt above this cell, or that belt has no
-                            //                  intake from down, or its down segment already has a part.
-                          }
-                          CellKind::Machine => {
-                            // Process item in machine
-                            // Check if machine is still waiting for this part at least once
-                            let segment_kind = factory.floor.cells[x][y].segment_u_part.kind;
-                            if
-                              factory.floor.cells[x][y-1].machine_input_1_want.kind == segment_kind &&
-                              factory.floor.cells[x][y-1].machine_input_1_have.kind == PartKind::None
-                            {
-                              factory.floor.cells[x][y-1].machine_input_1_have = factory.floor.cells[x][y].segment_u_part.clone();
-                              if options.print_moves || options.print_moves_machine { println!("{} Machine put part in slot 1", ticks); }
-                            }
-                            else if
-                              factory.floor.cells[x][y-1].machine_input_2_want.kind == segment_kind &&
-                              factory.floor.cells[x][y-1].machine_input_2_have.kind == PartKind::None
-                            {
-                              factory.floor.cells[x][y-1].machine_input_2_have = factory.floor.cells[x][y].segment_u_part.clone();
-                              if options.print_moves || options.print_moves_machine { println!("{} Machine put part in slot 2", ticks); }
-                            }
-                            else if
-                              factory.floor.cells[x][y-1].machine_input_3_want.kind == segment_kind &&
-                              factory.floor.cells[x][y-1].machine_input_3_have.kind == PartKind::None
-                            {
-                              factory.floor.cells[x][y-1].machine_input_3_have = factory.floor.cells[x][y].segment_u_part.clone();
-                              if options.print_moves || options.print_moves_machine { println!("{} Machine put part in slot 3", ticks); }
-                            } else {
-                              // Destruct part
-                              if options.print_moves || options.print_moves_machine { println!("{} Machine did not need part, it was trashed, cost: {}", ticks, factory.floor.cells[x][y-1].machine_trash_price); }
-                              add_price_delta(options, state, &mut factory.stats, factory.ticks, factory.floor.cells[x][y-1].machine_trash_price);
-                            }
-                            factory.floor.cells[x][y].segment_u_part = part_none(x, y);
-                            if options.print_moves || options.print_moves_machine { println!("{} Handed from up segment to neighbor machine", ticks); }
-                          }
-                        }
-                      }
-                    }
-                    BeltDirection::None => {
-                      panic!("If there's an u segment then there should be an upper in or out; {:?}", factory.floor.cells[x][y].belt);
-                    }
-                  }
-                }
-                // else part is not at any edge. no need to do anything here
-              }
-
-              if
-                segment_index == 1 &&
-                is_current_phase(factory.floor.cells[x][y].belt.direction_r, stage) &&
-                factory.floor.cells[x][y].segment_r_part.kind != PartKind::None
-              {
-                if (ticks - factory.floor.cells[x][y].segment_r_at) >= factory.floor.cells[x][y].speed {
-                  // The part reached the other side of this segment. If possible it should be handed
-                  // off to the next segment, machine, or demand.
-                  match factory.floor.cells[x][y].belt.direction_r {
-                    BeltDirection::In => {
-                      // Hand it off to the center segment
-                      if factory.floor.cells[x][y].segment_c_part.kind == PartKind::None {
-                        factory.floor.cells[x][y].segment_c_part = factory.floor.cells[x][y].segment_r_part.clone();
-                        factory.floor.cells[x][y].segment_c_at = ticks;
-                        factory.floor.cells[x][y].segment_r_part = part_none(x, y);
-                        if options.print_moves || options.print_moves_belt { println!("{} Handed from right segment to center segment", ticks); }
-                      }
-                      // else do nothing. The part is stuck because the center segment already has a part
-                    }
-                    BeltDirection::Out => {
-                      // Hand it off to the neighbor cell to the right of this cell
-                      if x >= factory.floor.width - 1 {
-                        // This must be a Demand or otherwise this is a noop
-                        for demand in &factory.demanders {
-                          if demand.x == x && demand.y == y {
-                            // Sell the part off to the Demand
-                            let kind = factory.floor.cells[x][y].segment_r_part.kind;
-                            if demand.part_kind == kind {
-                              println!("{} Sold a {:?} from left segment to Demand, price: {}", ticks, kind, demand.part_price);
-                              add_price_delta(options, state, &mut factory.stats, factory.ticks, demand.part_price);
-                            } else {
-                              println!("{} Trashed a {:?} from left segment to Demand, price: {}", ticks, kind, demand.trash_price);
-                              add_price_delta(options, state, &mut factory.stats, factory.ticks, demand.trash_price);
-                            }
-                            factory.floor.cells[x][y].segment_r_part = part_none(x, y);
-                            break;
-                          }
-                        }
-                      } else {
-                        match factory.floor.cells[x+1][y].kind {
-                          CellKind::Empty => {
-                            // noop
-                          }
-                          CellKind::Belt => {
-                            if
-                              // Check if neighbor belt actually takes from this side
-                              factory.floor.cells[x+1][y].belt.direction_l == BeltDirection::In &&
-                              // The part would be put on the left segment of the right belt so check if that's available
-                              factory.floor.cells[x+1][y].segment_l_part.kind == PartKind::None
-                            {
-                              factory.floor.cells[x+1][y].segment_l_part = factory.floor.cells[x][y].segment_r_part.clone();
-                              factory.floor.cells[x+1][y].segment_l_at = ticks;
-                              factory.floor.cells[x][y].segment_r_part = part_none(x, y);
-                              if options.print_moves || options.print_moves_belt { println!("{} Handed from right segment to neighbor left segment", ticks); }
-                            }
-                            // else do nothing; there is no belt right to this cell, or that belt has no
-                            //                  intake from left, or its left segment already has a part.
-                          }
-                          CellKind::Machine => {
-                            // Process item in machine
-                            // Check if machine is still waiting for this part at least once
-                            let segment_kind = factory.floor.cells[x][y].segment_r_part.kind;
-                            if
-                              factory.floor.cells[x+1][y].machine_input_1_want.kind == segment_kind &&
-                              factory.floor.cells[x+1][y].machine_input_1_have.kind == PartKind::None
-                            {
-                              factory.floor.cells[x+1][y].machine_input_1_have = factory.floor.cells[x][y].segment_r_part.clone();
-                              if options.print_moves || options.print_moves_machine { println!("{} Machine put part in slot 1", ticks); }
-                            }
-                            else if
-                              factory.floor.cells[x+1][y].machine_input_2_want.kind == segment_kind &&
-                              factory.floor.cells[x+1][y].machine_input_2_have.kind == PartKind::None
-                            {
-                              factory.floor.cells[x+1][y].machine_input_2_have = factory.floor.cells[x][y].segment_r_part.clone();
-                              if options.print_moves || options.print_moves_machine { println!("{} Machine put part in slot 2", ticks); }
-                            }
-                            else if
-                              factory.floor.cells[x+1][y].machine_input_3_want.kind == segment_kind &&
-                              factory.floor.cells[x+1][y].machine_input_3_have.kind == PartKind::None
-                            {
-                              factory.floor.cells[x+1][y].machine_input_3_have = factory.floor.cells[x][y].segment_r_part.clone();
-                              if options.print_moves || options.print_moves_machine { println!("{} Machine put part in slot 3", ticks); }
-                            } else {
-                              // Destruct part
-                              if options.print_moves || options.print_moves_machine { println!("{} Machine did not need part, it was trashed, cost: {}", ticks, factory.floor.cells[x+1][y].machine_trash_price); }
-                              add_price_delta(options, state, &mut factory.stats, factory.ticks, factory.floor.cells[x+1][y].machine_trash_price);
-                            }
-
-                            factory.floor.cells[x][y].segment_r_part = part_none(x, y);
-                            if options.print_moves || options.print_moves_machine { println!("{} Handed from right segment to neighbor machine", ticks); }
-                          }
-                        }
-                      }
-                    }
-                    BeltDirection::None => {
-                      panic!("If there's an r segment then there should be a right in or out; {:?}", factory.floor.cells[x][y].belt);
-                    }
-                  }
-                }
-                // else part is not at any edge. no need to do anything here
-              }
-
-              if
-              segment_index == 2 &&
-                is_current_phase(factory.floor.cells[x][y].belt.direction_d, stage) &&
-                factory.floor.cells[x][y].segment_d_part.kind != PartKind::None
-              {
-                if (ticks - factory.floor.cells[x][y].segment_d_at) >= factory.floor.cells[x][y].speed {
-                  // The part reached the other side of this segment. If possible it should be handed
-                  // off to the next segment, machine, or demand.
-                  match factory.floor.cells[x][y].belt.direction_d {
-                    BeltDirection::In => {
-                      // Hand it off to the center segment
-                      if factory.floor.cells[x][y].segment_c_part.kind == PartKind::None {
-                        factory.floor.cells[x][y].segment_c_part = factory.floor.cells[x][y].segment_d_part.clone();
-                        factory.floor.cells[x][y].segment_c_at = ticks;
-                        factory.floor.cells[x][y].segment_d_part = part_none(x, y);
-                        if options.print_moves || options.print_moves_belt { println!("{} Handed from down segment to center segment", ticks); }
-                      }
-                      // else do nothing. The part is stuck because the center segment already has a part
-                    }
-                    BeltDirection::Out => {
-                      // Hand it off to the neighbor cell below this cell
-                      if y >= factory.floor.height - 1 {
-                        // This must be a Demand or otherwise this is a noop
-                        for demand in &factory.demanders {
-                          if demand.x == x && demand.y == y {
-                            // Sell the part off to the Demand
-                            let kind = factory.floor.cells[x][y].segment_d_part.kind;
-                            if demand.part_kind == kind {
-                              if options.print_moves || options.print_moves_demand { println!("{} Sold a {:?} from down segment to Demand, price: {}", ticks, kind, demand.part_price); }
-                              add_price_delta(options, state, &mut factory.stats, factory.ticks, demand.part_price);
-                            } else {
-                              if options.print_moves || options.print_moves_demand { println!("{} Trashed a {:?} from down segment to Demand, price: {}", ticks, kind, demand.trash_price); }
-                              add_price_delta(options, state, &mut factory.stats, factory.ticks, demand.trash_price);
-                            }
-                            factory.floor.cells[x][y].segment_d_part = part_none(x, y);
-                            break;
-                          }
-                        }
-                      } else {
-                        match factory.floor.cells[x][y+1].kind {
-                          CellKind::Empty => {
-                            // noop
-                          }
-                          CellKind::Belt => {
-                            if
-                            // Check if neighbor belt actually takes from this side
-                              factory.floor.cells[x][y+1].belt.direction_u == BeltDirection::In &&
-                              // The part would be put on the up segment of the below belt so check if that's available
-                              factory.floor.cells[x][y+1].segment_u_part.kind == PartKind::None
-                            {
-                              factory.floor.cells[x][y+1].segment_u_part = factory.floor.cells[x][y].segment_d_part.clone();
-                              factory.floor.cells[x][y+1].segment_u_at = ticks;
-                              factory.floor.cells[x][y].segment_d_part = part_none(x, y);
-                              if options.print_moves || options.print_moves_belt { println!("{} Handed from down segment to neighbor up segment", ticks); }
-                            }
-                            // else do nothing; there is no belt below this cell, or that belt has no
-                            //                  intake from up, or its up segment already has a part.
-                          }
-                          CellKind::Machine => {
-                            // Process item in machine
-                            // Check if machine is still waiting for this part at least once
-                            let segment_kind = factory.floor.cells[x][y].segment_d_part.kind;
-                            if
-                              factory.floor.cells[x][y+1].machine_input_1_want.kind == segment_kind &&
-                              factory.floor.cells[x][y+1].machine_input_1_have.kind == PartKind::None
-                            {
-                              factory.floor.cells[x][y+1].machine_input_1_have = factory.floor.cells[x][y].segment_d_part.clone();
-                              if options.print_moves || options.print_moves_machine { println!("{} Machine put part in slot 1", ticks); }
-                            }
-                            else if
-                              factory.floor.cells[x][y+1].machine_input_2_want.kind == segment_kind &&
-                              factory.floor.cells[x][y+1].machine_input_2_have.kind == PartKind::None
-                            {
-                              factory.floor.cells[x][y+1].machine_input_2_have = factory.floor.cells[x][y].segment_d_part.clone();
-                              if options.print_moves || options.print_moves_machine { println!("{} Machine put part in slot 2", ticks); }
-                            }
-                            else if
-                              factory.floor.cells[x][y+1].machine_input_3_want.kind == segment_kind &&
-                              factory.floor.cells[x][y+1].machine_input_3_have.kind == PartKind::None
-                            {
-                              factory.floor.cells[x][y+1].machine_input_3_have = factory.floor.cells[x][y].segment_d_part.clone();
-                              if options.print_moves || options.print_moves_machine { println!("{} Machine put part in slot 3", ticks); }
-                            } else {
-                              // Destruct part
-                              if options.print_moves || options.print_moves_machine { println!("{} Machine did not need part, it was trashed, cost: {}", ticks, factory.floor.cells[x][y+1].machine_trash_price); }
-                              add_price_delta(options, state, &mut factory.stats, factory.ticks, factory.floor.cells[x][y+1].machine_trash_price);
-                            }
-
-                            factory.floor.cells[x][y].segment_d_part = part_none(x, y);
-                            if options.print_moves || options.print_moves_machine { println!("{} Handed from down segment to neighbor factory", ticks); }
-                          }
-                        }
-                      }
-                    }
-                    BeltDirection::None => {
-                      panic!("If there's an d segment then there should be a down in or out; {:?}", factory.floor.cells[x][y].belt);
-                    }
-                  }
-                }
-                // else part is not at any edge. no need to do anything here
-              }
-
-              if
-              segment_index == 3 &&
-                is_current_phase(factory.floor.cells[x][y].belt.direction_l, stage) &&
-                factory.floor.cells[x][y].segment_l_part.kind != PartKind::None
-              {
-                if (ticks - factory.floor.cells[x][y].segment_l_at) >= factory.floor.cells[x][y].speed {
-                  // The part reached the other side of this segment. If possible it should be handed
-                  // off to the next segment, machine, or demand.
-                  match factory.floor.cells[x][y].belt.direction_l {
-                    BeltDirection::In => {
-                      // Hand it off to the center segment
-                      if factory.floor.cells[x][y].segment_c_part.kind == PartKind::None {
-                        factory.floor.cells[x][y].segment_c_part = factory.floor.cells[x][y].segment_l_part.clone();
-                        factory.floor.cells[x][y].segment_c_at = ticks;
-                        factory.floor.cells[x][y].segment_l_part = part_none(x, y);
-                        if options.print_moves || options.print_moves_belt { println!("{} Handed from left segment to center segment", ticks); }
-                      }
-                      // else do nothing. The part is stuck because the center segment already has a part
-                    }
-                    BeltDirection::Out => {
-                      // Hand it off to the neighbor cell below this cell
-                      if x == 0 {
-                        // This must be a Demand or otherwise this is a noop
-                        for demand in &factory.demanders {
-                          if demand.x == x && demand.y == y {
-                            // Sell the part off to the Demand
-                            let kind = factory.floor.cells[x][y].segment_u_part.kind;
-                            if demand.part_kind == kind {
-                              println!("{} Sold a {:?} from left segment to Demand, price: {}", ticks, kind, demand.part_price);
-                              add_price_delta(options, state, &mut factory.stats, factory.ticks, demand.part_price);
-                            } else {
-                              println!("{} Trashed a {:?} from left segment to Demand, price: {}", ticks, kind, demand.trash_price);
-                              add_price_delta(options, state, &mut factory.stats, factory.ticks, demand.trash_price);
-                            }
-                            factory.floor.cells[x][y].segment_u_part = part_none(x, y);
-                            break;
-                          }
-                        }
-                      } else {
-                        match factory.floor.cells[x-1][y].kind {
-                          CellKind::Empty => {
-                            // noop
-                          }
-                          CellKind::Belt => {
-                            if
-                              // Check if neighbor belt actually takes from this side
-                              factory.floor.cells[x-1][y].belt.direction_r == BeltDirection::In &&
-                              // The part would be put on the right segment of the left belt so check if that's available
-                              factory.floor.cells[x-1][y].segment_r_part.kind == PartKind::None
-                            {
-                              factory.floor.cells[x-1][y].segment_r_part = factory.floor.cells[x][y].segment_l_part.clone();
-                              factory.floor.cells[x-1][y].segment_r_at = ticks;
-                              factory.floor.cells[x][y].segment_l_part = part_none(x, y);
-                              if options.print_moves || options.print_moves_belt { println!("{} Handed from left segment to neighbor right segment", ticks); }
-                            }
-                            // else do nothing; there is no belt left of this cell, or that belt has no
-                            //                  intake from down, or its right segment already has a part.
-                          }
-                          CellKind::Machine => {
-                            // Process item in machine
-                            // Check if machine is still waiting for this part at least once
-                            let segment_kind = factory.floor.cells[x][y].segment_l_part.kind;
-                            if
-                              factory.floor.cells[x-1][y].machine_input_1_want.kind == segment_kind &&
-                              factory.floor.cells[x-1][y].machine_input_1_have.kind == PartKind::None
-                            {
-                              factory.floor.cells[x-1][y].machine_input_1_have = factory.floor.cells[x][y].segment_l_part.clone();
-                              if options.print_moves || options.print_moves_machine { println!("{} Machine put part in slot 1; wanted {:?} and this was {:?}", ticks, factory.floor.cells[x-1][y].machine_input_1_want.kind, segment_kind); }
-                            }
-                            else if
-                              factory.floor.cells[x-1][y].machine_input_2_want.kind == segment_kind &&
-                              factory.floor.cells[x-1][y].machine_input_2_have.kind == PartKind::None
-                            {
-                              factory.floor.cells[x-1][y].machine_input_2_have = factory.floor.cells[x][y].segment_l_part.clone();
-                              if options.print_moves || options.print_moves_machine { println!("{} Machine put part in slot 2; wanted {:?} and this was {:?}", ticks, factory.floor.cells[x-1][y].machine_input_2_want.kind, segment_kind); }
-                            }
-                            else if
-                              factory.floor.cells[x-1][y].machine_input_3_want.kind == segment_kind &&
-                              factory.floor.cells[x-1][y].machine_input_3_have.kind == PartKind::None
-                            {
-                              factory.floor.cells[x-1][y].machine_input_3_have = factory.floor.cells[x][y].segment_l_part.clone();
-                              if options.print_moves || options.print_moves_machine { println!("{} Machine put part in slot 3; wanted {:?} and this was {:?} so {}", ticks, factory.floor.cells[x-1][y].machine_input_3_want.kind, segment_kind, factory.floor.cells[x-1][y].machine_input_3_want.kind == segment_kind); }
-                            } else {
-                              // Destruct part
-                              if options.print_moves || options.print_moves_machine { println!("{} Machine did not need part, it was trashed", ticks); }
-                              add_price_delta(options, state, &mut factory.stats, factory.ticks, factory.floor.cells[x-1][y].machine_trash_price);
-                            }
-
-                            factory.floor.cells[x][y].segment_l_part = part_none(x, y);
-                            if options.print_moves || options.print_moves_machine {  println!("{} Handed from left segment to neighbor machine", ticks); }
-                          }
-                        }
-                      }
-                    }
-                    BeltDirection::None => {
-                      panic!("If there's an l segment then there should be a left in or out; {:?}", factory.floor.cells[x][y].belt);
-                    }
-                  }
-                }
-                // else part is not at any edge. no need to do anything here
-              }
-
-              segments_checked += 1;
-            }
-          }
-
-          // Distribute a part in the center
-          // There are two points in this life cycle:
-          // - 50%: determine which way the part will go (or block it while there is no valid target)
-          // - 100%: move particle to the determined neighbor
-
-          if stage == CENTER && factory.floor.cells[x][y].segment_c_part.kind != PartKind::None {
-            // At 50%, while the part is marked as blocked, find a valid neighbor segment to move
-            // the part to when it reaches 100%. A valid neighbor is an outgoing segment that has
-            // no part currently. This is the reason that all choices are made midway a segment
-            // rather than the end (which would have been slightly easier).
-
-
-
-
-            if (ticks - factory.floor.cells[x][y].segment_c_at) >= factory.floor.cells[x][y].speed {
-              // The part reached the end of this center segment. If possible it should be handed
-              // off to a neighboring segment.
-              // We have to check which segments are eligible to receive parts. There must be at
-              // least one and may be up to three. For each such segment, we must check if there
-              // is room and then we have to consider cycling evenly between the eligible segments.
-
-              let mut checked: u8 = 0;
-              let mut index: u8 = factory.floor.cells[x][y].offset_center;
-              while checked < 4 {
-                index += 1;
-                if index >= 4 {
-                  index = 0;
-                }
-
-                // Process in lrdu order, offset after the one picked last. Pick the first segment
-                // that ends in an Out and has space.
-
-                match index {
-                  0 => {
-                    if
-                      factory.floor.cells[x][y].belt.direction_u == BeltDirection::Out &&
-                      factory.floor.cells[x][y].segment_u_part.kind == PartKind::None
-                    {
-                      factory.floor.cells[x][y].segment_u_part = factory.floor.cells[x][y].segment_c_part.clone();
-                      factory.floor.cells[x][y].segment_u_at = ticks;
-                      factory.floor.cells[x][y].segment_c_part = part_none(x, y);
-                      if options.print_moves || options.print_moves_belt { println!("{} Handed from center segment to up segment", ticks); }
-                      factory.floor.cells[x][y].offset_center = 1;
-                      break;
-                    }
-                  },
-                  1 => {
-                    if
-                      factory.floor.cells[x][y].belt.direction_r == BeltDirection::Out &&
-                      factory.floor.cells[x][y].segment_r_part.kind == PartKind::None
-                    {
-                      factory.floor.cells[x][y].segment_r_part = factory.floor.cells[x][y].segment_c_part.clone();
-                      factory.floor.cells[x][y].segment_r_at = ticks;
-                      factory.floor.cells[x][y].segment_c_part = part_none(x, y);
-                      if options.print_moves || options.print_moves_belt { println!("{} Handed from center segment to right segment", ticks); }
-                      factory.floor.cells[x][y].offset_center = 2;
-                      break;
-                    }
-                  },
-                  2 => {
-                    if
-                      factory.floor.cells[x][y].belt.direction_d == BeltDirection::Out &&
-                      factory.floor.cells[x][y].segment_d_part.kind == PartKind::None
-                    {
-                      factory.floor.cells[x][y].segment_d_part = factory.floor.cells[x][y].segment_c_part.clone();
-                      factory.floor.cells[x][y].segment_d_at = ticks;
-                      factory.floor.cells[x][y].segment_c_part = part_none(x, y);
-                      if options.print_moves || options.print_moves_belt { println!("{} Handed from center segment to down segment", ticks); }
-                      factory.floor.cells[x][y].offset_center = 3;
-                      break;
-                    }
-                  },
-                  3 => {
-                    if
-                      factory.floor.cells[x][y].belt.direction_l == BeltDirection::Out &&
-                      factory.floor.cells[x][y].segment_l_part.kind == PartKind::None
-                    {
-                      factory.floor.cells[x][y].segment_l_part = factory.floor.cells[x][y].segment_c_part.clone();
-                      factory.floor.cells[x][y].segment_l_at = ticks;
-                      factory.floor.cells[x][y].segment_c_part = part_none(x, y);
-                      if options.print_moves || options.print_moves_belt { println!("{} Handed from center segment to left segment", ticks); }
-                      factory.floor.cells[x][y].offset_center = 0;
-                      break;
-                    }
-                  },
-                  _ => panic!("in the disco"),
-                }
-
-                checked += 1;
-              }
-            }
-            // else part is not at any edge. no need to do anything here
-          }
-
-          stage += 1;
-        }
-      }
-      CellKind::Machine => {
-        // If not currently building, all require inputs are filled, and there is room; start generating the result
-        // If the result is generated, try to push it onto an output (in rotating order)
-
-        if
-          factory.floor.cells[x][y].machine_start_at == 0 &&
-          factory.floor.cells[x][y].machine_output_have.kind == PartKind::None
-        {
-          // For all three inputs, if it either wants and has nothing or it wants and has something; proceed
-          if
-            factory.floor.cells[x][y].machine_input_1_want.kind == factory.floor.cells[x][y].machine_input_1_have.kind &&
-            factory.floor.cells[x][y].machine_input_2_want.kind == factory.floor.cells[x][y].machine_input_2_have.kind &&
-            factory.floor.cells[x][y].machine_input_3_want.kind == factory.floor.cells[x][y].machine_input_3_have.kind
-          {
-            factory.floor.cells[x][y].machine_input_1_have = part_none(0, 0);
-            factory.floor.cells[x][y].machine_input_2_have = part_none(0, 0);
-            factory.floor.cells[x][y].machine_input_3_have = part_none(0, 0);
-            factory.floor.cells[x][y].machine_start_at = ticks;
-            if options.print_moves || options.print_moves_machine { println!("{} Machine started action, cost: {}", ticks, factory.floor.cells[x][y].machine_production_price); }
-            add_price_delta(options, state, &mut factory.stats, factory.ticks, factory.floor.cells[x][y].machine_production_price);
-          }
-        } else if
-          factory.floor.cells[x][y].machine_start_at > 0 &&
-          ticks - factory.floor.cells[x][y].machine_start_at > factory.floor.cells[x][y].speed
-        {
-          factory.floor.cells[x][y].machine_start_at = 0;
-          factory.floor.cells[x][y].machine_output_have = factory.floor.cells[x][y].machine_output_want.clone();
-          if options.print_moves || options.print_moves_machine { println!("{} Machine finished action", ticks); }
-        } else if
-          factory.floor.cells[x][y].machine_output_have.kind != PartKind::None
-        {
-          // Find an exit with neighboring belt that accepts output from this machine, check if
-          // it has room on that segment, and move the result onto that belt if so.
-          // Start checking exits in rotating order.
-
-          let mut index = 0;
-          let mut checked = 0;
-          while checked < 4 {
-            match index {
-              0 => {
-                checked += 1;
-                if
-                y > 0 &&
-                  factory.floor.cells[x][y-1].belt.direction_d == BeltDirection::In &&
-                  factory.floor.cells[x][y-1].segment_d_part.kind == PartKind::None
-                {
-                  factory.floor.cells[x][y-1].segment_d_part = factory.floor.cells[x][y].machine_output_have.clone();
-                  factory.floor.cells[x][y-1].segment_d_at = ticks;
-                  factory.floor.cells[x][y].machine_output_have = part_none(0, 0);
-                  if options.print_moves || options.print_moves_machine { println!("{} Moved part from machine to up belt", ticks); }
-                }
-              },
-              1 => {
-                checked += 1;
-                if
-                x < factory.floor.width - 1 &&
-                  factory.floor.cells[x+1][y].belt.direction_l == BeltDirection::In &&
-                  factory.floor.cells[x+1][y].segment_l_part.kind == PartKind::None
-                {
-                  factory.floor.cells[x+1][y].segment_l_part = factory.floor.cells[x][y].machine_output_have.clone();
-                  factory.floor.cells[x+1][y].segment_l_at = ticks;
-                  factory.floor.cells[x][y].machine_output_have = part_none(0, 0);
-                  if options.print_moves || options.print_moves_machine { println!("{} Moved part from machine to right belt", ticks); }
-                }
-              },
-              2 => {
-                checked += 1;
-                if
-                y < factory.floor.height - 1 &&
-                  factory.floor.cells[x][y+1].belt.direction_u == BeltDirection::In &&
-                  factory.floor.cells[x][y+1].segment_u_part.kind == PartKind::None
-                {
-                  factory.floor.cells[x][y+1].segment_u_part = factory.floor.cells[x][y].machine_output_have.clone();
-                  factory.floor.cells[x][y+1].segment_u_at = ticks;
-                  factory.floor.cells[x][y].machine_output_have = part_none(0, 0);
-                  if options.print_moves || options.print_moves_machine { println!("{} Moved part from machine to up belt", ticks); }
-                }
-              },
-              3 => {
-                checked += 1;
-                if
-                x > 0 &&
-                  factory.floor.cells[x-1][y].belt.direction_d == BeltDirection::In &&
-                  factory.floor.cells[x-1][y].segment_r_part.kind == PartKind::None
-                {
-                  factory.floor.cells[x-1][y].segment_r_part = factory.floor.cells[x][y].machine_output_have.clone();
-                  factory.floor.cells[x-1][y].segment_r_at = ticks;
-                  factory.floor.cells[x][y].machine_output_have = part_none(0, 0);
-                  if options.print_moves || options.print_moves_machine { println!("{} Moved part from machine to up belt", ticks); }
-                }
-              },
-              _ => panic!("index cannot reach 4+; {}", index),
-            }
-
-            index += 1;
-            if index > 3 {
-              index = 0;
-            }
-          }
-        }
+    } else if b2b_outbound_segment_ready_to_allocate(factory, coord, dir) {
+      // if coord == 10 {
+      //   let ticks = factory.ticks;
+      //   println!("({}) {}:{:?}~{}:{:?} ->  {} ({:?} {} {:?} {})", ticks, coord, dir, ocoord, odir, b2b_inbound_segment_ready_to_claim(factory, ocoord, odir),
+      //
+      //     factory.floor.cells[ocoord].segments[odir as usize].port,
+      //     !!factory.floor.cells[ocoord].segments[odir as usize].claimed,
+      //     factory.floor.cells[ocoord].segments[odir as usize].part.kind,
+      //     !!factory.floor.cells[ocoord].segments[odir as usize].allocated,
+      //   );
+      // }
+      if b2b_inbound_segment_ready_to_claim(factory, ocoord, odir) {
+        // Okay. We should be able to allocate the part to this neighbor.
+        // Note: this is not the actual move yet. But barring user interaction, it will move.
+        b2b_allocate_part(options, state, factory, coord, dir, ocoord, odir);
       }
     }
   }
+}
 
-  // After all of those, do the suppliers. If anything was able to clear, they should be cleared now
-  for sn in 0..factory.suppliers.len() {
+fn m2b_outbound_segment_ready_to_send(factory: &mut Factory, ocoord: usize, dir: SegmentDirection) -> bool {
+  let cell = &factory.floor.cells[ocoord];
+  let segment: &Segment = &cell.segments[dir as usize];
 
-  // for supply in factory.suppliers.iter_mut() {
-    let mut supply = &mut factory.suppliers[sn];
-    supply.ticks += 1;
+  // Check if the segment at coord is not empty and is allocated and on/over 100% progress
 
-    if supply.part.kind == PartKind::None {
-      if supply.last_part_out_at == 0 || ticks - supply.last_part_out_at > supply.interval {
-        if options.print_moves || options.print_moves_supply { println!("{} creating part in supply at {} {}...", ticks, supply.x, supply.y); }
-        // Create new part
-        supply.part = Part {
-          kind: supply.stamp.kind,
-          icon: supply.stamp.icon,
-        };
-        supply.part_at = ticks;
+  return cell.kind == CellKind::Belt && segment.allocated && segment.part.kind != PartKind::None && (factory.ticks - segment.at) >= cell.speed;
+}
+fn m2b_move(options: &mut Options, _state: &mut State, factory: &mut Factory, coord: usize, ocoord: usize, odir: SegmentDirection) {
+  assert_eq!(factory.floor.cells[coord].kind, CellKind::Machine, "m2b_move; this cell should be asserted to be a machine: {:?}", factory.floor.cells[ocoord].kind);
+  assert_eq!(factory.floor.cells[ocoord].kind, CellKind::Belt, "m2b_move; this cell should be asserted to be a belt: {:?}", factory.floor.cells[ocoord].kind);
+  assert_eq!(factory.floor.cells[ocoord].segments[odir as usize].port, Port::Inbound, "m2b_move; belt should be inbound (to receive the created part)");
+
+  if options.print_moves || options.print_moves_belt { println!("({}) m2b_move(options, state, {}, {}:{:?})", factory.ticks, coord, ocoord, odir); }
+
+  factory.floor.cells[ocoord].segments[odir as usize].part = factory.floor.cells[coord].machine_output_have.clone();
+  factory.floor.cells[ocoord].segments[odir as usize].at = factory.ticks;
+  factory.floor.cells[ocoord].segments[odir as usize].from = odir;
+  factory.floor.cells[ocoord].segments[odir as usize].allocated = false;
+  factory.floor.cells[ocoord].segments[odir as usize].claimed = false;
+
+  factory.floor.cells[coord].machine_output_have = part_none();
+}
+fn m2b_inbound_segment_ready_to_receive(factory: &mut Factory, ocoord: usize, odir: SegmentDirection) -> bool {
+  let cell = &factory.floor.cells[ocoord];
+  let segment: &Segment = &cell.segments[odir as usize];
+
+  // Check if the segment is in a belt, on an inbound segment, and empty.
+  // We can ignore allocated, progress, and claimed in this case.
+
+  return cell.kind == CellKind::Belt && cell.kind == CellKind::Belt && segment.port == Port::Inbound && segment.part.kind == PartKind::None;
+}
+
+fn b2m_can_move(factory: &mut Factory, coord: usize, ocoord: usize, odir: SegmentDirection) -> bool {
+  if m2b_outbound_segment_ready_to_send(factory, ocoord, odir) {
+    let kind = factory.floor.cells[ocoord].segments[odir as usize].part.kind;
+    let machine = &factory.floor.cells[coord];
+    return
+      machine.machine_input_1_have.kind == PartKind::None ||
+      machine.machine_input_2_have.kind == PartKind::None ||
+      machine.machine_input_3_have.kind == PartKind::None
+    ;
+  }
+
+  return false;
+}
+fn b2m_move(options: &mut Options, _state: &mut State, factory: &mut Factory, coord: usize, ocoord: usize, odir: SegmentDirection) {
+  assert_eq!(factory.floor.cells[coord].kind, CellKind::Machine, "b2m_move; this cell should be asserted to be a machine: {:?}", factory.floor.cells[ocoord].kind);
+  assert_eq!(factory.floor.cells[ocoord].kind, CellKind::Belt, "b2m_move; this cell should be asserted to be a belt: {:?}", factory.floor.cells[ocoord].kind);
+  assert_eq!(factory.floor.cells[ocoord].segments[odir as usize].port, Port::Outbound, "b2m_move; belt should be outbound");
+
+  let new_part = factory.floor.cells[ocoord].segments[odir as usize].part.clone();
+  if options.print_moves || options.print_moves_belt { println!("({}) b2m_move(a: {:?}, from: {}:{:?}, into: {})", factory.ticks, new_part.kind, ocoord, odir, coord); }
+
+
+  // Put it in the right input slot. One should be available as that check happened before this call.
+  if factory.floor.cells[coord].machine_input_1_want.kind != factory.floor.cells[coord].machine_input_1_have.kind && factory.floor.cells[coord].machine_input_1_want.kind == new_part.kind {
+    factory.floor.cells[coord].machine_input_1_have = new_part;
+  } else if factory.floor.cells[coord].machine_input_2_want.kind != factory.floor.cells[coord].machine_input_2_have.kind && factory.floor.cells[coord].machine_input_2_want.kind == new_part.kind {
+    factory.floor.cells[coord].machine_input_2_have = new_part;
+  } else if factory.floor.cells[coord].machine_input_3_want.kind != factory.floor.cells[coord].machine_input_3_have.kind && factory.floor.cells[coord].machine_input_3_want.kind == new_part.kind {
+    factory.floor.cells[coord].machine_input_3_have = new_part;
+  }
+  // Okay, put it in any and trash it
+  else if factory.floor.cells[coord].machine_input_1_want.kind != factory.floor.cells[coord].machine_input_1_have.kind {
+    factory.floor.cells[coord].machine_input_1_have = new_part;
+  } else if factory.floor.cells[coord].machine_input_2_want.kind != factory.floor.cells[coord].machine_input_2_have.kind {
+    factory.floor.cells[coord].machine_input_2_have = new_part;
+  } else if factory.floor.cells[coord].machine_input_3_want.kind != factory.floor.cells[coord].machine_input_3_have.kind {
+    factory.floor.cells[coord].machine_input_3_have = new_part;
+  }
+  else {
+    panic!("there should have been at least one input empty that wanted this part...");
+  }
+
+  factory.floor.cells[ocoord].segments[odir as usize].part = part_none();
+  factory.floor.cells[ocoord].segments[odir as usize].at = 0;
+  factory.floor.cells[ocoord].segments[odir as usize].allocated = false;
+  // factory.floor.cells[ocoord].segments[odir as usize].claimed = false;
+}
+
+fn b2m_outbound_segment_ready_to_allocate(factory: &mut Factory, coord: usize, dir: SegmentDirection) -> bool {
+  let cell = &factory.floor.cells[coord];
+  let segment: &Segment = &cell.segments[dir as usize];
+
+  // Check if the segment at coord is outbound, not empty, is allocated and on/over 100% progress
+
+  return cell.kind == CellKind::Belt && segment.port == Port::Outbound && !segment.allocated && segment.part.kind != PartKind::None && (factory.ticks - segment.at) >= (cell.speed / 2);
+}
+fn b2m_can_allocate(factory: &mut Factory, coord: usize, ocoord: usize, odir: SegmentDirection) -> bool {
+  if b2m_outbound_segment_ready_to_allocate(factory, ocoord, odir) {
+    let kind = factory.floor.cells[ocoord].segments[odir as usize].part.kind;
+    let machine = &factory.floor.cells[coord];
+    return
+      machine.machine_input_1_have.kind == PartKind::None ||
+      machine.machine_input_2_have.kind == PartKind::None ||
+      machine.machine_input_3_have.kind == PartKind::None
+    ;
+  }
+
+  return false;
+}
+fn b2m_allocate(options: &mut Options, _state: &mut State, factory: &mut Factory, coord: usize, ocoord: usize, odir: SegmentDirection) {
+  if options.print_choices || options.print_choices_belt { println!("({}) b2m_allocate({}, {}:{:?})", factory.ticks, coord, ocoord, odir); }
+
+  factory.floor.cells[ocoord].segments[odir as usize].allocated = true;
+
+  if factory.floor.cells[coord].machine_input_1_want.kind == factory.floor.cells[ocoord].segments[odir as usize].part.kind && factory.floor.cells[coord].machine_input_1_have.kind == PartKind::None {
+    factory.floor.cells[coord].machine_input_1_claimed = true;
+  } else if factory.floor.cells[coord].machine_input_2_want.kind == factory.floor.cells[ocoord].segments[odir as usize].part.kind && factory.floor.cells[coord].machine_input_2_have.kind == PartKind::None {
+    factory.floor.cells[coord].machine_input_2_claimed = true;
+  } else if factory.floor.cells[coord].machine_input_3_want.kind == factory.floor.cells[ocoord].segments[odir as usize].part.kind && factory.floor.cells[coord].machine_input_3_have.kind == PartKind::None {
+    factory.floor.cells[coord].machine_input_3_claimed = true;
+  }
+  // Will need to trash the part into whatever slot has space for it
+  else if factory.floor.cells[coord].machine_input_1_have.kind == PartKind::None {
+    factory.floor.cells[coord].machine_input_1_claimed = true;
+  } else if factory.floor.cells[coord].machine_input_2_have.kind == PartKind::None {
+    factory.floor.cells[coord].machine_input_2_claimed = true;
+  } else if factory.floor.cells[coord].machine_input_3_have.kind == PartKind::None {
+    factory.floor.cells[coord].machine_input_3_claimed = true;
+  }
+  else {
+    panic!("One slot should be available at this point...");
+  }
+}
+
+fn c2e_ready_to_send(factory: &mut Factory, coord: usize) -> bool {
+  assert_eq!(factory.floor.cells[coord].kind, CellKind::Belt, "c2e_ready_to_send; this cell should be asserted to be a belt: {:?}", factory.floor.cells[coord].kind);
+
+  let cell = &factory.floor.cells[coord];
+  let segment: &Segment = &cell.segments[SegmentDirection::CENTER as usize];
+
+  // Check if the center segment is allocated and on/over 100% progress
+
+  return segment.allocated && (factory.ticks - segment.at) >= cell.speed;
+}
+fn c2e_ready_to_receive(factory: &mut Factory, coord: usize, dir: SegmentDirection) -> bool {
+  assert_eq!(factory.floor.cells[coord].kind, CellKind::Belt, "c2e_ready_to_receive; this cell should be asserted to be a belt: {:?}", factory.floor.cells[coord].kind);
+
+  let cell = &factory.floor.cells[coord];
+  let segment: &Segment = &cell.segments[dir as usize];
+
+  // Check if the segment at coord is not empty and is allocated and on/over 100% progress
+
+  return segment.port == Port::Outbound && (segment.part.kind == PartKind::None || segment.allocated);
+}
+fn c2e_move_part(options: &mut Options, _state: &mut State, factory: &mut Factory, coord: usize, dir: SegmentDirection) {
+  assert_eq!(factory.floor.cells[coord].kind, CellKind::Belt, "c2e_move_part; this cell should be asserted to be a belt: {:?}", factory.floor.cells[coord].kind);
+  assert_eq!(factory.floor.cells[coord].segments[dir as usize].port, Port::Outbound, "c2e_move_part; the edge should be asserted to be outbound: {:?}", factory.floor.cells[coord].kind);
+
+  if options.print_moves || options.print_moves_belt { println!("({}) c2e_move_part(options, state, {}:{:?})", factory.ticks, coord, dir); }
+
+  factory.floor.cells[coord].segments[dir as usize].part = factory.floor.cells[coord].segments[SegmentDirection::CENTER as usize].part.clone();
+  factory.floor.cells[coord].segments[dir as usize].at = factory.ticks;
+  factory.floor.cells[coord].segments[dir as usize].from = dir;
+  factory.floor.cells[coord].segments[dir as usize].allocated = false;
+  factory.floor.cells[coord].segments[dir as usize].claimed = false;
+
+  factory.floor.cells[coord].segments[SegmentDirection::CENTER as usize].part = part_none();
+  factory.floor.cells[coord].segments[SegmentDirection::CENTER as usize].at = 0;
+  factory.floor.cells[coord].segments[SegmentDirection::CENTER as usize].allocated = false;
+  // factory.floor.cells[coord].segments[SegmentDirection::CENTER as usize].claimed = false;
+}
+fn c2e_ready_to_allocate(factory: &mut Factory, coord: usize) -> bool {
+  assert_eq!(factory.floor.cells[coord].kind, CellKind::Belt, "c2e_ready_to_allocate; this cell should be asserted to be a belt: {:?}", factory.floor.cells[coord].kind);
+
+  let cell = &factory.floor.cells[coord];
+  let segment: &Segment = &cell.segments[SegmentDirection::CENTER as usize];
+
+  // Check if the center segment is not empty, not allocated, and on/over 50% progress
+
+  return !segment.allocated && segment.part.kind != PartKind::None && (factory.ticks - segment.at) >= (cell.speed / 2);
+}
+fn c2e_ready_to_claim(factory: &mut Factory, coord: usize, dir: SegmentDirection) -> bool {
+  assert_eq!(factory.floor.cells[coord].kind, CellKind::Belt, "c2e_ready_to_claim; this cell should be asserted to be a belt: {:?}", factory.floor.cells[coord].kind);
+
+  let cell = &factory.floor.cells[coord];
+  let segment: &Segment = &cell.segments[dir as usize];
+
+  // Check if the edge segment is outbound, and empty or allocated, and not yet claimed
+
+  return segment.port == Port::Outbound && segment.port == Port::Outbound && !segment.claimed && (segment.part.kind == PartKind::None || segment.allocated);
+}
+fn c2e_allocate_part(options: &mut Options, _state: &mut State, factory: &mut Factory, coord: usize, dir: SegmentDirection) {
+  if options.print_choices || options.print_choices_belt { println!("({}) c2e_allocate_part({}:{:?})", factory.ticks, coord, dir); }
+
+  factory.floor.cells[coord].segments[SegmentDirection::CENTER as usize].allocated = true;
+  factory.floor.cells[coord].segments[SegmentDirection::CENTER as usize].to = dir;
+  factory.floor.cells[coord].segments[dir as usize].claimed = true;
+}
+
+fn e2c_ready_to_receive(factory: &mut Factory, coord: usize) -> bool {
+  assert_eq!(factory.floor.cells[coord].kind, CellKind::Belt, "e2c_ready_to_receive; this cell should be asserted to be a belt: {:?}", factory.floor.cells[coord].kind);
+
+  let cell = &factory.floor.cells[coord];
+  let segment: &Segment = &cell.segments[SegmentDirection::CENTER as usize];
+
+  // Check if the center segment at coord is empty
+
+  return segment.part.kind == PartKind::None || segment.allocated
+}
+fn e2c_ready_to_send(factory: &mut Factory, coord: usize, dir: SegmentDirection) -> bool {
+  assert_eq!(factory.floor.cells[coord].kind, CellKind::Belt, "e2c_ready_to_send; this cell should be asserted to be a belt: {:?}", factory.floor.cells[coord].kind);
+
+  let cell = &factory.floor.cells[coord];
+  let segment: &Segment = &cell.segments[dir as usize];
+
+  assert!(!segment.allocated || segment.part.kind != PartKind::None);
+
+  // Check if the segment is inbound, not empty, and is allocated and on/over 100% progress
+  // (If the element is allocated then it must not be empty)
+
+  return segment.port == Port::Inbound && segment.allocated && (factory.ticks - segment.at) >= cell.speed;
+}
+fn e2c_move_part(options: &mut Options, _state: &mut State, factory: &mut Factory, coord: usize, dir: SegmentDirection) {
+  assert_eq!(factory.floor.cells[coord].kind, CellKind::Belt, "e2c_move_part; this cell should be asserted to be a belt: {:?}", factory.floor.cells[coord].kind);
+  assert_eq!(factory.floor.cells[coord].segments[dir as usize].port, Port::Inbound, "e2c_move_part; the edge should be asserted to be inbound: {:?}", factory.floor.cells[coord].kind);
+  assert_ne!(factory.floor.cells[coord].segments[dir as usize].part.kind, PartKind::None, "e2c_move_part; part not empty; dir={:?}", dir);
+  assert_eq!(factory.floor.cells[coord].segments[dir as usize].allocated, true, "e2c_move_part; part allocated; dir={:?}", dir);
+  assert_eq!(factory.floor.cells[coord].segments[SegmentDirection::CENTER as usize].claimed, true, "e2c_move_part; center claimed");
+
+  if options.print_moves || options.print_moves_belt { println!("({}) e2c_move_part(options, state, {}:{:?})", factory.ticks, coord, dir); }
+
+  factory.floor.cells[coord].segments[SegmentDirection::CENTER as usize].part = factory.floor.cells[coord].segments[dir as usize].part.clone();
+  factory.floor.cells[coord].segments[SegmentDirection::CENTER as usize].at = factory.ticks;
+  factory.floor.cells[coord].segments[SegmentDirection::CENTER as usize].from = dir;
+  factory.floor.cells[coord].segments[SegmentDirection::CENTER as usize].allocated = false;
+  factory.floor.cells[coord].segments[SegmentDirection::CENTER as usize].claimed = false;
+
+  factory.floor.cells[coord].segments[dir as usize].part = part_none();
+  factory.floor.cells[coord].segments[dir as usize].at = 0;
+  factory.floor.cells[coord].segments[dir as usize].allocated = false;
+  // factory.floor.cells[coord].segments[dir as usize].claimed = false;
+}
+fn e2c_ready_to_allocate(factory: &mut Factory, coord: usize, dir: SegmentDirection) -> bool {
+  assert_eq!(factory.floor.cells[coord].kind, CellKind::Belt, "e2c_ready_to_allocate; this cell should be asserted to be a belt: {:?}", factory.floor.cells[coord].kind);
+
+  let cell = &factory.floor.cells[coord];
+  let segment: &Segment = &cell.segments[dir as usize];
+
+  // Check if the edge segment is inbound, not empty, not allocated, and on/over 50% progress
+
+  return segment.port == Port::Inbound && !segment.allocated && segment.part.kind != PartKind::None && (factory.ticks - segment.at) >= (cell.speed / 2);
+}
+fn e2c_ready_to_claim(factory: &mut Factory, coord: usize) -> bool {
+  assert_eq!(factory.floor.cells[coord].kind, CellKind::Belt, "e2c_ready_to_claim; this cell should be asserted to be a belt: {:?}", factory.floor.cells[coord].kind);
+
+  let cell = &factory.floor.cells[coord];
+  let segment: &Segment = &cell.segments[SegmentDirection::CENTER as usize];
+
+  // Check if the center segment at coord is empty or allocated, and not yet claimed
+
+  return !segment.claimed && (segment.part.kind == PartKind::None || segment.allocated);
+}
+fn e2c_allocate_part(options: &mut Options, _state: &mut State, factory: &mut Factory, coord: usize, dir: SegmentDirection) {
+  if options.print_choices || options.print_choices_belt { println!("({}) e2c_allocate_part({}, {:?})", factory.ticks, coord, dir); }
+
+  factory.floor.cells[coord].segments[dir as usize].allocated = true;
+  factory.floor.cells[coord].segments[SegmentDirection::CENTER as usize].claimed = true;
+}
+
+fn segment_part_needs_move(factory: &Factory, coord: usize, dir: SegmentDirection) -> bool {
+  // Does this belt segment contain a part that is allocated and on/over 100% progress?
+
+  let ticks = factory.ticks;
+  let cell = &factory.floor.cells[coord];
+  let segment = &cell.segments[dir as usize];
+
+  assert_eq!(cell.kind, CellKind::Belt, "segment_part_needs_move; this cell should be asserted to be a belt: {:?}", cell.kind);
+
+  // A Part on a segment needs to move if it exists, is over 100%, and is allocated
+  true &&
+    // The Part has been allocated to a neighbor
+    segment.allocated &&
+    // The part exists
+    segment.part.kind != PartKind::None &&
+    // The part is at the end of the segment
+    (ticks - segment.at) >= cell.speed
+}
+fn is_segment_part_and_needs_move(factory: &Factory, coord: usize, dir: SegmentDirection) -> bool {
+  return factory.floor.cells[coord].kind == CellKind::Belt && segment_part_needs_move(factory, coord, dir);
+}
+
+fn cell_can_receive_machine_part(factory: &Factory, coord: usize, dir: SegmentDirection) -> bool {
+  // We can _move_ a part to a segment if the segment is empty
+
+  let ticks = factory.ticks;
+  let cell = &factory.floor.cells[coord];
+  let segment = &cell.segments[dir as usize];
+
+  true &&
+    // Must be a belt
+    cell.kind == CellKind::Belt &&
+    // Target segment must be inport
+    segment.port == Port::Inbound &&
+    // Segment is empty (it has no part)
+    segment.part.kind == PartKind::None
+}
+
+fn move_part_from_machine_to_belt(options: &mut Options, _state: &mut State, factory: &mut Factory, coord: usize, ocoord: usize, odir: SegmentDirection) {
+  if options.print_moves || options.print_moves_machine { println!("({}) move_part_from_machine_to_belt(options, state, options, state, {}, {}, {:?})", factory.ticks, coord, ocoord, odir); }
+
+  factory.floor.cells[ocoord].segments[odir as usize].part = factory.floor.cells[coord].machine_output_have.clone();
+  factory.floor.cells[ocoord].segments[odir as usize].at = factory.ticks;
+  factory.floor.cells[ocoord].segments[odir as usize].from = odir;
+  factory.floor.cells[ocoord].segments[odir as usize].allocated = false;
+  factory.floor.cells[ocoord].segments[odir as usize].claimed = false;
+  factory.floor.cells[coord].machine_output_have = part_none();
+}
+fn move_part_from_belt_to_machine(options: &mut Options, _state: &mut State, factory: &mut Factory, coord: usize, ocoord: usize, dir: SegmentDirection) {
+  if options.print_moves || options.print_moves_machine { println!("({}) move_part_from_belt_to_machine(options, state, options, state, {}, {}, {:?})", factory.ticks, coord, ocoord, dir); }
+
+  factory.floor.cells[ocoord].machine_output_have = factory.floor.cells[coord].segments[dir as usize].part.clone();
+  factory.floor.cells[coord].segments[dir as usize].part = part_none();
+  factory.floor.cells[coord].segments[dir as usize].at = 0;
+  factory.floor.cells[coord].segments[dir as usize].allocated = false;
+  factory.floor.cells[coord].segments[dir as usize].claimed = false;
+}
+fn c2s_allocate_to_outbound_segment(options: &mut Options, _state: &mut State, factory: &mut Factory, coord: usize, ocoord: usize, dir: SegmentDirection, odir: SegmentDirection) {
+  if options.print_choices || options.print_choices_belt { println!("({}) c2s_allocate_to_outbound_segment({}, {}, {:?}, {:?})", factory.ticks, coord, ocoord, dir, odir); }
+
+  factory.floor.cells[coord].segments[dir as usize].allocated = true;
+  factory.floor.cells[ocoord].segments[odir as usize].claimed = true;
+}
+
+pub fn can_move_part_from_supply_to_cell(factory: &Factory, ocoord: usize, odir: SegmentDirection) -> bool {
+  // We can _move_ a part to a segment if the segment is empty
+
+  let ticks = factory.ticks;
+  let cell = &factory.floor.cells[ocoord];
+  let segment = &cell.segments[odir as usize];
+
+  true &&
+    // Must be a belt
+    cell.kind == CellKind::Belt &&
+    // Target segment must be inport
+    segment.port == Port::Inbound &&
+    // Segment is empty (it has no part)
+    segment.part.kind == PartKind::None
+}
+pub fn move_part_from_supply_to_segment(options: &mut Options, _state: &mut State, factory: &mut Factory, coord: usize, ocoord: usize, odir: SegmentDirection) {
+  if options.print_moves || options.print_moves_supply { println!("({}) move_part_from_supply_to_segment({}, {}, {:?})", factory.ticks, coord, ocoord, odir); }
+
+  factory.floor.cells[ocoord].segments[odir as usize].part = factory.floor.cells[coord].supply_part.clone();
+  factory.floor.cells[ocoord].segments[odir as usize].at = factory.ticks;
+  // factory.floor.cells[coord].segments[dir as usize].from = ; // irrelevant?
+  factory.floor.cells[ocoord].segments[odir as usize].allocated = false;
+  factory.floor.cells[ocoord].segments[odir as usize].claimed = false;
+  factory.floor.cells[coord].supply_part = part_none();
+  factory.floor.cells[coord].supply_part_at = 0;
+  factory.floor.cells[coord].supply_last_part_out_at = factory.ticks;
+}
+
+fn b2d_outbound_segment_ready_to_send(factory: &mut Factory, ocoord: usize, odir: SegmentDirection) -> bool {
+  assert_eq!(factory.floor.cells[ocoord].kind, CellKind::Belt, "b2d_outbound_segment_ready_to_send; this cell should be asserted to be a belt: {:?}", factory.floor.cells[ocoord].kind);
+
+  let cell = &factory.floor.cells[ocoord];
+  let segment: &Segment = &cell.segments[odir as usize];
+
+  // Check if the segment at coord is not empty and on/over 100% progress
+  // Can ignore allocated in this case, not relevant for the demand (but has to be set anyways)
+
+  return cell.kind == CellKind::Belt && segment.part.kind != PartKind::None && (factory.ticks - segment.at) >= cell.speed;
+}
+fn b2d_move_part(options: &mut Options, _state: &mut State, factory: &mut Factory, coord: usize, ocoord: usize, odir: SegmentDirection) {
+  if options.print_moves || options.print_moves_belt { println!("({}) b2d_move_part(a: {:?}, from: {}:{:?}, to: {})", factory.ticks, factory.floor.cells[ocoord].segments[odir as usize].part.kind, ocoord, odir, ocoord); }
+
+  factory.floor.cells[ocoord].segments[odir as usize].part = part_none();
+  factory.floor.cells[ocoord].segments[odir as usize].at = 0;
+  factory.floor.cells[ocoord].segments[odir as usize].allocated = false;
+}
+fn b2d_outbound_segment_ready_to_allocate(factory: &mut Factory, coord: usize, dir: SegmentDirection) -> bool {
+  assert_eq!(factory.floor.cells[coord].kind, CellKind::Belt, "b2d_outbound_segment_ready_to_allocate; this cell should be asserted to be a belt: {:?}", factory.floor.cells[coord].kind);
+
+  let cell = &factory.floor.cells[coord];
+  let segment: &Segment = &cell.segments[dir as usize];
+
+  // Check if the segment at coord is outbound, not empty, is allocated and on/over 100% progress
+
+  return segment.port == Port::Outbound && !segment.allocated && segment.part.kind != PartKind::None && (factory.ticks - segment.at) >= (cell.speed / 2);
+}
+fn b2d_allocate_part(options: &mut Options, _state: &mut State, factory: &mut Factory, coord: usize, ocoord: usize, odir: SegmentDirection) {
+  if options.print_moves || options.print_moves_belt { println!("({}) b2d_allocate_part(a: {:?}, from: {}:{:?}, to: {})", factory.ticks, factory.floor.cells[ocoord].segments[odir as usize].part.kind, ocoord, odir, ocoord); }
+
+  factory.floor.cells[ocoord].segments[odir as usize].allocated = true;
+}
+
+pub fn tick_factory(options: &mut Options, state: &mut State, factory: &mut Factory) {
+  factory.ticks += 1;
+  let ticks = factory.ticks;
+
+  let w = factory.floor.width + 2;
+  let h = factory.floor.height + 2;
+
+  for n in 0..factory.prio.len() {
+    let coord = factory.prio[n];
+    factory.floor.cells[coord].ticks += 1;
+
+    match factory.floor.cells[coord].kind {
+      CellKind::Empty => panic!("should not have empty cells in the prio list:: prio index: {}, coord: {}, cell: {:?}", n, coord, factory.floor.cells[coord]),
+      CellKind::Belt => {
+        // Each Belt Cell has one Center Segment and two to four Edge Segments
+        // Edge Segments only gives parts to other, neighbouring, Edge Segments (out->in)
+        // Center Segments give and take from Edge Segments, do the prioritization themselves
+
+        if coord == 10 && ticks > 1000009 { panic!("exit2"); }
+
+        let coord_u = to_coord_up(coord, w);
+        let coord_r = to_coord_right(coord, w);
+        let coord_d = to_coord_down(coord, w);
+        let coord_l = to_coord_left(coord, w);
+
+        // Start by ticking the OutPort Edge Segments.
+        // Belts can not appear on the edge so it should not lead to array access oob
+        // Only move from outbound segment to inbound segment.
+        b2b_step(options, state,factory, coord, SegmentDirection::UP, coord_u, SegmentDirection::DOWN);
+        b2b_step(options, state, factory, coord, SegmentDirection::RIGHT, coord_r, SegmentDirection::LEFT);
+        b2b_step(options, state, factory, coord, SegmentDirection::DOWN, coord_d, SegmentDirection::UP);
+        b2b_step(options, state, factory, coord, SegmentDirection::LEFT, coord_l, SegmentDirection::RIGHT);
+
+        // Next do the Center Segment. First give parts or otherwise allocate them, then take parts.
+
+        // if coord == 10 { println!("({}) ready to allocate c2e from {}? {} and {} {} {} {} ({} {} {} {}) ready to send? {} {} {}, ready to receive? {}",
+        //   ticks,
+        //   coord,
+        //   c2e_ready_to_allocate(factory, coord),
+        //   c2e_ready_to_claim(factory, coord, SegmentDirection::UP),
+        //   c2e_ready_to_claim(factory, coord, SegmentDirection::RIGHT),
+        //   c2e_ready_to_claim(factory, coord, SegmentDirection::DOWN),
+        //   c2e_ready_to_claim(factory, coord, SegmentDirection::LEFT),
+        //   factory.floor.cells[coord].segments[SegmentDirection::LEFT as usize].port == Port::Outbound,
+        //   !!factory.floor.cells[coord].segments[SegmentDirection::LEFT as usize].claimed,
+        //   factory.floor.cells[coord].segments[SegmentDirection::LEFT as usize].part.kind == PartKind::None,
+        //   !!factory.floor.cells[coord].segments[SegmentDirection::LEFT as usize].allocated,
+        //   c2e_ready_to_send(factory, coord),
+        //   !!factory.floor.cells[coord].segments[SegmentDirection::CENTER as usize].allocated,
+        //   (ticks - factory.floor.cells[coord].segments[SegmentDirection::CENTER as usize].at) > factory.floor.cells[coord].speed,
+        //   c2e_ready_to_receive(factory, coord, port_dir_to_segment_dir(factory.floor.cells[coord].segments[SegmentDirection::CENTER as usize].to)),
+        // )}
+
+        // Get rid of the current part in case there is one and it is not yet allocated
+        // If the part is not allocated yet, allocate it instead
+        // If the part is allocated then it has a fixed port where it will go to
+        if c2e_ready_to_send(factory, coord) {
+          let to = factory.floor.cells[coord].segments[SegmentDirection::CENTER as usize].to;
+          if c2e_ready_to_receive(factory, coord, to) {
+            c2e_move_part(options, state, factory, coord, to);
+          }
+        } else if c2e_ready_to_allocate(factory, coord) {
+          // Find an outbound edge segment that where we can allocate our part
+          if c2e_ready_to_claim(factory, coord, SegmentDirection::UP) {
+            c2e_allocate_part(options, state, factory, coord, SegmentDirection::UP);
+          } else if c2e_ready_to_claim(factory, coord, SegmentDirection::RIGHT) {
+            c2e_allocate_part(options, state, factory, coord, SegmentDirection::RIGHT);
+          } else if c2e_ready_to_claim(factory, coord, SegmentDirection::DOWN) {
+            c2e_allocate_part(options, state, factory, coord, SegmentDirection::DOWN);
+          } else if c2e_ready_to_claim(factory, coord, SegmentDirection::LEFT) {
+            c2e_allocate_part(options, state, factory, coord, SegmentDirection::LEFT);
+          }
+        }
+
+        // if coord == 31 { println!("({}) from {}; {} {} {} {} ready to receive? {}, ready to send? {} ({} {} {}) {} {} {} {:?}",
+        //   ticks,
+        //   coord,
+        //   coord_u,
+        //   coord_r,
+        //   coord_d,
+        //   coord_l,
+        //   e2c_ready_to_receive(factory, coord),
+        //   e2c_ready_to_send(factory, coord, SegmentDirection::UP),
+        //   factory.floor.cells[coord].segments[SegmentDirection::UP as usize].port == Port::Inbound,
+        //   !!factory.floor.cells[coord].segments[SegmentDirection::UP as usize].allocated,
+        //   (factory.ticks - factory.floor.cells[coord].segments[SegmentDirection::UP as usize].at) >= factory.floor.cells[coord].speed,
+        //   e2c_ready_to_send(factory, coord, SegmentDirection::RIGHT),
+        //   e2c_ready_to_send(factory, coord, SegmentDirection::DOWN),
+        //   e2c_ready_to_send(factory, coord, SegmentDirection::LEFT),
+        //   &factory.floor.cells[coord].segments[SegmentDirection::UP as usize]
+        // )}
+        // if coord == 10 && ticks > 10003 { panic!("exit1"); }
+
+        // Acquire the next part, provided there is space
+        if e2c_ready_to_receive(factory, coord) {
+          if e2c_ready_to_send(factory, coord, SegmentDirection::UP) {
+            e2c_move_part(options, state, factory, coord, SegmentDirection::UP);
+          } else if e2c_ready_to_send(factory, coord, SegmentDirection::RIGHT) {
+            e2c_move_part(options, state, factory, coord, SegmentDirection::RIGHT);
+          } else if e2c_ready_to_send(factory, coord, SegmentDirection::DOWN) {
+            e2c_move_part(options, state, factory, coord, SegmentDirection::DOWN);
+          } else if e2c_ready_to_send(factory, coord, SegmentDirection::LEFT) {
+            e2c_move_part(options, state, factory, coord, SegmentDirection::LEFT);
+          }
+        }
+
+        // if coord == 10 { println!("({}) ready to claim? {} {} {} {}, ready to allocate? {} {} {} {}",
+        //   ticks,
+        //   e2c_ready_to_claim(factory, coord),
+        //   !factory.floor.cells[coord].segments[SegmentDirection::CENTER as usize].claimed,
+        //   factory.floor.cells[coord].segments[SegmentDirection::CENTER as usize].part.kind == PartKind::None,
+        //   !!factory.floor.cells[coord].segments[SegmentDirection::CENTER as usize].allocated,
+        //   e2c_ready_to_allocate(factory, coord, SegmentDirection::UP),
+        //   e2c_ready_to_allocate(factory, coord, SegmentDirection::RIGHT),
+        //   e2c_ready_to_allocate(factory, coord, SegmentDirection::DOWN),
+        //   e2c_ready_to_allocate(factory, coord, SegmentDirection::LEFT)
+        // )}
+        // Find an Inbound edge segment that has a part ready to allocate to us
+        if e2c_ready_to_claim(factory, coord) {
+          if e2c_ready_to_allocate(factory, coord, SegmentDirection::UP) {
+            e2c_allocate_part(options, state, factory, coord, SegmentDirection::UP);
+          } else if e2c_ready_to_allocate(factory, coord, SegmentDirection::RIGHT) {
+            e2c_allocate_part(options, state, factory, coord, SegmentDirection::RIGHT);
+          } else if e2c_ready_to_allocate(factory, coord, SegmentDirection::DOWN) {
+            e2c_allocate_part(options, state, factory, coord, SegmentDirection::DOWN);
+          } else if e2c_ready_to_allocate(factory, coord, SegmentDirection::LEFT) {
+            e2c_allocate_part(options, state, factory, coord, SegmentDirection::LEFT);
+          }
+        }
       }
-    } else {
-      // Have an actual part. See if it would go over the edge yet
-      // We need to know the direction in which the part moves and the current position of the part
+      CellKind::Machine => {
 
-      if ticks - supply.part_at < supply.speed {
-        // This part is still rolling on the belt
-        continue;
+        // - complete build in flight
+        // - move output away
+        // - try to start new build
+        // - receive stuff
+        // - try to start new build
+
+
+        let coord_u = to_coord_up(coord, w);
+        let coord_r = to_coord_right(coord, w);
+        let coord_d = to_coord_down(coord, w);
+        let coord_l = to_coord_left(coord, w);
+
+        if factory.floor.cells[coord].machine_start_at > 0 && (factory.ticks - factory.floor.cells[coord].machine_start_at) > factory.floor.cells[coord].speed {
+          // Finished constructing a part
+
+          if options.print_machine_actions || options.print_moves_belt { println!("({}) machine {} finished creating part {:?}", factory.ticks, coord, factory.floor.cells[coord].machine_output_want.kind); }
+
+          factory.floor.cells[coord].machine_start_at = 0;
+          factory.floor.cells[coord].machine_output_have = factory.floor.cells[coord].machine_output_want.clone();
+        }
+
+        if factory.floor.cells[coord].machine_output_have.kind != PartKind::None {
+          // There's a build output ready to move. Try to send it to a neighbor belt.
+          if m2b_inbound_segment_ready_to_receive(factory, coord_u, SegmentDirection::DOWN) {
+            m2b_move(options, state, factory, coord, coord_u, SegmentDirection::DOWN);
+          } else if m2b_inbound_segment_ready_to_receive(factory, coord_r, SegmentDirection::LEFT) {
+            m2b_move(options, state, factory, coord, coord_r, SegmentDirection::LEFT);
+          } else if m2b_inbound_segment_ready_to_receive(factory, coord_d, SegmentDirection::UP) {
+            m2b_move(options, state, factory, coord, coord_d, SegmentDirection::UP);
+          } else if m2b_inbound_segment_ready_to_receive(factory, coord_l, SegmentDirection::RIGHT) {
+            m2b_move(options, state, factory, coord, coord_l, SegmentDirection::RIGHT);
+          }
+        }
+
+        // Start the machine if there are sufficient inputs and it's not running
+        if
+          factory.floor.cells[coord].machine_start_at == 0 &&
+          factory.floor.cells[coord].machine_input_1_want.kind == factory.floor.cells[coord].machine_input_1_have.kind &&
+          factory.floor.cells[coord].machine_input_2_want.kind == factory.floor.cells[coord].machine_input_2_have.kind &&
+          factory.floor.cells[coord].machine_input_3_want.kind == factory.floor.cells[coord].machine_input_3_have.kind
+        {
+          if options.print_machine_actions || options.print_moves_belt { println!("({}) machine starting to create new part", factory.ticks); }
+
+          factory.floor.cells[coord].machine_start_at = factory.ticks;
+          factory.floor.cells[coord].machine_input_1_have = part_none();
+          factory.floor.cells[coord].machine_input_2_have = part_none();
+          factory.floor.cells[coord].machine_input_3_have = part_none();
+        }
+
+        // If there is space, try to acquire parts from neighbor belts
+        // Machines only trash if there's an available spot to begin with. Otherwise ignore belts.
+        if
+          factory.floor.cells[coord].machine_input_1_want.kind != factory.floor.cells[coord].machine_input_1_have.kind ||
+          factory.floor.cells[coord].machine_input_2_want.kind != factory.floor.cells[coord].machine_input_2_have.kind ||
+          factory.floor.cells[coord].machine_input_3_want.kind != factory.floor.cells[coord].machine_input_3_have.kind
+        {
+          // Machine has at least one spot available. Try to receive parts from neighbor belt.
+          // Machines do need to deal with the allocation/claim dance.
+          if b2m_can_move(factory, coord, coord_u, SegmentDirection::DOWN) {
+            b2m_move(options, state, factory, coord, coord_u, SegmentDirection::DOWN);
+          } else if b2m_can_move(factory, coord, coord_r, SegmentDirection::LEFT) {
+            b2m_move(options, state, factory, coord, coord_r, SegmentDirection::LEFT);
+          } else if b2m_can_move(factory, coord, coord_d, SegmentDirection::UP) {
+            b2m_move(options, state, factory, coord, coord_d, SegmentDirection::UP);
+          } else if b2m_can_move(factory, coord, coord_l, SegmentDirection::RIGHT) {
+            b2m_move(options, state, factory, coord, coord_l, SegmentDirection::RIGHT);
+          }
+          // If we moved none of them then try to allocate one
+          else if b2m_can_allocate(factory, coord, coord_u, SegmentDirection::DOWN) {
+            b2m_allocate(options, state, factory, coord, coord_u, SegmentDirection::DOWN);
+          } else if b2m_can_allocate(factory, coord, coord_r, SegmentDirection::LEFT) {
+            b2m_allocate(options, state, factory, coord, coord_r, SegmentDirection::LEFT);
+          } else if b2m_can_allocate(factory, coord, coord_d, SegmentDirection::UP) {
+            b2m_allocate(options, state, factory, coord, coord_d, SegmentDirection::UP);
+          } else if b2m_can_allocate(factory, coord, coord_l, SegmentDirection::RIGHT) {
+            b2m_allocate(options, state, factory, coord, coord_l, SegmentDirection::RIGHT);
+          }
+        }
+
+        // Another machine start check, just in case the above move completed the inputs
+        if
+          factory.floor.cells[coord].machine_start_at == 0 &&
+          factory.floor.cells[coord].machine_input_1_want.kind == factory.floor.cells[coord].machine_input_1_have.kind &&
+          factory.floor.cells[coord].machine_input_2_want.kind == factory.floor.cells[coord].machine_input_2_have.kind &&
+          factory.floor.cells[coord].machine_input_3_want.kind == factory.floor.cells[coord].machine_input_3_have.kind
+        {
+          if options.print_machine_actions || options.print_moves_belt { println!("({}) machine {} starting to create new part {:?}", factory.ticks, coord, factory.floor.cells[coord].machine_output_want.kind); }
+
+          factory.floor.cells[coord].machine_start_at = factory.ticks;
+          factory.floor.cells[coord].machine_input_1_have = part_none();
+          factory.floor.cells[coord].machine_input_2_have = part_none();
+          factory.floor.cells[coord].machine_input_3_have = part_none();
+        }
+
+        // Check if there's any part that needs trashing (slot not empty, not what it wanted)
+        if factory.floor.cells[coord].machine_input_1_have.kind != PartKind::None && factory.floor.cells[coord].machine_input_1_want.kind != factory.floor.cells[coord].machine_input_1_have.kind {
+          if options.print_machine_actions || options.print_moves_belt { println!("({}) machine {} trashed part in slot 1 ({:?})", factory.ticks, coord, factory.floor.cells[coord].machine_input_1_have.kind); }
+          factory.floor.cells[coord].machine_input_1_have = part_none();
+        }
+        if factory.floor.cells[coord].machine_input_2_have.kind != PartKind::None && factory.floor.cells[coord].machine_input_2_want.kind != factory.floor.cells[coord].machine_input_2_have.kind {
+          if options.print_machine_actions || options.print_moves_belt { println!("({}) machine {} trashed part in slot 1 ({:?})", factory.ticks, coord, factory.floor.cells[coord].machine_input_2_have.kind); }
+          factory.floor.cells[coord].machine_input_2_have = part_none();
+        }
+        if factory.floor.cells[coord].machine_input_3_have.kind != PartKind::None && factory.floor.cells[coord].machine_input_3_want.kind != factory.floor.cells[coord].machine_input_3_have.kind {
+          if options.print_machine_actions || options.print_moves_belt { println!("({}) machine {} trashed part in slot 1 ({:?})", factory.ticks, coord, factory.floor.cells[coord].machine_input_3_have.kind); }
+          factory.floor.cells[coord].machine_input_3_have = part_none();
+        }
       }
-
-      let x = supply.x;
-      let y = supply.y;
-
-      // Note: we paint the supplies outside of the floor but their x/y is really "above" the belt
-      let mut cell: &mut Cell = &mut factory.floor.cells[x][y];
-      match cell.kind {
-        CellKind::Empty => {
-          // Noop. Part stays inside Supply. Nothing else happens.
-
-        },
-        CellKind::Belt => {
-          // Confirm
-          // - whether the neighbor cell has a belt coming from this direction
-          // - whether the neighbor belt is available on that segment
-
-          let (dx, dy) =
-            // Part is ready to leave the supply. Is there room on the neighboring cell?
-            // - Neighbor cell is at same coordinate (figure out where the connection is facing)
-            // - Check if there is space on that side of the cell
-            // - If so, move part to that cell
-            if x == 0 {
-              // Left side supply. Neighbor cell is at x + 1, y
-              (1i8, 0i8)
-            } else if y == 0 {
-              // Up side supply. Neighbor cell is at x, y + 1
-              (0, 1)
-            } else if y == factory.floor.height - 1 {
-              // Down side supply. Neighbor cell is at x, y - 1
-              (0, -1)
-            } else if x == factory.floor.width - 1 {
-              // Left side supply. Neighbor cell is at x - 1, y
-              (-1, 0)
-            } else {
-              // Supply should be on an edge, not corner. If this changes this code needs to be updated
-              // to get the proper neighbor in those cases.
-              panic!("assuming supply lives on non-corner edge, this one must be violating that rule, {} {}", x, y);
-            };
-
-          match (dx, dy) {
-            (0, 1) => {
-              // Supply at the top. Does belt accept parts from the top? Does it have no part in
-              // the top segment right now?
-              if cell.belt.direction_u == BeltDirection::In && cell.segment_u_part.kind == PartKind::None {
-                // Looks like we can transfer this part
-                // TODO: for the time being we copy/destroy but we should check if this is relevant as the Part struct gets more complex over time
-                cell.segment_u_part = supply.part.clone();
-                cell.segment_u_at = ticks;
-                supply.part = part_none(supply.x, supply.y);
-                supply.last_part_out_at = ticks;
-                if options.print_moves || options.print_moves_supply { println!("{} Handed from up supply to belt below", ticks); }
-                add_price_delta(options, state, &mut factory.stats, factory.ticks, supply.part_price);
-              }
-            },
-            (-1, 0) => {
-              // Supply at the right. Does belt accept parts from the right? Does it have no part in
-              // the right segment right now?
-              if cell.belt.direction_r == BeltDirection::In && cell.segment_r_part.kind == PartKind::None {
-                // Looks like we can transfer this part
-                // TODO: for the time being we copy/destroy but we should check if this is relevant as the Part struct gets more complex over time
-                cell.segment_r_part = supply.part.clone();
-                cell.segment_r_at = ticks;
-                supply.part = part_none(supply.x, supply.y);
-                supply.last_part_out_at = ticks;
-                if options.print_moves || options.print_moves_supply { println!("{} Handed from right supply to belt left", ticks); }
-                add_price_delta(options, state, &mut factory.stats, factory.ticks, supply.part_price);
-              }
-            },
-            (0, -1) => {
-              // Supply at the bottom. Does belt accept parts from down? Does it have no part in
-              // the down segment right now?
-              if cell.belt.direction_d == BeltDirection::In && cell.segment_d_part.kind == PartKind::None {
-                // Looks like we can transfer this part
-                // TODO: for the time being we copy/destroy but we should check if this is relevant as the Part struct gets more complex over time
-                cell.segment_d_part = supply.part.clone();
-                cell.segment_d_at = ticks;
-                supply.part = part_none(supply.x, supply.y);
-                supply.last_part_out_at = ticks;
-                if options.print_moves || options.print_moves_supply { println!("{} Handed from down supply to belt up", ticks); }
-                add_price_delta(options, state, &mut factory.stats, factory.ticks, supply.part_price);
-              }
-            },
-            (1, 0) => {
-              // Supply at the left. Does belt accept parts from the left? Does it have no part in
-              // the left segment right now?
-              if cell.belt.direction_l == BeltDirection::In && cell.segment_l_part.kind == PartKind::None {
-                // Looks like we can transfer this part
-                // TODO: for the time being we copy/destroy but we should check if this is relevant as the Part struct gets more complex over time
-                cell.segment_l_part = supply.part.clone();
-                cell.segment_l_at = ticks;
-                supply.part = part_none(supply.x, supply.y);
-                supply.last_part_out_at = ticks;
-                if options.print_moves || options.print_moves_supply { println!("{} Handed from left supply to belt right", ticks); }
-                add_price_delta(options, state, &mut factory.stats, factory.ticks, supply.part_price);
-              }
-            },
-            _ => panic!("dx should only be one step left, right, up, or down. not more. {} {}", dx, dy),
-          };
-        },
-        CellKind::Machine => {
-          // Confirm if there is space in the machine to accept this part
-
-        },
+      CellKind::Supply => {
+        tick_supply(options, state, factory, coord);
+      }
+      CellKind::Demand => {
+        let (x, y) = to_xy(coord, w);
+        if x == 0 {
+          let ocoord = to_coord_right(coord, w);
+          if b2d_outbound_segment_ready_to_send(factory, ocoord, SegmentDirection::LEFT) {
+            b2d_move_part(options, state, factory, coord, ocoord, SegmentDirection::LEFT);
+          }
+        } else if y == 0 {
+          let ocoord = to_coord_down(coord, w);
+          if b2d_outbound_segment_ready_to_send(factory, ocoord, SegmentDirection::UP) {
+            b2d_move_part(options, state, factory, coord, ocoord, SegmentDirection::UP);
+          }
+        } else if x == w-1 {
+          let ocoord = to_coord_left(coord, w);
+          if b2d_outbound_segment_ready_to_send(factory, ocoord, SegmentDirection::RIGHT) {
+            b2d_move_part(options, state, factory, coord, ocoord, SegmentDirection::RIGHT);
+          }
+        } else if y == h-1 {
+          let ocoord = to_coord_up(coord, w);
+          if b2d_outbound_segment_ready_to_send(factory, ocoord, SegmentDirection::DOWN) {
+            b2d_move_part(options, state, factory, coord, ocoord, SegmentDirection::DOWN);
+          }
+        } else {
+          panic!("what edge?");
+        }
       }
     }
   }
@@ -964,7 +1069,7 @@ pub fn tick_factory(options: &mut Options, state: &mut State, factory: &mut Fact
 }
 
 fn update_factory_efficiency_stats(options: &mut Options, _state: &mut State, factory: &mut Factory) {
-  if (factory.ticks % ONE_SECOND) == 0 {
+  if (factory.ticks % options.print_stats_interval) == 0 {
     println!("- {}; efficiency: short period: {}, long period: {} {:100}", factory.ticks, factory.stats.2 + (14 * -1000), factory.stats.3 + (14 * -10000), ' ');
   }
 
@@ -983,15 +1088,7 @@ fn update_factory_efficiency_stats(options: &mut Options, _state: &mut State, fa
   }
 }
 
-fn is_current_phase(dir: BeltDirection, stage: u8) -> bool {
-  return match dir {
-    BeltDirection::In => stage == IN,
-    BeltDirection::Out => stage == OUT,
-    BeltDirection::None => false,
-  };
-}
-
-fn add_price_delta(options: &mut Options, _state: &mut State, stats: &mut (VecDeque<(i32, u64)>, usize, i32, i32, i32), ticks: u64, delta: i32) {
+pub fn add_price_delta(options: &mut Options, _state: &mut State, stats: &mut (VecDeque<(i32, u64)>, usize, i32, i32, i32), ticks: u64, delta: i32) {
   if options.print_price_deltas { println!("  - add_price_delta: {}, 1sec: {}, 10sec: {}", delta, stats.2 + (delta as i32), stats.3 + (delta as i32)); }
   stats.0.push_back((delta, ticks));
   stats.1 += 1; // new entry should not be older than 10k ticks ;)
@@ -999,307 +1096,459 @@ fn add_price_delta(options: &mut Options, _state: &mut State, stats: &mut (VecDe
   stats.3 += delta as i32;
 }
 
-fn hole_in_the_wall(factory: &Factory, x: usize, y: usize, ifn: char, ifs: char, ifd: char) -> char {
-  // My apologies for anyone doing perf ;)
-
-  let suppliers = &factory.suppliers;
-  let demanders = &factory.demanders;
-
-  let mut has = HasHole::None;
-  for supply in suppliers {
-    if supply.x == x && supply.y == y {
-      has = HasHole::Supply;
-      break;
-    }
-  }
-
-  if has == HasHole::None {
-    for demand in demanders {
-      if demand.x == x && demand.y == y {
-        has = HasHole::Demand;
-        break;
-      }
-    }
-  }
-
-  return match has {
-    HasHole::None => ifn,
-    HasHole::Supply => ifs,
-    HasHole::Demand => ifd,
-  };
-}
-fn hu(factory: &Factory, x: usize) -> char {
-  return hole_in_the_wall(factory, x, 0, '─', 'v', '^');
-}
-fn hr(factory: &Factory, y: usize) -> char {
-  return hole_in_the_wall(factory, 4, y, '│', '<', '>');
-}
-fn hd(factory: &Factory, x: usize) -> char {
-  return hole_in_the_wall(factory, x, 4, '─', '^', 'v');
-}
-fn hl(factory: &Factory, y: usize) -> char {
-  return hole_in_the_wall(factory, 0, y, '│', '>', '<');
-}
-
-// belt entry/exits
-fn br(factory: &Factory, x: usize, y: usize) -> char {
-  match factory.floor.cells[x][y].belt.direction_r {
-    BeltDirection::In => '<',
-    BeltDirection::Out => '>',
-    BeltDirection::None => '│',
-  }
-}
-fn bl(factory: &Factory, x: usize, y: usize) -> char {
-  match factory.floor.cells[x][y].belt.direction_l {
-    BeltDirection::In => '>',
-    BeltDirection::Out => '<',
-    BeltDirection::None => '│',
-  }
-}
-fn bu(factory: &Factory, x: usize, y: usize) -> char {
-  match factory.floor.cells[x][y].belt.direction_u {
-    BeltDirection::In => 'v',
-    BeltDirection::Out => '^',
-    BeltDirection::None => '─',
-  }
-}
-fn bd(factory: &Factory, x: usize, y: usize) -> char {
-  match factory.floor.cells[x][y].belt.direction_d {
-    BeltDirection::In => '^',
-    BeltDirection::Out => 'v',
-    BeltDirection::None => '─',
-  }
-}
-
-// cell segments
-fn clu(factory: &Factory, x: usize, y: usize) -> char {
-  let cell = &factory.floor.cells[x][y];
-  match cell.kind {
-    CellKind::Empty => ' ',
-    CellKind::Belt => ' ',
-    CellKind::Machine => {
-      // Print the first input part if there is more than one input
-      if cell.machine_input_2_want.kind != PartKind::None {
-        cell.machine_input_1_want.icon
-      } else {
-        ' '
-      }
-    }
-  }
-}
-fn cu(factory: &Factory, x: usize, y: usize) -> char {
-  let cell = &factory.floor.cells[x][y];
-  match cell.kind {
-    CellKind::Empty => ' ',
-    CellKind::Belt => {
-      if cell.segment_u_part.kind != PartKind::None {
-        cell.segment_u_part.icon
-      } else {
-        cell.belt.cli_u
-      }
-    }
-    CellKind::Machine => {
-      // Print the first input part if there is one input
-      // Print the second input part if there are three inputs
-      // Print nothing if there are two inputs
-      if cell.machine_input_3_want.kind != PartKind::None {
-        cell.machine_input_2_want.icon
-      } else if cell.machine_input_2_want.kind == PartKind::None {
-        cell.machine_input_1_want.icon
-      } else {
-        ' '
-      }
-    }
-  }
-}
-fn cru(factory: &Factory, x: usize, y: usize) -> char {
-  let cell = &factory.floor.cells[x][y];
-  match cell.kind {
-    CellKind::Empty => ' ',
-    CellKind::Belt => ' ',
-    CellKind::Machine => {
-      // Print the third input part if there are three inputs
-      // Print the second input part if there are two inputs
-      // Print nothing if there is one input
-      if cell.machine_input_3_want.kind != PartKind::None {
-        cell.machine_input_3_want.icon
-      } else if cell.machine_input_2_want.kind != PartKind::None {
-        cell.machine_input_2_want.icon
-      } else {
-        ' '
-      }
-    }
-  }
-}
-fn cl(factory: &Factory, x: usize, y: usize) -> char {
-  let cell = &factory.floor.cells[x][y];
-  match cell.kind {
-    CellKind::Empty => ' ',
-    CellKind::Belt => {
-      if cell.segment_l_part.kind != PartKind::None {
-        cell.segment_l_part.icon
-      } else {
-        cell.belt.cli_l
-      }
-    }
-    CellKind::Machine => {
-      // Print corner if there are two or three inputs. Otherwise print nothing
-      if cell.machine_input_2_want.kind != PartKind::None {
-        if cell.machine_input_2_have.kind != PartKind::None {
-          '┗'
-        } else {
-          '└'
-        }
-      } else {
-        ' '
-      }
-    }
-  }
-}
-fn cc(factory: &Factory, x: usize, y: usize) -> char {
-  let cell = &factory.floor.cells[x][y];
-  match cell.kind {
-    CellKind::Empty => ' ',
-    CellKind::Belt => {
-      if cell.segment_c_part.kind != PartKind::None {
-        cell.segment_c_part.icon
-      } else {
-        cell.belt.cli_c
-      }
-    }
-    CellKind::Machine => {
-      // Print straight line if one input
-      // Print T down if two inputs
-      // Print cross if three inputs
-      if cell.machine_input_3_want.kind != PartKind::None {
-        if cell.machine_input_1_have.kind != PartKind::None && cell.machine_input_2_have.kind != PartKind::None && cell.machine_input_3_have.kind != PartKind::None {
-          '╋'
-        } else if cell.machine_input_1_have.kind != PartKind::None && cell.machine_input_2_have.kind != PartKind::None {
-          '╃'
-        } else if cell.machine_input_1_have.kind != PartKind::None && cell.machine_input_3_have.kind != PartKind::None {
-          '┿'
-        } else if cell.machine_input_2_have.kind != PartKind::None && cell.machine_input_3_have.kind != PartKind::None {
-          '╄'
-        } else if cell.machine_input_1_have.kind != PartKind::None {
-          '┽'
-        } else if cell.machine_input_2_have.kind != PartKind::None {
-          '╀'
-        } else if cell.machine_input_3_have.kind != PartKind::None {
-          '┾'
-        } else {
-          '┼'
-        }
-      } else if cell.machine_input_2_want.kind != PartKind::None {
-        if cell.machine_input_1_have.kind != PartKind::None && cell.machine_input_2_have.kind != PartKind::None {
-          '┳'
-        } else if cell.machine_input_1_have.kind != PartKind::None {
-          '┭'
-        } else if cell.machine_input_2_have.kind != PartKind::None {
-          '┮'
-        } else {
-          '┬'
-        }
-      } else {
-        if cell.machine_input_1_have.kind != PartKind::None {
-          '┃'
-        } else {
-          '│'
-        }
-      }
-    }
-  }
-}
-fn cr(factory: &Factory, x: usize, y: usize) -> char {
-  let cell = &factory.floor.cells[x][y];
-  match cell.kind {
-    CellKind::Empty => ' ',
-    CellKind::Belt => {
-      if cell.segment_r_part.kind != PartKind::None {
-        cell.segment_r_part.icon
-      } else {
-        cell.belt.cli_r
-      }
-    }
-    CellKind::Machine => {
-      // Print corner if there are two or three inputs. Otherwise print nothing
-      if cell.machine_input_2_want.kind != PartKind::None {
-        if (cell.machine_input_3_want.kind != PartKind::None && cell.machine_input_3_have.kind != PartKind::None) || (cell.machine_input_3_want.kind == PartKind::None && cell.machine_input_2_have.kind != PartKind::None) {
-          '┛'
-        } else {
-          '┘'
-        }
-      } else {
-        ' '
-      }
-    }
-  }
-}
-fn cdl(factory: &Factory, x: usize, y: usize) -> char {
-  let cell = &factory.floor.cells[x][y];
-  match cell.kind {
-    CellKind::Empty => ' ',
-    CellKind::Belt => ' ',
-    CellKind::Machine => {
-      ' '
-    }
-  }
-}
-fn cd(factory: &Factory, x: usize, y: usize) -> char {
-  let cell = &factory.floor.cells[x][y];
-  match cell.kind {
-    CellKind::Empty => ' ',
-    CellKind::Belt => {
-      if cell.segment_d_part.kind != PartKind::None {
-        cell.segment_d_part.icon
-      } else {
-        cell.belt.cli_d
-      }
-    }
-    CellKind::Machine => {
-      cell.machine_output_want.icon
-    }
-  }
-}
-fn cdr(factory: &Factory, x: usize, y: usize) -> char {
-  let cell = &factory.floor.cells[x][y];
-  match cell.kind {
-    CellKind::Empty => ' ',
-    CellKind::Belt => ' ',
-    CellKind::Machine => {
-      ' '
-    }
-  }
-}
-
 pub fn serialize_cli_lines(factory: &Factory) -> Vec<String> {
+  // s_ is side cells (demand/supply/empty), rest is inner cells (belt/machine/empty)
+  // e_ is edge, c_ is center (belt segments)
+
+  let e_u = | coord: usize | {
+    // port up
+    let cell = &factory.floor.cells[coord];
+    match cell.kind {
+      CellKind::Empty => cell.belt.cli_out_box_u,
+      CellKind::Belt => cell.belt.cli_out_box_u,
+      CellKind::Machine => '*',
+      CellKind::Supply => ' ',
+      CellKind::Demand => ' ',
+    }
+  };
+  let e_r= | coord: usize | {
+    // port right
+    let cell = &factory.floor.cells[coord];
+    match cell.kind {
+      CellKind::Empty => cell.belt.cli_out_box_r,
+      CellKind::Belt => cell.belt.cli_out_box_r,
+      CellKind::Machine => '*',
+      CellKind::Supply => ' ',
+      CellKind::Demand => ' ',
+    }
+  };
+  let e_d = | coord: usize | {
+    // port down
+    let cell = &factory.floor.cells[coord];
+    match cell.kind {
+      CellKind::Empty => cell.belt.cli_out_box_d,
+      CellKind::Belt => cell.belt.cli_out_box_d,
+      CellKind::Machine => '*',
+      CellKind::Supply => ' ',
+      CellKind::Demand => ' ',
+    }
+  };
+  let e_l = | coord: usize | {
+    // port left
+    let cell = &factory.floor.cells[coord];
+    match cell.kind {
+      CellKind::Empty => cell.belt.cli_out_box_l,
+      CellKind::Belt => cell.belt.cli_out_box_l,
+      CellKind::Machine => '*',
+      CellKind::Supply => ' ',
+      CellKind::Demand => ' ',
+    }
+  };
+  let c_lu = | coord: usize | {
+    // segment left-up
+    let cell: &Cell = &factory.floor.cells[coord];
+    match cell.kind {
+      CellKind::Empty => ' ',
+      CellKind::Belt => ' ',
+      CellKind::Machine => {
+        // Show input 1 if there are 2 or more inputs required. Otherwise show nothing.
+        if cell.machine_input_2_want.kind != PartKind::None {
+          cell.machine_input_1_want.icon
+        } else {
+          ' '
+        }
+      },
+      CellKind::Supply => ' ',
+      CellKind::Demand => ' ',
+    }
+  };
+  let c_u = | coord: usize | {
+    // segment up
+    let cell: &Cell = &factory.floor.cells[coord];
+    match cell.kind {
+      CellKind::Empty => ' ',
+      CellKind::Belt => {
+        // If there's a part here then paint that part instead of the belt segment track
+        let part = &cell.segments[SegmentDirection::UP as usize].part;
+        if part.kind == PartKind::None {
+          cell.belt.cli_out_seg_u
+        } else {
+          part.icon
+        }
+      },
+      CellKind::Machine => {
+        // Show input 1 if there is one or three outputs. Otherwise show nothing.
+        if cell.machine_input_2_want.kind == PartKind::None || cell.machine_input_3_want.kind != PartKind::None {
+          cell.machine_input_1_want.icon
+        } else {
+          ' '
+        }
+      },
+      CellKind::Supply => cell.supply_gives.icon,
+      CellKind::Demand => ' ',
+    }
+  };
+  let c_ru = | coord: usize | {
+    // segment right up
+    let cell: &Cell = &factory.floor.cells[coord];
+    match cell.kind {
+      CellKind::Empty => ' ',
+      CellKind::Belt => ' ',
+      CellKind::Machine => {
+        // Show input 2 if there are 2 inputs required. Show input 3 if there are 3 inputs required.
+        if cell.machine_input_3_want.kind != PartKind::None {
+          cell.machine_input_3_want.icon
+        } else if cell.machine_input_2_want.kind != PartKind::None {
+          cell.machine_input_2_want.icon
+        } else {
+          ' '
+        }
+      },
+      CellKind::Supply => ' ',
+      CellKind::Demand => ' ',
+    }
+  };
+  let c_r = | coord: usize | {
+    // segment right
+    let cell: &Cell = &factory.floor.cells[coord];
+    match cell.kind {
+      CellKind::Empty => ' ',
+      CellKind::Belt => {
+        // If there's a part here then paint that part instead of the belt segment track
+        let part = &cell.segments[SegmentDirection::RIGHT as usize].part;
+        if part.kind == PartKind::None {
+          cell.belt.cli_out_seg_r
+        } else {
+          part.icon
+        }
+      },
+      CellKind::Machine => {
+        // Show a corner piece when there's two or three required inputs
+        // If there are three inputs, show input 3, else show input 2
+        // ┘ ┛
+        if cell.machine_input_2_want.kind == PartKind::None {
+          ' '
+        } else if
+          // if input3 wants an input, check if it has one
+          (cell.machine_input_3_want.kind != PartKind::None && cell.machine_input_3_have.kind == PartKind::None) ||
+          // otherwise, if input3 does not want an input, check if input2 has one
+          (cell.machine_input_3_want.kind == PartKind::None && cell.machine_input_2_have.kind == PartKind::None)
+        {
+          '┘'
+        } else {
+          '┛'
+        }
+      }
+      CellKind::Supply => ' ',
+      CellKind::Demand => ' ',
+    }
+  };
+  let c_dr = | coord: usize | {
+    // segment down-right
+    let cell: &Cell = &factory.floor.cells[coord];
+    match cell.kind {
+      CellKind::Empty => ' ',
+      CellKind::Belt => ' ',
+      CellKind::Machine => ' ',
+      CellKind::Supply => ' ',
+      CellKind::Demand => ' ',
+    }
+  };
+  let c_d = | coord: usize | {
+    // segment down
+    let cell: &Cell = &factory.floor.cells[coord];
+    match cell.kind {
+      CellKind::Empty => ' ',
+      CellKind::Belt => {
+        // If there's a part here then paint that part instead of the belt segment track
+        let part = &cell.segments[SegmentDirection::DOWN as usize].part;
+        if part.kind == PartKind::None {
+          cell.belt.cli_out_seg_d
+        } else {
+          part.icon
+        }
+      },
+      CellKind::Machine => cell.machine_output_want.icon,
+      CellKind::Supply => cell.supply_part.icon,
+      CellKind::Demand => ' ',
+    }
+  };
+  let c_dl = | coord: usize | {
+    // segment down-left
+    let cell: &Cell = &factory.floor.cells[coord];
+    match cell.kind {
+      CellKind::Empty => ' ',
+      CellKind::Belt => ' ',
+      CellKind::Machine => ' ',
+      CellKind::Supply => ' ',
+      CellKind::Demand => ' ',
+    }
+  };
+  let c_l = | coord: usize | {
+    // segment left
+    let cell: &Cell = &factory.floor.cells[coord];
+    match cell.kind {
+      CellKind::Empty => ' ',
+      CellKind::Belt => {
+        // If there's a part here then paint that part instead of the belt segment track
+        let part = &cell.segments[SegmentDirection::LEFT as usize].part;
+        if part.kind == PartKind::None {
+          cell.belt.cli_out_seg_l
+        } else {
+          part.icon
+        }
+      },
+      CellKind::Machine => {
+        // Show a corner piece when there's two or three required inputs
+        // In all cases the actual value to show depends on input 1
+        // └ ┗
+        if cell.machine_input_2_want.kind == PartKind::None {
+          ' '
+        } else if cell.machine_input_1_have.kind == PartKind::None {
+          '└'
+        } else {
+          '┗'
+        }
+      },
+      CellKind::Supply => ' ',
+      CellKind::Demand => ' ',
+    }
+  };
+  let c_c = | coord: usize | {
+    // segment cneter
+    let cell: &Cell = &factory.floor.cells[coord];
+    match cell.kind {
+      CellKind::Empty => ' ',
+      CellKind::Belt => {
+        // If there's a part here then paint that part instead of the belt segment track
+        let part = &cell.segments[SegmentDirection::CENTER as usize].part;
+        if part.kind == PartKind::None {
+          cell.belt.cli_out_seg_c
+        } else {
+          part.icon
+        }
+      },
+      CellKind::Machine => {
+        // │ ┃   ┼ ┽ ┾ ┿ ╀ ╁ ╂ ╃ ╄ ╅ ╆ ╇ ╈ ╉ ╊ ╋    ┬ ┭ ┮ ┯ ┰ ┱ ┲ ┳
+        // This one is just annoying to do because it depends on how many inputs there are
+        // and for each input whether it is available
+
+        if cell.machine_input_3_want.kind != PartKind::None {
+          // ┼ ┽ ┾ ┿ ╀ ╃ ╄ ╇ ╋
+          if cell.machine_input_1_have.kind == PartKind::None {
+            if cell.machine_input_2_have.kind == PartKind::None {
+              if cell.machine_input_3_have.kind == PartKind::None {
+                '┼'
+              } else {
+                '┾'
+              }
+            } else {
+              if cell.machine_input_3_have.kind == PartKind::None {
+                '╀'
+              } else {
+                '╄'
+              }
+            }
+          } else {
+            if cell.machine_input_2_have.kind == PartKind::None {
+              if cell.machine_input_3_have.kind == PartKind::None {
+                '┽'
+              } else {
+                '┿'
+              }
+            } else {
+              if cell.machine_input_3_have.kind == PartKind::None {
+                '╃'
+              } else {
+                '╋'
+              }
+            }
+          }
+        } else if cell.machine_input_2_want.kind != PartKind::None {
+          // ┬ ┭ ┮ ┯ ┰ ┱ ┲ ┳
+          if cell.machine_input_1_have.kind == PartKind::None {
+            if cell.machine_input_2_have.kind == PartKind::None {
+              '┬'
+            } else {
+              '┮'
+            }
+          } else {
+            if cell.machine_input_2_have.kind == PartKind::None {
+              '┭'
+            } else {
+              '┳'
+            }
+          }
+        } else {
+          // │ ┃
+          if cell.machine_input_1_have.kind == PartKind::None {
+            '│'
+          } else {
+            '┃'
+          }
+        }
+      }
+      CellKind::Supply => '|',
+      CellKind::Demand => cell.demand_part.icon,
+    }
+  };
+
+  let s_h = | coord: usize | {
+    let cell = &factory.floor.cells[coord];
+    match cell.kind {
+      CellKind::Empty => ' ',
+      CellKind::Belt => '?',
+      CellKind::Machine => '?',
+      CellKind::Supply => '─',
+      CellKind::Demand => '─',
+    }
+  };
+  let s_v = | coord: usize | {
+    let cell = &factory.floor.cells[coord];
+    match cell.kind {
+      CellKind::Empty => ' ',
+      CellKind::Belt => '?',
+      CellKind::Machine => '?',
+      CellKind::Supply => '│',
+      CellKind::Demand => '│',
+    }
+  };
+  let s_u = | coord: usize | {
+    let cell = &factory.floor.cells[coord];
+    match cell.kind {
+      CellKind::Empty => ' ',
+      CellKind::Belt => '?',
+      CellKind::Machine => '?',
+      CellKind::Supply => cell.belt.cli_out_box_u,
+      CellKind::Demand => cell.belt.cli_out_box_u,
+    }
+  };
+  let s_r = | coord: usize | {
+    let cell = &factory.floor.cells[coord];
+    match cell.kind {
+      CellKind::Empty => ' ',
+      CellKind::Belt => '?',
+      CellKind::Machine => '?',
+      CellKind::Supply => cell.belt.cli_out_box_r,
+      CellKind::Demand => cell.belt.cli_out_box_r,
+    }
+  };
+  let s_d = | coord: usize | {
+    let cell = &factory.floor.cells[coord];
+    match cell.kind {
+      CellKind::Empty => ' ',
+      CellKind::Belt => '?',
+      CellKind::Machine => '?',
+      CellKind::Supply => cell.belt.cli_out_box_d,
+      CellKind::Demand => cell.belt.cli_out_box_d,
+    }
+  };
+  let s_l = | coord: usize | {
+    let cell = &factory.floor.cells[coord];
+    match cell.kind {
+      CellKind::Empty => ' ',
+      CellKind::Belt => '?',
+      CellKind::Machine => '?',
+      CellKind::Supply => cell.belt.cli_out_box_l,
+      CellKind::Demand => cell.belt.cli_out_box_l,
+    }
+  };
+
+  let s_lu = | coord: usize | {
+    let cell = &factory.floor.cells[coord];
+    match cell.kind {
+      CellKind::Empty => ' ',
+      CellKind::Belt => '?',
+      CellKind::Machine => '?',
+      CellKind::Supply => cell.belt.cli_out_box_lu,
+      CellKind::Demand => cell.belt.cli_out_box_lu,
+    }
+  };
+  let s_ru = | coord: usize | {
+    let cell = &factory.floor.cells[coord];
+    match cell.kind {
+      CellKind::Empty => ' ',
+      CellKind::Belt => '?',
+      CellKind::Machine => '?',
+      CellKind::Supply => cell.belt.cli_out_box_ru,
+      CellKind::Demand => cell.belt.cli_out_box_ru,
+    }
+  };
+  let s_dl = | coord: usize | {
+    let cell = &factory.floor.cells[coord];
+    match cell.kind {
+      CellKind::Empty => ' ',
+      CellKind::Belt => '?',
+      CellKind::Machine => '?',
+      CellKind::Supply => cell.belt.cli_out_box_dl,
+      CellKind::Demand => cell.belt.cli_out_box_dl,
+    }
+  };
+  let s_dr = | coord: usize | {
+    let cell = &factory.floor.cells[coord];
+    match cell.kind {
+      CellKind::Empty => ' ',
+      CellKind::Belt => '?',
+      CellKind::Machine => '?',
+      CellKind::Supply => cell.belt.cli_out_box_dr,
+      CellKind::Demand => cell.belt.cli_out_box_dr,
+    }
+  };
+
+
+  // vec!(
+  //   "┌─x─┐",                  e_u(0),
+  //   "│   │",         c_lu(0), c_u(0), c_ru(0),
+  //   "x   x", e_l(0), c_l(0),  c_c(0), c_r(0),  e_r(0),
+  //   "│   │",         c_dl(0), c_d(0), c_dr(0),
+  //   "└─x─┘",                  e_d(0),
+  // );
+  // vec!(
+  //   "┌─{}─┐"     ,                     e_u( 0),
+  //   "│{}{}{}│"   ,         c_lu( 0),   c_u( 0), c_ru( 0),
+  //   "{}{}{}{}{}" , e_l( 0), c_l( 0),   c_c( 0),  c_r( 0),  e_r( 0),
+  //   "│{}{}{}│"   ,         c_dl( 0),   c_d( 0), c_dr( 0),
+  //   "└─{}─┘"     ,                     e_d( 0),
+  // );
+
+  // 7x7
+
   return vec!(
-    format!("┌──{}────{}────{}────{}────{}──┐", hu(factory, 0), hu(factory, 1), hu(factory, 2), hu(factory, 3), hu(factory, 4)).to_string(),
-    format!("│┌─{}─┐┌─{}─┐┌─{}─┐┌─{}─┐┌─{}─┐│", bu(factory, 0, 0), bu(factory, 1, 0), bu(factory, 2, 0), bu(factory, 3, 0), bu(factory, 4, 0)).to_string(),
-    format!("││{}{}{}││{}{}{}││{}{}{}││{}{}{}││{}{}{}││", clu(factory, 0, 0), cu(factory, 0, 0), cru(factory, 0, 0), clu(factory, 1, 0), cu(factory, 1, 0), cru(factory, 1, 0), clu(factory, 2, 0), cu(factory, 2, 0), cru(factory, 2, 0), clu(factory, 3, 0), cu(factory, 3, 0), cru(factory, 3, 0), clu(factory, 4, 0), cu(factory, 4, 0), cru(factory, 4, 0)).to_string(),
-    format!("{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}", hl(factory, 0), bl(factory, 0, 0), cl(factory, 0, 0), cc(factory, 0, 0), cr(factory, 0, 0), br(factory, 0, 0), bl(factory, 1, 0), cl(factory, 1, 0), cc(factory, 1, 0), cr(factory, 1, 0), br(factory, 1, 0), bl(factory, 2, 0), cl(factory, 2, 0), cc(factory, 2, 0), cr(factory, 2, 0), br(factory, 2, 0), bl(factory, 3, 0), cl(factory, 3, 0), cc(factory, 3, 0), cr(factory, 3, 0), br(factory, 3, 0), bl(factory, 4, 0), cl(factory, 4, 0), cc(factory, 4, 0), cr(factory, 4, 0), br(factory, 4, 0), hr(factory, 0)).to_string(),
-    format!("││{}{}{}││{}{}{}││{}{}{}││{}{}{}││{}{}{}││", cdl(factory, 0, 0), cd(factory, 0, 0), cdr(factory, 0, 0), cdl(factory, 1, 0), cd(factory, 1, 0), cdr(factory, 1, 0), cdl(factory, 2, 0), cd(factory, 2, 0), cdr(factory, 2, 0), cdl(factory, 3, 0), cd(factory, 3, 0), cdr(factory, 3, 0), cdl(factory, 4, 0), cd(factory, 4, 0), cdr(factory, 4, 0)).to_string(),
-    format!("│└─{}─┘└─{}─┘└─{}─┘└─{}─┘└─{}─┘│", bd(factory, 0, 0), bd(factory, 1, 0), bd(factory, 2, 0), bd(factory, 3, 0), bd(factory, 4, 0)).to_string(),
-    format!("│┌─{}─┐┌─{}─┐┌─{}─┐┌─{}─┐┌─{}─┐│", bu(factory, 0, 1), bu(factory, 1, 1), bu(factory, 2, 1), bu(factory, 3, 1), bu(factory, 4, 1)).to_string(),
-    format!("││{}{}{}││{}{}{}││{}{}{}││{}{}{}││{}{}{}││", clu(factory, 0, 1), cu(factory, 0, 1), cru(factory, 0, 1), clu(factory, 1, 1), cu(factory, 1, 1), cru(factory, 1, 1), clu(factory, 2, 1), cu(factory, 2, 1), cru(factory, 2, 1), clu(factory, 3, 1), cu(factory, 3, 1), cru(factory, 3, 1), clu(factory, 4, 1), cu(factory, 4, 1), cru(factory, 4, 1)).to_string(),
-    format!("{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}", hl(factory, 1), bl(factory, 0, 1), cl(factory, 0, 1), cc(factory, 0, 1), cr(factory, 0, 1), br(factory, 0, 1), bl(factory, 1, 1), cl(factory, 1, 1), cc(factory, 1, 1), cr(factory, 1, 1), br(factory, 1, 1), bl(factory, 2, 1), cl(factory, 2, 1), cc(factory, 2, 1), cr(factory, 2, 1), br(factory, 2, 1), bl(factory, 3, 1), cl(factory, 3, 1), cc(factory, 3, 1), cr(factory, 3, 1), br(factory, 3, 1), bl(factory, 4, 1), cl(factory, 4, 1), cc(factory, 4, 1), cr(factory, 4, 1), br(factory, 4, 1), hr(factory, 1)).to_string(),
-    format!("││{}{}{}││{}{}{}││{}{}{}││{}{}{}││{}{}{}││", cdl(factory, 0, 1), cd(factory, 0, 1), cdr(factory, 0, 1), cdl(factory, 1, 1), cd(factory, 1, 1), cdr(factory, 1, 1), cdl(factory, 2, 1), cd(factory, 2, 1), cdr(factory, 2, 1), cdl(factory, 3, 1), cd(factory, 3, 1), cdr(factory, 3, 1), cdl(factory, 4, 1), cd(factory, 4, 1), cdr(factory, 4, 1)).to_string(),
-    format!("│└─{}─┘└─{}─┘└─{}─┘└─{}─┘└─{}─┘│", bd(factory, 0, 1), bd(factory, 1, 1), bd(factory, 2, 1), bd(factory, 3, 1), bd(factory, 4, 1)).to_string(),
-    format!("│┌─{}─┐┌─{}─┐┌─{}─┐┌─{}─┐┌─{}─┐│", bu(factory, 0, 2), bu(factory, 1, 2), bu(factory, 2, 2), bu(factory, 3, 2), bu(factory, 4, 2)).to_string(),
-    format!("││{}{}{}││{}{}{}││{}{}{}││{}{}{}││{}{}{}││", clu(factory, 0, 2), cu(factory, 0, 2), cru(factory, 0, 2), clu(factory, 1, 2), cu(factory, 1, 2), cru(factory, 1, 2), clu(factory, 2, 2), cu(factory, 2, 2), cru(factory, 2, 2), clu(factory, 3, 2), cu(factory, 3, 2), cru(factory, 3, 2), clu(factory, 4, 2), cu(factory, 4, 2), cru(factory, 4, 2)).to_string(),
-    format!("{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}", hl(factory, 2), bl(factory, 0, 2), cl(factory, 0, 2), cc(factory, 0, 2), cr(factory, 0, 2), br(factory, 0, 2), bl(factory, 1, 2), cl(factory, 1, 2), cc(factory, 1, 2), cr(factory, 1, 2), br(factory, 1, 2), bl(factory, 2, 2), cl(factory, 2, 2), cc(factory, 2, 2), cr(factory, 2, 2), br(factory, 2, 2), bl(factory, 3, 2), cl(factory, 3, 2), cc(factory, 3, 2), cr(factory, 3, 2), br(factory, 3, 2), bl(factory, 4, 2), cl(factory, 4, 2), cc(factory, 4, 2), cr(factory, 4, 2), br(factory, 4, 2), hr(factory, 2)).to_string(),
-    format!("││{}{}{}││{}{}{}││{}{}{}││{}{}{}││{}{}{}││", cdl(factory, 0, 2), cd(factory, 0, 2), cdr(factory, 0, 2), cdl(factory, 1, 2), cd(factory, 1, 2), cdr(factory, 1, 2), cdl(factory, 2, 2), cd(factory, 2, 2), cdr(factory, 2, 2), cdl(factory, 3, 2), cd(factory, 3, 2), cdr(factory, 3, 2), cdl(factory, 4, 2), cd(factory, 4, 2), cdr(factory, 4, 2)).to_string(),
-    format!("│└─{}─┘└─{}─┘└─{}─┘└─{}─┘└─{}─┘│", bd(factory, 0, 2), bd(factory, 1, 2), bd(factory, 2, 2), bd(factory, 3, 2), bd(factory, 4, 2)).to_string(),
-    format!("│┌─{}─┐┌─{}─┐┌─{}─┐┌─{}─┐┌─{}─┐│", bu(factory, 0, 3), bu(factory, 1, 3), bu(factory, 2, 3), bu(factory, 3, 3), bu(factory, 4, 3)).to_string(),
-    format!("││{}{}{}││{}{}{}││{}{}{}││{}{}{}││{}{}{}││", clu(factory, 0, 3), cu(factory, 0, 3), cru(factory, 0, 3), clu(factory, 1, 3), cu(factory, 1, 3), cru(factory, 1, 3), clu(factory, 2, 3), cu(factory, 2, 3), cru(factory, 2, 3), clu(factory, 3, 3), cu(factory, 3, 3), cru(factory, 3, 3), clu(factory, 4, 3), cu(factory, 4, 3), cru(factory, 4, 3)).to_string(),
-    format!("{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}", hl(factory, 3), bl(factory, 0, 3), cl(factory, 0, 3), cc(factory, 0, 3), cr(factory, 0, 3), br(factory, 0, 3), bl(factory, 1, 3), cl(factory, 1, 3), cc(factory, 1, 3), cr(factory, 1, 3), br(factory, 1, 3), bl(factory, 2, 3), cl(factory, 2, 3), cc(factory, 2, 3), cr(factory, 2, 3), br(factory, 2, 3), bl(factory, 3, 3), cl(factory, 3, 3), cc(factory, 3, 3), cr(factory, 3, 3), br(factory, 3, 3), bl(factory, 4, 3), cl(factory, 4, 3), cc(factory, 4, 3), cr(factory, 4, 3), br(factory, 4, 3), hr(factory, 3)).to_string(),
-    format!("││{}{}{}││{}{}{}││{}{}{}││{}{}{}││{}{}{}││", cdl(factory, 0, 3), cd(factory, 0, 3), cdr(factory, 0, 3), cdl(factory, 1, 3), cd(factory, 1, 3), cdr(factory, 1, 3), cdl(factory, 2, 3), cd(factory, 2, 3), cdr(factory, 2, 3), cdl(factory, 3, 3), cd(factory, 3, 3), cdr(factory, 3, 3), cdl(factory, 4, 3), cd(factory, 4, 3), cdr(factory, 4, 3)).to_string(),
-    format!("│└─{}─┘└─{}─┘└─{}─┘└─{}─┘└─{}─┘│", bd(factory, 0, 3), bd(factory, 1, 3), bd(factory, 2, 3), bd(factory, 3, 3), bd(factory, 4, 3)).to_string(),
-    format!("│┌─{}─┐┌─{}─┐┌─{}─┐┌─{}─┐┌─{}─┐│", bu(factory, 0, 4), bu(factory, 1, 4), bu(factory, 2, 4), bu(factory, 3, 4), bu(factory, 4, 4)).to_string(),
-    format!("││{}{}{}││{}{}{}││{}{}{}││{}{}{}││{}{}{}││", clu(factory, 0, 4), cu(factory, 0, 4), cru(factory, 0, 4), clu(factory, 1, 4), cu(factory, 1, 4), cru(factory, 1, 4), clu(factory, 2, 4), cu(factory, 2, 4), cru(factory, 2, 4), clu(factory, 3, 4), cu(factory, 3, 4), cru(factory, 3, 4), clu(factory, 4, 4), cu(factory, 4, 4), cru(factory, 4, 4)).to_string(),
-    format!("{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}", hl(factory, 4), bl(factory, 0, 4), cl(factory, 0, 4), cc(factory, 0, 4), cr(factory, 0, 4), br(factory, 0, 4), bl(factory, 1, 4), cl(factory, 1, 4), cc(factory, 1, 4), cr(factory, 1, 4), br(factory, 1, 4), bl(factory, 2, 4), cl(factory, 2, 4), cc(factory, 2, 4), cr(factory, 2, 4), br(factory, 2, 4), bl(factory, 3, 4), cl(factory, 3, 4), cc(factory, 3, 4), cr(factory, 3, 4), br(factory, 3, 4), bl(factory, 4, 4), cl(factory, 4, 4), cc(factory, 4, 4), cr(factory, 4, 4), br(factory, 4, 4), hr(factory, 4)).to_string(),
-    format!("││{}{}{}││{}{}{}││{}{}{}││{}{}{}││{}{}{}││", cdl(factory, 0, 4), cd(factory, 0, 4), cdr(factory, 0, 4), cdl(factory, 1, 4), cd(factory, 1, 4), cdr(factory, 1, 4), cdl(factory, 2, 4), cd(factory, 2, 4), cdr(factory, 2, 4), cdl(factory, 3, 4), cd(factory, 3, 4), cdr(factory, 3, 4), cdl(factory, 4, 4), cd(factory, 4, 4), cdr(factory, 4, 4)).to_string(),
-    format!("│└─{}─┘└─{}─┘└─{}─┘└─{}─┘└─{}─┘│", bd(factory, 0, 4), bd(factory, 1, 4), bd(factory, 2, 4), bd(factory, 3, 4), bd(factory, 4, 4)).to_string(),
-    format!("└──{}────{}────{}────{}────{}──┘", hd(factory, 0), hd(factory, 1), hd(factory, 2), hd(factory, 3), hd(factory, 4)).to_string(),
+    format!("     {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}     "  ,                                                                 s_lu( 1),  s_h( 1), s_u( 1),  s_h( 1), s_ru( 1),     s_lu( 2), s_h( 2), s_u( 2),  s_h( 2), s_ru( 2),    s_lu( 3), s_h( 3),  s_u( 3), s_h( 3),  s_ru( 3),    s_lu( 4), s_h( 4),  s_u( 4),  s_h( 4), s_ru( 4),   s_lu( 5), s_h( 5), s_u( 5),  s_h( 5), s_ru( 5)),
+    format!("     {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}     "  ,                                                                  s_v( 1),  ' ',     c_u( 1),  ' ',      s_v( 1),      s_v( 2), ' ',     c_u( 2),  ' ',      s_v( 2),     s_v( 3), ' ',      c_u( 3), ' ',       s_v( 3),     s_v( 4), ' ',      c_u( 4),  ' ',      s_v( 4),    s_v( 5), ' ',     c_u( 5),  ' ',      s_v( 5)),
+    format!("     {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}     "  ,                                                                  s_l( 1),  c_l( 1), c_c( 1),  c_r( 1),  s_r( 1),      s_l( 2), c_l( 2), c_c( 2),  c_r( 2),  s_r( 2),     s_l( 3), c_l( 3),  c_c( 3), c_r( 3),   s_r( 3),     s_l( 4), c_l( 4),  c_c( 4),  c_r( 4),  s_r( 4),    s_l( 5), c_l( 5), c_c( 5),  c_r( 5),  s_r( 5)),
+    format!("     {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}     "  ,                                                                  s_v( 1),   ' ',    c_d( 1),  ' ',      s_v( 1),      s_v( 2), ' ',     c_d( 2),  ' ',      s_v( 2),     s_v( 3),  ' ',     c_d( 3), ' ',       s_v( 3),     s_v( 4), ' ',      c_d( 4),  ' ',      s_v( 4),    s_v( 5), ' ',     c_d( 5),  ' ',      s_v( 5)),
+    format!("     {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}     "  ,                                                                 s_dl( 1),  s_h( 1), s_d( 1),  s_h( 1), s_dr( 1),     s_dl( 2), s_h( 2), s_d( 2),  s_h( 2), s_dr( 2),    s_dl( 3), s_h( 3),  s_d( 3), s_h( 3),  s_dr( 3),    s_dl( 4), s_h( 4),  s_d( 4),  s_h( 4), s_dr( 4),   s_dl( 5), s_h( 5), s_d( 5),  s_h( 5), s_dr( 5)),
+    format!("{}{}{}{}{}┌─{}─┐┌─{}─┐┌─{}─┐┌─{}─┐┌─{}─┐{}{}{}{}{}"                        , s_lu( 7), s_h( 7), s_u( 7), s_h( 7), s_ru( 7),                          e_u( 8),                                            e_u( 9),                                            e_u(10),                                            e_u(11),                                          e_u(12),                      s_lu(13),  s_h(13),  s_u(13), s_h(13),   s_ru(13), ),
+    format!("{}{}{}{}{}│{}{}{}││{}{}{}││{}{}{}││{}{}{}││{}{}{}│{}{}{}{}{}"              , s_v( 7), ' ',      c_u( 7), ' ',      s_v( 7),                c_lu( 8), c_u( 8), c_ru( 8),                        c_lu( 9), c_u( 9), c_ru( 9),                       c_lu(10),  c_u(10), c_ru(10),                       c_lu(11),  c_u(11), c_ru(11),                      c_lu(12), c_u(12), c_ru(12),             s_v(13), ' ',       c_u(13), ' ',        s_v(13),      ),
+    format!("{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}"    , s_l( 7),  c_l( 7), c_c( 7), c_r( 7),  s_r( 7),       e_l( 8),  c_l( 8), c_c( 8),  c_r( 8),  e_r( 8),      e_l( 9), c_l( 9), c_c( 9),  c_r( 9),  e_r( 9),     e_l(10), c_l(10),  c_c(10), c_r(10),   e_r(10),     e_l(11), c_l(11),  c_c(11),  c_r(11),  e_r(11),    e_l(12), c_l(12), c_c(12),  c_r(12),  e_r(12),   s_l(13),  c_l(13),  c_c(13), c_r(13),    s_r(13),          ),
+    format!("{}{}{}{}{}│{}{}{}││{}{}{}││{}{}{}││{}{}{}││{}{}{}│{}{}{}{}{}"              , s_v( 7),  ' ',     c_d( 7), ' ',      s_v( 7),                c_dl( 8), c_d( 8), c_dr( 8),                        c_dl( 9), c_d( 9), c_dr( 9),                       c_dl(10),  c_d(10), c_dr(10),                       c_dl(11),  c_d(11), c_dr(11),                      c_dl(12), c_d(12), c_dr(12),             s_v(13),  ' ',      c_d(13), ' ',        s_v(13),      ),
+    format!("{}{}{}{}{}└─{}─┘└─{}─┘└─{}─┘└─{}─┘└─{}─┘{}{}{}{}{}"                        , s_dl( 7), s_h( 7), s_d( 7), s_h( 7), s_dr( 7),                          e_d( 8),                                            e_d( 9),                                            e_d(10),                                            e_d(11),                                          e_d(12),                      s_dl(13),  s_h(13),  s_d(13), s_h(13),   s_dr(13), ),
+    format!("{}{}{}{}{}┌─{}─┐┌─{}─┐┌─{}─┐┌─{}─┐┌─{}─┐{}{}{}{}{}"                        , s_lu(14), s_h(14), s_u(14), s_h(14), s_ru(14),                          e_u(15),                                            e_u(16),                                            e_u(17),                                            e_u(18),                                          e_u(19),                      s_lu(20),  s_h(20),  s_u(20), s_h(20),   s_ru(20), ),
+    format!("{}{}{}{}{}│{}{}{}││{}{}{}││{}{}{}││{}{}{}││{}{}{}│{}{}{}{}{}"              , s_v(14), ' ',      c_u(14), ' ',      s_v(14),                c_lu(15), c_u(15), c_ru(15),                        c_lu(16), c_u(16), c_ru(16),                       c_lu(17),  c_u(17), c_ru(17),                       c_lu(18),  c_u(18), c_ru(18),                      c_lu(19), c_u(19), c_ru(19),             s_v(20), ' ',       c_u(20), ' ',        s_v(20),      ),
+    format!("{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}"    , s_l(14),  c_l(14), c_c(14), c_r(14),  s_r(14),       e_l(15),  c_l(15), c_c(15),  c_r(15),  e_r(15),      e_l(16), c_l(16), c_c(16),  c_r(16),  e_r(16),     e_l(17), c_l(17),  c_c(17), c_r(17),   e_r(17),     e_l(18), c_l(18),  c_c(18),  c_r(18),  e_r(18),    e_l(19), c_l(19), c_c(19),  c_r(19),  e_r(19),   s_l(20),  c_l(20),  c_c(20), c_r(20),    s_r(20),          ),
+    format!("{}{}{}{}{}│{}{}{}││{}{}{}││{}{}{}││{}{}{}││{}{}{}│{}{}{}{}{}"              , s_v(14),  ' ',     c_d(14), ' ',      s_v(14),                c_dl(15), c_d(15), c_dr(15),                        c_dl(16), c_d(16), c_dr(16),                       c_dl(17),  c_d(17), c_dr(17),                       c_dl(18),  c_d(18), c_dr(18),                      c_dl(19), c_d(19), c_dr(19),             s_v(20),  ' ',      c_d(20), ' ',        s_v(20),      ),
+    format!("{}{}{}{}{}└─{}─┘└─{}─┘└─{}─┘└─{}─┘└─{}─┘{}{}{}{}{}"                        , s_dl(14), s_h(14), s_d(14), s_h(14), s_dr(14),                          e_d(15),                                            e_d(16),                                            e_d(17),                                            e_d(18),                                          e_d(19),                      s_dl(20),  s_h(20),  s_d(20), s_h(20),   s_dr(20), ),
+    format!("{}{}{}{}{}┌─{}─┐┌─{}─┐┌─{}─┐┌─{}─┐┌─{}─┐{}{}{}{}{}"                        , s_lu(21), s_h(21), s_u(21), s_h(21), s_ru(21),                          e_u(22),                                            e_u(23),                                            e_u(24),                                            e_u(25),                                          e_u(26),                      s_lu(27),  s_h(27),  s_u(27), s_h(27),   s_ru(27), ),
+    format!("{}{}{}{}{}│{}{}{}││{}{}{}││{}{}{}││{}{}{}││{}{}{}│{}{}{}{}{}"              , s_v(21), ' ',      c_u(21), ' ',      s_v(21),                c_lu(22), c_u(22), c_ru(22),                        c_lu(23), c_u(23), c_ru(23),                       c_lu(24),  c_u(24), c_ru(24),                       c_lu(25),  c_u(25), c_ru(25),                      c_lu(26), c_u(26), c_ru(26),             s_v(27), ' ',       c_u(27), ' ',        s_v(27),      ),
+    format!("{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}"    , s_l(21),  c_l(21), c_c(21), c_r(21),  s_r(21),       e_l(22),  c_l(22), c_c(22),  c_r(22),  e_r(22),      e_l(23), c_l(23), c_c(23),  c_r(23),   e_r(23),    e_l(24), c_l(24),  c_c(24), c_r(24),    e_r(24),    e_l(25), c_l(25),  c_c(25),  c_r(25),  e_r(25),    e_l(26), c_l(26), c_c(26),  c_r(26),  e_r(26),   s_l(27),  c_l(27),  c_c(27), c_r(27),    s_r(27),          ),
+    format!("{}{}{}{}{}│{}{}{}││{}{}{}││{}{}{}││{}{}{}││{}{}{}│{}{}{}{}{}"              , s_v(21),  ' ',     c_d(21), ' ',      s_v(21),                c_dl(22), c_d(22), c_dr(22),                        c_dl(23), c_d(23), c_dr(23),                       c_dl(24),  c_d(24), c_dr(24),                       c_dl(25),  c_d(25), c_dr(25),                      c_dl(26), c_d(26), c_dr(26),             s_v(27),  ' ',      c_d(27), ' ',        s_v(27),      ),
+    format!("{}{}{}{}{}└─{}─┘└─{}─┘└─{}─┘└─{}─┘└─{}─┘{}{}{}{}{}"                        , s_dl(21), s_h(21), s_d(21), s_h(21), s_dr(21),                          e_d(22),                                            e_d(23),                                            e_d(24),                                            e_d(25),                                          e_d(26),                      s_dl(27),  s_h(27),  s_d(27), s_h(27),   s_dr(27), ),
+    format!("{}{}{}{}{}┌─{}─┐┌─{}─┐┌─{}─┐┌─{}─┐┌─{}─┐{}{}{}{}{}"                        , s_lu(28), s_h(28), s_u(28), s_h(28), s_ru(28),                          e_u(29),                                            e_u(30),                                            e_u(31),                                            e_u(32),                                          e_u(33),                      s_lu(34),  s_h(34),  s_u(34), s_h(34),   s_ru(34), ),
+    format!("{}{}{}{}{}│{}{}{}││{}{}{}││{}{}{}││{}{}{}││{}{}{}│{}{}{}{}{}"              , s_v(28), ' ',      c_u(28), ' ',      s_v(28),                c_lu(29), c_u(29), c_ru(29),                        c_lu(30), c_u(30), c_ru(30),                       c_lu(31),  c_u(31), c_ru(31),                       c_lu(32),  c_u(32), c_ru(32),                      c_lu(33), c_u(33), c_ru(33),             s_v(34), ' ',       c_u(34), ' ',        s_v(34),      ),
+    format!("{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}"    , s_l(28),  c_l(28), c_c(28), c_r(28),  s_r(28),       e_l(29),  c_l(29), c_c(29),  c_r(29),  e_r(29),      e_l(30), c_l(30), c_c(30),  c_r(30),   e_r(30),    e_l(31), c_l(31),  c_c(31), c_r(31),    e_r(31),    e_l(32), c_l(32),  c_c(32),  c_r(32),  e_r(32),    e_l(33), c_l(33), c_c(33),  c_r(33),  e_r(33),   s_l(34),  c_l(34),  c_c(34), c_r(34),    s_r(34),          ),
+    format!("{}{}{}{}{}│{}{}{}││{}{}{}││{}{}{}││{}{}{}││{}{}{}│{}{}{}{}{}"              , s_v(28),  ' ',     c_d(28), ' ',      s_v(28),                c_dl(29), c_d(29), c_dr(29),                        c_dl(30), c_d(30), c_dr(30),                       c_dl(31),  c_d(31), c_dr(31),                       c_dl(32),  c_d(32), c_dr(32),                      c_dl(33), c_d(33), c_dr(33),             s_v(34),  ' ',      c_d(34), ' ',        s_v(34),      ),
+    format!("{}{}{}{}{}└─{}─┘└─{}─┘└─{}─┘└─{}─┘└─{}─┘{}{}{}{}{}"                        , s_dl(28), s_h(28), s_d(28), s_h(28), s_dr(28),                          e_d(29),                                            e_d(30),                                            e_d(31),                                            e_d(32),                                          e_d(33),                      s_dl(34),  s_h(34),  s_d(34), s_h(34),   s_dr(34), ),
+    format!("{}{}{}{}{}┌─{}─┐┌─{}─┐┌─{}─┐┌─{}─┐┌─{}─┐{}{}{}{}{}"                        , s_lu(35), s_h(35), s_u(35), s_h(35), s_ru(35),                          e_u(36),                                            e_u(37),                                            e_u(38),                                            e_u(39),                                          e_u(40),                      s_lu(41),  s_h(41),  s_u(41), s_h(41),   s_ru(41), ),
+    format!("{}{}{}{}{}│{}{}{}││{}{}{}││{}{}{}││{}{}{}││{}{}{}│{}{}{}{}{}"              , s_v(35), ' ',      c_u(35), ' ',      s_v(35),                c_lu(36), c_u(36), c_ru(36),                        c_lu(37), c_u(37), c_ru(37),                       c_lu(38),  c_u(38), c_ru(38),                       c_lu(39),  c_u(39), c_ru(39),                      c_lu(40), c_u(40), c_ru(40),             s_v(41), ' ',       c_u(41), ' ',        s_v(41),      ),
+    format!("{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}"    , s_l(35),  c_l(35), c_c(35), c_r(35),  s_r(35),       e_l(36),  c_l(36), c_c(36),  c_r(36),  e_r(36),      e_l(37), c_l(37), c_c(37),  c_r(37),   e_r(37),    e_l(38), c_l(38),  c_c(38), c_r(38),    e_r(38),    e_l(39), c_l(39),  c_c(39),  c_r(39),  e_r(39),    e_l(40), c_l(40), c_c(40),  c_r(40),  e_r(40),   s_l(41),  c_l(41),  c_c(41), c_r(41),    s_r(41),          ),
+    format!("{}{}{}{}{}│{}{}{}││{}{}{}││{}{}{}││{}{}{}││{}{}{}│{}{}{}{}{}"              , s_v(35),  ' ',     c_d(35), ' ',      s_v(35),                c_dl(36), c_d(36), c_dr(36),                        c_dl(37), c_d(37), c_dr(37),                       c_dl(38),  c_d(38), c_dr(38),                       c_dl(39),  c_d(39), c_dr(39),                      c_dl(40), c_d(40), c_dr(40),             s_v(41),  ' ',      c_d(41), ' ',        s_v(41),  ),
+    format!("{}{}{}{}{}└─{}─┘└─{}─┘└─{}─┘└─{}─┘└─{}─┘{}{}{}{}{}"                        , s_dl(35), s_h(35), s_d(35), s_h(35),  s_dr(35),                         e_d(36),                                            e_d(37),                                            e_d(38),                                            e_d(39),                                          e_d(40),                      s_dl(41),  s_h(41),  s_d(41), s_h(41),   s_dr(41), ),
+    format!("     {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}     "  ,                                                                 s_lu(43),  s_h(43), s_u(43),  s_h(43), s_ru(43),     s_lu(44), s_h(44), s_u(44),  s_h(44),  s_ru(44),   s_lu(45), s_h(45),  s_u(45),  s_h(45),  s_ru(45),   s_lu(46), s_h(46),  s_u(46),  s_h(46), s_ru(46),   s_lu(47), s_h(47), s_u(47), s_h(47),  s_ru(47)),
+    format!("     {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}     "  ,                                                                  s_v(43), ' ',      c_u(43),  ' ',      s_v(43),      s_v(44), ' ',     c_u(44),  ' ',       s_v(44),    s_v(45), ' ',      c_u(45),  ' ',       s_v(45),    s_v(46), ' ',      c_u(46),  ' ',      s_v(46),    s_v(47), ' ',     c_u(47), ' ',       s_v(47)),
+    format!("     {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}     "  ,                                                                  s_l(43),  c_l(43), c_c(43),  c_r(43),  s_r(43),      s_l(44), c_l(44), c_c(44),  c_r(44),   s_r(44),    s_l(45), c_l(45),  c_c(45),  c_r(45),   s_r(45),    s_l(46), c_l(46),  c_c(46),  c_r(46),  s_r(46),    s_l(47), c_l(47), c_c(47), c_r(47),   s_r(47)),
+    format!("     {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}     "  ,                                                                  s_v(43),  ' ',     c_d(43),  ' ',      s_v(43),      s_v(44), ' ',     c_d(44),  ' ',       s_v(44),    s_v(45), ' ',      c_d(45),  ' ',       s_v(45),    s_v(46), ' ',      c_d(46),  ' ',      s_v(46),    s_v(47), ' ',     c_d(47), ' ',       s_v(47)),
+    format!("     {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}     "  ,                                                                 s_dl(43),  s_h(43), s_d(43),  s_h(43), s_dr(43),     s_dl(44), s_h(44), s_d(44),  s_h(44),  s_dr(44),   s_dl(45), s_h(45),  s_d(45),  s_h(45),  s_dr(45),   s_dl(46), s_h(46),  s_d(46),  s_h(46), s_dr(46),   s_dl(47), s_h(47), s_d(47), s_h(47),  s_dr(47)),
   );
 }
 

@@ -14,7 +14,7 @@ pub enum PartKind {
   GoldenBlueWand,
 }
 
-pub fn part_none(x: usize, y: usize) -> Part {
+pub const fn part_none() -> Part {
   return Part {
     kind: PartKind::None,
     icon: ' ',
