@@ -5,15 +5,9 @@
 </head>
 <body>
 <script>
-  Error.stackTraceLimit = Infinity;
-  function log(s) {
-    console.log('(rust)', s);
-  }
-  function dnow() {
-    return Date.now();
-  }
 </script>
 <script type="module">
+  Error.stackTraceLimit = Infinity;
   console.log('(html) start');
   import('../pkg/factini.js').then(x => {
     console.log('x:', x);

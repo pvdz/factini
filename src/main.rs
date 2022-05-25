@@ -52,5 +52,11 @@ fn main() {
       // print!("\x1b[{}A\n", 60);
     }
   }
+}
 
+pub fn log(s: &str) {
+  #[cfg(not(target_arch = "wasm32"))]
+  println!("{}", s);
+  #[cfg(target_arch = "wasm32")]
+  _web::log(s);
 }

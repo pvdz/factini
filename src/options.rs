@@ -14,10 +14,15 @@ pub struct Options {
   pub print_factory_interval: u64,
   pub print_stats_interval: u64,
   pub trace_priority_step: bool,
+
   pub short_term_window: u64, // For stats; average over this many ticks
   pub long_term_window: u64, // For stats; average over this many ticks
+
   pub speed_modifier: f64, // Increase or decrease ticks per second by this rate
+
   pub web_output_cli: bool, // Print the simplified cli output in web version?
+
+  pub paint_cell_segment_grid: bool, // For each non-empty cell print a 9x9 sub-grid?
 }
 
 pub fn create_options(speed_modifier: f64) -> Options {
@@ -41,6 +46,7 @@ pub fn create_options(speed_modifier: f64) -> Options {
     long_term_window: 600000,
     speed_modifier,
     web_output_cli: false,
+    paint_cell_segment_grid: false,
   };
 }
 

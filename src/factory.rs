@@ -151,8 +151,8 @@ fn should_be_marked_for_cell_sorting(options: &Options, cell: &Cell, cell_u: &Ce
     }
   }
 }
-fn create_prio_list(options: &Options, floor: &mut Floor) -> Vec<usize> {
-  println!("create_prio_list()... options.trace_priority_step={}", options.trace_priority_step);
+pub fn create_prio_list(options: &Options, floor: &mut Floor) -> Vec<usize> {
+  super::log(format!("create_prio_list()... options.trace_priority_step={}", options.trace_priority_step).as_str());
   // Collect cells by marking them and putting their coords in a vec. In the end the vec must have
   // all non-empty cells and the factory game tick should traverse cells in that order. This way
   // you work around the belt wanting to unload onto another belt that is currently full but would
@@ -179,7 +179,10 @@ fn create_prio_list(options: &Options, floor: &mut Floor) -> Vec<usize> {
 
   let mut demand_connects = vec!();
   for coord in 0..fsum {
-    if options.trace_priority_step { println!("- kind {} {:?} {:?} {} {}", coord, floor.cells[coord].kind, to_xy(coord, w), floor.cells[coord].x, floor.cells[coord].y); }
+    // Unmark all cells first
+    floor.cells[coord].marked = false;
+
+    if options.trace_priority_step { super::log(format!("- kind {} {:?} {:?} {} {}", coord, floor.cells[coord].kind, to_xy(coord, w), floor.cells[coord].x, floor.cells[coord].y).as_str()); }
     match floor.cells[coord].kind {
       CellKind::Demand => {
         out.push(coord);
@@ -200,7 +203,7 @@ fn create_prio_list(options: &Options, floor: &mut Floor) -> Vec<usize> {
 
         floor.cells[coord].marked = true;
         floor.cells[coord2].marked = true;
-        if options.trace_priority_step { println!("- Adding {} as the cell that is connected to a Demand at {}", coord2, coord); }
+        if options.trace_priority_step { super::log(format!("- Adding {} as the cell that is connected to a Demand at {}", coord2, coord).as_str()); }
         demand_connects.push(coord2);
       }
       CellKind::Empty => {
@@ -213,8 +216,8 @@ fn create_prio_list(options: &Options, floor: &mut Floor) -> Vec<usize> {
   }
 
   if options.trace_priority_step {
-    println!("- out {:?}", demand_connects);
-    println!("- connected to demanders {:?}", demand_connects);
+    super::log(format!("- out {:?}", demand_connects).as_str());
+    super::log(format!("- connected to demanders {:?}", demand_connects).as_str());
   }
 
   // out contains all demanders now. push them as the next step in priority.
@@ -223,10 +226,10 @@ fn create_prio_list(options: &Options, floor: &mut Floor) -> Vec<usize> {
   }
 
   if options.trace_priority_step {
-    println!("- after step 1 {:?}", out);
+    super::log(format!("- after step 1 {:?}", out).as_str());
   }
 
-  // println!("- iteratively follow the trail");
+  // super::log(format!("- iteratively follow the trail").as_str());
   let mut stepped = 1;
   let mut found_something = true;
   let mut some_left = true;
@@ -234,14 +237,14 @@ fn create_prio_list(options: &Options, floor: &mut Floor) -> Vec<usize> {
   let h = floor.height + 2;
   while found_something && some_left {
     stepped += 1;
-    // println!("  - loop");
+    // super::log(format!("  - loop").as_str());
     found_something = false;
 
     // Only walk inside cells. Assume there's always an up/right/down/left neighbor cell.
     for coord in w..fsum-w {
       if coord % w == 0 || coord % w == w - 1 { continue; } // Skip edge cells (none/supply/demand)
 
-      if options.trace_priority_step && !floor.cells[coord].marked { println!(" - kind {} {:?} {:?} {} {}", coord, floor.cells[coord].kind, to_xy(coord, w), floor.cells[coord].x, floor.cells[coord].y); }
+      if options.trace_priority_step && !floor.cells[coord].marked { super::log(format!(" - kind {} {:?} {:?} {} {}", coord, floor.cells[coord].kind, to_xy(coord, w), floor.cells[coord].x, floor.cells[coord].y).as_str()); }
       if
       should_be_marked_for_cell_sorting(
         options,
@@ -252,7 +255,7 @@ fn create_prio_list(options: &Options, floor: &mut Floor) -> Vec<usize> {
         &floor.cells[to_coord_left(coord, w)],
       )
       {
-        if options.trace_priority_step { println!("    - adding {:?}", to_xy(coord, w)); }
+        if options.trace_priority_step { super::log(format!("    - adding {:?}", to_xy(coord, w)).as_str()); }
         floor.cells[coord].marked = true;
         out.push(coord);
         found_something = true;
@@ -261,16 +264,16 @@ fn create_prio_list(options: &Options, floor: &mut Floor) -> Vec<usize> {
       }
     }
 
-    if options.trace_priority_step { println!("- after step {}: {:?}", stepped, out); }
+    if options.trace_priority_step { super::log(format!("- after step {}: {:?}", stepped, out).as_str()); }
   }
-  if options.trace_priority_step { println!("- done with connected cells. now adding remaining unmarked non-empty cells..."); }
+  if options.trace_priority_step { super::log(format!("- done with connected cells. now adding remaining unmarked non-empty cells...").as_str()); }
 
   // Gather the remaining cells. This means not all cells are properly hooked up (or there's
   // a circular loop or something). In that case accept a sub-optimal tick order.
   for coord in 0..fsum {
     let (x, y) = to_xy(coord, w);
     if !floor.cells[coord].marked && floor.cells[coord].kind != CellKind::Empty {
-      if options.trace_priority_step{ println!("  - adding {} {:?}", coord, (x, y)); }
+      if options.trace_priority_step{ super::log(format!("  - adding {} {:?}", coord, (x, y)).as_str()); }
       out.push(coord);
       floor.cells[coord].marked = true; // Kinda pointless
     }
@@ -760,7 +763,10 @@ pub fn move_part_from_supply_to_segment(options: &mut Options, _state: &mut Stat
 }
 
 fn b2d_outbound_segment_ready_to_send(factory: &mut Factory, ocoord: usize, odir: SegmentDirection) -> bool {
-  assert_eq!(factory.floor.cells[ocoord].kind, CellKind::Belt, "b2d_outbound_segment_ready_to_send; this cell should be asserted to be a belt: {:?}", factory.floor.cells[ocoord].kind);
+  if factory.floor.cells[ocoord].kind != CellKind::Demand {
+    // Note: ocoord is the "other side from the demand" and must be a belt or else it wont work
+    return false;
+  }
 
   let cell = &factory.floor.cells[ocoord];
   let segment: &Segment = &cell.segments[odir as usize];
