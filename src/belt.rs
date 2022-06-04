@@ -1,18 +1,14 @@
-// We don't need to use all of them :)
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Port {
-  Inbound,
-  Outbound,
-  None,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum Line {
-  Topper = 0,
-  Middle = 1,
-  Bottom = 2,
-}
+use crate::cell::CellKind;
+use super::cell::*;
+use super::demand::*;
+use super::direction::*;
+use super::factory::*;
+use super::machine::*;
+use super::options::*;
+use super::part::*;
+use super::port::*;
+use super::supply::*;
+use super::state::*;
 
 #[allow(non_camel_case_types)]
 #[derive(Clone, Copy, Debug)]
@@ -68,123 +64,445 @@ pub enum BeltType {
   DLU_R = 48,
   RLU_D = 49,
   DRU_L = 50,
-  INVALID = 51,
+  RU = 51,
+  DR = 52,
+  DL = 53,
+  LU = 54,
+  DU = 55,
+  LR = 56,
+  LRU = 57,
+  DRU = 58,
+  DLR = 59,
+  DLU = 60,
+  DLRU = 61,
+
+  INVALID = 62, // Keep last item
 }
 // Keep in sync...
-pub const CELL_BELT_TYPE_COUNT: usize = (BeltType::INVALID as usize) + 1;
+pub const BELT_TYPE_COUNT: usize = (BeltType::INVALID as usize) + 1;
 
-pub fn port_config_to_belt(up: Port, right: Port, down: Port, left: Port) -> BeltMeta {
-  match   (up,          right,          down,           left) {
-    (Port::Inbound,  Port::Inbound,  Port::Inbound,  Port::Inbound) =>   CELL_BELT_INVALID,
-    (Port::Inbound,  Port::Inbound,  Port::Inbound,  Port::Outbound) =>  CELL_BELT_DRU_L,
-    (Port::Inbound,  Port::Inbound,  Port::Inbound,  Port::None) =>      CELL_BELT_INVALID,
-    (Port::Inbound,  Port::Inbound,  Port::Outbound, Port::Inbound) =>   CELL_BELT_LRU_D,
-    (Port::Inbound,  Port::Inbound,  Port::Outbound, Port::Outbound) =>  CELL_BELT_RU_DL,
-    (Port::Inbound,  Port::Inbound,  Port::Outbound, Port::None) =>      CELL_BELT_RU_D,
-    (Port::Inbound,  Port::Inbound,  Port::None,     Port::Inbound) =>   CELL_BELT_INVALID,
-    (Port::Inbound,  Port::Inbound,  Port::None,     Port::Outbound) =>  CELL_BELT_RU_L,
-    (Port::Inbound,  Port::Inbound,  Port::None,     Port::None) =>      CELL_BELT_INVALID,
-    (Port::Inbound,  Port::Outbound, Port::Inbound,  Port::Inbound) =>   CELL_BELT_DLU_R,
-    (Port::Inbound,  Port::Outbound, Port::Inbound,  Port::Outbound) =>  CELL_BELT_DU_LR,
-    (Port::Inbound,  Port::Outbound, Port::Inbound,  Port::None) =>      CELL_BELT_DU_R,
-    (Port::Inbound,  Port::Outbound, Port::Outbound, Port::Inbound) =>   CELL_BELT_LU_DR,
-    (Port::Inbound,  Port::Outbound, Port::Outbound, Port::Outbound) =>  CELL_BELT_U_DLR,
-    (Port::Inbound,  Port::Outbound, Port::Outbound, Port::None) =>      CELL_BELT_U_DR,
-    (Port::Inbound,  Port::Outbound, Port::None,     Port::Inbound) =>   CELL_BELT_LU_R,
-    (Port::Inbound,  Port::Outbound, Port::None,     Port::Outbound) =>  CELL_BELT_U_LR,
-    (Port::Inbound,  Port::Outbound, Port::None,     Port::None) =>      CELL_BELT_U_R,
-    (Port::Inbound,  Port::None,     Port::Inbound,  Port::Inbound) =>   CELL_BELT_INVALID,
-    (Port::Inbound,  Port::None,     Port::Inbound,  Port::Outbound) =>  CELL_BELT_DU_L,
-    (Port::Inbound,  Port::None,     Port::Inbound,  Port::None) =>      CELL_BELT_INVALID,
-    (Port::Inbound,  Port::None,     Port::Outbound, Port::Inbound) =>   CELL_BELT_LU_D,
-    (Port::Inbound,  Port::None,     Port::Outbound, Port::Outbound) =>  CELL_BELT_U_DL,
-    (Port::Inbound,  Port::None,     Port::Outbound, Port::None) =>      CELL_BELT_U_D,
-    (Port::Inbound,  Port::None,     Port::None,     Port::Inbound) =>   CELL_BELT_INVALID,
-    (Port::Inbound,  Port::None,     Port::None,     Port::Outbound) =>  CELL_BELT_U_L,
-    (Port::Inbound,  Port::None,     Port::None,     Port::None) =>      CELL_BELT_INVALID,
-    (Port::Outbound, Port::Inbound,  Port::Inbound,  Port::Inbound) =>   CELL_BELT_DLR_U,
-    (Port::Outbound, Port::Inbound,  Port::Inbound,  Port::Outbound) =>  CELL_BELT_DR_LU,
-    (Port::Outbound, Port::Inbound,  Port::Inbound,  Port::None) =>      CELL_BELT_DR_U,
-    (Port::Outbound, Port::Inbound,  Port::Outbound, Port::Inbound) =>   CELL_BELT_LR_DU,
-    (Port::Outbound, Port::Inbound,  Port::Outbound, Port::Outbound) =>  CELL_BELT_R_DLU,
-    (Port::Outbound, Port::Inbound,  Port::Outbound, Port::None) =>      CELL_BELT_R_DU,
-    (Port::Outbound, Port::Inbound,  Port::None,     Port::Inbound) =>   CELL_BELT_LR_U,
-    (Port::Outbound, Port::Inbound,  Port::None,     Port::Outbound) =>  CELL_BELT_R_LU,
-    (Port::Outbound, Port::Inbound,  Port::None,     Port::None) =>      CELL_BELT_R_U,
-    (Port::Outbound, Port::Outbound, Port::Inbound,  Port::Inbound) =>   CELL_BELT_DL_RU,
-    (Port::Outbound, Port::Outbound, Port::Inbound,  Port::Outbound) =>  CELL_BELT_D_LRU,
-    (Port::Outbound, Port::Outbound, Port::Inbound,  Port::None) =>      CELL_BELT_D_RU,
-    (Port::Outbound, Port::Outbound, Port::Outbound, Port::Inbound) =>   CELL_BELT_L_DRU,
-    (Port::Outbound, Port::Outbound, Port::Outbound, Port::Outbound) =>  CELL_BELT_INVALID,
-    (Port::Outbound, Port::Outbound, Port::Outbound, Port::None) =>      CELL_BELT_INVALID,
-    (Port::Outbound, Port::Outbound, Port::None,     Port::Inbound) =>   CELL_BELT_L_RU,
-    (Port::Outbound, Port::Outbound, Port::None,     Port::Outbound) =>  CELL_BELT_INVALID,
-    (Port::Outbound, Port::Outbound, Port::None,     Port::None) =>      CELL_BELT_INVALID,
-    (Port::Outbound, Port::None,     Port::Inbound,  Port::Inbound) =>   CELL_BELT_DL_U,
-    (Port::Outbound, Port::None,     Port::Inbound,  Port::Outbound) =>  CELL_BELT_D_LU,
-    (Port::Outbound, Port::None,     Port::Inbound,  Port::None) =>      CELL_BELT_D_U,
-    (Port::Outbound, Port::None,     Port::Outbound, Port::Inbound) =>   CELL_BELT_L_DU,
-    (Port::Outbound, Port::None,     Port::Outbound, Port::Outbound) =>  CELL_BELT_INVALID,
-    (Port::Outbound, Port::None,     Port::Outbound, Port::None) =>      CELL_BELT_INVALID,
-    (Port::Outbound, Port::None,     Port::None,     Port::Inbound) =>   CELL_BELT_L_U,
-    (Port::Outbound, Port::None,     Port::None,     Port::Outbound) =>  CELL_BELT_INVALID,
-    (Port::Outbound, Port::None,     Port::None,     Port::None) =>      CELL_BELT_INVALID,
-    (Port::None,     Port::Inbound,  Port::Inbound,  Port::Inbound) =>   CELL_BELT_INVALID,
-    (Port::None,     Port::Inbound,  Port::Inbound,  Port::Outbound) =>  CELL_BELT_DR_L,
-    (Port::None,     Port::Inbound,  Port::Inbound,  Port::None) =>      CELL_BELT_INVALID,
-    (Port::None,     Port::Inbound,  Port::Outbound, Port::Inbound) =>   CELL_BELT_LR_D,
-    (Port::None,     Port::Inbound,  Port::Outbound, Port::Outbound) =>  CELL_BELT_R_DL,
-    (Port::None,     Port::Inbound,  Port::Outbound, Port::None) =>      CELL_BELT_R_D,
-    (Port::None,     Port::Inbound,  Port::None,     Port::Inbound) =>   CELL_BELT_INVALID,
-    (Port::None,     Port::Inbound,  Port::None,     Port::Outbound) =>  CELL_BELT_R_L,
-    (Port::None,     Port::Inbound,  Port::None,     Port::None) =>      CELL_BELT_INVALID,
-    (Port::None,     Port::Outbound, Port::Inbound,  Port::Inbound) =>   CELL_BELT_DL_R,
-    (Port::None,     Port::Outbound, Port::Inbound,  Port::Outbound) =>  CELL_BELT_D_LR,
-    (Port::None,     Port::Outbound, Port::Inbound,  Port::None) =>      CELL_BELT_D_R,
-    (Port::None,     Port::Outbound, Port::Outbound, Port::Inbound) =>   CELL_BELT_L_DR,
-    (Port::None,     Port::Outbound, Port::Outbound, Port::Outbound) =>  CELL_BELT_INVALID,
-    (Port::None,     Port::Outbound, Port::Outbound, Port::None) =>      CELL_BELT_INVALID,
-    (Port::None,     Port::Outbound, Port::None,     Port::Inbound) =>   CELL_BELT_L_R,
-    (Port::None,     Port::Outbound, Port::None,     Port::Outbound) =>  CELL_BELT_INVALID,
-    (Port::None,     Port::Outbound, Port::None,     Port::None) =>      CELL_BELT_INVALID,
-    (Port::None,     Port::None,     Port::Inbound,  Port::Inbound) =>   CELL_BELT_INVALID,
-    (Port::None,     Port::None,     Port::Inbound,  Port::Outbound) =>  CELL_BELT_D_L,
-    (Port::None,     Port::None,     Port::Inbound,  Port::None) =>      CELL_BELT_INVALID,
-    (Port::None,     Port::None,     Port::Outbound, Port::Inbound) =>   CELL_BELT_L_D,
-    (Port::None,     Port::None,     Port::Outbound, Port::Outbound) =>  CELL_BELT_INVALID,
-    (Port::None,     Port::None,     Port::Outbound, Port::None) =>      CELL_BELT_INVALID,
-    (Port::None,     Port::None,     Port::None,     Port::Inbound) =>   CELL_BELT_INVALID,
-    (Port::None,     Port::None,     Port::None,     Port::Outbound) =>  CELL_BELT_INVALID,
-    (Port::None,     Port::None,     Port::None,     Port::None) =>      CELL_BELT_INVALID,
-  }
+#[derive(Debug)]
+pub struct Belt {
+  pub meta: BeltMeta,
+  pub part: Part,
+  pub part_from: Direction,
+  pub part_to: Direction,
+  pub part_at: u64,
+  pub tick_price: i32, // Basically the continuous price you pay for having this belt on board, this applies to every tick so keep it low
 }
+
+pub fn belt_auto_layout(up: CellKind, right: CellKind, down: CellKind, left: CellKind) -> BeltMeta {
+  return match
+    (up,             right,          down,           left)
+  {
+    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Empty) => BELT_RU,
+    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) => BELT_LU,
+    (CellKind::Empty, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) => BELT_DL,
+    (CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty) => BELT_DR,
+    (CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) => BELT_LR,
+    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty) => BELT_DU,
+    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) => BELT_LRU,
+    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) => BELT_DLU,
+    _ => BELT_INVALID,
+  };
+}
+
+
+// pub fn port_config_to_belt(up: Port, right: Port, down: Port, left: Port) -> BeltMeta {
+//   match   (up,          right,          down,           left) {
+//     (Port::Inbound,  Port::Inbound,  Port::Inbound,  Port::Inbound) =>   CELL_BELT_INVALID,
+//     (Port::Inbound,  Port::Inbound,  Port::Inbound,  Port::Outbound) =>  CELL_BELT_DRU_L,
+//     (Port::Inbound,  Port::Inbound,  Port::Inbound,  Port::None) =>      CELL_BELT_INVALID,
+//     (Port::Inbound,  Port::Inbound,  Port::Outbound, Port::Inbound) =>   CELL_BELT_LRU_D,
+//     (Port::Inbound,  Port::Inbound,  Port::Outbound, Port::Outbound) =>  CELL_BELT_RU_DL,
+//     (Port::Inbound,  Port::Inbound,  Port::Outbound, Port::None) =>      CELL_BELT_RU_D,
+//     (Port::Inbound,  Port::Inbound,  Port::None,     Port::Inbound) =>   CELL_BELT_INVALID,
+//     (Port::Inbound,  Port::Inbound,  Port::None,     Port::Outbound) =>  CELL_BELT_RU_L,
+//     (Port::Inbound,  Port::Inbound,  Port::None,     Port::None) =>      CELL_BELT_INVALID,
+//     (Port::Inbound,  Port::Outbound, Port::Inbound,  Port::Inbound) =>   CELL_BELT_DLU_R,
+//     (Port::Inbound,  Port::Outbound, Port::Inbound,  Port::Outbound) =>  CELL_BELT_DU_LR,
+//     (Port::Inbound,  Port::Outbound, Port::Inbound,  Port::None) =>      CELL_BELT_DU_R,
+//     (Port::Inbound,  Port::Outbound, Port::Outbound, Port::Inbound) =>   CELL_BELT_LU_DR,
+//     (Port::Inbound,  Port::Outbound, Port::Outbound, Port::Outbound) =>  CELL_BELT_U_DLR,
+//     (Port::Inbound,  Port::Outbound, Port::Outbound, Port::None) =>      CELL_BELT_U_DR,
+//     (Port::Inbound,  Port::Outbound, Port::None,     Port::Inbound) =>   CELL_BELT_LU_R,
+//     (Port::Inbound,  Port::Outbound, Port::None,     Port::Outbound) =>  CELL_BELT_U_LR,
+//     (Port::Inbound,  Port::Outbound, Port::None,     Port::None) =>      CELL_BELT_U_R,
+//     (Port::Inbound,  Port::None,     Port::Inbound,  Port::Inbound) =>   CELL_BELT_INVALID,
+//     (Port::Inbound,  Port::None,     Port::Inbound,  Port::Outbound) =>  CELL_BELT_DU_L,
+//     (Port::Inbound,  Port::None,     Port::Inbound,  Port::None) =>      CELL_BELT_INVALID,
+//     (Port::Inbound,  Port::None,     Port::Outbound, Port::Inbound) =>   CELL_BELT_LU_D,
+//     (Port::Inbound,  Port::None,     Port::Outbound, Port::Outbound) =>  CELL_BELT_U_DL,
+//     (Port::Inbound,  Port::None,     Port::Outbound, Port::None) =>      CELL_BELT_U_D,
+//     (Port::Inbound,  Port::None,     Port::None,     Port::Inbound) =>   CELL_BELT_INVALID,
+//     (Port::Inbound,  Port::None,     Port::None,     Port::Outbound) =>  CELL_BELT_U_L,
+//     (Port::Inbound,  Port::None,     Port::None,     Port::None) =>      CELL_BELT_INVALID,
+//     (Port::Outbound, Port::Inbound,  Port::Inbound,  Port::Inbound) =>   CELL_BELT_DLR_U,
+//     (Port::Outbound, Port::Inbound,  Port::Inbound,  Port::Outbound) =>  CELL_BELT_DR_LU,
+//     (Port::Outbound, Port::Inbound,  Port::Inbound,  Port::None) =>      CELL_BELT_DR_U,
+//     (Port::Outbound, Port::Inbound,  Port::Outbound, Port::Inbound) =>   CELL_BELT_LR_DU,
+//     (Port::Outbound, Port::Inbound,  Port::Outbound, Port::Outbound) =>  CELL_BELT_R_DLU,
+//     (Port::Outbound, Port::Inbound,  Port::Outbound, Port::None) =>      CELL_BELT_R_DU,
+//     (Port::Outbound, Port::Inbound,  Port::None,     Port::Inbound) =>   CELL_BELT_LR_U,
+//     (Port::Outbound, Port::Inbound,  Port::None,     Port::Outbound) =>  CELL_BELT_R_LU,
+//     (Port::Outbound, Port::Inbound,  Port::None,     Port::None) =>      CELL_BELT_R_U,
+//     (Port::Outbound, Port::Outbound, Port::Inbound,  Port::Inbound) =>   CELL_BELT_DL_RU,
+//     (Port::Outbound, Port::Outbound, Port::Inbound,  Port::Outbound) =>  CELL_BELT_D_LRU,
+//     (Port::Outbound, Port::Outbound, Port::Inbound,  Port::None) =>      CELL_BELT_D_RU,
+//     (Port::Outbound, Port::Outbound, Port::Outbound, Port::Inbound) =>   CELL_BELT_L_DRU,
+//     (Port::Outbound, Port::Outbound, Port::Outbound, Port::Outbound) =>  CELL_BELT_INVALID,
+//     (Port::Outbound, Port::Outbound, Port::Outbound, Port::None) =>      CELL_BELT_INVALID,
+//     (Port::Outbound, Port::Outbound, Port::None,     Port::Inbound) =>   CELL_BELT_L_RU,
+//     (Port::Outbound, Port::Outbound, Port::None,     Port::Outbound) =>  CELL_BELT_INVALID,
+//     (Port::Outbound, Port::Outbound, Port::None,     Port::None) =>      CELL_BELT_INVALID,
+//     (Port::Outbound, Port::None,     Port::Inbound,  Port::Inbound) =>   CELL_BELT_DL_U,
+//     (Port::Outbound, Port::None,     Port::Inbound,  Port::Outbound) =>  CELL_BELT_D_LU,
+//     (Port::Outbound, Port::None,     Port::Inbound,  Port::None) =>      CELL_BELT_D_U,
+//     (Port::Outbound, Port::None,     Port::Outbound, Port::Inbound) =>   CELL_BELT_L_DU,
+//     (Port::Outbound, Port::None,     Port::Outbound, Port::Outbound) =>  CELL_BELT_INVALID,
+//     (Port::Outbound, Port::None,     Port::Outbound, Port::None) =>      CELL_BELT_INVALID,
+//     (Port::Outbound, Port::None,     Port::None,     Port::Inbound) =>   CELL_BELT_L_U,
+//     (Port::Outbound, Port::None,     Port::None,     Port::Outbound) =>  CELL_BELT_INVALID,
+//     (Port::Outbound, Port::None,     Port::None,     Port::None) =>      CELL_BELT_INVALID,
+//     (Port::None,     Port::Inbound,  Port::Inbound,  Port::Inbound) =>   CELL_BELT_INVALID,
+//     (Port::None,     Port::Inbound,  Port::Inbound,  Port::Outbound) =>  CELL_BELT_DR_L,
+//     (Port::None,     Port::Inbound,  Port::Inbound,  Port::None) =>      CELL_BELT_INVALID,
+//     (Port::None,     Port::Inbound,  Port::Outbound, Port::Inbound) =>   CELL_BELT_LR_D,
+//     (Port::None,     Port::Inbound,  Port::Outbound, Port::Outbound) =>  CELL_BELT_R_DL,
+//     (Port::None,     Port::Inbound,  Port::Outbound, Port::None) =>      CELL_BELT_R_D,
+//     (Port::None,     Port::Inbound,  Port::None,     Port::Inbound) =>   CELL_BELT_INVALID,
+//     (Port::None,     Port::Inbound,  Port::None,     Port::Outbound) =>  CELL_BELT_R_L,
+//     (Port::None,     Port::Inbound,  Port::None,     Port::None) =>      CELL_BELT_INVALID,
+//     (Port::None,     Port::Outbound, Port::Inbound,  Port::Inbound) =>   CELL_BELT_DL_R,
+//     (Port::None,     Port::Outbound, Port::Inbound,  Port::Outbound) =>  CELL_BELT_D_LR,
+//     (Port::None,     Port::Outbound, Port::Inbound,  Port::None) =>      CELL_BELT_D_R,
+//     (Port::None,     Port::Outbound, Port::Outbound, Port::Inbound) =>   CELL_BELT_L_DR,
+//     (Port::None,     Port::Outbound, Port::Outbound, Port::Outbound) =>  CELL_BELT_INVALID,
+//     (Port::None,     Port::Outbound, Port::Outbound, Port::None) =>      CELL_BELT_INVALID,
+//     (Port::None,     Port::Outbound, Port::None,     Port::Inbound) =>   CELL_BELT_L_R,
+//     (Port::None,     Port::Outbound, Port::None,     Port::Outbound) =>  CELL_BELT_INVALID,
+//     (Port::None,     Port::Outbound, Port::None,     Port::None) =>      CELL_BELT_INVALID,
+//     (Port::None,     Port::None,     Port::Inbound,  Port::Inbound) =>   CELL_BELT_INVALID,
+//     (Port::None,     Port::None,     Port::Inbound,  Port::Outbound) =>  CELL_BELT_D_L,
+//     (Port::None,     Port::None,     Port::Inbound,  Port::None) =>      CELL_BELT_INVALID,
+//     (Port::None,     Port::None,     Port::Outbound, Port::Inbound) =>   CELL_BELT_L_D,
+//     (Port::None,     Port::None,     Port::Outbound, Port::Outbound) =>  CELL_BELT_INVALID,
+//     (Port::None,     Port::None,     Port::Outbound, Port::None) =>      CELL_BELT_INVALID,
+//     (Port::None,     Port::None,     Port::None,     Port::Inbound) =>   CELL_BELT_INVALID,
+//     (Port::None,     Port::None,     Port::None,     Port::Outbound) =>  CELL_BELT_INVALID,
+//     (Port::None,     Port::None,     Port::None,     Port::None) =>      CELL_BELT_INVALID,
+//   }
+// }
 
 #[derive(Debug)]
 pub struct BeltMeta {
-  pub btype: BeltType,
+  pub btype: BeltType, // BELT_FROM_TO
   pub dbg: &'static str,
-  pub src: &'static str,
+  pub src: &'static str, // tile image
+  // TBD if I want to keep this
   pub direction_u: Port,
   pub direction_r: Port,
   pub direction_d: Port,
   pub direction_l: Port,
   // simplify cli output painting
-  pub cli_out_seg_u: char,
-  pub cli_out_seg_r: char,
-  pub cli_out_seg_d: char,
-  pub cli_out_seg_l: char,
-  pub cli_out_seg_c: char, // center
-  pub cli_out_box_lu: char,
-  pub cli_out_box_u: char,
-  pub cli_out_box_ru: char,
-  pub cli_out_box_l: char,
-  pub cli_out_box_r: char,
-  pub cli_out_box_dl: char,
-  pub cli_out_box_d: char,
-  pub cli_out_box_dr: char,
+  pub cli_icon: char,
 }
 
+pub const fn belt_none() -> Belt {
+  return Belt {
+    meta: BELT_NONE,
+    part: part_none(),
+    part_from: Direction::Up,
+    part_to: Direction::Up,
+    part_at: 0,
+    tick_price: 0
+  };
+}
+
+pub fn belt_new(meta: BeltMeta) -> Belt {
+  return Belt {
+    meta,
+    part: part_none(),
+    part_from: Direction::Up,
+    part_to: Direction::Up,
+    part_at: 0,
+    tick_price: 0
+  };
+}
+
+pub fn tick_belt(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize) {
+}
+
+
 // https://en.wikipedia.org/wiki/Box-drawing_character
+
+fn boxx(up: Port, right: Port, down: Port, left: Port) -> char {
+  // Each port as four possible states (none, in, out, unknown) and there are four ports so there
+  // are 4^4=256 options. Luckily ascii delivers.
+  // empty: none
+  // in: thin
+  // out: thick
+  // unknown: double, except when there is no double for that case, then use the T with double
+  match (up, right, down, left) {
+    (Port::None, Port::None, Port::None, Port::None) => ' ',
+    (Port::None, Port::None, Port::None, Port::Inbound) => '╴',
+    (Port::None, Port::None, Port::None, Port::Outbound) => '╸',
+    (Port::None, Port::None, Port::None, Port::Unknown) => '╡', // There is no "just-left" double char
+    (Port::None, Port::None, Port::Inbound, Port::None) => '╷',
+    (Port::None, Port::None, Port::Inbound, Port::Inbound) => '┐',
+    (Port::None, Port::None, Port::Inbound, Port::Outbound) => '┑',
+    (Port::None, Port::None, Port::Inbound, Port::Unknown) => '╕',
+    (Port::None, Port::None, Port::Outbound, Port::None) => ' ',
+    (Port::None, Port::None, Port::Outbound, Port::Inbound) => ' ',
+    (Port::None, Port::None, Port::Outbound, Port::Outbound) => ' ',
+    (Port::None, Port::None, Port::Outbound, Port::Unknown) => ' ',
+    (Port::None, Port::None, Port::Unknown, Port::None) => ' ',
+    (Port::None, Port::None, Port::Unknown, Port::Inbound) => ' ',
+    (Port::None, Port::None, Port::Unknown, Port::Outbound) => ' ',
+    (Port::None, Port::None, Port::Unknown, Port::Unknown) => ' ',
+    (Port::None, Port::Inbound, Port::None, Port::None) => ' ',
+    (Port::None, Port::Inbound, Port::None, Port::Inbound) => ' ',
+    (Port::None, Port::Inbound, Port::None, Port::Outbound) => ' ',
+    (Port::None, Port::Inbound, Port::None, Port::Unknown) => ' ',
+    (Port::None, Port::Inbound, Port::Inbound, Port::None) => ' ',
+    (Port::None, Port::Inbound, Port::Inbound, Port::Inbound) => ' ',
+    (Port::None, Port::Inbound, Port::Inbound, Port::Outbound) => ' ',
+    (Port::None, Port::Inbound, Port::Inbound, Port::Unknown) => ' ',
+    (Port::None, Port::Inbound, Port::Outbound, Port::None) => ' ',
+    (Port::None, Port::Inbound, Port::Outbound, Port::Inbound) => ' ',
+    (Port::None, Port::Inbound, Port::Outbound, Port::Outbound) => ' ',
+    (Port::None, Port::Inbound, Port::Outbound, Port::Unknown) => ' ',
+    (Port::None, Port::Inbound, Port::Unknown, Port::None) => ' ',
+    (Port::None, Port::Inbound, Port::Unknown, Port::Inbound) => ' ',
+    (Port::None, Port::Inbound, Port::Unknown, Port::Outbound) => ' ',
+    (Port::None, Port::Inbound, Port::Unknown, Port::Unknown) => ' ',
+    (Port::None, Port::Outbound, Port::None, Port::None) => ' ',
+    (Port::None, Port::Outbound, Port::None, Port::Inbound) => ' ',
+    (Port::None, Port::Outbound, Port::None, Port::Outbound) => ' ',
+    (Port::None, Port::Outbound, Port::None, Port::Unknown) => ' ',
+    (Port::None, Port::Outbound, Port::Inbound, Port::None) => ' ',
+    (Port::None, Port::Outbound, Port::Inbound, Port::Inbound) => ' ',
+    (Port::None, Port::Outbound, Port::Inbound, Port::Outbound) => ' ',
+    (Port::None, Port::Outbound, Port::Inbound, Port::Unknown) => ' ',
+    (Port::None, Port::Outbound, Port::Outbound, Port::None) => ' ',
+    (Port::None, Port::Outbound, Port::Outbound, Port::Inbound) => ' ',
+    (Port::None, Port::Outbound, Port::Outbound, Port::Outbound) => ' ',
+    (Port::None, Port::Outbound, Port::Outbound, Port::Unknown) => ' ',
+    (Port::None, Port::Outbound, Port::Unknown, Port::None) => ' ',
+    (Port::None, Port::Outbound, Port::Unknown, Port::Inbound) => ' ',
+    (Port::None, Port::Outbound, Port::Unknown, Port::Outbound) => ' ',
+    (Port::None, Port::Outbound, Port::Unknown, Port::Unknown) => ' ',
+    (Port::None, Port::Unknown, Port::None, Port::None) => ' ',
+    (Port::None, Port::Unknown, Port::None, Port::Inbound) => ' ',
+    (Port::None, Port::Unknown, Port::None, Port::Outbound) => ' ',
+    (Port::None, Port::Unknown, Port::None, Port::Unknown) => ' ',
+    (Port::None, Port::Unknown, Port::Inbound, Port::None) => ' ',
+    (Port::None, Port::Unknown, Port::Inbound, Port::Inbound) => ' ',
+    (Port::None, Port::Unknown, Port::Inbound, Port::Outbound) => ' ',
+    (Port::None, Port::Unknown, Port::Inbound, Port::Unknown) => ' ',
+    (Port::None, Port::Unknown, Port::Outbound, Port::None) => ' ',
+    (Port::None, Port::Unknown, Port::Outbound, Port::Inbound) => ' ',
+    (Port::None, Port::Unknown, Port::Outbound, Port::Outbound) => ' ',
+    (Port::None, Port::Unknown, Port::Outbound, Port::Unknown) => ' ',
+    (Port::None, Port::Unknown, Port::Unknown, Port::None) => ' ',
+    (Port::None, Port::Unknown, Port::Unknown, Port::Inbound) => ' ',
+    (Port::None, Port::Unknown, Port::Unknown, Port::Outbound) => ' ',
+    (Port::None, Port::Unknown, Port::Unknown, Port::Unknown) => ' ',
+    (Port::Inbound, Port::None, Port::None, Port::None) => ' ',
+    (Port::Inbound, Port::None, Port::None, Port::Inbound) => ' ',
+    (Port::Inbound, Port::None, Port::None, Port::Outbound) => ' ',
+    (Port::Inbound, Port::None, Port::None, Port::Unknown) => ' ',
+    (Port::Inbound, Port::None, Port::Inbound, Port::None) => ' ',
+    (Port::Inbound, Port::None, Port::Inbound, Port::Inbound) => ' ',
+    (Port::Inbound, Port::None, Port::Inbound, Port::Outbound) => ' ',
+    (Port::Inbound, Port::None, Port::Inbound, Port::Unknown) => ' ',
+    (Port::Inbound, Port::None, Port::Outbound, Port::None) => ' ',
+    (Port::Inbound, Port::None, Port::Outbound, Port::Inbound) => ' ',
+    (Port::Inbound, Port::None, Port::Outbound, Port::Outbound) => ' ',
+    (Port::Inbound, Port::None, Port::Outbound, Port::Unknown) => ' ',
+    (Port::Inbound, Port::None, Port::Unknown, Port::None) => ' ',
+    (Port::Inbound, Port::None, Port::Unknown, Port::Inbound) => ' ',
+    (Port::Inbound, Port::None, Port::Unknown, Port::Outbound) => ' ',
+    (Port::Inbound, Port::None, Port::Unknown, Port::Unknown) => ' ',
+    (Port::Inbound, Port::Inbound, Port::None, Port::None) => ' ',
+    (Port::Inbound, Port::Inbound, Port::None, Port::Inbound) => ' ',
+    (Port::Inbound, Port::Inbound, Port::None, Port::Outbound) => ' ',
+    (Port::Inbound, Port::Inbound, Port::None, Port::Unknown) => ' ',
+    (Port::Inbound, Port::Inbound, Port::Inbound, Port::None) => ' ',
+    (Port::Inbound, Port::Inbound, Port::Inbound, Port::Inbound) => ' ',
+    (Port::Inbound, Port::Inbound, Port::Inbound, Port::Outbound) => ' ',
+    (Port::Inbound, Port::Inbound, Port::Inbound, Port::Unknown) => ' ',
+    (Port::Inbound, Port::Inbound, Port::Outbound, Port::None) => ' ',
+    (Port::Inbound, Port::Inbound, Port::Outbound, Port::Inbound) => ' ',
+    (Port::Inbound, Port::Inbound, Port::Outbound, Port::Outbound) => ' ',
+    (Port::Inbound, Port::Inbound, Port::Outbound, Port::Unknown) => ' ',
+    (Port::Inbound, Port::Inbound, Port::Unknown, Port::None) => ' ',
+    (Port::Inbound, Port::Inbound, Port::Unknown, Port::Inbound) => ' ',
+    (Port::Inbound, Port::Inbound, Port::Unknown, Port::Outbound) => ' ',
+    (Port::Inbound, Port::Inbound, Port::Unknown, Port::Unknown) => ' ',
+    (Port::Inbound, Port::Outbound, Port::None, Port::None) => ' ',
+    (Port::Inbound, Port::Outbound, Port::None, Port::Inbound) => ' ',
+    (Port::Inbound, Port::Outbound, Port::None, Port::Outbound) => ' ',
+    (Port::Inbound, Port::Outbound, Port::None, Port::Unknown) => ' ',
+    (Port::Inbound, Port::Outbound, Port::Inbound, Port::None) => ' ',
+    (Port::Inbound, Port::Outbound, Port::Inbound, Port::Inbound) => ' ',
+    (Port::Inbound, Port::Outbound, Port::Inbound, Port::Outbound) => ' ',
+    (Port::Inbound, Port::Outbound, Port::Inbound, Port::Unknown) => ' ',
+    (Port::Inbound, Port::Outbound, Port::Outbound, Port::None) => ' ',
+    (Port::Inbound, Port::Outbound, Port::Outbound, Port::Inbound) => ' ',
+    (Port::Inbound, Port::Outbound, Port::Outbound, Port::Outbound) => ' ',
+    (Port::Inbound, Port::Outbound, Port::Outbound, Port::Unknown) => ' ',
+    (Port::Inbound, Port::Outbound, Port::Unknown, Port::None) => ' ',
+    (Port::Inbound, Port::Outbound, Port::Unknown, Port::Inbound) => ' ',
+    (Port::Inbound, Port::Outbound, Port::Unknown, Port::Outbound) => ' ',
+    (Port::Inbound, Port::Outbound, Port::Unknown, Port::Unknown) => ' ',
+    (Port::Inbound, Port::Unknown, Port::None, Port::None) => ' ',
+    (Port::Inbound, Port::Unknown, Port::None, Port::Inbound) => ' ',
+    (Port::Inbound, Port::Unknown, Port::None, Port::Outbound) => ' ',
+    (Port::Inbound, Port::Unknown, Port::None, Port::Unknown) => ' ',
+    (Port::Inbound, Port::Unknown, Port::Inbound, Port::None) => ' ',
+    (Port::Inbound, Port::Unknown, Port::Inbound, Port::Inbound) => ' ',
+    (Port::Inbound, Port::Unknown, Port::Inbound, Port::Outbound) => ' ',
+    (Port::Inbound, Port::Unknown, Port::Inbound, Port::Unknown) => ' ',
+    (Port::Inbound, Port::Unknown, Port::Outbound, Port::None) => ' ',
+    (Port::Inbound, Port::Unknown, Port::Outbound, Port::Inbound) => ' ',
+    (Port::Inbound, Port::Unknown, Port::Outbound, Port::Outbound) => ' ',
+    (Port::Inbound, Port::Unknown, Port::Outbound, Port::Unknown) => ' ',
+    (Port::Inbound, Port::Unknown, Port::Unknown, Port::None) => ' ',
+    (Port::Inbound, Port::Unknown, Port::Unknown, Port::Inbound) => ' ',
+    (Port::Inbound, Port::Unknown, Port::Unknown, Port::Outbound) => ' ',
+    (Port::Inbound, Port::Unknown, Port::Unknown, Port::Unknown) => ' ',
+    (Port::Outbound, Port::None, Port::None, Port::None) => ' ',
+    (Port::Outbound, Port::None, Port::None, Port::Inbound) => ' ',
+    (Port::Outbound, Port::None, Port::None, Port::Outbound) => ' ',
+    (Port::Outbound, Port::None, Port::None, Port::Unknown) => ' ',
+    (Port::Outbound, Port::None, Port::Inbound, Port::None) => ' ',
+    (Port::Outbound, Port::None, Port::Inbound, Port::Inbound) => ' ',
+    (Port::Outbound, Port::None, Port::Inbound, Port::Outbound) => ' ',
+    (Port::Outbound, Port::None, Port::Inbound, Port::Unknown) => ' ',
+    (Port::Outbound, Port::None, Port::Outbound, Port::None) => ' ',
+    (Port::Outbound, Port::None, Port::Outbound, Port::Inbound) => ' ',
+    (Port::Outbound, Port::None, Port::Outbound, Port::Outbound) => ' ',
+    (Port::Outbound, Port::None, Port::Outbound, Port::Unknown) => ' ',
+    (Port::Outbound, Port::None, Port::Unknown, Port::None) => ' ',
+    (Port::Outbound, Port::None, Port::Unknown, Port::Inbound) => ' ',
+    (Port::Outbound, Port::None, Port::Unknown, Port::Outbound) => ' ',
+    (Port::Outbound, Port::None, Port::Unknown, Port::Unknown) => ' ',
+    (Port::Outbound, Port::Inbound, Port::None, Port::None) => ' ',
+    (Port::Outbound, Port::Inbound, Port::None, Port::Inbound) => ' ',
+    (Port::Outbound, Port::Inbound, Port::None, Port::Outbound) => ' ',
+    (Port::Outbound, Port::Inbound, Port::None, Port::Unknown) => ' ',
+    (Port::Outbound, Port::Inbound, Port::Inbound, Port::None) => ' ',
+    (Port::Outbound, Port::Inbound, Port::Inbound, Port::Inbound) => ' ',
+    (Port::Outbound, Port::Inbound, Port::Inbound, Port::Outbound) => ' ',
+    (Port::Outbound, Port::Inbound, Port::Inbound, Port::Unknown) => ' ',
+    (Port::Outbound, Port::Inbound, Port::Outbound, Port::None) => ' ',
+    (Port::Outbound, Port::Inbound, Port::Outbound, Port::Inbound) => ' ',
+    (Port::Outbound, Port::Inbound, Port::Outbound, Port::Outbound) => ' ',
+    (Port::Outbound, Port::Inbound, Port::Outbound, Port::Unknown) => ' ',
+    (Port::Outbound, Port::Inbound, Port::Unknown, Port::None) => ' ',
+    (Port::Outbound, Port::Inbound, Port::Unknown, Port::Inbound) => ' ',
+    (Port::Outbound, Port::Inbound, Port::Unknown, Port::Outbound) => ' ',
+    (Port::Outbound, Port::Inbound, Port::Unknown, Port::Unknown) => ' ',
+    (Port::Outbound, Port::Outbound, Port::None, Port::None) => ' ',
+    (Port::Outbound, Port::Outbound, Port::None, Port::Inbound) => ' ',
+    (Port::Outbound, Port::Outbound, Port::None, Port::Outbound) => ' ',
+    (Port::Outbound, Port::Outbound, Port::None, Port::Unknown) => ' ',
+    (Port::Outbound, Port::Outbound, Port::Inbound, Port::None) => ' ',
+    (Port::Outbound, Port::Outbound, Port::Inbound, Port::Inbound) => ' ',
+    (Port::Outbound, Port::Outbound, Port::Inbound, Port::Outbound) => ' ',
+    (Port::Outbound, Port::Outbound, Port::Inbound, Port::Unknown) => ' ',
+    (Port::Outbound, Port::Outbound, Port::Outbound, Port::None) => ' ',
+    (Port::Outbound, Port::Outbound, Port::Outbound, Port::Inbound) => ' ',
+    (Port::Outbound, Port::Outbound, Port::Outbound, Port::Outbound) => ' ',
+    (Port::Outbound, Port::Outbound, Port::Outbound, Port::Unknown) => ' ',
+    (Port::Outbound, Port::Outbound, Port::Unknown, Port::None) => ' ',
+    (Port::Outbound, Port::Outbound, Port::Unknown, Port::Inbound) => ' ',
+    (Port::Outbound, Port::Outbound, Port::Unknown, Port::Outbound) => ' ',
+    (Port::Outbound, Port::Outbound, Port::Unknown, Port::Unknown) => ' ',
+    (Port::Outbound, Port::Unknown, Port::None, Port::None) => ' ',
+    (Port::Outbound, Port::Unknown, Port::None, Port::Inbound) => ' ',
+    (Port::Outbound, Port::Unknown, Port::None, Port::Outbound) => ' ',
+    (Port::Outbound, Port::Unknown, Port::None, Port::Unknown) => ' ',
+    (Port::Outbound, Port::Unknown, Port::Inbound, Port::None) => ' ',
+    (Port::Outbound, Port::Unknown, Port::Inbound, Port::Inbound) => ' ',
+    (Port::Outbound, Port::Unknown, Port::Inbound, Port::Outbound) => ' ',
+    (Port::Outbound, Port::Unknown, Port::Inbound, Port::Unknown) => ' ',
+    (Port::Outbound, Port::Unknown, Port::Outbound, Port::None) => ' ',
+    (Port::Outbound, Port::Unknown, Port::Outbound, Port::Inbound) => ' ',
+    (Port::Outbound, Port::Unknown, Port::Outbound, Port::Outbound) => ' ',
+    (Port::Outbound, Port::Unknown, Port::Outbound, Port::Unknown) => ' ',
+    (Port::Outbound, Port::Unknown, Port::Unknown, Port::None) => ' ',
+    (Port::Outbound, Port::Unknown, Port::Unknown, Port::Inbound) => ' ',
+    (Port::Outbound, Port::Unknown, Port::Unknown, Port::Outbound) => ' ',
+    (Port::Outbound, Port::Unknown, Port::Unknown, Port::Unknown) => ' ',
+    (Port::Unknown, Port::None, Port::None, Port::None) => ' ',
+    (Port::Unknown, Port::None, Port::None, Port::Inbound) => ' ',
+    (Port::Unknown, Port::None, Port::None, Port::Outbound) => ' ',
+    (Port::Unknown, Port::None, Port::None, Port::Unknown) => ' ',
+    (Port::Unknown, Port::None, Port::Inbound, Port::None) => ' ',
+    (Port::Unknown, Port::None, Port::Inbound, Port::Inbound) => ' ',
+    (Port::Unknown, Port::None, Port::Inbound, Port::Outbound) => ' ',
+    (Port::Unknown, Port::None, Port::Inbound, Port::Unknown) => ' ',
+    (Port::Unknown, Port::None, Port::Outbound, Port::None) => ' ',
+    (Port::Unknown, Port::None, Port::Outbound, Port::Inbound) => ' ',
+    (Port::Unknown, Port::None, Port::Outbound, Port::Outbound) => ' ',
+    (Port::Unknown, Port::None, Port::Outbound, Port::Unknown) => ' ',
+    (Port::Unknown, Port::None, Port::Unknown, Port::None) => ' ',
+    (Port::Unknown, Port::None, Port::Unknown, Port::Inbound) => ' ',
+    (Port::Unknown, Port::None, Port::Unknown, Port::Outbound) => ' ',
+    (Port::Unknown, Port::None, Port::Unknown, Port::Unknown) => ' ',
+    (Port::Unknown, Port::Inbound, Port::None, Port::None) => ' ',
+    (Port::Unknown, Port::Inbound, Port::None, Port::Inbound) => ' ',
+    (Port::Unknown, Port::Inbound, Port::None, Port::Outbound) => ' ',
+    (Port::Unknown, Port::Inbound, Port::None, Port::Unknown) => ' ',
+    (Port::Unknown, Port::Inbound, Port::Inbound, Port::None) => ' ',
+    (Port::Unknown, Port::Inbound, Port::Inbound, Port::Inbound) => ' ',
+    (Port::Unknown, Port::Inbound, Port::Inbound, Port::Outbound) => ' ',
+    (Port::Unknown, Port::Inbound, Port::Inbound, Port::Unknown) => ' ',
+    (Port::Unknown, Port::Inbound, Port::Outbound, Port::None) => ' ',
+    (Port::Unknown, Port::Inbound, Port::Outbound, Port::Inbound) => ' ',
+    (Port::Unknown, Port::Inbound, Port::Outbound, Port::Outbound) => ' ',
+    (Port::Unknown, Port::Inbound, Port::Outbound, Port::Unknown) => ' ',
+    (Port::Unknown, Port::Inbound, Port::Unknown, Port::None) => ' ',
+    (Port::Unknown, Port::Inbound, Port::Unknown, Port::Inbound) => ' ',
+    (Port::Unknown, Port::Inbound, Port::Unknown, Port::Outbound) => ' ',
+    (Port::Unknown, Port::Inbound, Port::Unknown, Port::Unknown) => ' ',
+    (Port::Unknown, Port::Outbound, Port::None, Port::None) => ' ',
+    (Port::Unknown, Port::Outbound, Port::None, Port::Inbound) => ' ',
+    (Port::Unknown, Port::Outbound, Port::None, Port::Outbound) => ' ',
+    (Port::Unknown, Port::Outbound, Port::None, Port::Unknown) => ' ',
+    (Port::Unknown, Port::Outbound, Port::Inbound, Port::None) => ' ',
+    (Port::Unknown, Port::Outbound, Port::Inbound, Port::Inbound) => ' ',
+    (Port::Unknown, Port::Outbound, Port::Inbound, Port::Outbound) => ' ',
+    (Port::Unknown, Port::Outbound, Port::Inbound, Port::Unknown) => ' ',
+    (Port::Unknown, Port::Outbound, Port::Outbound, Port::None) => ' ',
+    (Port::Unknown, Port::Outbound, Port::Outbound, Port::Inbound) => ' ',
+    (Port::Unknown, Port::Outbound, Port::Outbound, Port::Outbound) => ' ',
+    (Port::Unknown, Port::Outbound, Port::Outbound, Port::Unknown) => ' ',
+    (Port::Unknown, Port::Outbound, Port::Unknown, Port::None) => ' ',
+    (Port::Unknown, Port::Outbound, Port::Unknown, Port::Inbound) => ' ',
+    (Port::Unknown, Port::Outbound, Port::Unknown, Port::Outbound) => ' ',
+    (Port::Unknown, Port::Outbound, Port::Unknown, Port::Unknown) => ' ',
+    (Port::Unknown, Port::Unknown, Port::None, Port::None) => ' ',
+    (Port::Unknown, Port::Unknown, Port::None, Port::Inbound) => ' ',
+    (Port::Unknown, Port::Unknown, Port::None, Port::Outbound) => ' ',
+    (Port::Unknown, Port::Unknown, Port::None, Port::Unknown) => ' ',
+    (Port::Unknown, Port::Unknown, Port::Inbound, Port::None) => ' ',
+    (Port::Unknown, Port::Unknown, Port::Inbound, Port::Inbound) => ' ',
+    (Port::Unknown, Port::Unknown, Port::Inbound, Port::Outbound) => ' ',
+    (Port::Unknown, Port::Unknown, Port::Inbound, Port::Unknown) => ' ',
+    (Port::Unknown, Port::Unknown, Port::Outbound, Port::None) => ' ',
+    (Port::Unknown, Port::Unknown, Port::Outbound, Port::Inbound) => ' ',
+    (Port::Unknown, Port::Unknown, Port::Outbound, Port::Outbound) => ' ',
+    (Port::Unknown, Port::Unknown, Port::Outbound, Port::Unknown) => ' ',
+    (Port::Unknown, Port::Unknown, Port::Unknown, Port::None) => ' ',
+    (Port::Unknown, Port::Unknown, Port::Unknown, Port::Inbound) => ' ',
+    (Port::Unknown, Port::Unknown, Port::Unknown, Port::Outbound) => ' ',
+    (Port::Unknown, Port::Unknown, Port::Unknown, Port::Unknown) => ' ',
+  }
+}
+
 
 const BOX_ARROW_U: char = '^';
 const BOX_ARROW_R: char = '>';
@@ -219,7 +537,7 @@ const BOX_EQ_H: char = '═';
 // ┌─┐
 // │ │
 // └─┘
-pub const CELL_BELT_NONE: BeltMeta = BeltMeta {
+pub const BELT_NONE: BeltMeta = BeltMeta {
   btype: BeltType::NONE,
   dbg: "BELT_NONE",
   src: "./img/none.png",
@@ -227,24 +545,14 @@ pub const CELL_BELT_NONE: BeltMeta = BeltMeta {
   direction_r: Port::None,
   direction_d: Port::None,
   direction_l: Port::None,
-  cli_out_seg_u: ' ',
-  cli_out_seg_r: ' ',
-  cli_out_seg_d: ' ',
-  cli_out_seg_l: ' ',
-  cli_out_seg_c: ' ',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_L,
-  cli_out_box_r: BOX_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: ' ',
 };
+
+// o
 // ┌─┐
 // │ │
 // └─┘
-pub const CELL_BELT_INVALID: BeltMeta = BeltMeta {
+pub const BELT_INVALID: BeltMeta = BeltMeta {
   btype: BeltType::INVALID,
   dbg: "BELT_INVALID",
   src: "./img/invalid.png",
@@ -252,24 +560,12 @@ pub const CELL_BELT_INVALID: BeltMeta = BeltMeta {
   direction_r: Port::None,
   direction_d: Port::None,
   direction_l: Port::None,
-  cli_out_seg_u: '!',
-  cli_out_seg_r: '!',
-  cli_out_seg_d: '!',
-  cli_out_seg_l: '!',
-  cli_out_seg_c: '!',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_L,
-  cli_out_box_r: BOX_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '!',
 };
 // ┌║┐
 // ═ ═
 // └║┘
-pub const CELL_MACHINE: BeltMeta = BeltMeta {
+pub const MACHINE: BeltMeta = BeltMeta {
   btype: BeltType::NONE,
   dbg: "CELL_MACHINE",
   src: "./img/todo.png",
@@ -277,24 +573,12 @@ pub const CELL_MACHINE: BeltMeta = BeltMeta {
   direction_r: Port::None,
   direction_d: Port::None,
   direction_l: Port::None,
-  cli_out_seg_u: ' ',
-  cli_out_seg_r: ' ',
-  cli_out_seg_d: ' ',
-  cli_out_seg_l: ' ',
-  cli_out_seg_c: ' ',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_EQ_V,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_EQ_H,
-  cli_out_box_r: BOX_EQ_H,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_EQ_V,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: 'm',
 };
 // ┌─┐
-// │ │
+// │s│
 // └v┘
-pub const CELL_SUPPLY_U: BeltMeta = BeltMeta {
+pub const SUPPLY_U: BeltMeta = BeltMeta {
   btype: BeltType::NONE,
   dbg: "CELL_SUPPLY_U",
   src: "./img/todo.png",
@@ -302,24 +586,12 @@ pub const CELL_SUPPLY_U: BeltMeta = BeltMeta {
   direction_r: Port::None,
   direction_d: Port::Outbound,
   direction_l: Port::None,
-  cli_out_seg_u: ' ',
-  cli_out_seg_r: ' ',
-  cli_out_seg_d: ' ',
-  cli_out_seg_l: ' ',
-  cli_out_seg_c: ' ',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_L,
-  cli_out_box_r: BOX_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: 's',
 };
 // ┌─┐
-// < │
+// <s│
 // └─┘
-pub const CELL_SUPPLY_R: BeltMeta = BeltMeta {
+pub const SUPPLY_R: BeltMeta = BeltMeta {
   btype: BeltType::NONE,
   dbg: "CELL_SUPPLY_R",
   src: "./img/todo.png",
@@ -327,24 +599,12 @@ pub const CELL_SUPPLY_R: BeltMeta = BeltMeta {
   direction_r: Port::None,
   direction_d: Port::None,
   direction_l: Port::Outbound,
-  cli_out_seg_u: ' ',
-  cli_out_seg_r: ' ',
-  cli_out_seg_d: ' ',
-  cli_out_seg_l: ' ',
-  cli_out_seg_c: ' ',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_L,
-  cli_out_box_r: BOX_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: 's',
 };
 // ┌^┐
-// │ │
+// │s│
 // └─┘
-pub const CELL_SUPPLY_D: BeltMeta = BeltMeta {
+pub const SUPPLY_D: BeltMeta = BeltMeta {
   btype: BeltType::NONE,
   dbg: "CELL_SUPPLY_D",
   src: "./img/todo.png",
@@ -352,24 +612,12 @@ pub const CELL_SUPPLY_D: BeltMeta = BeltMeta {
   direction_r: Port::None,
   direction_d: Port::None,
   direction_l: Port::None,
-  cli_out_seg_u: ' ',
-  cli_out_seg_r: ' ',
-  cli_out_seg_d: ' ',
-  cli_out_seg_l: ' ',
-  cli_out_seg_c: ' ',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_L,
-  cli_out_box_r: BOX_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: 's',
 };
 // ┌─┐
-// │ >
+// │s>
 // └─┘
-pub const CELL_SUPPLY_L: BeltMeta = BeltMeta {
+pub const SUPPLY_L: BeltMeta = BeltMeta {
   btype: BeltType::NONE,
   dbg: "CELL_SUPPLY_L",
   src: "./img/todo.png",
@@ -377,24 +625,12 @@ pub const CELL_SUPPLY_L: BeltMeta = BeltMeta {
   direction_r: Port::Outbound,
   direction_d: Port::None,
   direction_l: Port::None,
-  cli_out_seg_u: ' ',
-  cli_out_seg_r: ' ',
-  cli_out_seg_d: ' ',
-  cli_out_seg_l: ' ',
-  cli_out_seg_c: ' ',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_L,
-  cli_out_box_r: BOX_ARROW_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: 's',
 };
 // ┌─┐
-// │ │
+// │d│
 // └^┘
-pub const CELL_DEMAND_U: BeltMeta = BeltMeta {
+pub const DEMAND_U: BeltMeta = BeltMeta {
   btype: BeltType::NONE,
   dbg: "CELL_DEMAND_U",
   src: "./img/todo.png",
@@ -402,24 +638,12 @@ pub const CELL_DEMAND_U: BeltMeta = BeltMeta {
   direction_r: Port::None,
   direction_d: Port::None,
   direction_l: Port::None,
-  cli_out_seg_u: ' ',
-  cli_out_seg_r: ' ',
-  cli_out_seg_d: ' ',
-  cli_out_seg_l: ' ',
-  cli_out_seg_c: ' ',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_L,
-  cli_out_box_r: BOX_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_U,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: 'd',
 };
 // ┌─┐
-// > │ 
+// >d│
 // └─┘
-pub const CELL_DEMAND_R: BeltMeta = BeltMeta {
+pub const DEMAND_R: BeltMeta = BeltMeta {
   btype: BeltType::NONE,
   dbg: "CELL_DEMAND_R",
   src: "./img/todo.png",
@@ -427,24 +651,12 @@ pub const CELL_DEMAND_R: BeltMeta = BeltMeta {
   direction_r: Port::Inbound,
   direction_d: Port::None,
   direction_l: Port::None,
-  cli_out_seg_u: ' ',
-  cli_out_seg_r: ' ',
-  cli_out_seg_d: ' ',
-  cli_out_seg_l: ' ',
-  cli_out_seg_c: ' ',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_R,
-  cli_out_box_r: BOX_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: 'd',
 };
 // ┌v┐
-// │ │
+// │d│
 // └─┘
-pub const CELL_DEMAND_D: BeltMeta = BeltMeta {
+pub const DEMAND_D: BeltMeta = BeltMeta {
   btype: BeltType::NONE,
   dbg: "CELL_DEMAND_D",
   src: "./img/todo.png",
@@ -452,24 +664,12 @@ pub const CELL_DEMAND_D: BeltMeta = BeltMeta {
   direction_r: Port::None,
   direction_d: Port::Inbound,
   direction_l: Port::None,
-  cli_out_seg_u: ' ',
-  cli_out_seg_r: ' ',
-  cli_out_seg_d: ' ',
-  cli_out_seg_l: ' ',
-  cli_out_seg_c: ' ',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_D,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_L,
-  cli_out_box_r: BOX_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: 'd',
 };
 // ┌─┐
-// │ < 
+// │d<
 // └─┘
-pub const CELL_DEMAND_L: BeltMeta = BeltMeta {
+pub const DEMAND_L: BeltMeta = BeltMeta {
   btype: BeltType::NONE,
   dbg: "CELL_DEMAND_L",
   src: "./img/todo.png",
@@ -477,24 +677,25 @@ pub const CELL_DEMAND_L: BeltMeta = BeltMeta {
   direction_r: Port::None,
   direction_d: Port::None,
   direction_l: Port::Inbound,
-  cli_out_seg_u: ' ',
-  cli_out_seg_r: ' ',
-  cli_out_seg_d: ' ',
-  cli_out_seg_l: ' ',
-  cli_out_seg_c: ' ',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_L,
-  cli_out_box_r: BOX_ARROW_L,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: 'd',
+};
+// ┌?┐
+// │ ?
+// └─┘
+pub const BELT_RU: BeltMeta = BeltMeta {
+  btype: BeltType::RU,
+  dbg: "BELT_RU",
+  src: "./img/ru.png",
+  direction_u: Port::Unknown,
+  direction_r: Port::Unknown,
+  direction_d: Port::None,
+  direction_l: Port::None,
+  cli_icon: '╚',
 };
 // ┌v┐
 // │ >
 // └─┘
-pub const CELL_BELT_U_R: BeltMeta = BeltMeta {
+pub const BELT_U_R: BeltMeta = BeltMeta {
   btype: BeltType::U_R,
   dbg: "BELT_U_R",
   src: "./img/u_r.png",
@@ -502,24 +703,12 @@ pub const CELL_BELT_U_R: BeltMeta = BeltMeta {
   direction_r: Port::Outbound,
   direction_d: Port::None,
   direction_l: Port::None,
-  cli_out_seg_u: '║',
-  cli_out_seg_r: '═',
-  cli_out_seg_d: ' ',
-  cli_out_seg_l: ' ',
-  cli_out_seg_c: '╚',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_D,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_L,
-  cli_out_box_r: BOX_ARROW_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╚',
 };
 // ┌^┐
 // │ <
 // └─┘
-pub const CELL_BELT_R_U: BeltMeta = BeltMeta {
+pub const BELT_R_U: BeltMeta = BeltMeta {
   btype: BeltType::R_U,
   dbg: "BELT_R_U",
   src: "./img/r_u.png",
@@ -527,24 +716,25 @@ pub const CELL_BELT_R_U: BeltMeta = BeltMeta {
   direction_r: Port::Inbound,
   direction_d: Port::None,
   direction_l: Port::None,
-  cli_out_seg_u: '║',
-  cli_out_seg_r: '═',
-  cli_out_seg_d: ' ',
-  cli_out_seg_l: ' ',
-  cli_out_seg_c: '╚',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_L,
-  cli_out_box_r: BOX_ARROW_L,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╚',
+};
+// ┌─┐
+// │ ?
+// └?┘
+pub const BELT_DR: BeltMeta = BeltMeta {
+  btype: BeltType::DR,
+  dbg: "BELT_DR",
+  src: "./img/rd.png",
+  direction_u: Port::None,
+  direction_r: Port::Unknown,
+  direction_d: Port::Unknown,
+  direction_l: Port::None,
+  cli_icon: '╔',
 };
 // ┌─┐
 // │ <
 // └v┘
-pub const CELL_BELT_R_D: BeltMeta = BeltMeta {
+pub const BELT_R_D: BeltMeta = BeltMeta {
   btype: BeltType::R_D,
   dbg: "BELT_R_D",
   src: "./img/r_d.png",
@@ -552,24 +742,12 @@ pub const CELL_BELT_R_D: BeltMeta = BeltMeta {
   direction_r: Port::Inbound,
   direction_d: Port::Outbound,
   direction_l: Port::None,
-  cli_out_seg_u: ' ',
-  cli_out_seg_r: '═',
-  cli_out_seg_d: '║',
-  cli_out_seg_l: ' ',
-  cli_out_seg_c: '╔',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_L,
-  cli_out_box_r: BOX_ARROW_L,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╔',
 };
 // ┌─┐
 // │ >
 // └^┘
-pub const CELL_BELT_D_R: BeltMeta = BeltMeta {
+pub const BELT_D_R: BeltMeta = BeltMeta {
   btype: BeltType::D_R,
   dbg: "BELT_D_R",
   src: "./img/d_r.png",
@@ -577,24 +755,25 @@ pub const CELL_BELT_D_R: BeltMeta = BeltMeta {
   direction_r: Port::Outbound,
   direction_d: Port::Inbound,
   direction_l: Port::None,
-  cli_out_seg_u: ' ',
-  cli_out_seg_r: '═',
-  cli_out_seg_d: '║',
-  cli_out_seg_l: ' ',
-  cli_out_seg_c: '╔',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_L,
-  cli_out_box_r: BOX_ARROW_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_U,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╔',
+};
+// ┌─┐
+// ? │
+// └?┘
+pub const BELT_DL: BeltMeta = BeltMeta {
+  btype: BeltType::DL,
+  dbg: "BELT_DL",
+  src: "./img/dl.png",
+  direction_u: Port::None,
+  direction_r: Port::None,
+  direction_d: Port::Unknown,
+  direction_l: Port::Unknown,
+  cli_icon: '╗',
 };
 // ┌─┐
 // < │
 // └^┘
-pub const CELL_BELT_D_L: BeltMeta = BeltMeta {
+pub const BELT_D_L: BeltMeta = BeltMeta {
   btype: BeltType::D_L,
   dbg: "BELT_D_L",
   src: "./img/d_l.png",
@@ -602,24 +781,12 @@ pub const CELL_BELT_D_L: BeltMeta = BeltMeta {
   direction_r: Port::None,
   direction_d: Port::Inbound,
   direction_l: Port::Outbound,
-  cli_out_seg_u: ' ',
-  cli_out_seg_r: ' ',
-  cli_out_seg_d: '║',
-  cli_out_seg_l: '═',
-  cli_out_seg_c: '╗',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_L,
-  cli_out_box_r: BOX_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_U,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╗',
 };
 // ┌─┐
 // > │
 // └v┘
-pub const CELL_BELT_L_D: BeltMeta = BeltMeta {
+pub const BELT_L_D: BeltMeta = BeltMeta {
   btype: BeltType::L_D,
   dbg: "BELT_L_D",
   src: "./img/l_d.png",
@@ -627,24 +794,25 @@ pub const CELL_BELT_L_D: BeltMeta = BeltMeta {
   direction_r: Port::None,
   direction_d: Port::Outbound,
   direction_l: Port::Inbound,
-  cli_out_seg_u: ' ',
-  cli_out_seg_r: ' ',
-  cli_out_seg_d: '║',
-  cli_out_seg_l: '═',
-  cli_out_seg_c: '╗',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_R,
-  cli_out_box_r: BOX_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╗',
+};
+// ┌?┐
+// ? │
+// └─┘
+pub const BELT_LU: BeltMeta = BeltMeta {
+  btype: BeltType::LU,
+  dbg: "BELT_LU",
+  src: "./img/lu.png",
+  direction_u: Port::Unknown,
+  direction_r: Port::None,
+  direction_d: Port::None,
+  direction_l: Port::Unknown,
+  cli_icon: '╝',
 };
 // ┌v┐
 // < │
 // └─┘
-pub const CELL_BELT_L_U: BeltMeta = BeltMeta {
+pub const BELT_L_U: BeltMeta = BeltMeta {
   btype: BeltType::L_U,
   dbg: "BELT_L_U",
   src: "./img/l_u.png",
@@ -652,24 +820,12 @@ pub const CELL_BELT_L_U: BeltMeta = BeltMeta {
   direction_r: Port::None,
   direction_d: Port::None,
   direction_l: Port::Inbound,
-  cli_out_seg_u: '║',
-  cli_out_seg_r: ' ',
-  cli_out_seg_d: ' ',
-  cli_out_seg_l: '═',
-  cli_out_seg_c: '╝',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_D,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_L,
-  cli_out_box_r: BOX_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╝',
 };
 // ┌v┐
 // < │
 // └─┘
-pub const CELL_BELT_U_L: BeltMeta = BeltMeta {
+pub const BELT_U_L: BeltMeta = BeltMeta {
   btype: BeltType::U_L,
   dbg: "BELT_U_L",
   src: "./img/u_l.png",
@@ -677,24 +833,25 @@ pub const CELL_BELT_U_L: BeltMeta = BeltMeta {
   direction_r: Port::None,
   direction_d: Port::None,
   direction_l: Port::Outbound,
-  cli_out_seg_u: '║',
-  cli_out_seg_r: ' ',
-  cli_out_seg_d: ' ',
-  cli_out_seg_l: '═',
-  cli_out_seg_c: '╝',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_D,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_L,
-  cli_out_box_r: BOX_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╝',
+};
+// ┌?┐
+// │ │
+// └?┘
+pub const BELT_DU: BeltMeta = BeltMeta {
+  btype: BeltType::DU,
+  dbg: "BELT_DU",
+  src: "./img/du.png",
+  direction_u: Port::Unknown,
+  direction_r: Port::None,
+  direction_d: Port::Unknown,
+  direction_l: Port::None,
+  cli_icon: '║',
 };
 // ┌v┐
 // │ │
 // └v┘
-pub const CELL_BELT_U_D: BeltMeta = BeltMeta {
+pub const BELT_U_D: BeltMeta = BeltMeta {
   btype: BeltType::U_D,
   dbg: "BELT_U_D",
   src: "./img/u_d.png",
@@ -702,24 +859,12 @@ pub const CELL_BELT_U_D: BeltMeta = BeltMeta {
   direction_r: Port::None,
   direction_d: Port::Outbound,
   direction_l: Port::None,
-  cli_out_seg_u: '║',
-  cli_out_seg_r: ' ',
-  cli_out_seg_d: '║',
-  cli_out_seg_l: ' ',
-  cli_out_seg_c: '║',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_D,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_L,
-  cli_out_box_r: BOX_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '║',
 };
 // ┌^┐
 // │ │
 // └^┘
-pub const CELL_BELT_D_U: BeltMeta = BeltMeta {
+pub const BELT_D_U: BeltMeta = BeltMeta {
   btype: BeltType::D_U,
   dbg: "BELT_D_U",
   src: "./img/d_u.png",
@@ -727,24 +872,25 @@ pub const CELL_BELT_D_U: BeltMeta = BeltMeta {
   direction_r: Port::None,
   direction_d: Port::Inbound,
   direction_l: Port::None,
-  cli_out_seg_u: '║',
-  cli_out_seg_r: ' ',
-  cli_out_seg_d: '║',
-  cli_out_seg_l: ' ',
-  cli_out_seg_c: '║',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_L,
-  cli_out_box_r: BOX_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_U,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '║',
+};
+// ┌─┐
+// ? ?
+// └─┘
+pub const BELT_LR: BeltMeta = BeltMeta {
+  btype: BeltType::LR,
+  dbg: "BELT_LR",
+  src: "./img/lr.png",
+  direction_u: Port::None,
+  direction_r: Port::Unknown,
+  direction_d: Port::None,
+  direction_l: Port::Unknown,
+  cli_icon: '═',
 };
 // ┌─┐
 // > >
 // └─┘
-pub const CELL_BELT_L_R: BeltMeta = BeltMeta {
+pub const BELT_L_R: BeltMeta = BeltMeta {
   btype: BeltType::L_R,
   dbg: "BELT_L_R",
   src: "./img/l_r.png",
@@ -752,24 +898,12 @@ pub const CELL_BELT_L_R: BeltMeta = BeltMeta {
   direction_r: Port::Outbound,
   direction_d: Port::None,
   direction_l: Port::Inbound,
-  cli_out_seg_u: ' ',
-  cli_out_seg_r: '═',
-  cli_out_seg_d: ' ',
-  cli_out_seg_l: '═',
-  cli_out_seg_c: '═',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_R,
-  cli_out_box_r: BOX_ARROW_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '═',
 };
 // ┌─┐
 // < <
 // └─┘
-pub const CELL_BELT_R_L: BeltMeta = BeltMeta {
+pub const BELT_R_L: BeltMeta = BeltMeta {
   btype: BeltType::R_L,
   dbg: "BELT_R_L",
   src: "./img/r_l.png",
@@ -777,24 +911,25 @@ pub const CELL_BELT_R_L: BeltMeta = BeltMeta {
   direction_r: Port::Inbound,
   direction_d: Port::None,
   direction_l: Port::Outbound,
-  cli_out_seg_u: ' ',
-  cli_out_seg_r: '═',
-  cli_out_seg_d: ' ',
-  cli_out_seg_l: '═',
-  cli_out_seg_c: '═',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_L,
-  cli_out_box_r: BOX_ARROW_L,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '═',
+};
+// ┌?┐
+// ? ?
+// └─┘
+pub const BELT_LRU: BeltMeta = BeltMeta {
+  btype: BeltType::LRU,
+  dbg: "BELT_LRU",
+  src: "./img/lru.png",
+  direction_u: Port::Unknown,
+  direction_r: Port::Unknown,
+  direction_d: Port::None,
+  direction_l: Port::Unknown,
+  cli_icon: '╩',
 };
 // ┌v┐
 // < >
 // └─┘
-pub const CELL_BELT_U_LR: BeltMeta = BeltMeta {
+pub const BELT_U_LR: BeltMeta = BeltMeta {
   btype: BeltType::U_LR,
   dbg: "BELT_U_LR",
   src: "./img/u_lr.png",
@@ -802,24 +937,12 @@ pub const CELL_BELT_U_LR: BeltMeta = BeltMeta {
   direction_r: Port::Outbound,
   direction_d: Port::None,
   direction_l: Port::Outbound,
-  cli_out_seg_u: '║',
-  cli_out_seg_r: '═',
-  cli_out_seg_d: ' ',
-  cli_out_seg_l: '═',
-  cli_out_seg_c: '╩',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_D,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_L,
-  cli_out_box_r: BOX_ARROW_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╩',
 };
 // ┌v┐
 // < <
 // └─┘
-pub const CELL_BELT_RU_L: BeltMeta = BeltMeta {
+pub const BELT_RU_L: BeltMeta = BeltMeta {
   btype: BeltType::RU_L,
   dbg: "BELT_RU_L",
   src: "./img/ru_l.png",
@@ -827,24 +950,12 @@ pub const CELL_BELT_RU_L: BeltMeta = BeltMeta {
   direction_r: Port::Inbound,
   direction_d: Port::None,
   direction_l: Port::Outbound,
-  cli_out_seg_u: '║',
-  cli_out_seg_r: '═',
-  cli_out_seg_d: ' ',
-  cli_out_seg_l: '═',
-  cli_out_seg_c: '╩',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_D,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_L,
-  cli_out_box_r: BOX_ARROW_L,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╩',
 };
 // ┌v┐
 // > >
 // └─┘
-pub const CELL_BELT_LU_R: BeltMeta = BeltMeta {
+pub const BELT_LU_R: BeltMeta = BeltMeta {
   btype: BeltType::LU_R,
   dbg: "BELT_LU_R",
   src: "./img/lu_r.png",
@@ -852,24 +963,12 @@ pub const CELL_BELT_LU_R: BeltMeta = BeltMeta {
   direction_r: Port::Outbound,
   direction_d: Port::None,
   direction_l: Port::Inbound,
-  cli_out_seg_u: '║',
-  cli_out_seg_r: '═',
-  cli_out_seg_d: ' ',
-  cli_out_seg_l: '═',
-  cli_out_seg_c: '╩',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_D,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_R,
-  cli_out_box_r: BOX_ARROW_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╩',
 };
 // ┌^┐
 // > >
 // └─┘
-pub const CELL_BELT_L_RU: BeltMeta = BeltMeta {
+pub const BELT_L_RU: BeltMeta = BeltMeta {
   btype: BeltType::L_RU,
   dbg: "BELT_L_RU",
   src: "./img/l_ru.png",
@@ -877,24 +976,12 @@ pub const CELL_BELT_L_RU: BeltMeta = BeltMeta {
   direction_r: Port::Outbound,
   direction_d: Port::None,
   direction_l: Port::Inbound,
-  cli_out_seg_u: '║',
-  cli_out_seg_r: '═',
-  cli_out_seg_d: ' ',
-  cli_out_seg_l: '═',
-  cli_out_seg_c: '╩',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_R,
-  cli_out_box_r: BOX_ARROW_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╩',
 };
 // ┌^┐
 // > <
 // └─┘
-pub const CELL_BELT_LR_U: BeltMeta = BeltMeta {
+pub const BELT_LR_U: BeltMeta = BeltMeta {
   btype: BeltType::LR_U,
   dbg: "BELT_LR_U",
   src: "./img/lr_u.png",
@@ -902,24 +989,12 @@ pub const CELL_BELT_LR_U: BeltMeta = BeltMeta {
   direction_r: Port::Inbound,
   direction_d: Port::None,
   direction_l: Port::Inbound,
-  cli_out_seg_u: '║',
-  cli_out_seg_r: '═',
-  cli_out_seg_d: ' ',
-  cli_out_seg_l: '═',
-  cli_out_seg_c: '╩',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_R,
-  cli_out_box_r: BOX_ARROW_L,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╩',
 };
 // ┌^┐
 // < <
 // └─┘
-pub const CELL_BELT_R_LU: BeltMeta = BeltMeta {
+pub const BELT_R_LU: BeltMeta = BeltMeta {
   btype: BeltType::R_LU,
   dbg: "BELT_R_LU",
   src: "./img/r_lu.png",
@@ -927,24 +1002,25 @@ pub const CELL_BELT_R_LU: BeltMeta = BeltMeta {
   direction_r: Port::Inbound,
   direction_d: Port::None,
   direction_l: Port::Outbound,
-  cli_out_seg_u: '║',
-  cli_out_seg_r: '═',
-  cli_out_seg_d: ' ',
-  cli_out_seg_l: '═',
-  cli_out_seg_c: '╩',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_L,
-  cli_out_box_r: BOX_ARROW_L,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╩',
+};
+// ┌?┐
+// │ ?
+// └?┘
+pub const BELT_DRU: BeltMeta = BeltMeta {
+  btype: BeltType::DRU,
+  dbg: "BELT_DRU",
+  src: "./img/dru.png",
+  direction_u: Port::Unknown,
+  direction_r: Port::Unknown,
+  direction_d: Port::Unknown,
+  direction_l: Port::None,
+  cli_icon: '╠',
 };
 // ┌^┐
 // │ <
 // └v┘
-pub const CELL_BELT_R_DU: BeltMeta = BeltMeta {
+pub const BELT_R_DU: BeltMeta = BeltMeta {
   btype: BeltType::R_DU,
   dbg: "BELT_R_DU",
   src: "./img/r_du.png",
@@ -952,24 +1028,12 @@ pub const CELL_BELT_R_DU: BeltMeta = BeltMeta {
   direction_r: Port::Inbound,
   direction_d: Port::Outbound,
   direction_l: Port::None,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_L,
-  cli_out_box_r: BOX_ARROW_L,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╠',
 };
 // ┌v┐
 // │ <
 // └v┘
-pub const CELL_BELT_RU_D: BeltMeta = BeltMeta {
+pub const BELT_RU_D: BeltMeta = BeltMeta {
   btype: BeltType::RU_D,
   dbg: "BELT_RU_D",
   src: "./img/ru_d.png",
@@ -977,24 +1041,12 @@ pub const CELL_BELT_RU_D: BeltMeta = BeltMeta {
   direction_r: Port::Inbound,
   direction_d: Port::Outbound,
   direction_l: Port::None,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_D,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_L,
-  cli_out_box_r: BOX_ARROW_L,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╠',
 };
 // ┌^┐
 // │ <
 // └^┘
-pub const CELL_BELT_DR_U: BeltMeta = BeltMeta {
+pub const BELT_DR_U: BeltMeta = BeltMeta {
   btype: BeltType::DR_U,
   dbg: "BELT_DR_U",
   src: "./img/dr_u.png",
@@ -1002,24 +1054,12 @@ pub const CELL_BELT_DR_U: BeltMeta = BeltMeta {
   direction_r: Port::Inbound,
   direction_d: Port::Inbound,
   direction_l: Port::Outbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_L,
-  cli_out_box_r: BOX_ARROW_L,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_U,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╠',
 };
 // ┌v┐
 // │ >
 // └^┘
-pub const CELL_BELT_DU_R: BeltMeta = BeltMeta {
+pub const BELT_DU_R: BeltMeta = BeltMeta {
   btype: BeltType::DU_R,
   dbg: "BELT_DU_R",
   src: "./img/du_r.png",
@@ -1027,24 +1067,12 @@ pub const CELL_BELT_DU_R: BeltMeta = BeltMeta {
   direction_r: Port::Outbound,
   direction_d: Port::Inbound,
   direction_l: Port::None,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_D,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_L,
-  cli_out_box_r: BOX_ARROW_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_U,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╠',
 };
 // ┌v┐
 // │ >
 // └v┘
-pub const CELL_BELT_U_DR: BeltMeta = BeltMeta {
+pub const BELT_U_DR: BeltMeta = BeltMeta {
   btype: BeltType::U_DR,
   dbg: "BELT_U_DR",
   src: "./img/u_dr.png",
@@ -1052,24 +1080,12 @@ pub const CELL_BELT_U_DR: BeltMeta = BeltMeta {
   direction_r: Port::Outbound,
   direction_d: Port::Outbound,
   direction_l: Port::None,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_D,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_L,
-  cli_out_box_r: BOX_ARROW_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╠',
 };
 // ┌^┐
 // │ >
 // └^┘
-pub const CELL_BELT_D_RU: BeltMeta = BeltMeta {
+pub const BELT_D_RU: BeltMeta = BeltMeta {
   btype: BeltType::D_RU,
   dbg: "BELT_D_RU",
   src: "./img/d_ru.png",
@@ -1077,24 +1093,25 @@ pub const CELL_BELT_D_RU: BeltMeta = BeltMeta {
   direction_r: Port::Outbound,
   direction_d: Port::Inbound,
   direction_l: Port::None,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_L,
-  cli_out_box_r: BOX_ARROW_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_U,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╠',
+};
+// ┌─┐
+// ? ?
+// └?┘
+pub const BELT_DLR: BeltMeta = BeltMeta {
+  btype: BeltType::DLR,
+  dbg: "BELT_DLR",
+  src: "./img/dlr.png",
+  direction_u: Port::None,
+  direction_r: Port::Unknown,
+  direction_d: Port::Unknown,
+  direction_l: Port::Unknown,
+  cli_icon: '╦',
 };
 // ┌─┐
 // < >
 // └^┘
-pub const CELL_BELT_D_LR: BeltMeta = BeltMeta {
+pub const BELT_D_LR: BeltMeta = BeltMeta {
   btype: BeltType::D_LR,
   dbg: "BELT_D_LR",
   src: "./img/d_lr.png",
@@ -1102,24 +1119,12 @@ pub const CELL_BELT_D_LR: BeltMeta = BeltMeta {
   direction_r: Port::Outbound,
   direction_d: Port::Inbound,
   direction_l: Port::Outbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_L,
-  cli_out_box_r: BOX_ARROW_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_U,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╦',
 };
 // ┌─┐
 // > >
 // └^┘
-pub const CELL_BELT_DL_R: BeltMeta = BeltMeta {
+pub const BELT_DL_R: BeltMeta = BeltMeta {
   btype: BeltType::DL_R,
   dbg: "BELT_DL_R",
   src: "./img/dl_r.png",
@@ -1127,24 +1132,12 @@ pub const CELL_BELT_DL_R: BeltMeta = BeltMeta {
   direction_r: Port::Outbound,
   direction_d: Port::Inbound,
   direction_l: Port::Inbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_R,
-  cli_out_box_r: BOX_ARROW_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_U,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╦',
 };
 // ┌─┐
 // < <
 // └^┘
-pub const CELL_BELT_DR_L: BeltMeta = BeltMeta {
+pub const BELT_DR_L: BeltMeta = BeltMeta {
   btype: BeltType::DR_L,
   dbg: "BELT_DR_L",
   src: "./img/dr_l.png",
@@ -1152,24 +1145,12 @@ pub const CELL_BELT_DR_L: BeltMeta = BeltMeta {
   direction_r: Port::Inbound,
   direction_d: Port::Inbound,
   direction_l: Port::Outbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_L,
-  cli_out_box_r: BOX_ARROW_L,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_U,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╦',
 };
 // ┌─┐
 // > <
 // └v┘
-pub const CELL_BELT_LR_D: BeltMeta = BeltMeta {
+pub const BELT_LR_D: BeltMeta = BeltMeta {
   btype: BeltType::LR_D,
   dbg: "BELT_LR_D",
   src: "./img/dr_l.png",
@@ -1177,24 +1158,12 @@ pub const CELL_BELT_LR_D: BeltMeta = BeltMeta {
   direction_r: Port::Inbound,
   direction_d: Port::Outbound,
   direction_l: Port::Inbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_R,
-  cli_out_box_r: BOX_ARROW_L,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╦',
 };
 // ┌─┐
 // > >
 // └v┘
-pub const CELL_BELT_L_DR: BeltMeta = BeltMeta {
+pub const BELT_L_DR: BeltMeta = BeltMeta {
   btype: BeltType::L_DR,
   dbg: "BELT_L_DR",
   src: "./img/dr_l.png",
@@ -1202,24 +1171,12 @@ pub const CELL_BELT_L_DR: BeltMeta = BeltMeta {
   direction_r: Port::Outbound,
   direction_d: Port::Outbound,
   direction_l: Port::Inbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_R,
-  cli_out_box_r: BOX_ARROW_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╦',
 };
 // ┌─┐
 // < <
 // └v┘
-pub const CELL_BELT_R_DL: BeltMeta = BeltMeta {
+pub const BELT_R_DL: BeltMeta = BeltMeta {
   btype: BeltType::R_DL,
   dbg: "BELT_R_DL",
   src: "./img/r_dl.png",
@@ -1227,24 +1184,25 @@ pub const CELL_BELT_R_DL: BeltMeta = BeltMeta {
   direction_r: Port::Inbound,
   direction_d: Port::Outbound,
   direction_l: Port::Outbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_L,
-  cli_out_box_r: BOX_ARROW_L,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╦',
+};
+// ┌?┐
+// ? │
+// └?┘
+pub const BELT_DLU: BeltMeta = BeltMeta {
+  btype: BeltType::DLU,
+  dbg: "BELT_DLU",
+  src: "./img/dlu.png",
+  direction_u: Port::Unknown,
+  direction_r: Port::None,
+  direction_d: Port::Unknown,
+  direction_l: Port::Unknown,
+  cli_icon: '╣',
 };
 // ┌^┐
 // > │
 // └v┘
-pub const CELL_BELT_L_DU: BeltMeta = BeltMeta {
+pub const BELT_L_DU: BeltMeta = BeltMeta {
   btype: BeltType::L_DU,
   dbg: "BELT_L_DU",
   src: "./img/l_du.png",
@@ -1252,24 +1210,12 @@ pub const CELL_BELT_L_DU: BeltMeta = BeltMeta {
   direction_r: Port::None,
   direction_d: Port::Outbound,
   direction_l: Port::Inbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_R,
-  cli_out_box_r: BOX_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╣',
 };
 // ┌v┐
 // > │
 // └v┘
-pub const CELL_BELT_LU_D: BeltMeta = BeltMeta {
+pub const BELT_LU_D: BeltMeta = BeltMeta {
   btype: BeltType::LU_D,
   dbg: "BELT_LU_D",
   src: "./img/lu_d.png",
@@ -1277,24 +1223,12 @@ pub const CELL_BELT_LU_D: BeltMeta = BeltMeta {
   direction_r: Port::None,
   direction_d: Port::Outbound,
   direction_l: Port::Inbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_D,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_R,
-  cli_out_box_r: BOX_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╣',
 };
 // ┌^┐
 // > │
 // └^┘
-pub const CELL_BELT_DL_U: BeltMeta = BeltMeta {
+pub const BELT_DL_U: BeltMeta = BeltMeta {
   btype: BeltType::DL_U,
   dbg: "BELT_DL_U",
   src: "./img/dl_u.png",
@@ -1302,24 +1236,12 @@ pub const CELL_BELT_DL_U: BeltMeta = BeltMeta {
   direction_r: Port::None,
   direction_d: Port::Inbound,
   direction_l: Port::Inbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_R,
-  cli_out_box_r: BOX_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_U,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╣',
 };
 // ┌v┐
 // < │
 // └^┘
-pub const CELL_BELT_DU_L: BeltMeta = BeltMeta {
+pub const BELT_DU_L: BeltMeta = BeltMeta {
   btype: BeltType::DU_L,
   dbg: "BELT_DU_L",
   src: "./img/du_l.png",
@@ -1327,24 +1249,12 @@ pub const CELL_BELT_DU_L: BeltMeta = BeltMeta {
   direction_r: Port::None,
   direction_d: Port::Inbound,
   direction_l: Port::Outbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_D,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_R,
-  cli_out_box_r: BOX_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_U,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╣',
 };
 // ┌v┐
 // < │
 // └v┘
-pub const CELL_BELT_U_DL: BeltMeta = BeltMeta {
+pub const BELT_U_DL: BeltMeta = BeltMeta {
   btype: BeltType::U_DL,
   dbg: "BELT_U_DL",
   src: "./img/u_dl.png",
@@ -1352,24 +1262,12 @@ pub const CELL_BELT_U_DL: BeltMeta = BeltMeta {
   direction_r: Port::None,
   direction_d: Port::Outbound,
   direction_l: Port::Outbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_D,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_L,
-  cli_out_box_r: BOX_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╣',
 };
 // ┌^┐
 // < │
 // └^┘
-pub const CELL_BELT_D_LU: BeltMeta = BeltMeta {
+pub const BELT_D_LU: BeltMeta = BeltMeta {
   btype: BeltType::D_UL,
   dbg: "BELT_D_UL",
   src: "./img/d_ul.png",
@@ -1377,49 +1275,38 @@ pub const CELL_BELT_D_LU: BeltMeta = BeltMeta {
   direction_r: Port::None,
   direction_d: Port::Inbound,
   direction_l: Port::Outbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_L,
-  cli_out_box_r: BOX_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_U,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╣',
+};
+// ┌?┐
+// ? ?
+// └?┘
+pub const BELT_DLRU: BeltMeta = BeltMeta {
+  btype: BeltType::DLRU,
+  dbg: "BELT_DLRU",
+  src: "./img/dlru.png",
+  direction_u: Port::Unknown,
+  direction_r: Port::Unknown,
+  direction_d: Port::Unknown,
+  direction_l: Port::Unknown,
+  cli_icon: '╬',
 };
 // ┌v┐
 // < >
 // └v┘
-pub const CELL_BELT_U_DLR: BeltMeta = BeltMeta {
+pub const BELT_U_DLR: BeltMeta = BeltMeta {
   btype: BeltType::U_DLR,
   dbg: "BELT_U_DLR",
-  src: "./img/todo.png",
+  src: "./img/dlru.png",
   direction_u: Port::Inbound,
   direction_r: Port::Outbound,
   direction_d: Port::Outbound,
   direction_l: Port::Outbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_ARROW_D,
-  cli_out_box_u: BOX_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_L,
-  cli_out_box_r: BOX_ARROW_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╬',
 };
 // ┌^┐
 // < <
 // └v┘
-pub const CELL_BELT_R_DLU: BeltMeta = BeltMeta {
+pub const BELT_R_DLU: BeltMeta = BeltMeta {
   btype: BeltType::R_DLU,
   dbg: "BELT_R_DLU",
   src: "./img/todo.png",
@@ -1427,24 +1314,12 @@ pub const CELL_BELT_R_DLU: BeltMeta = BeltMeta {
   direction_r: Port::Inbound,
   direction_d: Port::Outbound,
   direction_l: Port::Outbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_L,
-  cli_out_box_r: BOX_ARROW_L,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╬',
 };
 // ┌^┐
 // < >
 // └^┘
-pub const CELL_BELT_D_LRU: BeltMeta = BeltMeta {
+pub const BELT_D_LRU: BeltMeta = BeltMeta {
   btype: BeltType::D_LRU,
   dbg: "BELT_D_LRU",
   src: "./img/todo.png",
@@ -1452,24 +1327,12 @@ pub const CELL_BELT_D_LRU: BeltMeta = BeltMeta {
   direction_r: Port::Outbound,
   direction_d: Port::Inbound,
   direction_l: Port::Outbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_L,
-  cli_out_box_r: BOX_ARROW_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_U,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╬',
 };
 // ┌^┐
 // > >
 // └v┘
-pub const CELL_BELT_L_DRU: BeltMeta = BeltMeta {
+pub const BELT_L_DRU: BeltMeta = BeltMeta {
   btype: BeltType::L_DRU,
   dbg: "BELT_L_DRU",
   src: "./img/todo.png",
@@ -1477,24 +1340,12 @@ pub const CELL_BELT_L_DRU: BeltMeta = BeltMeta {
   direction_r: Port::Outbound,
   direction_d: Port::Outbound,
   direction_l: Port::Inbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_R,
-  cli_out_box_r: BOX_ARROW_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╬',
 };
 // ┌v┐
 // < <
 // └v┘
-pub const CELL_BELT_RU_DL: BeltMeta = BeltMeta {
+pub const BELT_RU_DL: BeltMeta = BeltMeta {
   btype: BeltType::RU_DL,
   dbg: "BELT_RU_DL",
   src: "./img/todo.png",
@@ -1502,24 +1353,12 @@ pub const CELL_BELT_RU_DL: BeltMeta = BeltMeta {
   direction_r: Port::Inbound,
   direction_d: Port::Outbound,
   direction_l: Port::Outbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_D,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_L,
-  cli_out_box_r: BOX_ARROW_L,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╬',
 };
 // ┌v┐
 // < >
 // └^┘
-pub const CELL_BELT_DU_LR: BeltMeta = BeltMeta {
+pub const BELT_DU_LR: BeltMeta = BeltMeta {
   btype: BeltType::DU_LR,
   dbg: "BELT_DU_LR",
   src: "./img/todo.png",
@@ -1527,24 +1366,12 @@ pub const CELL_BELT_DU_LR: BeltMeta = BeltMeta {
   direction_r: Port::Outbound,
   direction_d: Port::Inbound,
   direction_l: Port::Outbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_D,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_L,
-  cli_out_box_r: BOX_ARROW_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_U,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╬',
 };
 // ┌v┐
 // > >
 // └v┘
-pub const CELL_BELT_LU_DR: BeltMeta = BeltMeta {
+pub const BELT_LU_DR: BeltMeta = BeltMeta {
   btype: BeltType::LU_DR,
   dbg: "BELT_LU_DR",
   src: "./img/todo.png",
@@ -1552,24 +1379,12 @@ pub const CELL_BELT_LU_DR: BeltMeta = BeltMeta {
   direction_r: Port::Outbound,
   direction_d: Port::Outbound,
   direction_l: Port::Inbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_D,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_R,
-  cli_out_box_r: BOX_ARROW_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╬',
 };
 // ┌v┐
 // > >
 // └v┘
-pub const CELL_BELT_DL_RU: BeltMeta = BeltMeta {
+pub const BELT_DL_RU: BeltMeta = BeltMeta {
   btype: BeltType::LD_RU,
   dbg: "BELT_LD_RU",
   src: "./img/todo.png",
@@ -1577,24 +1392,12 @@ pub const CELL_BELT_DL_RU: BeltMeta = BeltMeta {
   direction_r: Port::Outbound,
   direction_d: Port::Inbound,
   direction_l: Port::Inbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_D,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_R,
-  cli_out_box_r: BOX_ARROW_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╬',
 };
 // ┌^┐
 // < <
 // └^┘
-pub const CELL_BELT_DR_LU: BeltMeta = BeltMeta {
+pub const BELT_DR_LU: BeltMeta = BeltMeta {
   btype: BeltType::DR_LU,
   dbg: "BELT_DR_LU",
   src: "./img/todo.png",
@@ -1602,24 +1405,12 @@ pub const CELL_BELT_DR_LU: BeltMeta = BeltMeta {
   direction_r: Port::Inbound,
   direction_d: Port::Inbound,
   direction_l: Port::Outbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_L,
-  cli_out_box_r: BOX_ARROW_L,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_U,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╬',
 };
 // ┌^┐
 // > <
 // └v┘
-pub const CELL_BELT_LR_DU: BeltMeta = BeltMeta {
+pub const BELT_LR_DU: BeltMeta = BeltMeta {
   btype: BeltType::LR_DU,
   dbg: "BELT_LR_DU",
   src: "./img/todo.png",
@@ -1627,24 +1418,12 @@ pub const CELL_BELT_LR_DU: BeltMeta = BeltMeta {
   direction_r: Port::Inbound,
   direction_d: Port::Outbound,
   direction_l: Port::Inbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_R,
-  cli_out_box_r: BOX_ARROW_L,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╬',
 };
 // ┌^┐
 // > <
 // └^┘
-pub const CELL_BELT_DLR_U: BeltMeta = BeltMeta {
+pub const BELT_DLR_U: BeltMeta = BeltMeta {
   btype: BeltType::DLR_U,
   dbg: "BELT_DLR_U",
   src: "./img/todo.png",
@@ -1652,24 +1431,12 @@ pub const CELL_BELT_DLR_U: BeltMeta = BeltMeta {
   direction_r: Port::Inbound,
   direction_d: Port::Inbound,
   direction_l: Port::Inbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_U,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_R,
-  cli_out_box_r: BOX_ARROW_L,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_U,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╬',
 };
 // ┌v┐
 // > >
 // └^┘
-pub const CELL_BELT_DLU_R: BeltMeta = BeltMeta {
+pub const BELT_DLU_R: BeltMeta = BeltMeta {
   btype: BeltType::DLU_R,
   dbg: "BELT_DLU_R",
   src: "./img/todo.png",
@@ -1677,24 +1444,12 @@ pub const CELL_BELT_DLU_R: BeltMeta = BeltMeta {
   direction_r: Port::Outbound,
   direction_d: Port::Inbound,
   direction_l: Port::Inbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_D,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_R,
-  cli_out_box_r: BOX_ARROW_R,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_U,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╬',
 };
 // ┌v┐
 // > <
 // └v┘
-pub const CELL_BELT_LRU_D: BeltMeta = BeltMeta {
+pub const BELT_LRU_D: BeltMeta = BeltMeta {
   btype: BeltType::RLU_D,
   dbg: "BELT_RLU_D",
   src: "./img/todo.png",
@@ -1702,24 +1457,12 @@ pub const CELL_BELT_LRU_D: BeltMeta = BeltMeta {
   direction_r: Port::Inbound,
   direction_d: Port::Outbound,
   direction_l: Port::Inbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_D,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_R,
-  cli_out_box_r: BOX_ARROW_L,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_D,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╬',
 };
 // ┌v┐
 // < <
 // └^┘
-pub const CELL_BELT_DRU_L: BeltMeta = BeltMeta {
+pub const BELT_DRU_L: BeltMeta = BeltMeta {
   btype: BeltType::DRU_L,
   dbg: "BELT_DRU_L",
   src: "./img/todo.png",
@@ -1727,19 +1470,7 @@ pub const CELL_BELT_DRU_L: BeltMeta = BeltMeta {
   direction_r: Port::Inbound,
   direction_d: Port::Inbound,
   direction_l: Port::Outbound,
-  cli_out_seg_u: '?',
-  cli_out_seg_r: '?',
-  cli_out_seg_d: '?',
-  cli_out_seg_l: '?',
-  cli_out_seg_c: '?',
-  cli_out_box_lu: BOX_LU,
-  cli_out_box_u: BOX_ARROW_D,
-  cli_out_box_ru: BOX_RU,
-  cli_out_box_l: BOX_ARROW_L,
-  cli_out_box_r: BOX_ARROW_L,
-  cli_out_box_dl: BOX_DL,
-  cli_out_box_d: BOX_ARROW_U,
-  cli_out_box_dr: BLX_DR,
+  cli_icon: '╬',
 };
 
 

@@ -6,24 +6,29 @@
 
 use std::collections::VecDeque;
 
+#[cfg(not(target_arch = "wasm32"))]
+pub mod _cli;
+
 pub mod belt;
 pub mod cell;
+pub mod demand;
 pub mod direction;
 pub mod factory;
 pub mod floor;
 pub mod machine;
 pub mod options;
 pub mod part;
-pub mod segment;
+pub mod port;
 pub mod state;
 pub mod supply;
+pub mod utils;
 
 #[cfg(target_arch = "wasm32")]
 pub mod _web;
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
-  println!("start");
+  println!("cli start");
 
   // Static state configuration (can still be changed by user)
   let mut options = options::create_options(1.0);
@@ -31,27 +36,7 @@ fn main() {
   // General app state
   let mut state = state::State {};
 
-  let mut factory = factory::create_factory(&mut options, &mut state);
-
-  // Do not record the cost of belt cells. assume them an ongoing 10k x belt cost cost/min modifier
-  // Only record the non-belt costs, which happen far less frequently and mean the delta queue
-  // will be less than 100 items. Probably slightly under 50, depending on how we tweak speeds.
-  // Even 100 items seems well within acceptable ranges. We could even track 10s (1k items) which
-  // might be useful to set consistency thresholds ("you need to maintain this efficiency for at
-  // least 10s").
-
-  // while factory.ticks < (120 * options::ONE_SECOND) {
-  loop {
-    factory::tick_factory(&mut options, &mut state, &mut factory);
-
-    if (factory.ticks % options.print_factory_interval) == 0 {
-      println!("{:200}", ' ');
-      println!("factory @ {} {:200}", factory.ticks, ' ');
-      println!("machine TL {:?} {:?} {:?} -> {:?}", factory.floor.cells[8].machine_input_1_have.kind, factory.floor.cells[8].machine_input_2_have.kind, factory.floor.cells[8].machine_input_3_have.kind, factory.floor.cells[8].machine_output_have.kind);
-      println!("{}", factory::serialize_cli(&factory));
-      // print!("\x1b[{}A\n", 60);
-    }
-  }
+  _cli::cli_main(&mut options, &mut state);
 }
 
 pub fn log(s: &str) {

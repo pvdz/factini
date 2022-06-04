@@ -53,3 +53,7 @@ pub fn create_options(speed_modifier: f64) -> Options {
 pub const ONE_MS: u64 = 5; // design is 10
 pub const ONE_SECOND: u64 = 1000 * ONE_MS;
 pub const MAX_TICKS_PER_FRAME: u64 = 1000;
+
+pub const FLOOR_CELLS_W: usize = 1 + 5*3 + 1;
+pub const FLOOR_CELLS_H: usize = 1 + 5*3 + 1;
+pub const FLOOR_CELLS_WH: usize = FLOOR_CELLS_W * FLOOR_CELLS_H;

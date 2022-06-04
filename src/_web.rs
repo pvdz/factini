@@ -26,7 +26,6 @@ use super::floor::*;
 use super::options::*;
 use super::machine::*;
 use super::part::*;
-use super::segment::*;
 use super::state::*;
 
 // These are the actual pixels we can paint to
@@ -129,18 +128,18 @@ fn hit_check_between_belts(factory: &mut Factory, cx: f64, cy: f64, crx: f64, cr
   if crx >= 0.33 && crx < 0.66 {
     if cry < 0.20 {
       if cy > 0.0 {
-        let coord = to_coord(WORLD_CELLS_X as usize, cx as usize, cy as usize);
+        let coord = to_coord(cx as usize, cy as usize);
         if factory.floor.cells[coord].segments[SegmentDirection::UP as usize].port != Port::None {
-          if factory.floor.cells[to_coord_up(coord, WORLD_CELLS_X as usize)].segments[SegmentDirection::DOWN as usize].port != Port::None {
+          if factory.floor.cells[to_coord_up(coord)].segments[SegmentDirection::DOWN as usize].port != Port::None {
             return SegmentDirection::UP;
           }
         }
       }
     } else if cry > 0.80 {
       if cy < WORLD_CELLS_Y-1.0 {
-        let coord = to_coord(WORLD_CELLS_X as usize, cx as usize, cy as usize);
+        let coord = to_coord(cx as usize, cy as usize);
         if factory.floor.cells[coord].segments[SegmentDirection::DOWN as usize].port != Port::None {
-          if factory.floor.cells[to_coord_down(coord, WORLD_CELLS_X as usize)].segments[SegmentDirection::UP as usize].port != Port::None {
+          if factory.floor.cells[to_coord_down(coord)].segments[SegmentDirection::UP as usize].port != Port::None {
             return SegmentDirection::DOWN;
           }
         }
@@ -149,18 +148,18 @@ fn hit_check_between_belts(factory: &mut Factory, cx: f64, cy: f64, crx: f64, cr
   } else if cry >= 0.33 && cry < 0.66 {
     if crx < 0.20 {
       if cx > 0.0 {
-        let coord = to_coord(WORLD_CELLS_X as usize, cx as usize, cy as usize);
+        let coord = to_coord(cx as usize, cy as usize);
         if factory.floor.cells[coord].segments[SegmentDirection::LEFT as usize].port != Port::None {
-          if factory.floor.cells[to_coord_left(coord, WORLD_CELLS_X as usize)].segments[SegmentDirection::RIGHT as usize].port != Port::None {
+          if factory.floor.cells[to_coord_left(coord)].segments[SegmentDirection::RIGHT as usize].port != Port::None {
             return SegmentDirection::LEFT;
           }
         }
       }
     } else if crx > 0.80 {
       if cx < WORLD_CELLS_Y-1.0 {
-        let coord = to_coord(WORLD_CELLS_X as usize, cx as usize, cy as usize);
+        let coord = to_coord(cx as usize, cy as usize);
         if factory.floor.cells[coord].segments[SegmentDirection::RIGHT as usize].port != Port::None {
-          if factory.floor.cells[to_coord_right(coord, WORLD_CELLS_X as usize)].segments[SegmentDirection::LEFT as usize].port != Port::None {
+          if factory.floor.cells[to_coord_right(coord)].segments[SegmentDirection::LEFT as usize].port != Port::None {
             return SegmentDirection::RIGHT;
           }
         }
@@ -260,6 +259,17 @@ pub fn start() -> Result<(), JsValue> {
   belt_tile_images[BeltType::DLU_R as usize] = load_tile(CELL_BELT_DLU_R.src)?;
   belt_tile_images[BeltType::RLU_D as usize] = load_tile(CELL_BELT_LRU_D.src)?;
   belt_tile_images[BeltType::DRU_L as usize] = load_tile(CELL_BELT_DRU_L.src)?;
+  belt_tile_images[BeltType::RU as usize] = load_tile(CELL_BELT_RU.src)?;
+  belt_tile_images[BeltType::DR as usize] = load_tile(CELL_BELT_DR.src)?;
+  belt_tile_images[BeltType::DL as usize] = load_tile(CELL_BELT_DL.src)?;
+  belt_tile_images[BeltType::LU as usize] = load_tile(CELL_BELT_LU.src)?;
+  belt_tile_images[BeltType::DU as usize] = load_tile(CELL_BELT_DU.src)?;
+  belt_tile_images[BeltType::LR as usize] = load_tile(CELL_BELT_LR.src)?;
+  belt_tile_images[BeltType::LRU as usize] = load_tile(CELL_BELT_LRU.src)?;
+  belt_tile_images[BeltType::DRU as usize] = load_tile(CELL_BELT_DRU.src)?;
+  belt_tile_images[BeltType::DLR as usize] = load_tile(CELL_BELT_DLR.src)?;
+  belt_tile_images[BeltType::DLU as usize] = load_tile(CELL_BELT_DLU.src)?;
+  belt_tile_images[BeltType::DLRU as usize] = load_tile(CELL_BELT_DLRU.src)?;
   belt_tile_images[BeltType::INVALID as usize] = load_tile(CELL_BELT_INVALID.src)?;
 
   let part_tile_sprite: web_sys::HtmlImageElement = load_tile("./img/roguelikeitems.png")?;
@@ -286,9 +296,8 @@ pub fn start() -> Result<(), JsValue> {
       let mx = event.offset_x() as f64;
       let my = event.offset_y() as f64;
       is_mouse_down.set(true);
-      last_mouse_up_x.set(mx);
-      last_mouse_up_y.set(my);
-      // log("mousedown?");
+      last_mouse_down_x.set(mx);
+      last_mouse_down_y.set(my);
     }) as Box<dyn FnMut(_)>);
     canvas.add_event_listener_with_callback("mousedown", closure.as_ref().unchecked_ref())?;
     closure.forget();
@@ -297,8 +306,6 @@ pub fn start() -> Result<(), JsValue> {
   {
     let mouse_x = mouse_x.clone();
     let mouse_y = mouse_y.clone();
-    // let context = context.clone();
-    // let pressed = pressed.clone();
     let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
       let mx = event.offset_x() as f64;
       let my = event.offset_y() as f64;
@@ -354,9 +361,9 @@ pub fn start() -> Result<(), JsValue> {
 
     let mut fps: VecDeque<f64> = VecDeque::new();
     
-    let mut is_cell_dragging: bool = false;
-    let mut cell_drag_ocx: f64 = 0.0; // in cell coords
-    let mut cell_drag_ocy: f64 = 0.0;
+    let mut is_mouse_dragging: bool = false;
+    let mut cell_drag_owx: f64 = 0.0; // in world coords
+    let mut cell_drag_owy: f64 = 0.0;
     
     let mut selected_cell = false;
     let mut selected_cell_x: f64 = 0.0;
@@ -440,7 +447,7 @@ pub fn start() -> Result<(), JsValue> {
       context.set_fill_style(&"lightgreen".into());
       context.fill_rect(UI_OX, UI_OY + (UI_LINE_H * ui_lines), UI_W, UI_LINE_H);
       context.set_fill_style(&"grey".into());
-      context.fill_text(format!("mouse abs  : {} x {} {}", mouse_x.get(), mouse_y.get()).as_str(), UI_OX + UI_ML, UI_OY + (ui_lines * UI_LINE_H) + UI_FONT_H, if is_mouse_down.get() { "down" } else { "up" } ).expect("something error fill_text");
+      context.fill_text(format!("mouse abs  : {} x {} {}", mouse_x.get(), mouse_y.get(), if is_mouse_dragging { "drag" } else if is_mouse_down.get() { "down" } else { "up" }).as_str(), UI_OX + UI_ML, UI_OY + (ui_lines * UI_LINE_H) + UI_FONT_H).expect("something error fill_text");
 
       ui_lines += 1.0;
       context.set_fill_style(&"lightgreen".into());
@@ -475,153 +482,178 @@ pub fn start() -> Result<(), JsValue> {
       } else {
         // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
-        // Handle click. Yes, you can't click at x=0 or y=0
-        // "lcm*" = "last click mouse *"
-        // TODO: do we want to do this before the tick? Not sure it matters.
-        let lcmx = last_mouse_up_x.get();
+        // "ldm*" = "last down mouse *"
+        let ldmx = last_mouse_down_x.get();
+        let ldmy = last_mouse_down_y.get();
+        if ldmx > 0.0 || ldmy > 0.0 {
+          last_mouse_down_x.set(0.0);
+          last_mouse_down_y.set(0.0);
+          cell_drag_owx = ldmx / CANVAS_CSS_WIDTH * CANVAS_WIDTH;
+          cell_drag_owy = ldmy / CANVAS_CSS_HEIGHT * CANVAS_HEIGHT;
+        }
+
+        // determine whether mouse is considered to be dragging (there's a buffer of movement before
+        // we consider a mouse down to mouse up to be dragging. But once we do, we stick to it.)
+        if !is_mouse_dragging {
+          // 5 world pixels? sensitivity tbd
+          if (cell_drag_owx - mwx).abs() > 5.0 || (cell_drag_owy - mwy).abs() > 5.0 {
+            is_dragging = true;
+          } 
+        }
+
+        // "lum*" = "last up mouse *"
+        let lumx = last_mouse_up_x.get();
         let lcmy = last_mouse_up_y.get();
-        if lcmx > 0.0 && lcmy > 0.0 {
+
+        // Handle drag-end or click
+        if lumx > 0.0 || lcmy > 0.0 {
           // Clear the click state
           last_mouse_up_x.set(0.0);
           last_mouse_up_y.set(0.0);
 
-          // last mouse click world x/y
-          let lcmwx = lcmx / CANVAS_CSS_WIDTH * CANVAS_WIDTH;
-          let lcmwy = lcmy / CANVAS_CSS_HEIGHT * CANVAS_HEIGHT;
+          // last mouse up world x/y
+          let lumwx = lumx / CANVAS_CSS_WIDTH * CANVAS_WIDTH;
+          let lumwy = lcmy / CANVAS_CSS_HEIGHT * CANVAS_HEIGHT;
 
-          // Was the click inside the painted world?
-          // In that case we change/toggle the cell selection
-          if lcmwx >= WORLD_OFFSET_X && lcmwy >= WORLD_OFFSET_Y && lcmwx < WORLD_OFFSET_X + WORLD_WIDTH && lcmwy < WORLD_OFFSET_Y + WORLD_HEIGHT {
-            // "lcm*" = "last click mouse *"
-            let lcmcx = (lcmwx / CELL_W).floor();
-            let lcmcy = (lcmwy / CELL_H).floor();
-            let lmccoord = to_coord(factory.floor.width + 2, lcmcx as usize, lcmcy as usize);
-            let lcmcrx = (lcmwx / CELL_W) - lcmcx;
-            let lcmcry = (lcmwy / CELL_H) - lcmcy;
+          if is_mouse_dragging {
 
-            // Check if the icon between connected belts was clicked
-            if lcmcx >= 0.0 && lcmcy >= 0.0 && lcmcx < WORLD_CELLS_X && lcmcy < WORLD_CELLS_Y {
-              let found = hit_check_between_belts(&mut factory, lcmcx, lcmcy, lcmcrx, lcmcry);
-              log(format!("found {:?}", found).as_str());
-              // If found (not CENTER) then drop the ports between these cells
-              match found {
-                SegmentDirection::UP => {
-                  factory.floor.cells[lmccoord].segments[SegmentDirection::UP as usize].port = Port::None;
-                  factory.floor.cells[to_coord_up(lmccoord, factory.floor.width + 2)].segments[SegmentDirection::DOWN as usize].port = Port::None;
-                },
-                SegmentDirection::RIGHT => {
-                  factory.floor.cells[lmccoord].segments[SegmentDirection::RIGHT as usize].port = Port::None;
-                  factory.floor.cells[to_coord_right(lmccoord, factory.floor.width + 2)].segments[SegmentDirection::LEFT as usize].port = Port::None;
-                },
-                SegmentDirection::DOWN => {
-                  factory.floor.cells[lmccoord].segments[SegmentDirection::DOWN as usize].port = Port::None;
-                  factory.floor.cells[to_coord_down(lmccoord, factory.floor.width + 2)].segments[SegmentDirection::UP as usize].port = Port::None;
-                },
-                SegmentDirection::LEFT => {
-                  factory.floor.cells[lmccoord].segments[SegmentDirection::LEFT as usize].port = Port::None;
-                  factory.floor.cells[to_coord_left(lmccoord, factory.floor.width + 2)].segments[SegmentDirection::RIGHT as usize].port = Port::None;
-                },
-                SegmentDirection::CENTER => {
-                  // Center means the click was not between belts with connected ports...
-                  log(format!("clicked {} {} selected {} on {} {}", lcmcx, lcmcy, selected_cell, selected_cell_x, selected_cell_y).as_str());
 
-                  if selected_cell && lcmcx == selected_cell_x && lcmcy == selected_cell_y {
-                    selected_cell = false;
-                    selected_cell_x = 100.0;
-                    selected_cell_y = 100.0;
-                  } else {
-                    selected_cell = true;
-                    selected_cell_x = lcmcx;
-                    selected_cell_y = lcmcy;
+
+          } else {
+            // Was the click inside the painted world?
+            // In that case we change/toggle the cell selection
+            if lumwx >= WORLD_OFFSET_X && lumwy >= WORLD_OFFSET_Y && lumwx < WORLD_OFFSET_X + WORLD_WIDTH && lumwy < WORLD_OFFSET_Y + WORLD_HEIGHT {
+              // "lcm*" = "last click mouse *"
+              let lcmcx = (lumwx / CELL_W).floor();
+              let lcmcy = (lumwy / CELL_H).floor();
+              let lmccoord = to_coord(lcmcx as usize, lcmcy as usize);
+              let lcmcrx = (lumwx / CELL_W) - lcmcx;
+              let lcmcry = (lumwy / CELL_H) - lcmcy;
+
+              // Check if the icon between connected belts was clicked
+              if lcmcx >= 0.0 && lcmcy >= 0.0 && lcmcx < WORLD_CELLS_X && lcmcy < WORLD_CELLS_Y {
+                let found = hit_check_between_belts(&mut factory, lcmcx, lcmcy, lcmcrx, lcmcry);
+                log(format!("found {:?}", found).as_str());
+                // If found (not CENTER) then drop the ports between these cells
+                match found {
+                  SegmentDirection::UP => {
+                    factory.floor.cells[lmccoord].segments[SegmentDirection::UP as usize].port = Port::None;
+                    factory.floor.cells[to_coord_up(lmccoord)].segments[SegmentDirection::DOWN as usize].port = Port::None;
+                  },
+                  SegmentDirection::RIGHT => {
+                    factory.floor.cells[lmccoord].segments[SegmentDirection::RIGHT as usize].port = Port::None;
+                    factory.floor.cells[to_coord_right(lmccoord)].segments[SegmentDirection::LEFT as usize].port = Port::None;
+                  },
+                  SegmentDirection::DOWN => {
+                    factory.floor.cells[lmccoord].segments[SegmentDirection::DOWN as usize].port = Port::None;
+                    factory.floor.cells[to_coord_down(lmccoord)].segments[SegmentDirection::UP as usize].port = Port::None;
+                  },
+                  SegmentDirection::LEFT => {
+                    factory.floor.cells[lmccoord].segments[SegmentDirection::LEFT as usize].port = Port::None;
+                    factory.floor.cells[to_coord_left(lmccoord)].segments[SegmentDirection::RIGHT as usize].port = Port::None;
+                  },
+                  SegmentDirection::CENTER => {
+                    // Center means the click was not between belts with connected ports...
+                    log(format!("clicked {} {} selected {} on {} {}", lcmcx, lcmcy, selected_cell, selected_cell_x, selected_cell_y).as_str());
+
+                    if selected_cell && lcmcx == selected_cell_x && lcmcy == selected_cell_y {
+                      selected_cell = false;
+                      selected_cell_x = 100.0;
+                      selected_cell_y = 100.0;
+                    } else {
+                      selected_cell = true;
+                      selected_cell_x = lcmcx;
+                      selected_cell_y = lcmcy;
+                    }
                   }
                 }
               }
             }
-          }
-          // Is the click inside the cell editor?
-          else if selected_cell && hit_check_cell_editor_any(lcmwx, lcmwy) {
-            // Is the mouse clicking on one of the focused grid segments?
-            if hit_check_cell_editor_grid(lcmwx, lcmwy) {
-              // Clicked inside the grid
-              // Determine which segment and then rotate that segment
-              let sx = ((lcmwx - UI_CELL_EDITOR_GRID_OX) / UI_SEGMENT_W).floor();
-              let sy = ((lcmwy - UI_CELL_EDITOR_GRID_OY) / UI_SEGMENT_H).floor();
+            // Is the click inside the cell editor?
+            else if selected_cell && hit_check_cell_editor_any(lumwx, lumwy) {
+              // Is the mouse clicking on one of the focused grid segments?
+              if hit_check_cell_editor_grid(lumwx, lumwy) {
+                // Clicked inside the grid
+                // Determine which segment and then rotate that segment
+                let sx = ((lumwx - UI_CELL_EDITOR_GRID_OX) / UI_SEGMENT_W).floor();
+                let sy = ((lumwy - UI_CELL_EDITOR_GRID_OY) / UI_SEGMENT_H).floor();
 
-              log(format!("sxy: {} {}", sx, sy).as_str());
+                log(format!("sxy: {} {}", sx, sy).as_str());
 
-              let seg = match (sx as i8, sy as i8) {
-                (1, 0) => SegmentDirection::UP,
-                (2, 1) => SegmentDirection::RIGHT,
-                (1, 2) => SegmentDirection::DOWN,
-                (0, 1) => SegmentDirection::LEFT,
-                _ => SegmentDirection::CENTER, // ignore center and corners
-              };
-
-              if seg != SegmentDirection::CENTER {
-                let selected_coord = to_coord(factory.floor.width + 2, selected_cell_x as usize, selected_cell_y as usize);
-                // Cycle the port on this side
-                let port = factory.floor.cells[selected_coord].segments[seg as usize].port;
-                let new_port = match port {
-                  Port::Inbound => Port::Outbound,
-                  Port::Outbound => Port::None,
-                  Port::None => Port::Inbound,
+                let seg = match (sx as i8, sy as i8) {
+                  (1, 0) => SegmentDirection::UP,
+                  (2, 1) => SegmentDirection::RIGHT,
+                  (1, 2) => SegmentDirection::DOWN,
+                  (0, 1) => SegmentDirection::LEFT,
+                  _ => SegmentDirection::CENTER, // ignore center and corners
                 };
-                factory.floor.cells[selected_coord].segments[seg as usize].port = new_port;
-                factory.floor.cells[selected_coord].belt = port_config_to_belt(
-                  factory.floor.cells[selected_coord].segments[SegmentDirection::UP as usize].port,
-                  factory.floor.cells[selected_coord].segments[SegmentDirection::RIGHT as usize].port,
-                  factory.floor.cells[selected_coord].segments[SegmentDirection::DOWN as usize].port,
-                  factory.floor.cells[selected_coord].segments[SegmentDirection::LEFT as usize].port,
-                );
-              }
-            } else {
-              // Is the mouse clicking on the focused grid kind box?
-              if hit_check_cell_editor_kind(lcmwx, lcmwy) {
-                let selected_coord = to_coord(factory.floor.width + 2, selected_cell_x as usize, selected_cell_y as usize);
 
-                // There are two cases; edge and middle cells. Supply/Demand can only go on edge.
-                // Machine and Belt can only go in middle. Empty can go anywhere.
-                log(format!("from the {} {} {} {}", mcx, mcy, WORLD_CELLS_X - 1.0, WORLD_CELLS_Y - 1.0).as_str());
-                if selected_cell_x == 0.0 || selected_cell_y == 0.0 || selected_cell_x == WORLD_CELLS_X - 1.0 || selected_cell_y == WORLD_CELLS_Y - 1.0 {
-                  log("from the top");
-                  // Edge. Cycle between Empty, Supply, and Demand
-                  match factory.floor.cells[selected_coord].kind {
-                    CellKind::Empty => {
-                      factory.floor.cells[selected_coord] = supply_cell(factory.floor.cells[selected_coord].x, factory.floor.cells[selected_coord].y, CELL_BELT_NONE, part_none(), 10000, 10000, -800);
-                    },
-                    CellKind::Supply => {
-                      factory.floor.cells[selected_coord] = demand_cell(factory.floor.cells[selected_coord].x, factory.floor.cells[selected_coord].y, CELL_BELT_NONE, part_none(), 10000, 10000, -800);
-                    },
-                    CellKind::Demand => {
-                      factory.floor.cells[selected_coord] = empty_cell(factory.floor.cells[selected_coord].x, factory.floor.cells[selected_coord].y);
-                    },
-                    | CellKind::Belt
-                    | CellKind::Machine
-                    => panic!("edge should not contain machine or belt"),
-                  }
-                } else {
-                  log("from the middle");
-                  // Middle. Cycle between Empty, Machine, and Belt
-                  match factory.floor.cells[selected_coord].kind {
-                    CellKind::Empty => {
-                      factory.floor.cells[selected_coord] = belt_cell(factory.floor.cells[selected_coord].x, factory.floor.cells[selected_coord].y, CELL_BELT_NONE);
-                    },
-                    CellKind::Belt => {
-                      factory.floor.cells[selected_coord] = machine_cell(factory.floor.cells[selected_coord].x, factory.floor.cells[selected_coord].y, Machine::Composer, part_none(), part_none(), part_none(), part_none(), -15, -3);
-                    },
-                    CellKind::Machine => {
-                      factory.floor.cells[selected_coord] = empty_cell(factory.floor.cells[selected_coord].x, factory.floor.cells[selected_coord].y);
+                if seg != SegmentDirection::CENTER {
+                  let selected_coord = to_coord(selected_cell_x as usize, selected_cell_y as usize);
+                  // Cycle the port on this side
+                  let port = factory.floor.cells[selected_coord].segments[seg as usize].port;
+                  let new_port = match port {
+                    Port::Inbound => Port::Outbound,
+                    Port::Outbound => Port::None,
+                    Port::None => Port::Inbound,
+                  };
+                  factory.floor.cells[selected_coord].segments[seg as usize].port = new_port;
+                  factory.floor.cells[selected_coord].belt = port_config_to_belt(
+                    factory.floor.cells[selected_coord].segments[SegmentDirection::UP as usize].port,
+                    factory.floor.cells[selected_coord].segments[SegmentDirection::RIGHT as usize].port,
+                    factory.floor.cells[selected_coord].segments[SegmentDirection::DOWN as usize].port,
+                    factory.floor.cells[selected_coord].segments[SegmentDirection::LEFT as usize].port,
+                  );
+                }
+              } else {
+                // Is the mouse clicking on the focused grid kind box?
+                if hit_check_cell_editor_kind(lumwx, lumwy) {
+                  let selected_coord = to_coord(selected_cell_x as usize, selected_cell_y as usize);
+
+                  // There are two cases; edge and middle cells. Supply/Demand can only go on edge.
+                  // Machine and Belt can only go in middle. Empty can go anywhere.
+                  log(format!("from the {} {} {} {}", mcx, mcy, WORLD_CELLS_X - 1.0, WORLD_CELLS_Y - 1.0).as_str());
+                  if selected_cell_x == 0.0 || selected_cell_y == 0.0 || selected_cell_x == WORLD_CELLS_X - 1.0 || selected_cell_y == WORLD_CELLS_Y - 1.0 {
+                    log("from the top");
+                    // Edge. Cycle between Empty, Supply, and Demand
+                    match factory.floor.cells[selected_coord].kind {
+                      CellKind::Empty => {
+                        factory.floor.cells[selected_coord] = supply_cell(factory.floor.cells[selected_coord].x, factory.floor.cells[selected_coord].y, CELL_BELT_NONE, part_none(), 10000, 10000, -800);
+                      },
+                      CellKind::Supply => {
+                        factory.floor.cells[selected_coord] = demand_cell(factory.floor.cells[selected_coord].x, factory.floor.cells[selected_coord].y, CELL_BELT_NONE, part_none(), 10000, 10000, -800);
+                      },
+                      CellKind::Demand => {
+                        factory.floor.cells[selected_coord] = empty_cell(factory.floor.cells[selected_coord].x, factory.floor.cells[selected_coord].y);
+                      },
+                      | CellKind::Belt
+                      | CellKind::Machine
+                      => panic!("edge should not contain machine or belt"),
                     }
-                    | CellKind::Supply
-                    | CellKind::Demand
-                    => panic!("middle should not contain supply or demand"),
-                  }
-                };
+                  } else {
+                    log("from the middle");
+                    // Middle. Cycle between Empty, Machine, and Belt
+                    match factory.floor.cells[selected_coord].kind {
+                      CellKind::Empty => {
+                        factory.floor.cells[selected_coord] = belt_cell(factory.floor.cells[selected_coord].x, factory.floor.cells[selected_coord].y, CELL_BELT_NONE);
+                      },
+                      CellKind::Belt => {
+                        factory.floor.cells[selected_coord] = machine_cell(factory.floor.cells[selected_coord].x, factory.floor.cells[selected_coord].y, Machine::Main, part_none(), part_none(), part_none(), part_none(), -15, -3);
+                      },
+                      CellKind::Machine => {
+                        factory.floor.cells[selected_coord] = empty_cell(factory.floor.cells[selected_coord].x, factory.floor.cells[selected_coord].y);
+                      }
+                      | CellKind::Supply
+                      | CellKind::Demand
+                      => panic!("middle should not contain supply or demand"),
+                    }
+                  };
 
-                // Recreate cell traversal order
-                let prio: Vec<usize> = create_prio_list(&mut options, &mut factory.floor);
-                log(format!("Updated prio list: {:?}", prio).as_str());
-                factory.prio = prio;
+                  // Recreate cell traversal order
+                  let prio: Vec<usize> = create_prio_list(&mut options, &mut factory.floor);
+                  log(format!("Updated prio list: {:?}", prio).as_str());
+                  factory.prio = prio;
+                }
               }
             }
           }
@@ -630,14 +662,12 @@ pub fn start() -> Result<(), JsValue> {
         // Paint the world
 
         // Clear world
-        context.set_fill_style(&"orange".into());
+        context.set_fill_style(&"#E86A17".into());
         context.fill_rect(WORLD_OFFSET_X, WORLD_OFFSET_Y, WORLD_CELLS_X * CELL_W + 20.0, WORLD_CELLS_Y * CELL_H + 20.0);
-
-        let fw = factory.floor.width + 2;
 
         // Paint background cell tiles
         for coord in 0..factory.fsum {
-          let (cx, cy) = to_xy(coord, fw);
+          let (cx, cy) = to_xy(coord);
           // This is cheating since we defer the loading stuff to the browser. Sue me.
           match factory.floor.cells[coord].kind {
             CellKind::Empty => (),
@@ -725,7 +755,7 @@ pub fn start() -> Result<(), JsValue> {
         // Paint cell segment grids
         if options.paint_cell_segment_grid {
           for coord in 0..factory.fsum {
-            let (x, y) = to_xy(coord, fw);
+            let (x, y) = to_xy(coord);
             if factory.floor.cells[coord].kind != CellKind::Empty {
               context.begin_path();
 
@@ -767,7 +797,7 @@ pub fn start() -> Result<(), JsValue> {
 
         // Paint elements on the belt over the background tiles now
         for coord in 0..factory.fsum {
-          let (cx, cy) = to_xy(coord, fw);
+          let (cx, cy) = to_xy(coord);
           // This is cheating since we defer the loading stuff to the browser. Sue me.
           let cell = &factory.floor.cells[coord];
           match cell.kind {
@@ -961,7 +991,7 @@ pub fn start() -> Result<(), JsValue> {
           context.stroke_rect(UI_CELL_EDITOR_KIND_OX, UI_CELL_EDITOR_KIND_OY, UI_CELL_EDITOR_KIND_W, UI_CELL_EDITOR_KIND_H);
           // Draw the type of the cell in this box
           context.set_stroke_style(&"black".into());
-          let coord = to_coord(factory.floor.width + 2, selected_cell_x as usize, selected_cell_y as usize);
+          let coord = to_coord(selected_cell_x as usize, selected_cell_y as usize);
           let type_name = match factory.floor.cells[coord].kind {
             CellKind::Empty => "Empty",
             CellKind::Belt => "Belt",
