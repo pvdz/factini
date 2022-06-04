@@ -88,6 +88,7 @@ pub struct Belt {
   pub part_from: Direction,
   pub part_to: Direction,
   pub part_at: u64,
+  pub speed: u64,
   pub tick_price: i32, // Basically the continuous price you pay for having this belt on board, this applies to every tick so keep it low
 }
 
@@ -200,10 +201,10 @@ pub struct BeltMeta {
   pub dbg: &'static str,
   pub src: &'static str, // tile image
   // TBD if I want to keep this
-  pub direction_u: Port,
-  pub direction_r: Port,
-  pub direction_d: Port,
-  pub direction_l: Port,
+  pub port_u: Port,
+  pub port_r: Port,
+  pub port_d: Port,
+  pub port_l: Port,
   // simplify cli output painting
   pub cli_icon: char,
 }
@@ -215,6 +216,7 @@ pub const fn belt_none() -> Belt {
     part_from: Direction::Up,
     part_to: Direction::Up,
     part_at: 0,
+    speed: 0,
     tick_price: 0
   };
 }
@@ -226,11 +228,269 @@ pub fn belt_new(meta: BeltMeta) -> Belt {
     part_from: Direction::Up,
     part_to: Direction::Up,
     part_at: 0,
+    speed: ONE_SECOND,
     tick_price: 0
   };
 }
 
-pub fn tick_belt(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize) {
+
+fn tick_belt_take_from_belt(options: &mut Options, state: &mut State, factory: &mut Factory, to_coord: usize, to_dir: Direction, from_coord: usize, from_dir: Direction) -> bool {
+  // Take from neighbor belt if and only if the part is heading this way and at at least 100%
+
+  if factory.floor[from_coord].belt.part.kind == PartKind::None {
+    // if to_coord == 42 {
+    //   println!("        - no part, bailing");
+    // }
+    // Nothing to take here.
+    return false;
+  }
+
+  if factory.floor[from_coord].belt.part_to != from_dir {
+    // if to_coord == 42 {
+    //   println!("        - part not going here, bailing");
+    // }
+    // Part is not moving into the same direction as from which we are looking right now, bail.
+    return false;
+  }
+
+  if factory.ticks - factory.floor[from_coord].belt.part_at < factory.floor[from_coord].belt.speed {
+    // if to_coord == 42 {
+    //   println!("        - part not at 100%, bailing, {} - {} = {} < {}", factory.ticks, factory.floor[from_coord].belt.part_at, factory.ticks - factory.floor[from_coord].belt.part_at, factory.floor[from_coord].belt.speed);
+    // }
+    // Did not complete traversing the cell yet
+    return false;
+  }
+
+  // if to_coord == 42 {
+  //   println!("        - yes, processing part!");
+  // }
+
+
+  // Okay, ready to move that part
+  if options.print_moves || options.print_moves_belt { super::log(format!("({}) Moved {:?} from belt @{} to belt @{}", factory.ticks, factory.floor[from_coord].belt.part, from_coord, to_coord).as_str()); }
+  belt_receive_part(factory, to_coord, to_dir, factory.floor[from_coord].belt.part.clone());
+  belt_receive_part(factory, from_coord, from_dir, part_none());
+
+  return true;
+
+
+
+  // // Deal with moving stuff between belts. In particular, from this belt to the neighbor.
+  // let part_kind = factory.floor[from_coord].belt.part.kind;
+  // if part_kind != PartKind::None {
+  //   // Is the progress >= 100%?
+  //   if factory.ticks - factory.floor[from_coord].belt.part_at > factory.floor[from_coord].belt.speed {
+  //     // Ready to move this one
+  //     // Where do we move it to? Ah we already determined that
+  //     let to = factory.floor[from_coord].belt.part_to;
+  //     let maybe_to_ocoord = match to {
+  //       Direction::Up => factory.floor[from_coord].coord_u,
+  //       Direction::Right => factory.floor[from_coord].coord_r,
+  //       Direction::Down => factory.floor[from_coord].coord_d,
+  //       Direction::Left => factory.floor[from_coord].coord_l,
+  //     };
+  //
+  //     // println!("({}) Want to move from belt @{}, with part {}", factory.ticks, coord, factory.floor[ocoord].belt.part.kind);
+  //
+  //     // Not sure if this can ever fail, but :shrug:
+  //     if let Some(to_coord) = maybe_to_ocoord {
+  //       // println!("({})  - to the @{}, cell kind: {:?}, has part: {:?}", factory.ticks, ocoord, factory.floor[ocoord].kind, factory.floor[ocoord].belt.part.kind);
+  //       if factory.floor[to_coord].kind == CellKind::Belt && factory.floor[to_coord].belt.part.kind == PartKind::None {
+  //         belt_receive_part(factory, to_coord, direction_reverse(to), factory.floor[from_coord].belt.part.clone());
+  //         belt_receive_part(factory, from_coord, to, part_none());
+  //       }
+  //     }
+  //   }
+  // }
+}
+fn tick_belt_take_from_supply(options: &mut Options, state: &mut State, factory: &mut Factory, belt_coord: usize, supply_coord: usize, belt_dir: Direction) -> bool {
+  // Check if the belt is empty
+  // Check if the supply has a part ready to move out
+  // If so, move it to this belt
+  if factory.floor[belt_coord].belt.part.kind == PartKind::None {
+    if factory.floor[supply_coord].supply.part_at > 0 && factory.ticks - factory.floor[supply_coord].supply.part_at >= factory.floor[supply_coord].supply.speed {
+      if options.print_moves || options.print_moves_supply { super::log(format!("({}) Supply {:?} from @{} to belt @{}", factory.ticks, factory.floor[supply_coord].supply.gives.kind, supply_coord, belt_coord).as_str()); }
+      belt_receive_part(factory, belt_coord, factory.floor[supply_coord].supply.neighbor_incoming_dir, factory.floor[supply_coord].supply.gives.clone());
+      supply_clear_part(factory, supply_coord);
+      return true;
+    }
+  }
+
+  return false;
+}
+fn tick_belt_take_give_to_demand(options: &mut Options, state: &mut State, factory: &mut Factory, belt_coord: usize, demand_coord: usize) -> bool {
+  // Check if belt has part
+  // Check if belt part is ready to move out
+  // If so, move to demand
+  if factory.floor[belt_coord].belt.part.kind != PartKind::None {
+    if factory.floor[belt_coord].belt.part_at > 0 && factory.ticks - factory.floor[belt_coord].belt.part_at >= factory.floor[belt_coord].belt.speed {
+      if options.print_moves || options.print_moves_supply { super::log(format!("({}) Demand takes {:?} at @{} from belt @{}", factory.ticks, factory.floor[demand_coord].demand.part.kind, demand_coord, belt_coord).as_str()); }
+      demand_receive_part(options, state, factory, demand_coord, belt_coord);
+      belt_receive_part(factory, belt_coord, Direction::Up, part_none());
+      return true;
+    }
+  }
+  return false;
+}
+
+fn tick_belt_one_outbound_dir(options: &mut Options, state: &mut State, factory: &mut Factory, curr_coord: usize, curr_dir: Direction, to_coord: usize, to_dir: Direction) -> bool {
+  match factory.floor[to_coord].kind {
+    CellKind::Empty => panic!("empty cells should not be part of .ins vector"),
+    CellKind::Belt => {
+      // noop
+      return false;
+    }
+    CellKind::Machine => {
+      // Machine will do the taking, so skip here.
+      // (A belt connected to a machine and a demand will perform very bad)
+      return false; // Did not take here
+    }
+    CellKind::Supply => {
+      panic!("Supply can not be outbound");
+      // tick_belt_take_from_supply(options, state, factory, curr_coord, to_coord, curr_dir)
+    }
+    CellKind::Demand => {
+      return tick_belt_take_give_to_demand(options, state, factory, curr_coord, to_coord)
+    }
+  };
+}
+
+fn tick_belt_one_inbound_dir(options: &mut Options, state: &mut State, factory: &mut Factory, curr_coord: usize, curr_dir: Direction, from_coord: usize, from_dir: Direction) -> bool {
+  match factory.floor[from_coord].kind {
+    CellKind::Empty => panic!("empty cells should not be part of .ins vector"),
+    CellKind::Belt => {
+      // if curr_coord == 42 {
+      //   println!("      - is belt");
+      // }
+      return tick_belt_take_from_belt(options, state, factory, curr_coord, curr_dir, from_coord, from_dir);
+    }
+    CellKind::Machine => {
+      // Do not take from machines. They deal with dispensing parts on their own.
+      return false; // Did not take here
+    }
+    CellKind::Supply => {
+      return tick_belt_take_from_supply(options, state, factory, curr_coord, from_coord, curr_dir);
+    }
+    CellKind::Demand => {
+      panic!("Demanders cannot be inbound");
+    }
+  };
+}
+
+pub fn tick_belt(options: &mut Options, state: &mut State, factory: &mut Factory, curr_coord: usize) {
+  // Belts request parts from incoming neighbor belts. This way they can switch multi-way
+  // inbound ports properly. Machines do their own switching based on availability.
+  // Demanders and suppliers only have one option but should let the belts do the choosing since
+  // they may still need to switch their options.
+
+  // if from_coord == 42 {
+  //   println!("okay ins: {} outs: {} offset {} {}", factory.floor[from_coord].ins.len(), factory.floor[from_coord].outs.len(), factory.floor[from_coord].inrot, factory.floor[from_coord].outrot);
+  // }
+
+  if factory.floor[curr_coord].belt.part.kind != PartKind::None {
+    // - Try to find a Demand to take the part
+    // - Other neighbor cells are not handled here (machines and belts take from here, supplies dont take at all)
+    let outlen = factory.floor[curr_coord].outs.len();
+    for index in 0..outlen {
+      let rotated_index = ((index as u64 + factory.floor[curr_coord].outrot) % (outlen as u64)) as usize;
+      let (curr_dir, _curr_coord, to_coord, to_dir) = factory.floor[curr_coord].outs[rotated_index];
+      assert_eq!(curr_coord, _curr_coord);
+      if tick_belt_one_outbound_dir(options, state, factory, curr_coord, curr_dir, to_coord, to_dir) {
+        // Only take from one inbound port
+        // If we picked the offset then move the offset
+        // if from_coord == 42 {
+        //   println!("updating outrot... options: {}, rot: {} -> found index {} -> new rot {}", factory.floor[from_coord].outs.len(), factory.floor[from_coord].outrot, index, ((index as u64) + 1) % (outlen as u64));
+        // }
+        factory.floor[curr_coord].outrot = ((rotated_index as u64) + 1) % (outlen as u64);
+        break;
+      }
+    }
+  }
+
+  if factory.floor[curr_coord].belt.part.kind == PartKind::None {
+    // - Continue after the last pick?
+    // - Increment offset by one regardless?
+    // - Continue with the last unused starting index, or the next one if used?
+    // - Allow user to customize the order?
+    // if factory.floor[curr_coord].belt.meta.dbg == "BELT_LRU" {
+    //   println!("  - get part from neighbor");
+    // }
+    let inlen = factory.floor[curr_coord].ins.len();
+    for index in 0..inlen {
+      let rotated_index = ((index as u64 + factory.floor[curr_coord].inrot) % (inlen as u64)) as usize;
+      // if factory.floor[curr_coord].belt.meta.dbg == "BELT_LRU" {
+      //   let kinds: Vec<PartKind> = factory.floor[curr_coord].ins.iter().map(|dir| factory.floor[match dir {
+      //     (Direction::Up, _) => factory.floor[curr_coord].coord_u.unwrap(),
+      //     (Direction::Right, _) => factory.floor[curr_coord].coord_r.unwrap(),
+      //     (Direction::Down, _) => factory.floor[curr_coord].coord_d.unwrap(),
+      //     (Direction::Left, _) => factory.floor[curr_coord].coord_l.unwrap(),
+      //   }].belt.part.kind).collect();
+      //   let progs: Vec<f64> = factory.floor[curr_coord].ins.iter().map(|dir| {
+      //     let c = match dir {
+      //       (Direction::Up, _) => factory.floor[curr_coord].coord_u.unwrap(),
+      //       (Direction::Right, _) => factory.floor[curr_coord].coord_r.unwrap(),
+      //       (Direction::Down, _) => factory.floor[curr_coord].coord_d.unwrap(),
+      //       (Direction::Left, _) => factory.floor[curr_coord].coord_l.unwrap(),
+      //     };
+      //     if factory.floor[c].belt.part_at == 0 { return 0.0; }
+      //     return (((factory.ticks - factory.floor[c].belt.part_at) as f64 / (factory.floor[c].belt.speed as f64)) * 100.0).floor().min(100.0);
+      //   }).collect();
+      //   println!("    - index {} -> rot {} -> so rotated: {}, haves? {:?}, progress: {:?}", index, factory.floor[curr_coord].inrot, rotated_index, kinds, progs);
+      // }
+
+      let (curr_dir, _curr_coord, from_coord, from_dir ) = factory.floor[curr_coord].ins[rotated_index];
+      assert_eq!(curr_coord, _curr_coord);
+      if tick_belt_one_inbound_dir(options, state, factory, curr_coord, curr_dir, from_coord, from_dir) {
+        // Only take from one inbound port
+        // if factory.floor[curr_coord].belt.meta.dbg == "BELT_LRU" {
+        //   println!("      - updating inrot... options: {}, rot: {} -> found index {} -> new rot {}", factory.floor[curr_coord].ins.len(), factory.floor[curr_coord].inrot, index, ((index as u64) + 1) % (inlen as u64));
+        // }
+        factory.floor[curr_coord].inrot = ((rotated_index as u64) + 1) % (inlen as u64);
+        break;
+      }
+    }
+  }
+}
+
+pub fn belt_receive_part(factory: &mut Factory, coord: usize, incoming_dir: Direction, part: Part) {
+  // println!("({}) - belt @{} is receiving {:?} from {:?}", factory.ticks, coord, part, incoming_dir);
+  factory.floor[coord].belt.part = part;
+  factory.floor[coord].belt.part_at = factory.ticks;
+  factory.floor[coord].belt.part_from = incoming_dir;
+
+  // Where it goes to depends on a few things;
+  // - is the belt one way? (No split, no crossing, no merge)
+  // - yes: just go
+  // - no:
+  //   - are the neighbors of all but one outgoing port taken?
+  //     - yes: move to the free one
+  //     - no, all taken: freeze part
+  //     - no:
+  //       - pick one in rotating order
+
+  let outlen = factory.floor[coord].outs.len();
+
+  // The auto layout fn will precompute the outward ports and store them in cell.outs
+  if outlen == 1 {
+    factory.floor[coord].belt.part_to = factory.floor[coord].outs[0].0;
+  } else if outlen == 0 {
+    // Probably something I'll need to fix in the future :')
+    panic!("dont pass parts to belts with no outbound ports...?");
+  } else {
+    // Look at the outs for this cell and filter them down to the cells that are empty.
+    // - If one, pick that one
+    // - If none, reconsider all of them
+    // When there are multiple options left pick one in rotating order, hope it works out.
+    // TODO: do not pick a _to yet but wait til the 50% mark before locking in choices
+
+    // There are 2 or 3 outbound ports at this point. Can't be 4+ and already checked 0 and 1.
+
+
+
+    // TODO:
+    println!("  TODO: belt_receive_part() belt with multiple outs ... @{} {:?} {}", coord, factory.floor[coord].kind, factory.floor[coord].outs.len());
+    factory.floor[coord].belt.part_to = factory.floor[coord].outs[0].0;
+  }
 }
 
 
@@ -541,10 +801,10 @@ pub const BELT_NONE: BeltMeta = BeltMeta {
   btype: BeltType::NONE,
   dbg: "BELT_NONE",
   src: "./img/none.png",
-  direction_u: Port::None,
-  direction_r: Port::None,
-  direction_d: Port::None,
-  direction_l: Port::None,
+  port_u: Port::None,
+  port_r: Port::None,
+  port_d: Port::None,
+  port_l: Port::None,
   cli_icon: ' ',
 };
 
@@ -556,10 +816,10 @@ pub const BELT_INVALID: BeltMeta = BeltMeta {
   btype: BeltType::INVALID,
   dbg: "BELT_INVALID",
   src: "./img/invalid.png",
-  direction_u: Port::None,
-  direction_r: Port::None,
-  direction_d: Port::None,
-  direction_l: Port::None,
+  port_u: Port::None,
+  port_r: Port::None,
+  port_d: Port::None,
+  port_l: Port::None,
   cli_icon: '!',
 };
 // ┌║┐
@@ -569,10 +829,10 @@ pub const MACHINE: BeltMeta = BeltMeta {
   btype: BeltType::NONE,
   dbg: "CELL_MACHINE",
   src: "./img/todo.png",
-  direction_u: Port::None,
-  direction_r: Port::None,
-  direction_d: Port::None,
-  direction_l: Port::None,
+  port_u: Port::None,
+  port_r: Port::None,
+  port_d: Port::None,
+  port_l: Port::None,
   cli_icon: 'm',
 };
 // ┌─┐
@@ -582,10 +842,10 @@ pub const SUPPLY_U: BeltMeta = BeltMeta {
   btype: BeltType::NONE,
   dbg: "CELL_SUPPLY_U",
   src: "./img/todo.png",
-  direction_u: Port::None,
-  direction_r: Port::None,
-  direction_d: Port::Outbound,
-  direction_l: Port::None,
+  port_u: Port::None,
+  port_r: Port::None,
+  port_d: Port::Outbound,
+  port_l: Port::None,
   cli_icon: 's',
 };
 // ┌─┐
@@ -595,10 +855,10 @@ pub const SUPPLY_R: BeltMeta = BeltMeta {
   btype: BeltType::NONE,
   dbg: "CELL_SUPPLY_R",
   src: "./img/todo.png",
-  direction_u: Port::None,
-  direction_r: Port::None,
-  direction_d: Port::None,
-  direction_l: Port::Outbound,
+  port_u: Port::None,
+  port_r: Port::None,
+  port_d: Port::None,
+  port_l: Port::Outbound,
   cli_icon: 's',
 };
 // ┌^┐
@@ -608,10 +868,10 @@ pub const SUPPLY_D: BeltMeta = BeltMeta {
   btype: BeltType::NONE,
   dbg: "CELL_SUPPLY_D",
   src: "./img/todo.png",
-  direction_u: Port::Outbound,
-  direction_r: Port::None,
-  direction_d: Port::None,
-  direction_l: Port::None,
+  port_u: Port::Outbound,
+  port_r: Port::None,
+  port_d: Port::None,
+  port_l: Port::None,
   cli_icon: 's',
 };
 // ┌─┐
@@ -621,10 +881,10 @@ pub const SUPPLY_L: BeltMeta = BeltMeta {
   btype: BeltType::NONE,
   dbg: "CELL_SUPPLY_L",
   src: "./img/todo.png",
-  direction_u: Port::None,
-  direction_r: Port::Outbound,
-  direction_d: Port::None,
-  direction_l: Port::None,
+  port_u: Port::None,
+  port_r: Port::Outbound,
+  port_d: Port::None,
+  port_l: Port::None,
   cli_icon: 's',
 };
 // ┌─┐
@@ -634,10 +894,10 @@ pub const DEMAND_U: BeltMeta = BeltMeta {
   btype: BeltType::NONE,
   dbg: "CELL_DEMAND_U",
   src: "./img/todo.png",
-  direction_u: Port::Inbound,
-  direction_r: Port::None,
-  direction_d: Port::None,
-  direction_l: Port::None,
+  port_u: Port::Inbound,
+  port_r: Port::None,
+  port_d: Port::None,
+  port_l: Port::None,
   cli_icon: 'd',
 };
 // ┌─┐
@@ -647,10 +907,10 @@ pub const DEMAND_R: BeltMeta = BeltMeta {
   btype: BeltType::NONE,
   dbg: "CELL_DEMAND_R",
   src: "./img/todo.png",
-  direction_u: Port::None,
-  direction_r: Port::Inbound,
-  direction_d: Port::None,
-  direction_l: Port::None,
+  port_u: Port::None,
+  port_r: Port::Inbound,
+  port_d: Port::None,
+  port_l: Port::None,
   cli_icon: 'd',
 };
 // ┌v┐
@@ -660,10 +920,10 @@ pub const DEMAND_D: BeltMeta = BeltMeta {
   btype: BeltType::NONE,
   dbg: "CELL_DEMAND_D",
   src: "./img/todo.png",
-  direction_u: Port::None,
-  direction_r: Port::None,
-  direction_d: Port::Inbound,
-  direction_l: Port::None,
+  port_u: Port::None,
+  port_r: Port::None,
+  port_d: Port::Inbound,
+  port_l: Port::None,
   cli_icon: 'd',
 };
 // ┌─┐
@@ -673,10 +933,10 @@ pub const DEMAND_L: BeltMeta = BeltMeta {
   btype: BeltType::NONE,
   dbg: "CELL_DEMAND_L",
   src: "./img/todo.png",
-  direction_u: Port::None,
-  direction_r: Port::None,
-  direction_d: Port::None,
-  direction_l: Port::Inbound,
+  port_u: Port::None,
+  port_r: Port::None,
+  port_d: Port::None,
+  port_l: Port::Inbound,
   cli_icon: 'd',
 };
 // ┌?┐
@@ -686,10 +946,10 @@ pub const BELT_RU: BeltMeta = BeltMeta {
   btype: BeltType::RU,
   dbg: "BELT_RU",
   src: "./img/ru.png",
-  direction_u: Port::Unknown,
-  direction_r: Port::Unknown,
-  direction_d: Port::None,
-  direction_l: Port::None,
+  port_u: Port::Unknown,
+  port_r: Port::Unknown,
+  port_d: Port::None,
+  port_l: Port::None,
   cli_icon: '╚',
 };
 // ┌v┐
@@ -699,10 +959,10 @@ pub const BELT_U_R: BeltMeta = BeltMeta {
   btype: BeltType::U_R,
   dbg: "BELT_U_R",
   src: "./img/u_r.png",
-  direction_u: Port::Inbound,
-  direction_r: Port::Outbound,
-  direction_d: Port::None,
-  direction_l: Port::None,
+  port_u: Port::Inbound,
+  port_r: Port::Outbound,
+  port_d: Port::None,
+  port_l: Port::None,
   cli_icon: '╚',
 };
 // ┌^┐
@@ -712,10 +972,10 @@ pub const BELT_R_U: BeltMeta = BeltMeta {
   btype: BeltType::R_U,
   dbg: "BELT_R_U",
   src: "./img/r_u.png",
-  direction_u: Port::Outbound,
-  direction_r: Port::Inbound,
-  direction_d: Port::None,
-  direction_l: Port::None,
+  port_u: Port::Outbound,
+  port_r: Port::Inbound,
+  port_d: Port::None,
+  port_l: Port::None,
   cli_icon: '╚',
 };
 // ┌─┐
@@ -725,10 +985,10 @@ pub const BELT_DR: BeltMeta = BeltMeta {
   btype: BeltType::DR,
   dbg: "BELT_DR",
   src: "./img/rd.png",
-  direction_u: Port::None,
-  direction_r: Port::Unknown,
-  direction_d: Port::Unknown,
-  direction_l: Port::None,
+  port_u: Port::None,
+  port_r: Port::Unknown,
+  port_d: Port::Unknown,
+  port_l: Port::None,
   cli_icon: '╔',
 };
 // ┌─┐
@@ -738,10 +998,10 @@ pub const BELT_R_D: BeltMeta = BeltMeta {
   btype: BeltType::R_D,
   dbg: "BELT_R_D",
   src: "./img/r_d.png",
-  direction_u: Port::None,
-  direction_r: Port::Inbound,
-  direction_d: Port::Outbound,
-  direction_l: Port::None,
+  port_u: Port::None,
+  port_r: Port::Inbound,
+  port_d: Port::Outbound,
+  port_l: Port::None,
   cli_icon: '╔',
 };
 // ┌─┐
@@ -751,10 +1011,10 @@ pub const BELT_D_R: BeltMeta = BeltMeta {
   btype: BeltType::D_R,
   dbg: "BELT_D_R",
   src: "./img/d_r.png",
-  direction_u: Port::None,
-  direction_r: Port::Outbound,
-  direction_d: Port::Inbound,
-  direction_l: Port::None,
+  port_u: Port::None,
+  port_r: Port::Outbound,
+  port_d: Port::Inbound,
+  port_l: Port::None,
   cli_icon: '╔',
 };
 // ┌─┐
@@ -764,10 +1024,10 @@ pub const BELT_DL: BeltMeta = BeltMeta {
   btype: BeltType::DL,
   dbg: "BELT_DL",
   src: "./img/dl.png",
-  direction_u: Port::None,
-  direction_r: Port::None,
-  direction_d: Port::Unknown,
-  direction_l: Port::Unknown,
+  port_u: Port::None,
+  port_r: Port::None,
+  port_d: Port::Unknown,
+  port_l: Port::Unknown,
   cli_icon: '╗',
 };
 // ┌─┐
@@ -777,10 +1037,10 @@ pub const BELT_D_L: BeltMeta = BeltMeta {
   btype: BeltType::D_L,
   dbg: "BELT_D_L",
   src: "./img/d_l.png",
-  direction_u: Port::None,
-  direction_r: Port::None,
-  direction_d: Port::Inbound,
-  direction_l: Port::Outbound,
+  port_u: Port::None,
+  port_r: Port::None,
+  port_d: Port::Inbound,
+  port_l: Port::Outbound,
   cli_icon: '╗',
 };
 // ┌─┐
@@ -790,10 +1050,10 @@ pub const BELT_L_D: BeltMeta = BeltMeta {
   btype: BeltType::L_D,
   dbg: "BELT_L_D",
   src: "./img/l_d.png",
-  direction_u: Port::None,
-  direction_r: Port::None,
-  direction_d: Port::Outbound,
-  direction_l: Port::Inbound,
+  port_u: Port::None,
+  port_r: Port::None,
+  port_d: Port::Outbound,
+  port_l: Port::Inbound,
   cli_icon: '╗',
 };
 // ┌?┐
@@ -803,10 +1063,10 @@ pub const BELT_LU: BeltMeta = BeltMeta {
   btype: BeltType::LU,
   dbg: "BELT_LU",
   src: "./img/lu.png",
-  direction_u: Port::Unknown,
-  direction_r: Port::None,
-  direction_d: Port::None,
-  direction_l: Port::Unknown,
+  port_u: Port::Unknown,
+  port_r: Port::None,
+  port_d: Port::None,
+  port_l: Port::Unknown,
   cli_icon: '╝',
 };
 // ┌v┐
@@ -816,10 +1076,10 @@ pub const BELT_L_U: BeltMeta = BeltMeta {
   btype: BeltType::L_U,
   dbg: "BELT_L_U",
   src: "./img/l_u.png",
-  direction_u: Port::Outbound,
-  direction_r: Port::None,
-  direction_d: Port::None,
-  direction_l: Port::Inbound,
+  port_u: Port::Outbound,
+  port_r: Port::None,
+  port_d: Port::None,
+  port_l: Port::Inbound,
   cli_icon: '╝',
 };
 // ┌v┐
@@ -829,10 +1089,10 @@ pub const BELT_U_L: BeltMeta = BeltMeta {
   btype: BeltType::U_L,
   dbg: "BELT_U_L",
   src: "./img/u_l.png",
-  direction_u: Port::Inbound,
-  direction_r: Port::None,
-  direction_d: Port::None,
-  direction_l: Port::Outbound,
+  port_u: Port::Inbound,
+  port_r: Port::None,
+  port_d: Port::None,
+  port_l: Port::Outbound,
   cli_icon: '╝',
 };
 // ┌?┐
@@ -842,10 +1102,10 @@ pub const BELT_DU: BeltMeta = BeltMeta {
   btype: BeltType::DU,
   dbg: "BELT_DU",
   src: "./img/du.png",
-  direction_u: Port::Unknown,
-  direction_r: Port::None,
-  direction_d: Port::Unknown,
-  direction_l: Port::None,
+  port_u: Port::Unknown,
+  port_r: Port::None,
+  port_d: Port::Unknown,
+  port_l: Port::None,
   cli_icon: '║',
 };
 // ┌v┐
@@ -855,10 +1115,10 @@ pub const BELT_U_D: BeltMeta = BeltMeta {
   btype: BeltType::U_D,
   dbg: "BELT_U_D",
   src: "./img/u_d.png",
-  direction_u: Port::Inbound,
-  direction_r: Port::None,
-  direction_d: Port::Outbound,
-  direction_l: Port::None,
+  port_u: Port::Inbound,
+  port_r: Port::None,
+  port_d: Port::Outbound,
+  port_l: Port::None,
   cli_icon: '║',
 };
 // ┌^┐
@@ -868,10 +1128,10 @@ pub const BELT_D_U: BeltMeta = BeltMeta {
   btype: BeltType::D_U,
   dbg: "BELT_D_U",
   src: "./img/d_u.png",
-  direction_u: Port::Outbound,
-  direction_r: Port::None,
-  direction_d: Port::Inbound,
-  direction_l: Port::None,
+  port_u: Port::Outbound,
+  port_r: Port::None,
+  port_d: Port::Inbound,
+  port_l: Port::None,
   cli_icon: '║',
 };
 // ┌─┐
@@ -881,10 +1141,10 @@ pub const BELT_LR: BeltMeta = BeltMeta {
   btype: BeltType::LR,
   dbg: "BELT_LR",
   src: "./img/lr.png",
-  direction_u: Port::None,
-  direction_r: Port::Unknown,
-  direction_d: Port::None,
-  direction_l: Port::Unknown,
+  port_u: Port::None,
+  port_r: Port::Unknown,
+  port_d: Port::None,
+  port_l: Port::Unknown,
   cli_icon: '═',
 };
 // ┌─┐
@@ -894,10 +1154,10 @@ pub const BELT_L_R: BeltMeta = BeltMeta {
   btype: BeltType::L_R,
   dbg: "BELT_L_R",
   src: "./img/l_r.png",
-  direction_u: Port::None,
-  direction_r: Port::Outbound,
-  direction_d: Port::None,
-  direction_l: Port::Inbound,
+  port_u: Port::None,
+  port_r: Port::Outbound,
+  port_d: Port::None,
+  port_l: Port::Inbound,
   cli_icon: '═',
 };
 // ┌─┐
@@ -907,10 +1167,10 @@ pub const BELT_R_L: BeltMeta = BeltMeta {
   btype: BeltType::R_L,
   dbg: "BELT_R_L",
   src: "./img/r_l.png",
-  direction_u: Port::None,
-  direction_r: Port::Inbound,
-  direction_d: Port::None,
-  direction_l: Port::Outbound,
+  port_u: Port::None,
+  port_r: Port::Inbound,
+  port_d: Port::None,
+  port_l: Port::Outbound,
   cli_icon: '═',
 };
 // ┌?┐
@@ -920,10 +1180,10 @@ pub const BELT_LRU: BeltMeta = BeltMeta {
   btype: BeltType::LRU,
   dbg: "BELT_LRU",
   src: "./img/lru.png",
-  direction_u: Port::Unknown,
-  direction_r: Port::Unknown,
-  direction_d: Port::None,
-  direction_l: Port::Unknown,
+  port_u: Port::Unknown,
+  port_r: Port::Unknown,
+  port_d: Port::None,
+  port_l: Port::Unknown,
   cli_icon: '╩',
 };
 // ┌v┐
@@ -933,10 +1193,10 @@ pub const BELT_U_LR: BeltMeta = BeltMeta {
   btype: BeltType::U_LR,
   dbg: "BELT_U_LR",
   src: "./img/u_lr.png",
-  direction_u: Port::Inbound,
-  direction_r: Port::Outbound,
-  direction_d: Port::None,
-  direction_l: Port::Outbound,
+  port_u: Port::Inbound,
+  port_r: Port::Outbound,
+  port_d: Port::None,
+  port_l: Port::Outbound,
   cli_icon: '╩',
 };
 // ┌v┐
@@ -946,10 +1206,10 @@ pub const BELT_RU_L: BeltMeta = BeltMeta {
   btype: BeltType::RU_L,
   dbg: "BELT_RU_L",
   src: "./img/ru_l.png",
-  direction_u: Port::Inbound,
-  direction_r: Port::Inbound,
-  direction_d: Port::None,
-  direction_l: Port::Outbound,
+  port_u: Port::Inbound,
+  port_r: Port::Inbound,
+  port_d: Port::None,
+  port_l: Port::Outbound,
   cli_icon: '╩',
 };
 // ┌v┐
@@ -959,10 +1219,10 @@ pub const BELT_LU_R: BeltMeta = BeltMeta {
   btype: BeltType::LU_R,
   dbg: "BELT_LU_R",
   src: "./img/lu_r.png",
-  direction_u: Port::Inbound,
-  direction_r: Port::Outbound,
-  direction_d: Port::None,
-  direction_l: Port::Inbound,
+  port_u: Port::Inbound,
+  port_r: Port::Outbound,
+  port_d: Port::None,
+  port_l: Port::Inbound,
   cli_icon: '╩',
 };
 // ┌^┐
@@ -972,10 +1232,10 @@ pub const BELT_L_RU: BeltMeta = BeltMeta {
   btype: BeltType::L_RU,
   dbg: "BELT_L_RU",
   src: "./img/l_ru.png",
-  direction_u: Port::Outbound,
-  direction_r: Port::Outbound,
-  direction_d: Port::None,
-  direction_l: Port::Inbound,
+  port_u: Port::Outbound,
+  port_r: Port::Outbound,
+  port_d: Port::None,
+  port_l: Port::Inbound,
   cli_icon: '╩',
 };
 // ┌^┐
@@ -985,10 +1245,10 @@ pub const BELT_LR_U: BeltMeta = BeltMeta {
   btype: BeltType::LR_U,
   dbg: "BELT_LR_U",
   src: "./img/lr_u.png",
-  direction_u: Port::Outbound,
-  direction_r: Port::Inbound,
-  direction_d: Port::None,
-  direction_l: Port::Inbound,
+  port_u: Port::Outbound,
+  port_r: Port::Inbound,
+  port_d: Port::None,
+  port_l: Port::Inbound,
   cli_icon: '╩',
 };
 // ┌^┐
@@ -998,10 +1258,10 @@ pub const BELT_R_LU: BeltMeta = BeltMeta {
   btype: BeltType::R_LU,
   dbg: "BELT_R_LU",
   src: "./img/r_lu.png",
-  direction_u: Port::Outbound,
-  direction_r: Port::Inbound,
-  direction_d: Port::None,
-  direction_l: Port::Outbound,
+  port_u: Port::Outbound,
+  port_r: Port::Inbound,
+  port_d: Port::None,
+  port_l: Port::Outbound,
   cli_icon: '╩',
 };
 // ┌?┐
@@ -1011,10 +1271,10 @@ pub const BELT_DRU: BeltMeta = BeltMeta {
   btype: BeltType::DRU,
   dbg: "BELT_DRU",
   src: "./img/dru.png",
-  direction_u: Port::Unknown,
-  direction_r: Port::Unknown,
-  direction_d: Port::Unknown,
-  direction_l: Port::None,
+  port_u: Port::Unknown,
+  port_r: Port::Unknown,
+  port_d: Port::Unknown,
+  port_l: Port::None,
   cli_icon: '╠',
 };
 // ┌^┐
@@ -1024,10 +1284,10 @@ pub const BELT_R_DU: BeltMeta = BeltMeta {
   btype: BeltType::R_DU,
   dbg: "BELT_R_DU",
   src: "./img/r_du.png",
-  direction_u: Port::Outbound,
-  direction_r: Port::Inbound,
-  direction_d: Port::Outbound,
-  direction_l: Port::None,
+  port_u: Port::Outbound,
+  port_r: Port::Inbound,
+  port_d: Port::Outbound,
+  port_l: Port::None,
   cli_icon: '╠',
 };
 // ┌v┐
@@ -1037,10 +1297,10 @@ pub const BELT_RU_D: BeltMeta = BeltMeta {
   btype: BeltType::RU_D,
   dbg: "BELT_RU_D",
   src: "./img/ru_d.png",
-  direction_u: Port::Inbound,
-  direction_r: Port::Inbound,
-  direction_d: Port::Outbound,
-  direction_l: Port::None,
+  port_u: Port::Inbound,
+  port_r: Port::Inbound,
+  port_d: Port::Outbound,
+  port_l: Port::None,
   cli_icon: '╠',
 };
 // ┌^┐
@@ -1050,10 +1310,10 @@ pub const BELT_DR_U: BeltMeta = BeltMeta {
   btype: BeltType::DR_U,
   dbg: "BELT_DR_U",
   src: "./img/dr_u.png",
-  direction_u: Port::None,
-  direction_r: Port::Inbound,
-  direction_d: Port::Inbound,
-  direction_l: Port::Outbound,
+  port_u: Port::None,
+  port_r: Port::Inbound,
+  port_d: Port::Inbound,
+  port_l: Port::Outbound,
   cli_icon: '╠',
 };
 // ┌v┐
@@ -1063,10 +1323,10 @@ pub const BELT_DU_R: BeltMeta = BeltMeta {
   btype: BeltType::DU_R,
   dbg: "BELT_DU_R",
   src: "./img/du_r.png",
-  direction_u: Port::Inbound,
-  direction_r: Port::Outbound,
-  direction_d: Port::Inbound,
-  direction_l: Port::None,
+  port_u: Port::Inbound,
+  port_r: Port::Outbound,
+  port_d: Port::Inbound,
+  port_l: Port::None,
   cli_icon: '╠',
 };
 // ┌v┐
@@ -1076,10 +1336,10 @@ pub const BELT_U_DR: BeltMeta = BeltMeta {
   btype: BeltType::U_DR,
   dbg: "BELT_U_DR",
   src: "./img/u_dr.png",
-  direction_u: Port::Inbound,
-  direction_r: Port::Outbound,
-  direction_d: Port::Outbound,
-  direction_l: Port::None,
+  port_u: Port::Inbound,
+  port_r: Port::Outbound,
+  port_d: Port::Outbound,
+  port_l: Port::None,
   cli_icon: '╠',
 };
 // ┌^┐
@@ -1089,10 +1349,10 @@ pub const BELT_D_RU: BeltMeta = BeltMeta {
   btype: BeltType::D_RU,
   dbg: "BELT_D_RU",
   src: "./img/d_ru.png",
-  direction_u: Port::Outbound,
-  direction_r: Port::Outbound,
-  direction_d: Port::Inbound,
-  direction_l: Port::None,
+  port_u: Port::Outbound,
+  port_r: Port::Outbound,
+  port_d: Port::Inbound,
+  port_l: Port::None,
   cli_icon: '╠',
 };
 // ┌─┐
@@ -1102,10 +1362,10 @@ pub const BELT_DLR: BeltMeta = BeltMeta {
   btype: BeltType::DLR,
   dbg: "BELT_DLR",
   src: "./img/dlr.png",
-  direction_u: Port::None,
-  direction_r: Port::Unknown,
-  direction_d: Port::Unknown,
-  direction_l: Port::Unknown,
+  port_u: Port::None,
+  port_r: Port::Unknown,
+  port_d: Port::Unknown,
+  port_l: Port::Unknown,
   cli_icon: '╦',
 };
 // ┌─┐
@@ -1115,10 +1375,10 @@ pub const BELT_D_LR: BeltMeta = BeltMeta {
   btype: BeltType::D_LR,
   dbg: "BELT_D_LR",
   src: "./img/d_lr.png",
-  direction_u: Port::None,
-  direction_r: Port::Outbound,
-  direction_d: Port::Inbound,
-  direction_l: Port::Outbound,
+  port_u: Port::None,
+  port_r: Port::Outbound,
+  port_d: Port::Inbound,
+  port_l: Port::Outbound,
   cli_icon: '╦',
 };
 // ┌─┐
@@ -1128,10 +1388,10 @@ pub const BELT_DL_R: BeltMeta = BeltMeta {
   btype: BeltType::DL_R,
   dbg: "BELT_DL_R",
   src: "./img/dl_r.png",
-  direction_u: Port::None,
-  direction_r: Port::Outbound,
-  direction_d: Port::Inbound,
-  direction_l: Port::Inbound,
+  port_u: Port::None,
+  port_r: Port::Outbound,
+  port_d: Port::Inbound,
+  port_l: Port::Inbound,
   cli_icon: '╦',
 };
 // ┌─┐
@@ -1141,10 +1401,10 @@ pub const BELT_DR_L: BeltMeta = BeltMeta {
   btype: BeltType::DR_L,
   dbg: "BELT_DR_L",
   src: "./img/dr_l.png",
-  direction_u: Port::None,
-  direction_r: Port::Inbound,
-  direction_d: Port::Inbound,
-  direction_l: Port::Outbound,
+  port_u: Port::None,
+  port_r: Port::Inbound,
+  port_d: Port::Inbound,
+  port_l: Port::Outbound,
   cli_icon: '╦',
 };
 // ┌─┐
@@ -1154,10 +1414,10 @@ pub const BELT_LR_D: BeltMeta = BeltMeta {
   btype: BeltType::LR_D,
   dbg: "BELT_LR_D",
   src: "./img/dr_l.png",
-  direction_u: Port::None,
-  direction_r: Port::Inbound,
-  direction_d: Port::Outbound,
-  direction_l: Port::Inbound,
+  port_u: Port::None,
+  port_r: Port::Inbound,
+  port_d: Port::Outbound,
+  port_l: Port::Inbound,
   cli_icon: '╦',
 };
 // ┌─┐
@@ -1167,10 +1427,10 @@ pub const BELT_L_DR: BeltMeta = BeltMeta {
   btype: BeltType::L_DR,
   dbg: "BELT_L_DR",
   src: "./img/dr_l.png",
-  direction_u: Port::None,
-  direction_r: Port::Outbound,
-  direction_d: Port::Outbound,
-  direction_l: Port::Inbound,
+  port_u: Port::None,
+  port_r: Port::Outbound,
+  port_d: Port::Outbound,
+  port_l: Port::Inbound,
   cli_icon: '╦',
 };
 // ┌─┐
@@ -1180,10 +1440,10 @@ pub const BELT_R_DL: BeltMeta = BeltMeta {
   btype: BeltType::R_DL,
   dbg: "BELT_R_DL",
   src: "./img/r_dl.png",
-  direction_u: Port::None,
-  direction_r: Port::Inbound,
-  direction_d: Port::Outbound,
-  direction_l: Port::Outbound,
+  port_u: Port::None,
+  port_r: Port::Inbound,
+  port_d: Port::Outbound,
+  port_l: Port::Outbound,
   cli_icon: '╦',
 };
 // ┌?┐
@@ -1193,10 +1453,10 @@ pub const BELT_DLU: BeltMeta = BeltMeta {
   btype: BeltType::DLU,
   dbg: "BELT_DLU",
   src: "./img/dlu.png",
-  direction_u: Port::Unknown,
-  direction_r: Port::None,
-  direction_d: Port::Unknown,
-  direction_l: Port::Unknown,
+  port_u: Port::Unknown,
+  port_r: Port::None,
+  port_d: Port::Unknown,
+  port_l: Port::Unknown,
   cli_icon: '╣',
 };
 // ┌^┐
@@ -1206,10 +1466,10 @@ pub const BELT_L_DU: BeltMeta = BeltMeta {
   btype: BeltType::L_DU,
   dbg: "BELT_L_DU",
   src: "./img/l_du.png",
-  direction_u: Port::Outbound,
-  direction_r: Port::None,
-  direction_d: Port::Outbound,
-  direction_l: Port::Inbound,
+  port_u: Port::Outbound,
+  port_r: Port::None,
+  port_d: Port::Outbound,
+  port_l: Port::Inbound,
   cli_icon: '╣',
 };
 // ┌v┐
@@ -1219,10 +1479,10 @@ pub const BELT_LU_D: BeltMeta = BeltMeta {
   btype: BeltType::LU_D,
   dbg: "BELT_LU_D",
   src: "./img/lu_d.png",
-  direction_u: Port::Inbound,
-  direction_r: Port::None,
-  direction_d: Port::Outbound,
-  direction_l: Port::Inbound,
+  port_u: Port::Inbound,
+  port_r: Port::None,
+  port_d: Port::Outbound,
+  port_l: Port::Inbound,
   cli_icon: '╣',
 };
 // ┌^┐
@@ -1232,10 +1492,10 @@ pub const BELT_DL_U: BeltMeta = BeltMeta {
   btype: BeltType::DL_U,
   dbg: "BELT_DL_U",
   src: "./img/dl_u.png",
-  direction_u: Port::Outbound,
-  direction_r: Port::None,
-  direction_d: Port::Inbound,
-  direction_l: Port::Inbound,
+  port_u: Port::Outbound,
+  port_r: Port::None,
+  port_d: Port::Inbound,
+  port_l: Port::Inbound,
   cli_icon: '╣',
 };
 // ┌v┐
@@ -1245,10 +1505,10 @@ pub const BELT_DU_L: BeltMeta = BeltMeta {
   btype: BeltType::DU_L,
   dbg: "BELT_DU_L",
   src: "./img/du_l.png",
-  direction_u: Port::Inbound,
-  direction_r: Port::None,
-  direction_d: Port::Inbound,
-  direction_l: Port::Outbound,
+  port_u: Port::Inbound,
+  port_r: Port::None,
+  port_d: Port::Inbound,
+  port_l: Port::Outbound,
   cli_icon: '╣',
 };
 // ┌v┐
@@ -1258,10 +1518,10 @@ pub const BELT_U_DL: BeltMeta = BeltMeta {
   btype: BeltType::U_DL,
   dbg: "BELT_U_DL",
   src: "./img/u_dl.png",
-  direction_u: Port::Inbound,
-  direction_r: Port::None,
-  direction_d: Port::Outbound,
-  direction_l: Port::Outbound,
+  port_u: Port::Inbound,
+  port_r: Port::None,
+  port_d: Port::Outbound,
+  port_l: Port::Outbound,
   cli_icon: '╣',
 };
 // ┌^┐
@@ -1271,10 +1531,10 @@ pub const BELT_D_LU: BeltMeta = BeltMeta {
   btype: BeltType::D_UL,
   dbg: "BELT_D_UL",
   src: "./img/d_ul.png",
-  direction_u: Port::Outbound,
-  direction_r: Port::None,
-  direction_d: Port::Inbound,
-  direction_l: Port::Outbound,
+  port_u: Port::Outbound,
+  port_r: Port::None,
+  port_d: Port::Inbound,
+  port_l: Port::Outbound,
   cli_icon: '╣',
 };
 // ┌?┐
@@ -1284,10 +1544,10 @@ pub const BELT_DLRU: BeltMeta = BeltMeta {
   btype: BeltType::DLRU,
   dbg: "BELT_DLRU",
   src: "./img/dlru.png",
-  direction_u: Port::Unknown,
-  direction_r: Port::Unknown,
-  direction_d: Port::Unknown,
-  direction_l: Port::Unknown,
+  port_u: Port::Unknown,
+  port_r: Port::Unknown,
+  port_d: Port::Unknown,
+  port_l: Port::Unknown,
   cli_icon: '╬',
 };
 // ┌v┐
@@ -1297,10 +1557,10 @@ pub const BELT_U_DLR: BeltMeta = BeltMeta {
   btype: BeltType::U_DLR,
   dbg: "BELT_U_DLR",
   src: "./img/dlru.png",
-  direction_u: Port::Inbound,
-  direction_r: Port::Outbound,
-  direction_d: Port::Outbound,
-  direction_l: Port::Outbound,
+  port_u: Port::Inbound,
+  port_r: Port::Outbound,
+  port_d: Port::Outbound,
+  port_l: Port::Outbound,
   cli_icon: '╬',
 };
 // ┌^┐
@@ -1310,10 +1570,10 @@ pub const BELT_R_DLU: BeltMeta = BeltMeta {
   btype: BeltType::R_DLU,
   dbg: "BELT_R_DLU",
   src: "./img/todo.png",
-  direction_u: Port::Outbound,
-  direction_r: Port::Inbound,
-  direction_d: Port::Outbound,
-  direction_l: Port::Outbound,
+  port_u: Port::Outbound,
+  port_r: Port::Inbound,
+  port_d: Port::Outbound,
+  port_l: Port::Outbound,
   cli_icon: '╬',
 };
 // ┌^┐
@@ -1323,10 +1583,10 @@ pub const BELT_D_LRU: BeltMeta = BeltMeta {
   btype: BeltType::D_LRU,
   dbg: "BELT_D_LRU",
   src: "./img/todo.png",
-  direction_u: Port::Outbound,
-  direction_r: Port::Outbound,
-  direction_d: Port::Inbound,
-  direction_l: Port::Outbound,
+  port_u: Port::Outbound,
+  port_r: Port::Outbound,
+  port_d: Port::Inbound,
+  port_l: Port::Outbound,
   cli_icon: '╬',
 };
 // ┌^┐
@@ -1336,10 +1596,10 @@ pub const BELT_L_DRU: BeltMeta = BeltMeta {
   btype: BeltType::L_DRU,
   dbg: "BELT_L_DRU",
   src: "./img/todo.png",
-  direction_u: Port::Outbound,
-  direction_r: Port::Outbound,
-  direction_d: Port::Outbound,
-  direction_l: Port::Inbound,
+  port_u: Port::Outbound,
+  port_r: Port::Outbound,
+  port_d: Port::Outbound,
+  port_l: Port::Inbound,
   cli_icon: '╬',
 };
 // ┌v┐
@@ -1349,10 +1609,10 @@ pub const BELT_RU_DL: BeltMeta = BeltMeta {
   btype: BeltType::RU_DL,
   dbg: "BELT_RU_DL",
   src: "./img/todo.png",
-  direction_u: Port::Inbound,
-  direction_r: Port::Inbound,
-  direction_d: Port::Outbound,
-  direction_l: Port::Outbound,
+  port_u: Port::Inbound,
+  port_r: Port::Inbound,
+  port_d: Port::Outbound,
+  port_l: Port::Outbound,
   cli_icon: '╬',
 };
 // ┌v┐
@@ -1362,10 +1622,10 @@ pub const BELT_DU_LR: BeltMeta = BeltMeta {
   btype: BeltType::DU_LR,
   dbg: "BELT_DU_LR",
   src: "./img/todo.png",
-  direction_u: Port::Inbound,
-  direction_r: Port::Outbound,
-  direction_d: Port::Inbound,
-  direction_l: Port::Outbound,
+  port_u: Port::Inbound,
+  port_r: Port::Outbound,
+  port_d: Port::Inbound,
+  port_l: Port::Outbound,
   cli_icon: '╬',
 };
 // ┌v┐
@@ -1375,10 +1635,10 @@ pub const BELT_LU_DR: BeltMeta = BeltMeta {
   btype: BeltType::LU_DR,
   dbg: "BELT_LU_DR",
   src: "./img/todo.png",
-  direction_u: Port::Inbound,
-  direction_r: Port::Outbound,
-  direction_d: Port::Outbound,
-  direction_l: Port::Inbound,
+  port_u: Port::Inbound,
+  port_r: Port::Outbound,
+  port_d: Port::Outbound,
+  port_l: Port::Inbound,
   cli_icon: '╬',
 };
 // ┌v┐
@@ -1388,10 +1648,10 @@ pub const BELT_DL_RU: BeltMeta = BeltMeta {
   btype: BeltType::LD_RU,
   dbg: "BELT_LD_RU",
   src: "./img/todo.png",
-  direction_u: Port::Outbound,
-  direction_r: Port::Outbound,
-  direction_d: Port::Inbound,
-  direction_l: Port::Inbound,
+  port_u: Port::Outbound,
+  port_r: Port::Outbound,
+  port_d: Port::Inbound,
+  port_l: Port::Inbound,
   cli_icon: '╬',
 };
 // ┌^┐
@@ -1401,10 +1661,10 @@ pub const BELT_DR_LU: BeltMeta = BeltMeta {
   btype: BeltType::DR_LU,
   dbg: "BELT_DR_LU",
   src: "./img/todo.png",
-  direction_u: Port::Outbound,
-  direction_r: Port::Inbound,
-  direction_d: Port::Inbound,
-  direction_l: Port::Outbound,
+  port_u: Port::Outbound,
+  port_r: Port::Inbound,
+  port_d: Port::Inbound,
+  port_l: Port::Outbound,
   cli_icon: '╬',
 };
 // ┌^┐
@@ -1414,10 +1674,10 @@ pub const BELT_LR_DU: BeltMeta = BeltMeta {
   btype: BeltType::LR_DU,
   dbg: "BELT_LR_DU",
   src: "./img/todo.png",
-  direction_u: Port::Outbound,
-  direction_r: Port::Inbound,
-  direction_d: Port::Outbound,
-  direction_l: Port::Inbound,
+  port_u: Port::Outbound,
+  port_r: Port::Inbound,
+  port_d: Port::Outbound,
+  port_l: Port::Inbound,
   cli_icon: '╬',
 };
 // ┌^┐
@@ -1427,10 +1687,10 @@ pub const BELT_DLR_U: BeltMeta = BeltMeta {
   btype: BeltType::DLR_U,
   dbg: "BELT_DLR_U",
   src: "./img/todo.png",
-  direction_u: Port::Outbound,
-  direction_r: Port::Inbound,
-  direction_d: Port::Inbound,
-  direction_l: Port::Inbound,
+  port_u: Port::Outbound,
+  port_r: Port::Inbound,
+  port_d: Port::Inbound,
+  port_l: Port::Inbound,
   cli_icon: '╬',
 };
 // ┌v┐
@@ -1440,10 +1700,10 @@ pub const BELT_DLU_R: BeltMeta = BeltMeta {
   btype: BeltType::DLU_R,
   dbg: "BELT_DLU_R",
   src: "./img/todo.png",
-  direction_u: Port::Inbound,
-  direction_r: Port::Outbound,
-  direction_d: Port::Inbound,
-  direction_l: Port::Inbound,
+  port_u: Port::Inbound,
+  port_r: Port::Outbound,
+  port_d: Port::Inbound,
+  port_l: Port::Inbound,
   cli_icon: '╬',
 };
 // ┌v┐
@@ -1453,10 +1713,10 @@ pub const BELT_LRU_D: BeltMeta = BeltMeta {
   btype: BeltType::RLU_D,
   dbg: "BELT_RLU_D",
   src: "./img/todo.png",
-  direction_u: Port::Inbound,
-  direction_r: Port::Inbound,
-  direction_d: Port::Outbound,
-  direction_l: Port::Inbound,
+  port_u: Port::Inbound,
+  port_r: Port::Inbound,
+  port_d: Port::Outbound,
+  port_l: Port::Inbound,
   cli_icon: '╬',
 };
 // ┌v┐
@@ -1466,10 +1726,10 @@ pub const BELT_DRU_L: BeltMeta = BeltMeta {
   btype: BeltType::DRU_L,
   dbg: "BELT_DRU_L",
   src: "./img/todo.png",
-  direction_u: Port::Inbound,
-  direction_r: Port::Inbound,
-  direction_d: Port::Inbound,
-  direction_l: Port::Outbound,
+  port_u: Port::Inbound,
+  port_r: Port::Inbound,
+  port_d: Port::Inbound,
+  port_l: Port::Outbound,
   cli_icon: '╬',
 };
 

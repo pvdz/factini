@@ -806,21 +806,21 @@ pub fn start() -> Result<(), JsValue> {
               // There are potentially five belt segment items to paint. Gotta check all of them.
               // let tnow = ((factory.ticks - cell.segments[SegmentDirection::UP].at) as f64).max(0.001).min(cell.speed as f64);
               // let progress = (tnow / (cell.speed as f64)) * segment_h;
-              // let progress_y = if cell.belt.direction_u == Port::In { progress } else { part_h - progress };
+              // let progress_y = if cell.belt.port_u == Port::In { progress } else { part_h - progress };
 
-              let progress_u = pro_lu(factory.ticks, cell.segments[SegmentDirection::UP as usize].at, cell.speed, SEGMENT_H, cell.belt.direction_u);
+              let progress_u = pro_lu(factory.ticks, cell.segments[SegmentDirection::UP as usize].at, cell.speed, SEGMENT_H, cell.belt.port_u);
               let dux = WORLD_OFFSET_X + CELL_W * (cx as f64) + (1.0 * SEGMENT_W) + (SEGMENT_W / 2.0) + -(PART_W / 2.0);
               let duy = WORLD_OFFSET_Y + CELL_H * (cy as f64) + (0.0 * SEGMENT_H) + progress_u + -(PART_H / 2.0);
               paint_segment_part(&context, &part_tile_sprite, cell.segments[SegmentDirection::UP as usize].part.clone(), 16.0, 16.0, dux, duy, PART_W, PART_H);
-              let progress_r = pro_dr(factory.ticks, cell.segments[SegmentDirection::RIGHT as usize].at, cell.speed, SEGMENT_W, cell.belt.direction_r);
+              let progress_r = pro_dr(factory.ticks, cell.segments[SegmentDirection::RIGHT as usize].at, cell.speed, SEGMENT_W, cell.belt.port_r);
               let drx = WORLD_OFFSET_X + CELL_W * (cx as f64) + (2.0 * SEGMENT_W) + progress_r + -(PART_W / 2.0);
               let dry = WORLD_OFFSET_Y + CELL_H * (cy as f64) + (1.0 * SEGMENT_H) + (SEGMENT_H / 2.0) + -(PART_H / 2.0);
               paint_segment_part(&context, &part_tile_sprite, cell.segments[SegmentDirection::RIGHT as usize].part.clone(), 16.0, 16.0, drx, dry, PART_W, PART_H);
-              let progress_d = pro_dr(factory.ticks, cell.segments[SegmentDirection::DOWN as usize].at, cell.speed, SEGMENT_H, cell.belt.direction_d);
+              let progress_d = pro_dr(factory.ticks, cell.segments[SegmentDirection::DOWN as usize].at, cell.speed, SEGMENT_H, cell.belt.port_d);
               let ddx = WORLD_OFFSET_X + CELL_W * (cx as f64) + (1.0 * SEGMENT_W) + (SEGMENT_W / 2.0) + -(PART_W / 2.0);
               let ddy = WORLD_OFFSET_Y + CELL_H * (cy as f64) + (2.0 * SEGMENT_H) + progress_d + -(PART_H / 2.0);
               paint_segment_part(&context, &part_tile_sprite, cell.segments[SegmentDirection::DOWN as usize].part.clone(), 16.0, 16.0, ddx, ddy, PART_W, PART_H);
-              let progress_l = pro_lu(factory.ticks, cell.segments[SegmentDirection::LEFT as usize].at, cell.speed, SEGMENT_W, cell.belt.direction_l);
+              let progress_l = pro_lu(factory.ticks, cell.segments[SegmentDirection::LEFT as usize].at, cell.speed, SEGMENT_W, cell.belt.port_l);
               let dlx = WORLD_OFFSET_X + CELL_W * (cx as f64) + (0.0 * SEGMENT_W) + progress_l + -(PART_W / 2.0);
               let dly = WORLD_OFFSET_Y + CELL_H * (cy as f64) + (1.0 * SEGMENT_H) + (SEGMENT_H / 2.0) + -(PART_H / 2.0);
               paint_segment_part(&context, &part_tile_sprite, cell.segments[SegmentDirection::LEFT as usize].part.clone(), 16.0, 16.0, dlx, dly, PART_W, PART_H);

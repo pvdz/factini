@@ -1,3 +1,4 @@
+use crate::direction::Direction;
 use crate::port::Port;
 use super::belt::*;
 use super::cell::*;
@@ -12,15 +13,15 @@ pub fn cli_main(options: &mut Options, state: &mut State) {
 
   let map = "\
     ........s........\n\
-    .mmm....b........\n\
-    .mmmbbbbbbbbbbb..\n\
-    .mmm..........b..\n\
+    .111....b........\n\
+    .111bbbbbbbbbbb..\n\
+    .111..........b..\n\
     ..b...........b..\n\
     ..bbbbbbb.....b..\n\
     ........b.....b..\n\
-    .......mmm....b..\n\
-    .......mmm....b..\n\
-    .......mmm....b..\n\
+    .......222....b..\n\
+    .......222....b..\n\
+    .......222....b..\n\
     ........b.....bbs\n\
     ..bbbbbbb........\n\
     ..b.....b........\n\
@@ -28,34 +29,20 @@ pub fn cli_main(options: &mut Options, state: &mut State) {
     dbb..bbbb........\n\
     .....b...........\n\
     .....d...........\n\
+    m1 = ws -> b\n\
+    m2 = b -> g\n\
+    s1 = w\n\
+    s2 = s\n\
+    d1 = g\n\
+    d2 = g\n\
   ";
   let mut factory = create_factory(options, state, map.to_string());
-  println!("->\n{}", serialize(options, state, &mut factory));
-  println!("supply: {:?}", factory.floor[186]);
-  println!("-> port up\n{}", serialize_cb(options, state, &mut factory, |cell: &Cell| match cell.direction_u {
-    Port::Inbound => 'v',
-    Port::Outbound => '^',
-    Port::Unknown => '?',
-    Port::None => if cell.kind == CellKind::Empty { ' ' } else { '.' },
-  }));
-  println!("-> port right\n{}", serialize_cb(options, state, &mut factory, |cell: &Cell| match cell.direction_r {
-    Port::Inbound => '<',
-    Port::Outbound => '>',
-    Port::Unknown => '?',
-    Port::None => if cell.kind == CellKind::Empty { ' ' } else { '.' },
-  }));
-  println!("-> port down\n{}", serialize_cb(options, state, &mut factory, |cell: &Cell| match cell.direction_d {
-    Port::Inbound => '^',
-    Port::Outbound => 'v',
-    Port::Unknown => '?',
-    Port::None => if cell.kind == CellKind::Empty { ' ' } else { '.' },
-  }));
-  println!("-> port left\n{}", serialize_cb(options, state, &mut factory, |cell: &Cell| match cell.direction_l {
-    Port::Inbound => '>',
-    Port::Outbound => '<',
-    Port::Unknown => '?',
-    Port::None => if cell.kind == CellKind::Empty { ' ' } else { '.' },
-  }));
+  println!("prio: {:?}", factory.prio);
+  print_floor_with_views(options, state, &mut factory);
+
+
+  // println!("supply: {:?}", factory.floor[186]);
+
   // panic!("okay, gezien");
   //
   // let mut factory = create_factory(options, state, "".to_string());
@@ -76,8 +63,12 @@ pub fn cli_main(options: &mut Options, state: &mut State) {
       println!("{:200}", ' ');
       println!("factory @ {} {:200}", factory.ticks, ' ');
       // println!("machine TL {:?} {:?} {:?} -> {:?}", factory.floor[8].machine.input_1_have.kind, factory.floor[8].machine.input_2_have.kind, factory.floor[8].machine.input_3_have.kind, factory.floor[8].machine.output_have.kind);
-      println!("{}", serialize(options, state, &factory));
-      // print!("\x1b[{}A\n", 60);
+      if factory.ticks % 10000 == 0 {
+        print_floor_with_views(options, state, &mut factory);
+      } else {
+        print_floor_without_views(options, state, &mut factory);
+      }
+      // print!("\n{:100}\n{:100}\x1b[{}A\n", ' ', ' ', 50);
     }
   }
 }
@@ -156,7 +147,13 @@ fn serialize(options: &mut Options, state: &mut State, factory: &Factory) -> Str
           (65 + id) as u8 as char
         }
       },
-      CellKind::Belt => factory.floor[coord].belt.meta.cli_icon,
+      CellKind::Belt => {
+        if factory.floor[coord].belt.part.kind != PartKind::None {
+          factory.floor[coord].belt.part.icon
+        } else {
+          factory.floor[coord].belt.meta.cli_icon
+        }
+      },
     });
 
     if p == FLOOR_CELLS_W - 2 {
@@ -266,4 +263,91 @@ fn serialize_cb(options: &mut Options, state: &mut State, factory: &Factory, cb:
 
 
   return out.iter().collect();
+}
+
+fn print_floor_with_views(options: &mut Options, state: &mut State, factory: &Factory) {
+
+  let aa = serialize(options, state, factory);
+  let mut a = aa.split('\n');
+
+  let bb = serialize_cb(options, state, factory, |cell: &Cell| match cell.port_u {
+    Port::Inbound => 'v',
+    Port::Outbound => '^',
+    Port::Unknown => '?',
+    Port::None => if cell.kind == CellKind::Empty { ' ' } else { '.' },
+  });
+  let mut b = bb.split('\n');
+
+  let cc = serialize_cb(options, state, factory, |cell: &Cell| match cell.port_r {
+    Port::Inbound => '<',
+    Port::Outbound => '>',
+    Port::Unknown => '?',
+    Port::None => if cell.kind == CellKind::Empty { ' ' } else { '.' },
+  });
+  let mut c = cc.split('\n');
+
+  let dd = serialize_cb(options, state, factory, |cell: &Cell| match cell.port_d {
+    Port::Inbound => '^',
+    Port::Outbound => 'v',
+    Port::Unknown => '?',
+    Port::None => if cell.kind == CellKind::Empty { ' ' } else { '.' },
+  });
+  let mut d = dd.split('\n');
+
+  let ee = serialize_cb(options, state, factory, |cell: &Cell| match cell.port_l {
+    Port::Inbound => '>',
+    Port::Outbound => '<',
+    Port::Unknown => '?',
+    Port::None => if cell.kind == CellKind::Empty { ' ' } else { '.' },
+  });
+  let mut e = ee.split('\n');
+
+
+  let ff = serialize_cb(options, state, factory, |cell: &Cell| if cell.kind != CellKind::Belt { ' ' } else if cell.belt.part.kind == PartKind::None { '-' } else { match cell.belt.part_from {
+    Direction::Up => 'u',
+    Direction::Right => 'r',
+    Direction::Down => 'd',
+    Direction::Left => 'l',
+  }});
+  let mut f = ff.split('\n');
+
+  let gg = serialize_cb(options, state, factory, |cell: &Cell| if cell.kind != CellKind::Belt { ' ' } else if cell.belt.part.kind == PartKind::None { '-' } else { match cell.belt.part_to {
+    Direction::Up => 'u',
+    Direction::Right => 'r',
+    Direction::Down => 'd',
+    Direction::Left => 'l',
+  }});
+  let mut g = gg.split('\n');
+
+
+
+  let mut cor = 0; // Helps to account for lines where no real cells are printed
+  println!("        \"0 123456789012345 6\"                port_u                     port_r                     port_d                     port_l                       belt_from                   belt_to");
+  //         (   )  "┌───────────────────┐"       "┌───────────────────┐"    "┌───────────────────┐"    "┌───────────────────┐"    "┌───────────────────┐"        "┌───────────────────┐"    "┌───────────────────┐"
+  for i in 0..FLOOR_CELLS_H+4 {
+    if i != 0 && i != 1 && i != 3 && i != FLOOR_CELLS_H+2 { cor += 1 }
+    let argh = format!("{}", cor*FLOOR_CELLS_W);
+    let ok = if i != 0 && i != 2 && i != FLOOR_CELLS_H+1 && i != FLOOR_CELLS_H+3 { argh.as_str() } else { "" };
+    println!("({:3})  {:?}       {:?}    {:?}    {:?}    {:?}        {:?}    {:?}", ok, a.next().expect(""), b.next().expect(""), c.next().expect(""), d.next().expect(""), e.next().expect(""), f.next().expect(""), g.next().expect(""));
+  }
+  //         (   )  "└───────────────────┘"       "└───────────────────┘"    "└───────────────────┘"    "└───────────────────┘"    "└───────────────────┘"        "└───────────────────┘"    "└───────────────────┘"
+  println!("        \"0 123456789012345 6\"");
+}
+
+fn print_floor_without_views(options: &mut Options, state: &mut State, factory: &Factory) {
+
+  let aa = serialize(options, state, factory);
+  let mut a = aa.split('\n');
+
+  let mut cor = 0; // Helps to account for lines where no real cells are printed
+  println!("        \"0 123456789012345 6\"                port_u                     port_r                     port_d                     port_l                       belt_from                   belt_to");
+  //         (   )  "┌───────────────────┐"       "┌───────────────────┐"    "┌───────────────────┐"    "┌───────────────────┐"    "┌───────────────────┐"        "┌───────────────────┐"    "┌───────────────────┐"
+  for i in 0..FLOOR_CELLS_H+4 {
+    if i != 0 && i != 1 && i != 3 && i != FLOOR_CELLS_H+2 { cor += 1 }
+    let argh = format!("{}", cor*FLOOR_CELLS_W);
+    let ok = if i != 0 && i != 2 && i != FLOOR_CELLS_H+1 && i != FLOOR_CELLS_H+3 { argh.as_str() } else { "" };
+    println!("({:3})  {:?}", ok, a.next().expect(""));
+  }
+  //         (   )  "└───────────────────┘"       "└───────────────────┘"    "└───────────────────┘"    "└───────────────────┘"    "└───────────────────┘"        "└───────────────────┘"    "└───────────────────┘"
+  println!("        \"0 123456789012345 6\"");
 }

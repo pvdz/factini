@@ -20,3 +20,16 @@ pub const fn part_none() -> Part {
     icon: ' ',
   }
 }
+
+pub const fn part_c(icon: char) -> Part {
+  return Part {
+    kind: match icon {
+      'w' => PartKind::WoodenStick,
+      's' => PartKind::Sapphire,
+      'b' => PartKind::BlueWand,
+      'g' => PartKind::GoldenBlueWand,
+      _ => PartKind::WoodenStick,
+    },
+    icon,
+  }
+}

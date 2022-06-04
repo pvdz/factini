@@ -19,6 +19,7 @@ pub mod machine;
 pub mod options;
 pub mod part;
 pub mod port;
+pub mod prio;
 pub mod state;
 pub mod supply;
 pub mod utils;

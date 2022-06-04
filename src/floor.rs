@@ -42,45 +42,51 @@ fn str_to_floor(str: String) -> [Cell; FLOOR_CELLS_WH] {
   // Empty cell is space or dot, s = supply, d = demand, b = belt, m = machine. Auto-layout should fix it.
   // Example string (inc newlines, ex one space indent after comment start):
   // ```
-  //  .......s.......
-  // .mmm....b........
-  // .mmmbbbbbbbbbbb..
-  // .mmm..........b..
+  // ........s........
+  // .111....b........
+  // .111bbbbbbbbbbb..
+  // .111..........b..
   // ..b...........b..
   // ..bbbbbbb.....b..
   // ........b.....b..
-  // .......mmm....b..
-  // .......mmm....b..
-  // .......mmm....b..
+  // .......222....b..
+  // .......222....b..
+  // .......222....b..
   // ........b.....bbs
   // ..bbbbbbb........
   // ..b.....b........
   // ..b.....b........
   // dbb..bbbb........
   // .....b...........
-  //  ....d..........
+  // .....d...........
+  // m1 = ws -> b
+  // m2 = b -> g
+  // s1 = w
+  // s2 = s
+  // d1 = g
+  // d2 = g
   // ```
   // Forming something like this:
   // ┌────────────────────┐
-  // │         s          │
+  // │         s1         │
   // │ ┌────────────────┐ │
-  // │ │mmm    ║        │ │
-  // │ │mmm════╩═════╗  │ │
-  // │ │mmm          ║  │ │
+  // │ │111    ║        │ │
+  // │ │111════╩═════╗  │ │
+  // │ │111          ║  │ │
   // │ │ ║           ║  │ │
   // │ │ ╚═════╗     ║  │ │
   // │ │       ║     ║  │ │
-  // │ │      mmm    ║  │ │
-  // │ │      mmm    ║  │ │
-  // │ │      mmm    ║  │ │
+  // │ │      222    ║  │ │
+  // │ │      222    ║  │ │
+  // │ │      222    ║  │ │
   // │ │       ║     ║  │ │
   // │ │ ╔═════╣     ╚═s│s│
-  // │ │ ║     ║        │ │
+  // │ │ ║     ║        │2│
   // │ │ ║     ║        │ │
   // │d│═╝  ╔══╝        │ │
-  // │ │    ║           │ │
+  // │1│    ║           │ │
   // │ └────────────────┘ │
-  // │      d             │
+  // │      d2            │
   // └────────────────────┘
 
   let mut len = 0;
@@ -90,21 +96,192 @@ fn str_to_floor(str: String) -> [Cell; FLOOR_CELLS_WH] {
     }
   }
 
-  if len != FLOOR_CELLS_WH {
-    panic!("Error: input string (ignoring newlines) must be exactly {}x{}={} chars, but had {} chars", FLOOR_CELLS_W, FLOOR_CELLS_H, FLOOR_CELLS_WH, len);
-  }
+  // if len != FLOOR_CELLS_WH {
+  //   panic!("Error: input string (ignoring newlines) must be exactly {}x{}={} chars, but had {} chars", FLOOR_CELLS_W, FLOOR_CELLS_H, FLOOR_CELLS_WH, len);
+  // }
 
-  return str.split('\n').map(|s| s.bytes()).flatten().enumerate().map(|(coord, c)| {
+  let lines = str.split('\n').collect::<Vec<&str>>();
+
+  println!("Importing string map:\n```\n{}\n```", str);
+
+  let defs = &lines[FLOOR_CELLS_H..lines.len()]
+  //   .map(|s| {
+  //   let bytes = s.bytes();
+  //   match bytes.next() {
+  //     'm' => {
+  //       // Machine lines are in the form of `m[1..9] ?=? ?[a-z]?[a-z]?[a-z]? ? -?>? ? [a-z]`
+  //       // While the `=` and `->` and spacing is optional, the "parser" may fall off the rails if you mess up too badly.
+  //
+  //       // 1..9
+  //       let n = bytes.next();
+  //
+  //       // a-z or -
+  //       let mut i_1 = bytes.next();
+  //       while i_1 == ' ' || i_1 == '=' {
+  //         i_1 = bytes.next();
+  //       }
+  //       // a-z or -
+  //       let mut i_2 = if i_1 == '-' { '-' } else { bytes.next() };
+  //       while i_2 == ' ' || i_2 == '=' {
+  //         i_2 = bytes.next();
+  //       }
+  //       // a-z or -
+  //       let mut i_3 = if i_2 == '-' { '-' } else { bytes.next() };
+  //       while i_3 == ' ' || i_3 == '=' {
+  //         i_3 = bytes.next();
+  //       }
+  //
+  //       // a-z
+  //       let mut o = bytes.next();
+  //       while o == ' ' || o == '-' || o == '>' {
+  //         o = bytes.next();
+  //       }
+  //
+  //       // Should now have up to three inputs and one output
+  //
+  //
+  //     }
+  //     'd' => {
+  //       // 1..9
+  //       let n = bytes.next();
+  //
+  //       // a-z
+  //       let mut part = bytes.next();
+  //       while part == ' ' || part == '=' || part == '-' || part == '>' {
+  //         part = bytes.next();
+  //       }
+  //     }
+  //     's' => {
+  //       // 1..9
+  //       let n = bytes.next();
+  //
+  //       // a-z
+  //       let mut part = bytes.next();
+  //       while part == ' ' || part == '=' || part == '-' || part == '>' {
+  //         part = bytes.next();
+  //       }
+  //     }
+  //     _ => panic!("Legend lines should start with m (machine), d (demand), or s (supply)").
+  //   }
+  // })
+  ;
+  println!("defs: {:?}", defs);
+
+  let mut suppliers: u8 = '0' as u8;
+  let mut demanders: u8 = '0' as u8;
+
+  return lines[0..FLOOR_CELLS_H].iter().map(|s| s.bytes()).flatten().enumerate().map(|(coord, c)| {
     let (x, y) = to_xy(coord);
 
     return match c as char {
       | ' '
       | '.'
       => empty_cell(x, y),
+      | '1'
+      | '2'
+      | '3'
+      | '4'
+      | '5'
+      | '6'
+      | '7'
+      | '8'
+      | '9'
+      => {
+        // Search through the defs for the machine at this index and get its input/output spec
+        // `m1 = wg -> s`
+        let cell = defs.iter().find_map(|s| {
+          let mut b = s.bytes();
+          if b.next().or(Some('!' as u8)).unwrap() == 'm' as u8 && b.next().or(Some('!' as u8)).unwrap() == c as u8 {
+            // Found the machine def. Parse the input/output spec
+            let mut in1 = b.next().or(Some('x' as u8)).unwrap() as char;
+            while in1 == ' ' || in1 == '=' {
+              in1 = b.next().or(Some('x' as u8)).unwrap() as char;
+            }
+            let mut in2 = b.next().or(Some('y' as u8)).unwrap() as char;
+            while in2 == ' ' {
+              in2 = b.next().or(Some('y' as u8)).unwrap() as char;
+            }
+            let mut in3 = if in2 == '-' { '-' } else { b.next().or(Some('z' as u8)).unwrap() as char };
+            while in3 == ' ' {
+              in3 = b.next().or(Some('z' as u8)).unwrap() as char;
+            }
+
+            let mut out = b.next().or(Some('w' as u8)).unwrap() as char;
+            while out == ' ' || out == '-' || out == '>' {
+              out = b.next().or(Some('w' as u8)).unwrap() as char;
+            }
+
+            println!("Creating machine id={} with inputs({} {} {}) and output({})", c, in1, in2, in3, out);
+
+            let cell = machine_cell(x, y, MachineKind::Unknown, part_c(in1), if in2 == '-' { part_none() } else { part_c(in2) }, if in3 == '-' { part_none() } else { part_c(in3) }, part_c(out), 1, 1);
+            return Some(cell);
+          }
+
+          // This wasn't the target machine definition
+          return None;
+        })
+          .or(Some(machine_cell(x, y, MachineKind::Unknown, part_none(), part_none(), part_none(), part_none(), 1, 1)))
+          .unwrap(); // Always returns a some due to the .or()
+
+        return cell;
+      },
       'b' => belt_cell(x, y, BELT_INVALID),
-      'm' => machine_cell(x, y, MachineKind::Unknown, part_none(), part_none(), part_none(), part_none(), 1, 1),
-      's' => supply_cell(x, y, part_none(), 0, 1, 1),
-      'd' => demand_cell(x, y, part_none()),
+      's' => {
+        suppliers += 1;
+
+        // Search through the defs for the machine at this index and get its input/output spec
+        let cell = defs.iter().find_map(|s| {
+          let mut b = s.bytes();
+          if b.next().or(Some('!' as u8)).unwrap() == 's' as u8 && b.next().or(Some('!' as u8)).unwrap() == suppliers {
+            // Found the supply def. Should have the kind of part that it gives.
+            let mut gives = b.next().or(Some('x' as u8)).unwrap() as char;
+            while gives == ' ' || gives == '=' {
+              gives = b.next().or(Some('x' as u8)).unwrap() as char;
+            }
+
+            println!("Creating supplier {}, id={} which gives ({})", suppliers, c, gives);
+
+            let cell = supply_cell(x, y, part_c(gives), 1, 1, 1);
+            return Some(cell);
+          }
+
+          // This wasn't the target machine definition
+          return None;
+        })
+          .or(Some(supply_cell(x, y, part_none(), 0, 1, 1)))
+          .unwrap(); // Always returns a some due to the .or()
+
+        return cell;
+      },
+      'd' => {
+        demanders += 1;
+
+        // Search through the defs for the machine at this index and get its input/output spec
+        let cell = defs.iter().find_map(|s| {
+          let mut b = s.bytes();
+          if b.next().or(Some('!' as u8)).unwrap() == 'd' as u8 && b.next().or(Some('!' as u8)).unwrap() == demanders {
+            // Found the demand def. Should have the kind of part that it wants.
+            let mut wants = b.next().or(Some('x' as u8)).unwrap() as char;
+            while wants == ' ' || wants == '=' {
+              wants = b.next().or(Some('x' as u8)).unwrap() as char;
+            }
+
+            println!("Creating demander {}, id={} which gives ({})", demanders, c, wants);
+
+            let cell = demand_cell(x, y, part_c(wants));
+            return Some(cell);
+          }
+
+          // This wasn't the target machine definition
+          return None;
+        })
+          .or(Some(demand_cell(x, y, part_none())))
+          .unwrap(); // Always returns a some due to the .or()
+
+        return cell;
+
+
+      },
       _ => panic!("no can do, only supported chars are: space, dot, m, b, d, and s, but got: `{}`", c as char),
     };
   })
@@ -140,6 +317,9 @@ fn auto_layout(floor: &mut [Cell; FLOOR_CELLS_WH]) {
           auto_layout_tag_machine(floor, floor[coord].coord_l, coord, machines);
 
           machines += 1;
+          // Since order does not _really_ matter, it's easier to debug when the subs are in
+          // grid order of appearance so just sort them incrementally
+          floor[coord].machine.coords.sort();
           println!("Machine {} @{} has these parts: {:?}", floor[coord].machine.id, coord, floor[coord].machine.coords);
         }
       }
@@ -195,12 +375,13 @@ fn get_kind_at(floor: &mut [Cell; FLOOR_CELLS_WH], coord: Option<usize>) -> Cell
   };
 }
 
-pub fn get_edge_neighbor(x: usize, y: usize, coord: usize) -> usize {
+pub fn get_edge_neighbor(x: usize, y: usize, coord: usize) -> (usize, Direction, Direction) {
+  // Returns: neighbor coord, supply outgoing dir / demand incoming dir, neighbor incoming/outgoing dir
   return
-    if y == 0 { to_coord_down(coord) }
-    else if x == FLOOR_CELLS_W - 1 { to_coord_left(coord) }
-    else if y == FLOOR_CELLS_H - 1 { to_coord_up(coord) }
-    else if x == 0 { to_coord_right(coord) }
+    if y == 0 { ( to_coord_down(coord), Direction::Down, Direction::Up ) }
+    else if x == FLOOR_CELLS_W - 1 { ( to_coord_left(coord), Direction::Left, Direction::Right ) }
+    else if y == FLOOR_CELLS_H - 1 { ( to_coord_up(coord), Direction::Up, Direction::Down ) }
+    else if x == 0 { ( to_coord_right(coord), Direction::Right, Direction::Left ) }
     else { panic!("get_edge_neighbor({}, {}, {}): coord should live on an edge", x, y, coord); };
 }
 

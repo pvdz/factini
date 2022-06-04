@@ -27,25 +27,25 @@ fn auto_port_cell_self(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize) -> (boo
   let mut uns = 0;
   let mut ems = 0;
 
-  match floor[coord].direction_u {
+  match floor[coord].port_u {
     Port::Inbound => ins += 1,
     Port::Outbound => outs += 1,
     Port::Unknown => uns += 1,
     Port::None => ems += 1,
   };
-  match floor[coord].direction_r {
+  match floor[coord].port_r {
     Port::Inbound => ins += 1,
     Port::Outbound => outs += 1,
     Port::Unknown => uns += 1,
     Port::None => ems += 1,
   };
-  match floor[coord].direction_d {
+  match floor[coord].port_d {
     Port::Inbound => ins += 1,
     Port::Outbound => outs += 1,
     Port::Unknown => uns += 1,
     Port::None => ems += 1,
   };
-  match floor[coord].direction_l {
+  match floor[coord].port_l {
     Port::Inbound => ins += 1,
     Port::Outbound => outs += 1,
     Port::Unknown => uns += 1,
@@ -60,14 +60,22 @@ fn auto_port_cell_self(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize) -> (boo
   if ins > 0 && outs == 0 && uns == 1 {
     // There is one unknown port and we already have at least one outbound port
     // so the unknown port must be inbound (or the config is broken)
-    if floor[coord].direction_u == Port::Unknown {
-      floor[coord].direction_u = Port::Outbound;
-    } else if floor[coord].direction_r == Port::Unknown {
-      floor[coord].direction_r = Port::Outbound;
-    } else if floor[coord].direction_d == Port::Unknown {
-      floor[coord].direction_d = Port::Outbound;
-    } else if floor[coord].direction_l == Port::Unknown {
-      floor[coord].direction_l = Port::Outbound;
+    if floor[coord].port_u == Port::Unknown {
+      // println!("- belt @{}; up port must be outbound", coord);
+      floor[coord].port_u = Port::Outbound;
+      floor[coord].outs.push(( Direction::Up, coord, floor[coord].coord_u.unwrap(), Direction::Down ));
+    } else if floor[coord].port_r == Port::Unknown {
+      // println!("- belt @{}; right port must be outbound", coord);
+      floor[coord].port_r = Port::Outbound;
+      floor[coord].outs.push(( Direction::Right, coord, floor[coord].coord_r.unwrap(), Direction::Left ));
+    } else if floor[coord].port_d == Port::Unknown {
+      // println!("- belt @{}; down port must be outbound", coord);
+      floor[coord].port_d = Port::Outbound;
+      floor[coord].outs.push(( Direction::Down, coord, floor[coord].coord_d.unwrap(), Direction::Up ));
+    } else if floor[coord].port_l == Port::Unknown {
+      // println!("- belt @{}; left port must be outbound", coord);
+      floor[coord].port_l = Port::Outbound;
+      floor[coord].outs.push(( Direction::Left, coord, floor[coord].coord_l.unwrap(), Direction::Right ));
     } else {
       panic!("should be an unknown port");
     }
@@ -78,14 +86,22 @@ fn auto_port_cell_self(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize) -> (boo
     // There is one unknown port and we already have at least one inbound port
     // so the unknown port must be outbound (or the config is broken)
 
-    if floor[coord].direction_u == Port::Unknown {
-      floor[coord].direction_u = Port::Inbound;
-    } else if floor[coord].direction_r == Port::Unknown {
-      floor[coord].direction_r = Port::Inbound;
-    } else if floor[coord].direction_d == Port::Unknown {
-      floor[coord].direction_d = Port::Inbound;
-    } else if floor[coord].direction_l == Port::Unknown {
-      floor[coord].direction_l = Port::Inbound;
+    if floor[coord].port_u == Port::Unknown {
+      // println!("- belt @{}; up port must be inbound", coord);
+      floor[coord].port_u = Port::Inbound;
+      floor[coord].ins.push(( Direction::Up, coord, floor[coord].coord_u.unwrap(), Direction::Down ));
+    } else if floor[coord].port_r == Port::Unknown {
+      // println!("- belt @{}; right port must be inbound", coord);
+      floor[coord].port_r = Port::Inbound;
+      floor[coord].ins.push(( Direction::Right, coord, floor[coord].coord_r.unwrap(), Direction::Left ));
+    } else if floor[coord].port_d == Port::Unknown {
+      // println!("- belt @{}; down port must be inbound", coord);
+      floor[coord].port_d = Port::Inbound;
+      floor[coord].ins.push(( Direction::Down, coord, floor[coord].coord_d.unwrap(), Direction::Up ));
+    } else if floor[coord].port_l == Port::Unknown {
+      // println!("- belt @{}; left port must be inbound", coord);
+      floor[coord].port_l = Port::Inbound;
+      floor[coord].ins.push(( Direction::Left, coord, floor[coord].coord_l.unwrap(), Direction::Right ));
     } else {
       panic!("should be an unknown port");
     }
@@ -96,103 +112,169 @@ fn auto_port_cell_self(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize) -> (boo
 
   return (false, false);
 }
-fn auto_port_neighbor_u(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize) -> bool {
-  if floor[coord].direction_u == Port::Unknown {
-    let port_up: Port = match floor[coord].coord_u {
-      Some(ocoord) => {
-        match floor[ocoord].direction_d {
-          Port::Inbound => Port::Outbound,
-          Port::Outbound => Port::Inbound,
-          Port::None => Port::None,
-          Port::Unknown => Port::Unknown,
-        }
-      },
-      None => Port::None,
-    };
-    if port_up != Port::Unknown {
-      floor[coord].direction_u = port_up;
-      return true;
+fn auto_port_belt_u(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize) -> bool {
+  if floor[coord].port_u != Port::Unknown {
+    return false;
+  }
+
+  let port: Port = match floor[coord].coord_u {
+    Some(ocoord) => {
+      match floor[ocoord].port_d {
+        Port::Inbound => Port::Outbound,
+        Port::Outbound => Port::Inbound,
+        Port::None => Port::None,
+        Port::Unknown => Port::Unknown,
+      }
+    },
+    None => Port::None,
+  };
+
+  match port {
+    Port::Inbound => {
+      // println!("- belt @{}; up port is inbound", coord);
+      floor[coord].port_u = Port::Inbound;
+      floor[coord].ins.push(( Direction::Up, coord, floor[coord].coord_u.unwrap(), Direction::Down ));
+    }
+    Port::Outbound => {
+      // println!("- belt @{}; up port is outbound", coord);
+      floor[coord].port_u = Port::Outbound;
+      floor[coord].outs.push(( Direction::Up, coord, floor[coord].coord_u.unwrap(), Direction::Down ));
+    }
+    Port::None => {
+      floor[coord].port_u = Port::None;
+    }
+    Port::Unknown => {
+      return false;
     }
   }
-  return false;
+  return true;
 }
-fn auto_port_neighbor_r(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize) -> bool {
-  if floor[coord].direction_r == Port::Unknown {
-    let port_right: Port = match floor[coord].coord_r {
-      Some(ocoord) => {
-        match floor[ocoord].direction_l {
-          Port::Inbound => Port::Outbound,
-          Port::Outbound => Port::Inbound,
-          Port::None => Port::None,
-          Port::Unknown => Port::Unknown,
-        }
-      },
-      None => Port::None,
-    };
-    if port_right != Port::Unknown {
-      floor[coord].direction_r = port_right;
-      return true;
+fn auto_port_belt_r(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize) -> bool {
+  if floor[coord].port_r != Port::Unknown {
+    return false;
+  }
+
+  let port: Port = match floor[coord].coord_r {
+    Some(ocoord) => {
+      match floor[ocoord].port_l {
+        Port::Inbound => Port::Outbound,
+        Port::Outbound => Port::Inbound,
+        Port::None => Port::None,
+        Port::Unknown => Port::Unknown,
+      }
+    },
+    None => Port::None,
+  };
+
+  match port {
+    Port::Inbound => {
+      // println!("- belt @{}; right port is inbound", coord);
+      floor[coord].port_r = Port::Inbound;
+      floor[coord].ins.push(( Direction::Right, coord, floor[coord].coord_r.unwrap(), Direction::Left ));
+    }
+    Port::Outbound => {
+      // println!("- belt @{}; right port is outbound", coord);
+      floor[coord].port_r = Port::Outbound;
+      floor[coord].outs.push(( Direction::Right, coord, floor[coord].coord_r.unwrap(), Direction::Left ));
+    }
+    Port::None => {
+      floor[coord].port_r = Port::None;
+    }
+    Port::Unknown => {
+      return false;
     }
   }
-  return false;
+  return true;
 }
-fn auto_port_neighbor_d(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize) -> bool {
-  if floor[coord].direction_d == Port::Unknown {
-    let port_down: Port = match floor[coord].coord_d {
-      Some(ocoord) => {
-        match floor[ocoord].direction_u {
-          Port::Inbound => Port::Outbound,
-          Port::Outbound => Port::Inbound,
-          Port::None => Port::None,
-          Port::Unknown => Port::Unknown,
-        }
-      },
-      None => Port::None,
-    };
-    if port_down != Port::Unknown {
-      floor[coord].direction_d = port_down;
-      return true;
+fn auto_port_belt_d(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize) -> bool {
+  if floor[coord].port_d != Port::Unknown {
+    return false;
+  }
+
+  let port: Port = match floor[coord].coord_d {
+    Some(ocoord) => {
+      match floor[ocoord].port_u {
+        Port::Inbound => Port::Outbound,
+        Port::Outbound => Port::Inbound,
+        Port::None => Port::None,
+        Port::Unknown => Port::Unknown,
+      }
+    },
+    None => Port::None,
+  };
+
+  match port {
+    Port::Inbound => {
+      // println!("- belt @{}; down port is inbound", coord);
+      floor[coord].port_d = Port::Inbound;
+      floor[coord].ins.push(( Direction::Down, coord, floor[coord].coord_d.unwrap(), Direction::Up ));
+    }
+    Port::Outbound => {
+      // println!("- belt @{}; down port is outbound", coord);
+      floor[coord].port_d = Port::Outbound;
+      floor[coord].outs.push(( Direction::Down, coord, floor[coord].coord_d.unwrap(), Direction::Up ));
+    }
+    Port::None => {
+      floor[coord].port_d = Port::None;
+    }
+    Port::Unknown => {
+      return false;
     }
   }
-  return false;
+  return true;
 }
-fn auto_port_neighbor_l(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize) -> bool {
-  if floor[coord].direction_l == Port::Unknown {
-    let port_left: Port = match floor[coord].coord_l {
-      Some(ocoord) => {
-        match floor[ocoord].direction_r {
-          Port::Inbound => Port::Outbound,
-          Port::Outbound => Port::Inbound,
-          Port::None => Port::None,
-          Port::Unknown => Port::Unknown,
-        }
-      },
-      None => Port::None,
-    };
-    if port_left != Port::Unknown {
-      floor[coord].direction_l = port_left;
-      return true;
+fn auto_port_belt_l(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize) -> bool {
+  if floor[coord].port_l != Port::Unknown {
+    return false;
+  }
+
+  let port: Port = match floor[coord].coord_l {
+    Some(ocoord) => {
+      match floor[ocoord].port_r {
+        Port::Inbound => Port::Outbound,
+        Port::Outbound => Port::Inbound,
+        Port::None => Port::None,
+        Port::Unknown => Port::Unknown,
+      }
+    },
+    None => Port::None,
+  };
+
+  match port {
+    Port::Inbound => {
+      // println!("- belt @{}; left port is inbound", coord);
+      floor[coord].port_l = Port::Inbound;
+      floor[coord].ins.push(( Direction::Left, coord, floor[coord].coord_l.unwrap(), Direction::Right ));
+    }
+    Port::Outbound => {
+      // println!("- belt @{}; left port is outbound", coord);
+      floor[coord].port_l = Port::Outbound;
+      floor[coord].outs.push(( Direction::Left, coord, floor[coord].coord_l.unwrap(), Direction::Right ));
+    }
+    Port::None => {
+      floor[coord].port_l = Port::None;
+    }
+    Port::Unknown => {
+      return false;
     }
   }
-  return false;
+  return true;
 }
 fn auto_port_machine_u(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, attempt: u32) -> bool {
   assert_eq!(floor[coord].kind, CellKind::Machine);
 
-  if floor[coord].direction_u != Port::Unknown {
+  if floor[coord].port_u != Port::Unknown {
     return false;
   }
 
-  let mut changed = false;
-
-  let port_up: Port = match floor[coord].coord_u {
+  let port: Port = match floor[coord].coord_u {
     Some(ocoord) => {
       if floor[ocoord].kind == CellKind::Machine {
         // Internal state; ignore ports to neighboring machine cells (even if they're not
         // part of the same machine block; we don't consider machine2machine transports)
         Port::None
       } else {
-        match floor[ocoord].direction_d {
+        match floor[ocoord].port_d {
           Port::Inbound => Port::Outbound,
           Port::Outbound => Port::Inbound,
           Port::None => Port::None,
@@ -202,30 +284,42 @@ fn auto_port_machine_u(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, attempt
     },
     None => Port::None,
   };
-  if port_up != Port::Unknown {
-    floor[coord].direction_u = port_up;
-    changed = true;
-  }
 
-  return changed;
+  match port {
+    Port::Inbound => {
+      println!("  - machine @{} up port is inbound", coord);
+      floor[coord].port_u = Port::Inbound;
+      floor[floor[coord].machine.main_coord].ins.push(( Direction::Up, coord, floor[coord].coord_u.unwrap(), Direction::Down ));
+    }
+    Port::Outbound => {
+      println!("  - machine @{} up port is outbound", coord);
+      floor[coord].port_u = Port::Outbound;
+      floor[floor[coord].machine.main_coord].outs.push(( Direction::Up, coord, floor[coord].coord_u.unwrap(), Direction::Down ));
+    }
+    Port::None => {
+      floor[coord].port_u = Port::None;
+    }
+    Port::Unknown => {
+      return false;
+    }
+  }
+  return true;
 }
 fn auto_port_machine_r(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, attempt: u32) -> bool {
   assert_eq!(floor[coord].kind, CellKind::Machine);
 
-  if floor[coord].direction_r != Port::Unknown {
+  if floor[coord].port_r != Port::Unknown {
     return false;
   }
 
-  let mut changed = false;
-
-  let port_right: Port = match floor[coord].coord_r {
+  let port: Port = match floor[coord].coord_r {
     Some(ocoord) => {
       if floor[ocoord].kind == CellKind::Machine {
         // Internal state; ignore ports to neighboring machine cells (even if they're not
         // part of the same machine block; we don't consider machine2machine transports)
         Port::None
       } else {
-        match floor[ocoord].direction_l {
+        match floor[ocoord].port_l {
           Port::Inbound => Port::Outbound,
           Port::Outbound => Port::Inbound,
           Port::None => Port::None,
@@ -236,30 +330,41 @@ fn auto_port_machine_r(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, attempt
     None => Port::None,
   };
 
-  if port_right != Port::Unknown {
-    floor[coord].direction_r = port_right;
-    changed = true;
+  match port {
+    Port::Inbound => {
+      println!("  - machine @{} right port is inbound", coord);
+      floor[coord].port_r = Port::Inbound;
+      floor[floor[coord].machine.main_coord].ins.push(( Direction::Right, coord, floor[coord].coord_r.unwrap(), Direction::Left ));
+    }
+    Port::Outbound => {
+      println!("  - machine @{} right port is outbound", coord);
+      floor[coord].port_r = Port::Outbound;
+      floor[floor[coord].machine.main_coord].outs.push(( Direction::Right, coord, floor[coord].coord_r.unwrap(), Direction::Left ));
+    }
+    Port::None => {
+      floor[coord].port_r = Port::None;
+    }
+    Port::Unknown => {
+      return false;
+    }
   }
-
-  return changed;
+  return true;
 }
 fn auto_port_machine_d(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, attempt: u32) -> bool {
   assert_eq!(floor[coord].kind, CellKind::Machine);
 
-  if floor[coord].direction_d != Port::Unknown {
+  if floor[coord].port_d != Port::Unknown {
     return false;
   }
 
-  let mut changed = false;
-
-  let port_down: Port = match floor[coord].coord_d {
+  let port: Port = match floor[coord].coord_d {
     Some(ocoord) => {
       if floor[ocoord].kind == CellKind::Machine {
         // Internal state; ignore ports to neighboring machine cells (even if they're not
         // part of the same machine block; we don't consider machine2machine transports)
         Port::None
       } else {
-        match floor[ocoord].direction_u {
+        match floor[ocoord].port_u {
           Port::Inbound => Port::Outbound,
           Port::Outbound => Port::Inbound,
           Port::None => Port::None,
@@ -270,30 +375,41 @@ fn auto_port_machine_d(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, attempt
     None => Port::None,
   };
 
-  if port_down != Port::Unknown {
-    floor[coord].direction_d = port_down;
-    changed = true;
+  match port {
+    Port::Inbound => {
+      println!("  - machine @{}; down port is inbound", coord);
+      floor[coord].port_d = Port::Inbound;
+      floor[floor[coord].machine.main_coord].ins.push(( Direction::Down, coord, floor[coord].coord_d.unwrap(), Direction::Up ));
+    }
+    Port::Outbound => {
+      println!("  - machine @{}; down port is outbound", coord);
+      floor[coord].port_d = Port::Outbound;
+      floor[floor[coord].machine.main_coord].outs.push(( Direction::Down, coord, floor[coord].coord_d.unwrap(), Direction::Up ));
+    }
+    Port::None => {
+      floor[coord].port_d = Port::None;
+    }
+    Port::Unknown => {
+      return false;
+    }
   }
-
-  return changed;
+  return true;
 }
 fn auto_port_machine_l(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, attempt: u32) -> bool {
   assert_eq!(floor[coord].kind, CellKind::Machine);
 
-  if floor[coord].direction_l != Port::Unknown {
+  if floor[coord].port_l != Port::Unknown {
     return false;
   }
 
-  let mut changed = false;
-
-  let port_left: Port = match floor[coord].coord_l {
+  let port: Port = match floor[coord].coord_l {
     Some(ocoord) => {
       if floor[ocoord].kind == CellKind::Machine {
         // Internal state; ignore ports to neighboring machine cells (even if they're not
         // part of the same machine block; we don't consider machine2machine transports)
         Port::None
       } else {
-        match floor[ocoord].direction_r {
+        match floor[ocoord].port_r {
           Port::Inbound => Port::Outbound,
           Port::Outbound => Port::Inbound,
           Port::None => Port::None,
@@ -304,17 +420,32 @@ fn auto_port_machine_l(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, attempt
     None => Port::None,
   };
 
-  if port_left != Port::Unknown {
-    floor[coord].direction_l = port_left;
-    changed = true;
+  match port {
+    Port::Inbound => {
+      println!("  - machine @{} left port is inbound", coord);
+      floor[coord].port_l = Port::Inbound;
+      floor[floor[coord].machine.main_coord].ins.push(( Direction::Left, coord, floor[coord].coord_l.unwrap(), Direction::Right ));
+    }
+    Port::Outbound => {
+      println!("  - machine @{} left port is outbound", coord);
+      floor[coord].port_l = Port::Outbound;
+      floor[floor[coord].machine.main_coord].outs.push(( Direction::Left, coord, floor[coord].coord_l.unwrap(), Direction::Right ));
+    }
+    Port::None => {
+      floor[coord].port_l = Port::None;
+    }
+    Port::Unknown => {
+      return false;
+    }
   }
-
-  return changed;
+  return true;
 }
 fn auto_port_machine_neighbors(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, attempt: u32) -> bool {
   assert_eq!(floor[coord].kind, CellKind::Machine);
   assert_eq!(floor[coord].machine.kind, MachineKind::Main);
 
+  println!("- auto_port_machine_neighbors({}, {}): {:?}", coord, attempt, floor[coord].machine.coords);
+  
   let mut changed = false;
   // for cur_coord in floor[coord].machine.coords {
   for i in 0..floor[coord].machine.coords.len() {
@@ -349,10 +480,10 @@ fn auto_port_discover_machine_ports(floor: &mut [Cell; FLOOR_CELLS_WH], coord: u
   for i in 0..floor[coord].machine.coords.len() {
     let cur_coord= floor[coord].machine.coords[i];
 
-    let (u1, u2, u3) = port_to_counts(floor[cur_coord].direction_u);
-    let (r1, r2, r3) = port_to_counts(floor[cur_coord].direction_r);
-    let (d1, d2, d3) = port_to_counts(floor[cur_coord].direction_d);
-    let (l1, l2, l3) = port_to_counts(floor[cur_coord].direction_l);
+    let (u1, u2, u3) = port_to_counts(floor[cur_coord].port_u);
+    let (r1, r2, r3) = port_to_counts(floor[cur_coord].port_r);
+    let (d1, d2, d3) = port_to_counts(floor[cur_coord].port_d);
+    let (l1, l2, l3) = port_to_counts(floor[cur_coord].port_l);
 
     ins += u1 + r1 + d1 + l1;
     ous += u2 + r2 + d2 + l2;
@@ -369,23 +500,47 @@ fn auto_port_convert_machine_unknown_to(floor: &mut [Cell; FLOOR_CELLS_WH], coor
   for i in 0..floor[coord].machine.coords.len() {
     let cur_coord= floor[coord].machine.coords[i]; // Is this cheaper than the alt?
 
-    if floor[cur_coord].direction_u == Port::Unknown {
-      floor[cur_coord].direction_u = new_port;
+    if floor[cur_coord].port_u == Port::Unknown {
+      println!("  - machine @{}; up port is {:?}", cur_coord, new_port);
+      floor[cur_coord].port_u = new_port;
+      if new_port == Port::Inbound {
+        floor[floor[cur_coord].machine.main_coord].ins.push(( Direction::Up, cur_coord, floor[coord].coord_u.unwrap(), Direction::Down ));
+      } else {
+        floor[floor[cur_coord].machine.main_coord].outs.push(( Direction::Up, cur_coord, floor[coord].coord_u.unwrap(), Direction::Down ));
+      }
       return;
     }
 
-    if floor[cur_coord].direction_r == Port::Unknown {
-      floor[cur_coord].direction_r = new_port;
+    if floor[cur_coord].port_r == Port::Unknown {
+      println!("  - machine @{}; right port is {:?}", cur_coord, new_port);
+      floor[cur_coord].port_r = new_port;
+      if new_port == Port::Inbound {
+        floor[floor[cur_coord].machine.main_coord].ins.push(( Direction::Right, cur_coord, floor[coord].coord_r.unwrap(), Direction::Left ));
+      } else {
+        floor[floor[cur_coord].machine.main_coord].outs.push(( Direction::Right, cur_coord, floor[coord].coord_r.unwrap(), Direction::Left ));
+      }
       return;
     }
 
-    if floor[cur_coord].direction_d == Port::Unknown {
-      floor[cur_coord].direction_d = new_port;
+    if floor[cur_coord].port_d == Port::Unknown {
+      println!("  - machine @{}; down port is {:?}", cur_coord, new_port);
+      floor[cur_coord].port_d = new_port;
+      if new_port == Port::Inbound {
+        floor[floor[cur_coord].machine.main_coord].ins.push(( Direction::Down, cur_coord, floor[coord].coord_d.unwrap(), Direction::Up ));
+      } else {
+        floor[floor[cur_coord].machine.main_coord].outs.push(( Direction::Down, cur_coord, floor[coord].coord_d.unwrap(), Direction::Up ));
+      }
       return;
     }
 
-    if floor[cur_coord].direction_l == Port::Unknown {
-      floor[cur_coord].direction_l = new_port;
+    if floor[cur_coord].port_l == Port::Unknown {
+      println!("  - machine @{}; left port is {:?}", cur_coord, new_port);
+      floor[cur_coord].port_l = new_port;
+      if new_port == Port::Inbound {
+        floor[floor[cur_coord].machine.main_coord].ins.push(( Direction::Left, cur_coord, floor[coord].coord_l.unwrap(), Direction::Right ));
+      } else {
+        floor[floor[cur_coord].machine.main_coord].outs.push(( Direction::Left, cur_coord, floor[coord].coord_l.unwrap(), Direction::Right ));
+      }
       return;
     }
   }
@@ -407,10 +562,10 @@ pub fn auto_port(floor: &mut [Cell; FLOOR_CELLS_WH], attempt: u32) -> bool {
         if changed_now { changed = true; }
         if next { continue; }
 
-        if auto_port_neighbor_u(floor, coord) { changed = true; }
-        if auto_port_neighbor_r(floor, coord) { changed = true; }
-        if auto_port_neighbor_d(floor, coord) { changed = true; }
-        if auto_port_neighbor_l(floor, coord) { changed = true; }
+        if auto_port_belt_u(floor, coord) { changed = true; }
+        if auto_port_belt_r(floor, coord) { changed = true; }
+        if auto_port_belt_d(floor, coord) { changed = true; }
+        if auto_port_belt_l(floor, coord) { changed = true; }
       }
       CellKind::Machine => {
         // Machines can cover multiple cells, have a main cell and sub cells (-> main.machine.subs)
