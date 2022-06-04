@@ -601,3 +601,4 @@ pub fn auto_port(floor: &mut [Cell; FLOOR_CELLS_WH], attempt: u32) -> bool {
 
   return changed;
 }
+

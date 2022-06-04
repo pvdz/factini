@@ -102,8 +102,10 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
   if factory.floor[main_coord].machine.start_at > 0 && factory.ticks - factory.floor[main_coord].machine.start_at >= factory.floor[main_coord].machine.speed {
     // Finished! Find an available outlet.
     let mut handed_off = false;
-    for index in 0..factory.floor[main_coord].outs.len() {
-      let (sub_dir, sub_coord, _, _ ) = factory.floor[main_coord].outs[index];
+    let outlen = factory.floor[main_coord].outs.len();
+    for index in 0..outlen {
+      let rotated_index = ((index as u64 + factory.floor[main_coord].outrot) % (outlen as u64)) as usize;
+      let (sub_dir, sub_coord, _, _ ) = factory.floor[main_coord].outs[rotated_index];
       let (to_coord, to_dir) = match sub_dir {
         Direction::Up => ( factory.floor[sub_coord].coord_u, Direction::Down ),
         Direction::Right => ( factory.floor[sub_coord].coord_r, Direction::Left ),
@@ -117,6 +119,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
 
           belt_receive_part(factory, to_coord, to_dir, factory.floor[main_coord].machine.output_want.clone());
           factory.floor[main_coord].machine.start_at = 0;
+          factory.floor[main_coord].outrot = ((rotated_index + 1) % outlen) as u64;
           handed_off = true;
           break;
         }

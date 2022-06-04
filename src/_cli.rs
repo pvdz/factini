@@ -12,19 +12,19 @@ use super::state::*;
 pub fn cli_main(options: &mut Options, state: &mut State) {
 
   let map = "\
-    ........s........\n\
-    .111....b........\n\
-    .111bbbbbbbbbbb..\n\
-    .111..........b..\n\
-    ..b...........b..\n\
-    ..bbbbbbb.....b..\n\
-    ........b.....b..\n\
-    .......222....b..\n\
-    .......222....b..\n\
-    .......222....b..\n\
-    ........b.....bbs\n\
-    ..bbbbbbb........\n\
-    ..b.....b........\n\
+    ............s....\n\
+    sb.111bbbbbbbbb..\n\
+    .b.111........b..\n\
+    .b.111bbbbbb..b..\n\
+    .b.b.b.....b..b..\n\
+    .b.b.bbbb..b..b..\n\
+    .b.b....b..b..b..\n\
+    .bbb...222.b..b..\n\
+    ...b...222.b..b..\n\
+    sbbb...222.b..b..\n\
+    ........b..b..bbs\n\
+    ..bbbbbbb..b.....\n\
+    ..b.....b..bbbbbd\n\
     ..b.....b........\n\
     dbb..bbbb........\n\
     .....b...........\n\
@@ -32,14 +32,41 @@ pub fn cli_main(options: &mut Options, state: &mut State) {
     m1 = ws -> b\n\
     m2 = b -> g\n\
     s1 = w\n\
-    s2 = s\n\
-    d1 = g\n\
-    d2 = g\n\
+    s2 = w\n\
+    s3 = s\n\
+    s4 = s\n\
+    d1 = s\n\
+    d2 = w\n\
+    d3 = g\n\
+    d4 = g\n\
   ";
   let mut factory = create_factory(options, state, map.to_string());
   println!("prio: {:?}", factory.prio);
   print_floor_with_views(options, state, &mut factory);
 
+  //         "0 123456789012345 6"
+  // (   )  "┌───────────────────┐"
+  // (0  )  "│         s         │"
+  // (   )  "│ ┌───────────────┐ │"
+  // (17 )  "│ │ααα    ║       │ │"
+  // (34 )  "│ │ααα════╩═════╗ │ │"
+  // (51 )  "│ │ααα          ║ │ │"
+  // (68 )  "│ │ ║           ║ │ │"
+  // (85 )  "│ │ ╚═════╗     ║ │ │"
+  // (102)  "│ │       ║     ║ │ │"
+  // (119)  "│ │      βββ    ║ │ │"
+  // (136)  "│ │      βββ    ║ │ │"
+  // (153)  "│ │      βββ    ║ │ │"
+  // (170)  "│ │       ║     ╚═│s│"
+  // (187)  "│ │ ╔═════╣       │ │"
+  // (204)  "│ │ ║     ║       │ │"
+  // (221)  "│ │ ║     ║       │ │"
+  // (238)  "│d│═╝  ╔══╝       │ │"
+  // (255)  "│ │    ║          │ │"
+  // (   )  "│ └───────────────┘ │"
+  // (272)  "│      d            │"
+  // (   )  "└───────────────────┘"
+  //         "0 123456789012345 6"
 
   // println!("supply: {:?}", factory.floor[186]);
 
@@ -68,8 +95,9 @@ pub fn cli_main(options: &mut Options, state: &mut State) {
       } else {
         print_floor_without_views(options, state, &mut factory);
       }
-      // print!("\n{:100}\n{:100}\x1b[{}A\n", ' ', ' ', 50);
+      print!("\n{:100}\n{:100}\x1b[{}A\n", ' ', ' ', 50);
     }
+    // if factory.ticks == 200000 { break }
   }
 }
 

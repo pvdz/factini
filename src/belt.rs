@@ -234,10 +234,21 @@ pub fn belt_new(meta: BeltMeta) -> Belt {
 }
 
 
-fn tick_belt_take_from_belt(options: &mut Options, state: &mut State, factory: &mut Factory, to_coord: usize, to_dir: Direction, from_coord: usize, from_dir: Direction) -> bool {
+fn tick_belt_take_from_belt(options: &mut Options, state: &mut State, factory: &mut Factory, curr_coord: usize, curr_dir: Direction, from_coord: usize, from_dir: Direction) -> bool {
   // Take from neighbor belt if and only if the part is heading this way and at at least 100%
 
+  // if from_coord == 195 {
+  //   println!("@{} is attempting to fetch from @195, part={:?}, part_to={:?}, progress={}, dir must match={:?}",
+  //     curr_coord,
+  //     factory.floor[from_coord].belt.part.kind,
+  //     factory.floor[from_coord].belt.part_to,
+  //     factory.ticks - factory.floor[from_coord].belt.part_at < factory.floor[from_coord].belt.speed,
+  //     from_dir
+  //   );
+  // }
+
   if factory.floor[from_coord].belt.part.kind == PartKind::None {
+    // if from_coord == 195 {  println!("@{} not fetching from @195 because no part", curr_coord, ); }
     // if to_coord == 42 {
     //   println!("        - no part, bailing");
     // }
@@ -246,6 +257,7 @@ fn tick_belt_take_from_belt(options: &mut Options, state: &mut State, factory: &
   }
 
   if factory.floor[from_coord].belt.part_to != from_dir {
+    // if from_coord == 195 {  println!("@{} not fetching from @195 because dir not match", curr_coord, ); }
     // if to_coord == 42 {
     //   println!("        - part not going here, bailing");
     // }
@@ -254,6 +266,8 @@ fn tick_belt_take_from_belt(options: &mut Options, state: &mut State, factory: &
   }
 
   if factory.ticks - factory.floor[from_coord].belt.part_at < factory.floor[from_coord].belt.speed {
+    // if from_coord == 195 {  println!("@{} not fetching from @195 because not 100%", curr_coord, ); }
+
     // if to_coord == 42 {
     //   println!("        - part not at 100%, bailing, {} - {} = {} < {}", factory.ticks, factory.floor[from_coord].belt.part_at, factory.ticks - factory.floor[from_coord].belt.part_at, factory.floor[from_coord].belt.speed);
     // }
@@ -265,10 +279,13 @@ fn tick_belt_take_from_belt(options: &mut Options, state: &mut State, factory: &
   //   println!("        - yes, processing part!");
   // }
 
+  // if from_coord == 195 {
+  //   println!("@{} is going to fetch from @195", curr_coord, );
+  // }
 
   // Okay, ready to move that part
-  if options.print_moves || options.print_moves_belt { super::log(format!("({}) Moved {:?} from belt @{} to belt @{}", factory.ticks, factory.floor[from_coord].belt.part, from_coord, to_coord).as_str()); }
-  belt_receive_part(factory, to_coord, to_dir, factory.floor[from_coord].belt.part.clone());
+  if options.print_moves || options.print_moves_belt { super::log(format!("({}) Moved {:?} from belt @{} to belt @{}", factory.ticks, factory.floor[from_coord].belt.part, from_coord, curr_coord).as_str()); }
+  belt_receive_part(factory, curr_coord, curr_dir, factory.floor[from_coord].belt.part.clone());
   belt_receive_part(factory, from_coord, from_dir, part_none());
 
   return true;
@@ -318,16 +335,19 @@ fn tick_belt_take_from_supply(options: &mut Options, state: &mut State, factory:
 
   return false;
 }
-fn tick_belt_take_give_to_demand(options: &mut Options, state: &mut State, factory: &mut Factory, belt_coord: usize, demand_coord: usize) -> bool {
+fn tick_belt_give_to_demand(options: &mut Options, state: &mut State, factory: &mut Factory, belt_coord: usize, belt_dir: Direction, demand_coord: usize, demand_from_dir: Direction) -> bool {
   // Check if belt has part
   // Check if belt part is ready to move out
+  // Check if belt part is going into this direction
   // If so, move to demand
   if factory.floor[belt_coord].belt.part.kind != PartKind::None {
-    if factory.floor[belt_coord].belt.part_at > 0 && factory.ticks - factory.floor[belt_coord].belt.part_at >= factory.floor[belt_coord].belt.speed {
-      if options.print_moves || options.print_moves_supply { super::log(format!("({}) Demand takes {:?} at @{} from belt @{}", factory.ticks, factory.floor[demand_coord].demand.part.kind, demand_coord, belt_coord).as_str()); }
-      demand_receive_part(options, state, factory, demand_coord, belt_coord);
-      belt_receive_part(factory, belt_coord, Direction::Up, part_none());
-      return true;
+    if factory.floor[belt_coord].belt.part_to == belt_dir {
+      if factory.floor[belt_coord].belt.part_at > 0 && factory.ticks - factory.floor[belt_coord].belt.part_at >= factory.floor[belt_coord].belt.speed {
+        if options.print_moves || options.print_moves_demand { super::log(format!("({}) Demand takes {:?} at @{} from belt @{}. belt.part_at={:?}, belt_dir={:?}", factory.ticks, factory.floor[demand_coord].demand.part.kind, demand_coord, belt_coord, factory.floor[belt_coord].belt.part_to, belt_dir).as_str()); }
+        demand_receive_part(options, state, factory, demand_coord, belt_coord);
+        belt_receive_part(factory, belt_coord, Direction::Up, part_none());
+        return true;
+      }
     }
   }
   return false;
@@ -350,7 +370,7 @@ fn tick_belt_one_outbound_dir(options: &mut Options, state: &mut State, factory:
       // tick_belt_take_from_supply(options, state, factory, curr_coord, to_coord, curr_dir)
     }
     CellKind::Demand => {
-      return tick_belt_take_give_to_demand(options, state, factory, curr_coord, to_coord)
+      return tick_belt_give_to_demand(options, state, factory, curr_coord, curr_dir, to_coord, to_dir)
     }
   };
 }
@@ -392,8 +412,10 @@ pub fn tick_belt(options: &mut Options, state: &mut State, factory: &mut Factory
     // - Other neighbor cells are not handled here (machines and belts take from here, supplies dont take at all)
     let outlen = factory.floor[curr_coord].outs.len();
     for index in 0..outlen {
-      let rotated_index = ((index as u64 + factory.floor[curr_coord].outrot) % (outlen as u64)) as usize;
-      let (curr_dir, _curr_coord, to_coord, to_dir) = factory.floor[curr_coord].outs[rotated_index];
+      // Not rotating index because the current part is governed by the part_at value anyways, which is action already rotated.
+      // let rotated_index = ((index as u64 + factory.floor[curr_coord].outrot) % (outlen as u64)) as usize;
+
+      let (curr_dir, _curr_coord, to_coord, to_dir) = factory.floor[curr_coord].outs[index];
       assert_eq!(curr_coord, _curr_coord);
       if tick_belt_one_outbound_dir(options, state, factory, curr_coord, curr_dir, to_coord, to_dir) {
         // Only take from one inbound port
@@ -401,20 +423,13 @@ pub fn tick_belt(options: &mut Options, state: &mut State, factory: &mut Factory
         // if from_coord == 42 {
         //   println!("updating outrot... options: {}, rot: {} -> found index {} -> new rot {}", factory.floor[from_coord].outs.len(), factory.floor[from_coord].outrot, index, ((index as u64) + 1) % (outlen as u64));
         // }
-        factory.floor[curr_coord].outrot = ((rotated_index as u64) + 1) % (outlen as u64);
+        // factory.floor[curr_coord].outrot = ((rotated_index + 1) % outlen) as u64;
         break;
       }
     }
   }
 
   if factory.floor[curr_coord].belt.part.kind == PartKind::None {
-    // - Continue after the last pick?
-    // - Increment offset by one regardless?
-    // - Continue with the last unused starting index, or the next one if used?
-    // - Allow user to customize the order?
-    // if factory.floor[curr_coord].belt.meta.dbg == "BELT_LRU" {
-    //   println!("  - get part from neighbor");
-    // }
     let inlen = factory.floor[curr_coord].ins.len();
     for index in 0..inlen {
       let rotated_index = ((index as u64 + factory.floor[curr_coord].inrot) % (inlen as u64)) as usize;
@@ -452,11 +467,13 @@ pub fn tick_belt(options: &mut Options, state: &mut State, factory: &mut Factory
   }
 }
 
-pub fn belt_receive_part(factory: &mut Factory, coord: usize, incoming_dir: Direction, part: Part) {
+pub fn belt_receive_part(factory: &mut Factory, curr_coord: usize, curr_dir: Direction, part: Part) {
   // println!("({}) - belt @{} is receiving {:?} from {:?}", factory.ticks, coord, part, incoming_dir);
-  factory.floor[coord].belt.part = part;
-  factory.floor[coord].belt.part_at = factory.ticks;
-  factory.floor[coord].belt.part_from = incoming_dir;
+  factory.floor[curr_coord].belt.part = part;
+  factory.floor[curr_coord].belt.part_at = factory.ticks;
+  factory.floor[curr_coord].belt.part_from = curr_dir;
+
+  // if curr_coord == 195 { println!("@195 received a {:?}", factory.floor[curr_coord].belt.part); }
 
   // Where it goes to depends on a few things;
   // - is the belt one way? (No split, no crossing, no merge)
@@ -468,29 +485,97 @@ pub fn belt_receive_part(factory: &mut Factory, coord: usize, incoming_dir: Dire
   //     - no:
   //       - pick one in rotating order
 
-  let outlen = factory.floor[coord].outs.len();
-
-  // The auto layout fn will precompute the outward ports and store them in cell.outs
-  if outlen == 1 {
-    factory.floor[coord].belt.part_to = factory.floor[coord].outs[0].0;
-  } else if outlen == 0 {
-    // Probably something I'll need to fix in the future :')
-    panic!("dont pass parts to belts with no outbound ports...?");
+  if factory.floor[curr_coord].belt.part.kind == PartKind::None {
+    // No special _to treatment required here. Also make sure to leave the rot alone for this case.
   } else {
-    // Look at the outs for this cell and filter them down to the cells that are empty.
-    // - If one, pick that one
-    // - If none, reconsider all of them
-    // When there are multiple options left pick one in rotating order, hope it works out.
-    // TODO: do not pick a _to yet but wait til the 50% mark before locking in choices
+    let outlen = factory.floor[curr_coord].outs.len();
 
-    // There are 2 or 3 outbound ports at this point. Can't be 4+ and already checked 0 and 1.
+    // The auto layout fn will precompute the outward ports and store them in cell.outs
+    match outlen {
+      0 => {
+        // Probably something I'll need to fix in the future :')
+        panic!("dont pass parts to belts with no outbound ports...?");
+      },
+      1 => {
+        // One option so no further checks necessary
+        factory.floor[curr_coord].belt.part_to = factory.floor[curr_coord].outs[0].0;
+      },
+      2 => {
+
+        // Two options
+        // If both are taken, I dunno. Do nothing? Pick "next" in rotating order?
+        // If one is taken, pick the other one
+        // If neither is taken, pick next in rotating order
+
+        let ( a_out_dir, a_coord, a_neighbor_coord, a_neighbor_in_dir ) = factory.floor[curr_coord].outs[0];
+        let ( b_out_dir, b_coord, b_neighbor_coord, b_neighbor_in_dir ) = factory.floor[curr_coord].outs[1];
+
+        let a_available = factory.floor[a_neighbor_coord].kind != CellKind::Belt && factory.floor[a_neighbor_coord].belt.part.kind == PartKind::None;
+        let b_available = factory.floor[b_neighbor_coord].kind != CellKind::Belt && factory.floor[b_neighbor_coord].belt.part.kind == PartKind::None;
 
 
+        // if curr_coord == 31 { println!("options! {} {} {} {} {:?} {:?} {:?} {:?}", outlen, factory.floor[curr_coord].outrot, a_available, b_available, factory.floor[a_neighbor_coord].kind, factory.floor[b_neighbor_coord].kind, factory.floor[a_neighbor_coord].belt.part.kind, factory.floor[b_neighbor_coord].belt.part.kind); }
 
-    // TODO:
-    println!("  TODO: belt_receive_part() belt with multiple outs ... @{} {:?} {}", coord, factory.floor[coord].kind, factory.floor[coord].outs.len());
-    factory.floor[coord].belt.part_to = factory.floor[coord].outs[0].0;
+        if a_available == b_available {
+          // Both are taken or available. Pick in rotating order.
+          if factory.floor[curr_coord].outrot == 0 {
+            // if curr_coord == 195 { println!("picking a"); }
+            factory.floor[curr_coord].belt.part_to = a_out_dir;
+            factory.floor[curr_coord].outrot = 1;
+          } else {
+            // if curr_coord == 195 { println!("picking b"); }
+            factory.floor[curr_coord].belt.part_to = b_out_dir;
+            factory.floor[curr_coord].outrot = 0;
+          }
+        } else if a_available {
+          // if curr_coord == 195 { println!("forced a"); }
+          // b must be unavailable so pick a
+          factory.floor[curr_coord].belt.part_to = a_out_dir;
+          factory.floor[curr_coord].outrot = 1;
+        } else if b_available {
+          // b must be unavailable so pick b
+          // if curr_coord == 195 { println!("forced b"); }
+          factory.floor[curr_coord].belt.part_to = b_out_dir;
+          factory.floor[curr_coord].outrot = 0;
+        } else {
+          panic!("what option is left? dont think this is reachable");
+        }
+      },
+      3 => {
+        // Three options
+        // If all are taken, I dunno. Do nothing? Pick "next" in rotating order?
+        // If two are taken, pick the other one
+        // If one is taken, pick one of the other two in rotating order
+        // If none are taken, pick next in rotating order
+        println!("FIXME: belt_receive_part() with three outs");
+        factory.floor[curr_coord].belt.part_to = factory.floor[curr_coord].outs[0].0;
+
+      },
+      _ => {
+        // Can't be four options (there must be one incoming)
+        panic!("belt should have at least one incoming but found {} outcoming", outlen);
+      }
+    }
   }
+
+  //
+  // if outlen == 1 {
+  // } else if outlen == 0 {
+  // } else {
+  //   // Look at the outs for this cell and filter them down to the cells that are empty.
+  //   // - If one, pick that one
+  //   // - If none, reconsider all of them
+  //   // When there are multiple options left pick one in rotating order, hope it works out.
+  //   // TODO: do not pick a _to yet but wait til the 50% mark before locking in choices
+  //
+  //   // There are 2 or 3 outbound ports at this point. Can't be 4+ and already checked 0 and 1.
+  //
+  //
+  //
+  //   // TODO:
+  //   println!("  TODO: belt_receive_part() belt with multiple outs ... @{} {:?} {}", curr_coord, factory.floor[curr_coord].kind, factory.floor[curr_coord].outs.len());
+  //   factory.floor[curr_coord].belt.part_to = factory.floor[curr_coord].outs[0].0;
+  // }
 }
 
 

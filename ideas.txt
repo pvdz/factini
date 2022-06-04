@@ -1,0 +1,4 @@
+- cells with bonus multipliers
+- machine / belt priority or algorithm configuration (by user)
+- bridges and tunnels
+- GA
