@@ -225,7 +225,7 @@ fn str_to_floor(str: String) -> [Cell; FLOOR_CELLS_WH] {
 
         return cell;
       },
-      'b' => belt_cell(x, y, BELT_INVALID),
+      'b' => belt_cell(x, y, BELT_UNKNOWN),
       's' => {
         suppliers += 1;
 

@@ -6,6 +6,7 @@ use super::factory::*;
 use super::options::*;
 use super::part::*;
 use super::state::*;
+use super::utils::*;
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum MachineKind {
@@ -114,7 +115,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
       if let Some(to_coord) = to_coord {
         if factory.floor[to_coord].kind == CellKind::Belt && factory.floor[to_coord].belt.part.kind == PartKind::None {
           // The neighbor is a belt that is empty
-          if options.print_moves || options.print_moves_machine { super::log(format!("({}) Machine @{} (sub @{}) finished part {:?}! Moving to belt @{}", factory.ticks, main_coord, sub_coord, factory.floor[main_coord].machine.output_want.kind, to_coord).as_str()); }
+          if options.print_moves || options.print_moves_machine { log(format!("({}) Machine @{} (sub @{}) finished part {:?}! Moving to belt @{}", factory.ticks, main_coord, sub_coord, factory.floor[main_coord].machine.output_want.kind, to_coord)); }
 
           belt_receive_part(factory, to_coord, to_dir, factory.floor[main_coord].machine.output_want.clone());
           factory.floor[main_coord].machine.start_at = 0;
@@ -146,27 +147,27 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
         let belt_part = factory.floor[from_coord].belt.part.kind;
         if belt_part != PartKind::None && factory.ticks - factory.floor[from_coord].belt.part_at >= factory.floor[from_coord].belt.speed {
           if belt_part == factory.floor[main_coord].machine.input_1_want.kind && belt_part != factory.floor[main_coord].machine.input_1_have.kind && factory.floor[main_coord].machine.input_1_have.kind == PartKind::None {
-            if options.print_moves || options.print_moves_machine { super::log(format!("({}) Machine @{} (sub @{}) accepting part {:?} as input1 from belt @{}, had {:?}", factory.ticks, main_coord, sub_coord, belt_part, from_coord, factory.floor[main_coord].machine.input_1_have).as_str()); }
+            if options.print_moves || options.print_moves_machine { log(format!("({}) Machine @{} (sub @{}) accepting part {:?} as input1 from belt @{}, had {:?}", factory.ticks, main_coord, sub_coord, belt_part, from_coord, factory.floor[main_coord].machine.input_1_have)); }
             factory.floor[main_coord].machine.input_1_have = factory.floor[from_coord].belt.part.clone();
             belt_receive_part(factory, from_coord, incoming_dir, part_none());
           } else if belt_part == factory.floor[main_coord].machine.input_2_want.kind && belt_part != factory.floor[main_coord].machine.input_2_have.kind && factory.floor[main_coord].machine.input_2_have.kind == PartKind::None {
-            if options.print_moves || options.print_moves_machine { super::log(format!("({}) Machine @{} (sub @{}) accepting part {:?} as input2 from belt @{}, had {:?}", factory.ticks, main_coord, sub_coord, belt_part, from_coord, factory.floor[main_coord].machine.input_2_have).as_str()); }
+            if options.print_moves || options.print_moves_machine { log(format!("({}) Machine @{} (sub @{}) accepting part {:?} as input2 from belt @{}, had {:?}", factory.ticks, main_coord, sub_coord, belt_part, from_coord, factory.floor[main_coord].machine.input_2_have)); }
             factory.floor[main_coord].machine.input_2_have = factory.floor[from_coord].belt.part.clone();
             belt_receive_part(factory, from_coord, incoming_dir, part_none());
           } else if belt_part == factory.floor[main_coord].machine.input_3_want.kind && belt_part != factory.floor[main_coord].machine.input_3_have.kind && factory.floor[main_coord].machine.input_3_have.kind == PartKind::None {
-            if options.print_moves || options.print_moves_machine { super::log(format!("({}) Machine @{} (sub @{}) accepting part {:?} as input3 from belt @{}, had {:?}", factory.ticks, main_coord, sub_coord, belt_part, from_coord, factory.floor[main_coord].machine.input_3_have).as_str()); }
+            if options.print_moves || options.print_moves_machine { log(format!("({}) Machine @{} (sub @{}) accepting part {:?} as input3 from belt @{}, had {:?}", factory.ticks, main_coord, sub_coord, belt_part, from_coord, factory.floor[main_coord].machine.input_3_have)); }
             factory.floor[main_coord].machine.input_3_have = factory.floor[from_coord].belt.part.clone();
             belt_receive_part(factory, from_coord, incoming_dir, part_none());
           } else {
             // Trash it? TODO: machine with multiple inputs should perhaps only trash if none of the inputs were acceptable?
-            if options.print_moves || options.print_moves_machine { super::log(format!("({}) Machine @{} (sub @{}) trashing part {:?} from belt @{}; wants: {:?} {:?} {:?}, has: {:?} {:?} {:?}", factory.ticks, main_coord, sub_coord, belt_part, from_coord,
+            if options.print_moves || options.print_moves_machine { log(format!("({}) Machine @{} (sub @{}) trashing part {:?} from belt @{}; wants: {:?} {:?} {:?}, has: {:?} {:?} {:?}", factory.ticks, main_coord, sub_coord, belt_part, from_coord,
               factory.floor[main_coord].machine.input_1_want.kind,
               factory.floor[main_coord].machine.input_2_want.kind,
               factory.floor[main_coord].machine.input_3_want.kind,
               factory.floor[main_coord].machine.input_1_have.kind,
               factory.floor[main_coord].machine.input_2_have.kind,
               factory.floor[main_coord].machine.input_3_have.kind,
-            ).as_str()); }
+            )); }
             belt_receive_part(factory, from_coord, incoming_dir, part_none());
           }
         }
@@ -188,7 +189,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
     factory.floor[main_coord].machine.input_3_want.kind == factory.floor[main_coord].machine.input_3_have.kind
   {
     // Ready to produce a new part
-    if options.print_moves || options.print_moves_machine { super::log(format!("({}) Machine @{} started to create new part", factory.ticks, main_coord).as_str()); }
+    if options.print_moves || options.print_moves_machine { log(format!("({}) Machine @{} started to create new part", factory.ticks, main_coord)); }
     factory.floor[main_coord].machine.input_1_have = part_none();
     factory.floor[main_coord].machine.input_2_have = part_none();
     factory.floor[main_coord].machine.input_3_have = part_none();

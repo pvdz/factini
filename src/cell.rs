@@ -1,6 +1,7 @@
 use super::belt::*;
 use super::demand::*;
 use super::direction::*;
+use super::factory::*;
 use super::floor::*;
 use super::options::*;
 use super::machine::*;
@@ -8,6 +9,7 @@ use super::part::*;
 use super::port::*;
 use super::supply::*;
 use super::state::*;
+use super::utils::*;
 
 #[derive(Debug)]
 pub struct Cell {
@@ -100,7 +102,7 @@ pub const fn empty_cell(x: usize, y: usize) -> Cell {
   }
 }
 
-pub fn belt_cell(x: usize, y: usize, belt: BeltMeta) -> Cell {
+pub fn belt_cell(x: usize, y: usize, meta: BeltMeta) -> Cell {
   let coord = x + y * FLOOR_CELLS_W;
 
   // belt cells do not appear on the edge
@@ -108,6 +110,8 @@ pub fn belt_cell(x: usize, y: usize, belt: BeltMeta) -> Cell {
   assert!(y > 0);
   assert!(x < FLOOR_CELLS_W - 1);
   assert!(y < FLOOR_CELLS_H - 1);
+
+  println!("{:?}", meta);
 
   return Cell {
     kind: CellKind::Belt,
@@ -130,14 +134,14 @@ pub fn belt_cell(x: usize, y: usize, belt: BeltMeta) -> Cell {
     inrot: 0,
     outrot: 0,
 
-    port_u: Port::Unknown,
-    port_r: Port::Unknown,
-    port_d: Port::Unknown,
-    port_l: Port::Unknown,
+    port_u: meta.port_u, // Port::Unknown,
+    port_r: meta.port_r,
+    port_d: meta.port_d,
+    port_l: meta.port_l,
 
     marked: false,
 
-    belt: belt_new(belt),
+    belt: belt_new(meta),
     machine: machine_none(coord),
     demand: demand_none(),
     supply: supply_none(),
@@ -275,4 +279,117 @@ pub fn demand_cell(x: usize, y: usize, part: Part) -> Cell {
     demand: demand_new(part, neighbor_coord, incoming_dir, neighbor_outgoing_dir),
     supply: supply_none(),
   };
+}
+
+pub fn fix_belt_meta(factory: &mut Factory, coord: usize) {
+  let belt_type = get_belt_type_for_cell_ports(factory, coord);
+  let belt_meta = belt_type_to_belt_meta(belt_type);
+  factory.floor[coord].belt.meta = belt_meta;
+}
+
+pub fn update_meta_to_belt_type(factory: &mut Factory, coord: usize, belt_type: BeltType) {
+  let meta = belt_type_to_belt_meta(belt_type);
+
+  if meta.port_u != Port::None {
+    if factory.floor[coord].port_u == Port::None {
+      factory.floor[coord].port_u = Port::Unknown;
+    }
+  } else {
+    if factory.floor[coord].port_u != Port::None {
+      factory.floor[coord].port_u = Port::None;
+    }
+  }
+
+  if meta.port_r != Port::None {
+    if factory.floor[coord].port_r == Port::None {
+      factory.floor[coord].port_r = Port::Unknown;
+    }
+  } else {
+    if factory.floor[coord].port_r != Port::None {
+      factory.floor[coord].port_r = Port::None;
+    }
+  }
+
+  if meta.port_d != Port::None {
+    if factory.floor[coord].port_d == Port::None {
+      factory.floor[coord].port_d = Port::Unknown;
+    }
+  } else {
+    if factory.floor[coord].port_d != Port::None {
+      factory.floor[coord].port_d = Port::None;
+    }
+  }
+
+  if meta.port_l != Port::None {
+    if factory.floor[coord].port_l == Port::None {
+      factory.floor[coord].port_l = Port::Unknown;
+    }
+  } else {
+    if factory.floor[coord].port_l != Port::None {
+      factory.floor[coord].port_l = Port::None;
+    }
+  }
+
+  factory.floor[coord].belt.meta = meta;
+}
+
+pub fn update_meta_to_belt_type_and_belt_neighbors(factory: &mut Factory, coord: usize, belt_type: BeltType, fix_neighbors_too: bool) {
+  update_meta_to_belt_type(factory, coord, belt_type);
+  update_ports_of_neighbor_cells(factory, coord, fix_neighbors_too);
+}
+
+pub fn update_ports_of_neighbor_cells(factory: &mut Factory, coord: usize, fix_neighbors_too: bool) {
+  // For each side with a port, check if the other side is a belt, and if so, force a port there too
+
+  if factory.floor[coord].port_u != Port::None {
+    if let Some(ocoord) = factory.floor[coord].coord_u {
+      if factory.floor[ocoord].kind == CellKind::Belt {
+        if factory.floor[ocoord].port_d == Port::None {
+          factory.floor[ocoord].port_d = Port::Unknown;
+        }
+        if fix_neighbors_too {
+          fix_belt_meta(factory, ocoord);
+        }
+      }
+    }
+  }
+
+  if factory.floor[coord].port_r != Port::None {
+    if let Some(coord) = factory.floor[coord].coord_r {
+      if factory.floor[coord].kind == CellKind::Belt {
+        if factory.floor[coord].port_l == Port::None {
+          factory.floor[coord].port_l = Port::Unknown;
+        }
+        if fix_neighbors_too {
+          fix_belt_meta(factory, coord);
+        }
+      }
+    }
+  }
+
+  if factory.floor[coord].port_d != Port::None {
+    if let Some(coord) = factory.floor[coord].coord_d {
+      if factory.floor[coord].kind == CellKind::Belt {
+        if factory.floor[coord].port_u == Port::None {
+          factory.floor[coord].port_u = Port::Unknown;
+        }
+        if fix_neighbors_too {
+          fix_belt_meta(factory, coord);
+        }
+      }
+    }
+  }
+
+  if factory.floor[coord].port_l != Port::None {
+    if let Some(coord) = factory.floor[coord].coord_l {
+      if factory.floor[coord].kind == CellKind::Belt {
+        if factory.floor[coord].port_r == Port::None {
+          factory.floor[coord].port_r = Port::Unknown;
+        }
+        if fix_neighbors_too {
+          fix_belt_meta(factory, coord);
+        }
+      }
+    }
+  }
 }

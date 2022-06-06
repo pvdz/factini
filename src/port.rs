@@ -5,6 +5,7 @@ use super::belt::*;
 use super::cell::*;
 use super::demand::*;
 use super::direction::*;
+use super::factory::*;
 use super::machine::*;
 use super::options::*;
 use super::part::*;
@@ -25,31 +26,31 @@ fn auto_port_cell_self(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize) -> (boo
   let mut ins = 0;
   let mut outs = 0;
   let mut uns = 0;
-  let mut ems = 0;
+  // let mut ems = 0;
 
   match floor[coord].port_u {
     Port::Inbound => ins += 1,
     Port::Outbound => outs += 1,
     Port::Unknown => uns += 1,
-    Port::None => ems += 1,
+    Port::None => (), // ems += 1,
   };
   match floor[coord].port_r {
     Port::Inbound => ins += 1,
     Port::Outbound => outs += 1,
     Port::Unknown => uns += 1,
-    Port::None => ems += 1,
+    Port::None => (), // ems += 1,
   };
   match floor[coord].port_d {
     Port::Inbound => ins += 1,
     Port::Outbound => outs += 1,
     Port::Unknown => uns += 1,
-    Port::None => ems += 1,
+    Port::None => (), // ems += 1,
   };
   match floor[coord].port_l {
     Port::Inbound => ins += 1,
     Port::Outbound => outs += 1,
     Port::Unknown => uns += 1,
-    Port::None => ems += 1,
+    Port::None => (), // ems += 1,
   };
 
   if uns == 0 {
@@ -602,3 +603,43 @@ pub fn auto_port(floor: &mut [Cell; FLOOR_CELLS_WH], attempt: u32) -> bool {
   return changed;
 }
 
+pub fn port_both_sides_ud(factory: &mut Factory, coord: usize) {
+  if factory.floor[coord].port_u == Port::None {
+    factory.floor[coord].port_u = Port::Unknown;
+  }
+  if let Some(coord) = factory.floor[coord].coord_u {
+    if factory.floor[coord].kind == CellKind::Belt && factory.floor[coord].port_d == Port::None {
+      factory.floor[coord].port_d = Port::Unknown;
+    }
+  }
+}
+pub fn port_both_sides_rl(factory: &mut Factory, coord: usize) {
+  if factory.floor[coord].port_r == Port::None {
+    factory.floor[coord].port_r = Port::Unknown;
+  }
+  if let Some(coord) = factory.floor[coord].coord_r {
+    if factory.floor[coord].kind == CellKind::Belt && factory.floor[coord].port_l == Port::None {
+      factory.floor[coord].port_l = Port::Unknown;
+    }
+  }
+}
+pub fn port_both_sides_du(factory: &mut Factory, coord: usize) {
+  if factory.floor[coord].port_d == Port::None {
+    factory.floor[coord].port_d = Port::Unknown;
+  }
+  if let Some(coord) = factory.floor[coord].coord_d {
+    if factory.floor[coord].kind == CellKind::Belt && factory.floor[coord].port_u == Port::None {
+      factory.floor[coord].port_u = Port::Unknown;
+    }
+  }
+}
+pub fn port_both_sides_lr(factory: &mut Factory, coord: usize) {
+  if factory.floor[coord].port_l == Port::None {
+    factory.floor[coord].port_l = Port::Unknown;
+  }
+  if let Some(coord) = factory.floor[coord].coord_l {
+    if factory.floor[coord].kind == CellKind::Belt && factory.floor[coord].port_r == Port::None {
+      factory.floor[coord].port_r = Port::Unknown;
+    }
+  }
+}

@@ -14,7 +14,7 @@ use super::utils::*;
 
 fn should_be_marked_for_cell_sorting_machine(options: &Options, floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize) -> bool {
   // Ignore sub machine cells
-  if options.trace_priority_step { super::log(format!("   - Testing machine at {}", coord).as_str()); }
+  if options.trace_priority_step { log(format!("   - Testing machine at {}", coord)); }
   for index in 0..floor[coord].machine.coords.len() {
     let mcoord = floor[coord].machine.coords[index];
     // Check if this cell has any outgoing ports where the neighbor is not marked
@@ -22,7 +22,7 @@ fn should_be_marked_for_cell_sorting_machine(options: &Options, floor: &mut [Cel
 
     // Dunno if this performs well and it looks ugly but it does work. Apparently.
 
-    if options.trace_priority_step { super::log(format!("    - ({}) {:?} {:?} {:?} {:?} , {:?} {:?} {:?} {:?} , {} {} {} {}",
+    if options.trace_priority_step { log(format!("    - ({}) {:?} {:?} {:?} {:?} , {:?} {:?} {:?} {:?} , {} {} {} {}",
       mcoord,
       floor[mcoord].port_u,
       floor[mcoord].port_r,
@@ -34,12 +34,12 @@ fn should_be_marked_for_cell_sorting_machine(options: &Options, floor: &mut [Cel
       , match floor[mcoord].coord_r { Some(x) => format!("{}", floor[x].marked), None => "none".to_string() }
       , match floor[mcoord].coord_d { Some(x) => format!("{}", floor[x].marked), None => "none".to_string() }
       , match floor[mcoord].coord_l { Some(x) => format!("{}", floor[x].marked), None => "none".to_string() }
-    ).as_str()); }
+    )); }
 
     if floor[mcoord].port_u == Port::Outbound {
       if let Some(omcoord) = floor[mcoord].coord_u {
         if !floor[omcoord].marked {
-          if options.trace_priority_step { super::log(format!("      - unmarked neighbor to outbound port, machine is not ready").as_str()); }
+          if options.trace_priority_step { log(format!("      - unmarked neighbor to outbound port, machine is not ready")); }
           return false;
         }
       }
@@ -47,7 +47,7 @@ fn should_be_marked_for_cell_sorting_machine(options: &Options, floor: &mut [Cel
     if floor[mcoord].port_r == Port::Outbound {
       if let Some(omcoord) = floor[mcoord].coord_r {
         if !floor[omcoord].marked {
-          if options.trace_priority_step { super::log(format!("      - unmarked neighbor to outbound port, machine is not ready").as_str()); }
+          if options.trace_priority_step { log(format!("      - unmarked neighbor to outbound port, machine is not ready")); }
           return false;
         }
       }
@@ -55,7 +55,7 @@ fn should_be_marked_for_cell_sorting_machine(options: &Options, floor: &mut [Cel
     if floor[mcoord].port_d == Port::Outbound {
       if let Some(omcoord) = floor[mcoord].coord_d {
         if !floor[omcoord].marked {
-          if options.trace_priority_step { super::log(format!("      - unmarked neighbor to outbound port, machine is not ready").as_str()); }
+          if options.trace_priority_step { log(format!("      - unmarked neighbor to outbound port, machine is not ready")); }
           return false;
         }
       }
@@ -63,7 +63,7 @@ fn should_be_marked_for_cell_sorting_machine(options: &Options, floor: &mut [Cel
     if floor[mcoord].port_l == Port::Outbound {
       if let Some(omcoord) = floor[mcoord].coord_l {
         if !floor[omcoord].marked {
-          if options.trace_priority_step { super::log(format!("      - unmarked neighbor to outbound port, machine is not ready").as_str()); }
+          if options.trace_priority_step { log(format!("      - unmarked neighbor to outbound port, machine is not ready")); }
           return false;
         }
       }
@@ -72,7 +72,7 @@ fn should_be_marked_for_cell_sorting_machine(options: &Options, floor: &mut [Cel
 
   // Okay. None of the ports of any of the machine cells were outbound to an unmarked cell
   // so this machine can be marked next.
-  if options.trace_priority_step { super::log(format!("   - Marking machine {}", coord).as_str()); }
+  if options.trace_priority_step { log(format!("   - Marking machine {}", coord)); }
   return true;
 }
 
@@ -90,7 +90,7 @@ fn should_be_marked_for_cell_sorting_non_machine(options: &Options, cell: &Cell,
   //   return false;
   // }
 
-  if options.trace_priority_step { super::log(format!("   - marked: {} {} {} {}, kind: {:?} {:?} {:?} {:?}", cell_u.marked, cell_r.marked, cell_d.marked, cell_l.marked, cell_u.kind, cell_r.kind, cell_d.kind, cell_l.kind).as_str()); }
+  if options.trace_priority_step { log(format!("   - marked: {} {} {} {}, kind: {:?} {:?} {:?} {:?}", cell_u.marked, cell_r.marked, cell_d.marked, cell_l.marked, cell_u.kind, cell_r.kind, cell_d.kind, cell_l.kind)); }
 
   match cell.kind {
     CellKind::Empty => {
@@ -141,7 +141,7 @@ fn should_be_marked_for_cell_sorting_non_machine(options: &Options, cell: &Cell,
 }
 
 pub fn create_prio_list(options: &Options, floor: &mut [Cell; FLOOR_CELLS_WH]) -> Vec<usize> {
-  super::log(format!("create_prio_list()... options.trace_priority_step={}", options.trace_priority_step).as_str());
+  log(format!("create_prio_list()... options.trace_priority_step={}", options.trace_priority_step));
   // Collect cells by marking them and putting their coords in a vec. In the end the vec must have
   // all non-empty cells and the factory game tick should traverse cells in that order. This way
   // you work around the belt wanting to unload onto another belt that is currently full but would
@@ -169,7 +169,7 @@ pub fn create_prio_list(options: &Options, floor: &mut [Cell; FLOOR_CELLS_WH]) -
 
   let mut demand_connects = vec!();
   for coord in 0..FLOOR_CELLS_WH {
-    if options.trace_priority_step { super::log(format!("- kind {} {:?} {:?} {} {}", coord, floor[coord].kind, to_xy(coord), floor[coord].x, floor[coord].y).as_str()); }
+    if options.trace_priority_step { log(format!("- kind {} {:?} {:?} {} {}", coord, floor[coord].kind, to_xy(coord), floor[coord].x, floor[coord].y)); }
 
     match floor[coord].kind {
       CellKind::Demand => {
@@ -178,7 +178,7 @@ pub fn create_prio_list(options: &Options, floor: &mut [Cell; FLOOR_CELLS_WH]) -
         let coord2 = floor[coord].demand.neighbor_coord;
         floor[coord].marked = true;
         floor[coord2].marked = true;
-        if options.trace_priority_step { super::log(format!("- Adding {} as the cell that is connected to a Demand at {}", coord2, coord).as_str()); }
+        if options.trace_priority_step { log(format!("- Adding {} as the cell that is connected to a Demand at {}", coord2, coord)); }
         demand_connects.push(coord2);
       }
       CellKind::Empty => {
@@ -191,8 +191,8 @@ pub fn create_prio_list(options: &Options, floor: &mut [Cell; FLOOR_CELLS_WH]) -
   }
 
   if options.trace_priority_step {
-    super::log(format!("- out {:?}", demand_connects).as_str());
-    super::log(format!("- connected to demanders {:?}", demand_connects).as_str());
+    log(format!("- out {:?}", demand_connects));
+    log(format!("- connected to demanders {:?}", demand_connects));
   }
 
   // out contains all demanders now. push them as the next step in priority.
@@ -201,7 +201,7 @@ pub fn create_prio_list(options: &Options, floor: &mut [Cell; FLOOR_CELLS_WH]) -
   }
 
   if options.trace_priority_step {
-    super::log(format!("- after step 1, before loop {:?}", out).as_str());
+    log(format!("- after step 1, before loop {:?}", out));
   }
 
   let mut noop = empty_cell(0, 0);
@@ -214,7 +214,7 @@ pub fn create_prio_list(options: &Options, floor: &mut [Cell; FLOOR_CELLS_WH]) -
     stepped += 1;
     found_something = false;
     some_left = false;
-    if options.trace_priority_step { super::log(format!("next step loop ({})", stepped).as_str()); }
+    if options.trace_priority_step { log(format!("next step loop ({})", stepped)); }
 
     //          0 123456789012345 6
     // (   )  "┌───────────────────┐"       "┌───────────────────┐"    "┌───────────────────┐"    "┌───────────────────┐"    "┌───────────────────┐"
@@ -246,7 +246,7 @@ pub fn create_prio_list(options: &Options, floor: &mut [Cell; FLOOR_CELLS_WH]) -
       assert!(!floor[coord].is_edge);
       if floor[coord].marked { continue; }
 
-      if options.trace_priority_step && !floor[coord].marked { super::log(format!(" - kind {} {:?}, marked: {}, xy: {}x{}", coord, floor[coord].kind, floor[coord].marked, floor[coord].x, floor[coord].y).as_str()); }
+      if options.trace_priority_step && !floor[coord].marked { log(format!(" - kind {} {:?}, marked: {}, xy: {}x{}", coord, floor[coord].kind, floor[coord].marked, floor[coord].x, floor[coord].y)); }
 
       let is_machine = floor[coord].kind == CellKind::Machine;
 
@@ -264,7 +264,7 @@ pub fn create_prio_list(options: &Options, floor: &mut [Cell; FLOOR_CELLS_WH]) -
         )
       }
       {
-        if options.trace_priority_step { super::log(format!("    - adding {:?}", to_xy(coord)).as_str()); }
+        if options.trace_priority_step { log(format!("    - adding {:?}", to_xy(coord))); }
         floor[coord].marked = true;
         if floor[coord].kind == CellKind::Machine && floor[coord].machine.kind == MachineKind::SubBuilding {
           // Skip actually adding the coord. Just mark it and move on. Only add the main cell for each machine.
@@ -284,9 +284,9 @@ pub fn create_prio_list(options: &Options, floor: &mut [Cell; FLOOR_CELLS_WH]) -
       }
     }
 
-    if options.trace_priority_step { super::log(format!("- after step {}: {:?}, found? {} left? {}", stepped, out, found_something, some_left).as_str()); }
+    if options.trace_priority_step { log(format!("- after step {}: {:?}, found? {} left? {}", stepped, out, found_something, some_left)); }
   }
-  if options.trace_priority_step { super::log(format!("- done with connected cells. now adding remaining unmarked non-empty cells...").as_str()); }
+  if options.trace_priority_step { log(format!("- done with connected cells. now adding remaining unmarked non-empty cells...")); }
 
   // Mark point of "rest". 0.0 is an unused cell anyways.
   // out.push(0);
@@ -298,7 +298,7 @@ pub fn create_prio_list(options: &Options, floor: &mut [Cell; FLOOR_CELLS_WH]) -
   for coord in 0..FLOOR_CELLS_WH {
     let (x, y) = to_xy(coord);
     if !floor[coord].marked && floor[coord].kind != CellKind::Empty {
-      if options.trace_priority_step{ super::log(format!("  - adding {} {:?}", coord, (x, y)).as_str()); }
+      if options.trace_priority_step{ log(format!("  - adding {} {:?}", coord, (x, y))); }
       if floor[coord].kind == CellKind::Machine && floor[coord].machine.kind == MachineKind::SubBuilding {
         // Skip actually adding the coord. Just mark it and move on. Only add the main cell for each machine.
       } else {

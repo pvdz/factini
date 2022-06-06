@@ -9,6 +9,7 @@ use super::options::*;
 use super::machine::*;
 use super::part::*;
 use super::state::*;
+use super::utils::*;
 
 #[derive(Debug)]
 pub struct Supply {
@@ -66,7 +67,7 @@ pub fn tick_supply(options: &mut Options, state: &mut State, factory: &mut Facto
 
   if factory.floor[coord].supply.part_at == 0 && factory.ticks - factory.floor[coord].supply.last_part_out_at >= factory.floor[coord].supply.cooldown {
     // Cooled down, generate a new piece
-    if options.print_moves || options.print_moves_supply { super::log(format!("({}) Created new {:?} at supply @{}", factory.ticks, factory.floor[coord].supply.gives.kind, coord).as_str()); }
+    if options.print_moves || options.print_moves_supply { log(format!("({}) Created new {:?} at supply @{}", factory.ticks, factory.floor[coord].supply.gives.kind, coord)); }
     // factory.floor[coord].supply.part = factory.floor[coord].supply.gives.clone();
     factory.floor[coord].supply.part_at = factory.ticks;
   }

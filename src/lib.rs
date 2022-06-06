@@ -6,7 +6,7 @@ use wasm_bindgen::JsCast;
 
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
-  println!("wtf?");
+  println!("start?");
   let document = web_sys::window().unwrap().document().unwrap();
   let canvas = document
     .create_element("canvas")?

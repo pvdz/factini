@@ -9,6 +9,7 @@ use super::part::*;
 use super::port::*;
 use super::supply::*;
 use super::state::*;
+use super::utils::*;
 
 #[allow(non_camel_case_types)]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -76,7 +77,8 @@ pub enum BeltType {
   DLU = 60,
   DLRU = 61,
 
-  INVALID = 62, // Keep last item
+  UNKNOWN = 62,
+  INVALID = 63, // Keep last item
 }
 // Keep in sync...
 pub const BELT_TYPE_COUNT: usize = (BeltType::INVALID as usize) + 1;
@@ -104,7 +106,7 @@ pub fn belt_auto_layout(up: CellKind, right: CellKind, down: CellKind, left: Cel
     (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty) => BELT_DU,
     (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) => BELT_LRU,
     (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) => BELT_DLU,
-    _ => BELT_INVALID,
+    _ => BELT_UNKNOWN,
   };
 }
 
@@ -284,7 +286,7 @@ fn tick_belt_take_from_belt(options: &mut Options, state: &mut State, factory: &
   // }
 
   // Okay, ready to move that part
-  if options.print_moves || options.print_moves_belt { super::log(format!("({}) Moved {:?} from belt @{} to belt @{}", factory.ticks, factory.floor[from_coord].belt.part, from_coord, curr_coord).as_str()); }
+  if options.print_moves || options.print_moves_belt { log(format!("({}) Moved {:?} from belt @{} to belt @{}", factory.ticks, factory.floor[from_coord].belt.part, from_coord, curr_coord)); }
   belt_receive_part(factory, curr_coord, curr_dir, factory.floor[from_coord].belt.part.clone());
   belt_receive_part(factory, from_coord, from_dir, part_none());
 
@@ -326,7 +328,7 @@ fn tick_belt_take_from_supply(options: &mut Options, state: &mut State, factory:
   // If so, move it to this belt
   if factory.floor[belt_coord].belt.part.kind == PartKind::None {
     if factory.floor[supply_coord].supply.part_at > 0 && factory.ticks - factory.floor[supply_coord].supply.part_at >= factory.floor[supply_coord].supply.speed {
-      if options.print_moves || options.print_moves_supply { super::log(format!("({}) Supply {:?} from @{} to belt @{}", factory.ticks, factory.floor[supply_coord].supply.gives.kind, supply_coord, belt_coord).as_str()); }
+      if options.print_moves || options.print_moves_supply { log(format!("({}) Supply {:?} from @{} to belt @{}", factory.ticks, factory.floor[supply_coord].supply.gives.kind, supply_coord, belt_coord)); }
       belt_receive_part(factory, belt_coord, factory.floor[supply_coord].supply.neighbor_incoming_dir, factory.floor[supply_coord].supply.gives.clone());
       supply_clear_part(factory, supply_coord);
       return true;
@@ -343,7 +345,7 @@ fn tick_belt_give_to_demand(options: &mut Options, state: &mut State, factory: &
   if factory.floor[belt_coord].belt.part.kind != PartKind::None {
     if factory.floor[belt_coord].belt.part_to == belt_dir {
       if factory.floor[belt_coord].belt.part_at > 0 && factory.ticks - factory.floor[belt_coord].belt.part_at >= factory.floor[belt_coord].belt.speed {
-        if options.print_moves || options.print_moves_demand { super::log(format!("({}) Demand takes {:?} at @{} from belt @{}. belt.part_at={:?}, belt_dir={:?}", factory.ticks, factory.floor[demand_coord].demand.part.kind, demand_coord, belt_coord, factory.floor[belt_coord].belt.part_to, belt_dir).as_str()); }
+        if options.print_moves || options.print_moves_demand { log(format!("({}) Demand takes {:?} at @{} from belt @{}. belt.part_at={:?}, belt_dir={:?}", factory.ticks, factory.floor[demand_coord].demand.part.kind, demand_coord, belt_coord, factory.floor[belt_coord].belt.part_to, belt_dir)); }
         demand_receive_part(options, state, factory, demand_coord, belt_coord);
         belt_receive_part(factory, belt_coord, Direction::Up, part_none());
         return true;
@@ -848,6 +850,80 @@ fn boxx(up: Port, right: Port, down: Port, left: Port) -> char {
   }
 }
 
+pub fn belt_type_to_belt_meta(belt_type: BeltType) -> BeltMeta {
+  match belt_type {
+    BeltType::RU => BELT_RU,
+    BeltType::DR => BELT_DR,
+    BeltType::DL => BELT_DL,
+    BeltType::LU => BELT_LU,
+    BeltType::DU => BELT_DU,
+    BeltType::LR => BELT_LR,
+    BeltType::LRU => BELT_LRU,
+    BeltType::DRU => BELT_DRU,
+    BeltType::DLR => BELT_DLR,
+    BeltType::DLU => BELT_DLU,
+    BeltType::DLRU => BELT_DLRU,
+    BeltType::UNKNOWN => BELT_UNKNOWN,
+    BeltType::INVALID => BELT_INVALID,
+    _ => panic!("Only use this for unguided types or code support for the other ones ^^ {:?}", belt_type),
+  }
+}
+
+pub fn get_belt_type_for_cell_ports_extended(factory: &Factory, coord: usize, dir1: Direction, dir2: Direction, ignore_neighbors: bool) -> BeltType {
+  // Given a coord and two dirs return a belt type that has _a_ port in all the directions of:
+  // - the given dirs
+  // - the non-none ports of the current cell
+  // - any dir where the neighbor is a belt (if flag is not set)
+
+  match (
+    dir1 == Direction::Up || dir2 == Direction::Up || factory.floor[coord].port_u != Port::None || (!ignore_neighbors && factory.floor[coord].coord_u != None && factory.floor[factory.floor[coord].coord_u.unwrap()].kind == CellKind::Belt),
+    dir1 == Direction::Right || dir2 == Direction::Right || factory.floor[coord].port_r != Port::None || (!ignore_neighbors && factory.floor[coord].coord_r != None && factory.floor[factory.floor[coord].coord_r.unwrap()].kind == CellKind::Belt),
+    dir1 == Direction::Down || dir2 == Direction::Down || factory.floor[coord].port_d != Port::None || (!ignore_neighbors && factory.floor[coord].coord_d != None && factory.floor[factory.floor[coord].coord_d.unwrap()].kind == CellKind::Belt),
+    dir1 == Direction::Left || dir2 == Direction::Left || factory.floor[coord].port_l != Port::None || (!ignore_neighbors && factory.floor[coord].coord_l != None && factory.floor[factory.floor[coord].coord_l.unwrap()].kind == CellKind::Belt),
+  ) {
+    (true, false, false, false) => BeltType::INVALID, // TODO
+    (true, true, false, false) => BeltType::RU,
+    (true, false, true, false) => BeltType::DU,
+    (true, false, false, true) => BeltType::LU,
+    (true, true, true, false) => BeltType::DRU,
+    (true, true, false, true) => BeltType::LRU,
+    (true, false, true, true) => BeltType::DLU,
+    (true, true, true, true) => BeltType::DLRU,
+    (false, false, false, false) => BeltType::INVALID, // TODO
+    (false, true, false, false) => BeltType::INVALID, // TODO
+    (false, false, true, false) => BeltType::INVALID, // TODO
+    (false, false, false, true) => BeltType::INVALID, // TODO
+    (false, true, true, false) => BeltType::DR,
+    (false, true, false, true) => BeltType::LR,
+    (false, false, true, true) => BeltType::DL,
+    (false, true, true, true) => BeltType::DLR,
+  }
+}
+pub fn get_belt_type_for_cell_ports(factory: &Factory, coord: usize) -> BeltType {
+  match (
+    factory.floor[coord].port_u != Port::None,
+    factory.floor[coord].port_r != Port::None,
+    factory.floor[coord].port_d != Port::None,
+    factory.floor[coord].port_l != Port::None,
+  ) {
+    (true, false, false, false) => BeltType::INVALID, // TODO
+    (true, true, false, false) => BeltType::RU,
+    (true, false, true, false) => BeltType::DU,
+    (true, false, false, true) => BeltType::LU,
+    (true, true, true, false) => BeltType::DRU,
+    (true, true, false, true) => BeltType::LRU,
+    (true, false, true, true) => BeltType::DLU,
+    (true, true, true, true) => BeltType::DLRU,
+    (false, false, false, false) => BeltType::INVALID, // TODO
+    (false, true, false, false) => BeltType::INVALID, // TODO
+    (false, false, true, false) => BeltType::INVALID, // TODO
+    (false, false, false, true) => BeltType::INVALID, // TODO
+    (false, true, true, false) => BeltType::DR,
+    (false, true, false, true) => BeltType::LR,
+    (false, false, true, true) => BeltType::DL,
+    (false, true, true, true) => BeltType::DLR,
+  }
+}
 
 const BOX_ARROW_U: char = '^';
 const BOX_ARROW_R: char = '>';
@@ -906,6 +982,19 @@ pub const BELT_INVALID: BeltMeta = BeltMeta {
   port_d: Port::None,
   port_l: Port::None,
   cli_icon: '!',
+};
+// ┌║┐
+// ═ ═
+// └║┘
+pub const BELT_UNKNOWN: BeltMeta = BeltMeta {
+  btype: BeltType::INVALID,
+  dbg: "BELT_UNKNOWN",
+  src: "./img/invalid.png",
+  port_u: Port::Unknown,
+  port_r: Port::Unknown,
+  port_d: Port::Unknown,
+  port_l: Port::Unknown,
+  cli_icon: '?',
 };
 // ┌║┐
 // ═ ═
@@ -1037,32 +1126,32 @@ pub const BELT_RU: BeltMeta = BeltMeta {
   port_l: Port::None,
   cli_icon: '╚',
 };
-// ┌v┐
-// │ >
-// └─┘
-pub const BELT_U_R: BeltMeta = BeltMeta {
-  btype: BeltType::U_R,
-  dbg: "BELT_U_R",
-  src: "./img/u_r.png",
-  port_u: Port::Inbound,
-  port_r: Port::Outbound,
-  port_d: Port::None,
-  port_l: Port::None,
-  cli_icon: '╚',
-};
-// ┌^┐
-// │ <
-// └─┘
-pub const BELT_R_U: BeltMeta = BeltMeta {
-  btype: BeltType::R_U,
-  dbg: "BELT_R_U",
-  src: "./img/r_u.png",
-  port_u: Port::Outbound,
-  port_r: Port::Inbound,
-  port_d: Port::None,
-  port_l: Port::None,
-  cli_icon: '╚',
-};
+// // ┌v┐
+// // │ >
+// // └─┘
+// pub const BELT_U_R: BeltMeta = BeltMeta {
+//   btype: BeltType::U_R,
+//   dbg: "BELT_U_R",
+//   src: "./img/u_r.png",
+//   port_u: Port::Inbound,
+//   port_r: Port::Outbound,
+//   port_d: Port::None,
+//   port_l: Port::None,
+//   cli_icon: '╚',
+// };
+// // ┌^┐
+// // │ <
+// // └─┘
+// pub const BELT_R_U: BeltMeta = BeltMeta {
+//   btype: BeltType::R_U,
+//   dbg: "BELT_R_U",
+//   src: "./img/r_u.png",
+//   port_u: Port::Outbound,
+//   port_r: Port::Inbound,
+//   port_d: Port::None,
+//   port_l: Port::None,
+//   cli_icon: '╚',
+// };
 // ┌─┐
 // │ ?
 // └?┘
@@ -1076,32 +1165,32 @@ pub const BELT_DR: BeltMeta = BeltMeta {
   port_l: Port::None,
   cli_icon: '╔',
 };
-// ┌─┐
-// │ <
-// └v┘
-pub const BELT_R_D: BeltMeta = BeltMeta {
-  btype: BeltType::R_D,
-  dbg: "BELT_R_D",
-  src: "./img/r_d.png",
-  port_u: Port::None,
-  port_r: Port::Inbound,
-  port_d: Port::Outbound,
-  port_l: Port::None,
-  cli_icon: '╔',
-};
-// ┌─┐
-// │ >
-// └^┘
-pub const BELT_D_R: BeltMeta = BeltMeta {
-  btype: BeltType::D_R,
-  dbg: "BELT_D_R",
-  src: "./img/d_r.png",
-  port_u: Port::None,
-  port_r: Port::Outbound,
-  port_d: Port::Inbound,
-  port_l: Port::None,
-  cli_icon: '╔',
-};
+// // ┌─┐
+// // │ <
+// // └v┘
+// pub const BELT_R_D: BeltMeta = BeltMeta {
+//   btype: BeltType::R_D,
+//   dbg: "BELT_R_D",
+//   src: "./img/r_d.png",
+//   port_u: Port::None,
+//   port_r: Port::Inbound,
+//   port_d: Port::Outbound,
+//   port_l: Port::None,
+//   cli_icon: '╔',
+// };
+// // ┌─┐
+// // │ >
+// // └^┘
+// pub const BELT_D_R: BeltMeta = BeltMeta {
+//   btype: BeltType::D_R,
+//   dbg: "BELT_D_R",
+//   src: "./img/d_r.png",
+//   port_u: Port::None,
+//   port_r: Port::Outbound,
+//   port_d: Port::Inbound,
+//   port_l: Port::None,
+//   cli_icon: '╔',
+// };
 // ┌─┐
 // ? │
 // └?┘
@@ -1115,32 +1204,32 @@ pub const BELT_DL: BeltMeta = BeltMeta {
   port_l: Port::Unknown,
   cli_icon: '╗',
 };
-// ┌─┐
-// < │
-// └^┘
-pub const BELT_D_L: BeltMeta = BeltMeta {
-  btype: BeltType::D_L,
-  dbg: "BELT_D_L",
-  src: "./img/d_l.png",
-  port_u: Port::None,
-  port_r: Port::None,
-  port_d: Port::Inbound,
-  port_l: Port::Outbound,
-  cli_icon: '╗',
-};
-// ┌─┐
-// > │
-// └v┘
-pub const BELT_L_D: BeltMeta = BeltMeta {
-  btype: BeltType::L_D,
-  dbg: "BELT_L_D",
-  src: "./img/l_d.png",
-  port_u: Port::None,
-  port_r: Port::None,
-  port_d: Port::Outbound,
-  port_l: Port::Inbound,
-  cli_icon: '╗',
-};
+// // ┌─┐
+// // < │
+// // └^┘
+// pub const BELT_D_L: BeltMeta = BeltMeta {
+//   btype: BeltType::D_L,
+//   dbg: "BELT_D_L",
+//   src: "./img/d_l.png",
+//   port_u: Port::None,
+//   port_r: Port::None,
+//   port_d: Port::Inbound,
+//   port_l: Port::Outbound,
+//   cli_icon: '╗',
+// };
+// // ┌─┐
+// // > │
+// // └v┘
+// pub const BELT_L_D: BeltMeta = BeltMeta {
+//   btype: BeltType::L_D,
+//   dbg: "BELT_L_D",
+//   src: "./img/l_d.png",
+//   port_u: Port::None,
+//   port_r: Port::None,
+//   port_d: Port::Outbound,
+//   port_l: Port::Inbound,
+//   cli_icon: '╗',
+// };
 // ┌?┐
 // ? │
 // └─┘
@@ -1154,32 +1243,32 @@ pub const BELT_LU: BeltMeta = BeltMeta {
   port_l: Port::Unknown,
   cli_icon: '╝',
 };
-// ┌v┐
-// < │
-// └─┘
-pub const BELT_L_U: BeltMeta = BeltMeta {
-  btype: BeltType::L_U,
-  dbg: "BELT_L_U",
-  src: "./img/l_u.png",
-  port_u: Port::Outbound,
-  port_r: Port::None,
-  port_d: Port::None,
-  port_l: Port::Inbound,
-  cli_icon: '╝',
-};
-// ┌v┐
-// < │
-// └─┘
-pub const BELT_U_L: BeltMeta = BeltMeta {
-  btype: BeltType::U_L,
-  dbg: "BELT_U_L",
-  src: "./img/u_l.png",
-  port_u: Port::Inbound,
-  port_r: Port::None,
-  port_d: Port::None,
-  port_l: Port::Outbound,
-  cli_icon: '╝',
-};
+// // ┌v┐
+// // < │
+// // └─┘
+// pub const BELT_L_U: BeltMeta = BeltMeta {
+//   btype: BeltType::L_U,
+//   dbg: "BELT_L_U",
+//   src: "./img/l_u.png",
+//   port_u: Port::Outbound,
+//   port_r: Port::None,
+//   port_d: Port::None,
+//   port_l: Port::Inbound,
+//   cli_icon: '╝',
+// };
+// // ┌v┐
+// // < │
+// // └─┘
+// pub const BELT_U_L: BeltMeta = BeltMeta {
+//   btype: BeltType::U_L,
+//   dbg: "BELT_U_L",
+//   src: "./img/u_l.png",
+//   port_u: Port::Inbound,
+//   port_r: Port::None,
+//   port_d: Port::None,
+//   port_l: Port::Outbound,
+//   cli_icon: '╝',
+// };
 // ┌?┐
 // │ │
 // └?┘
@@ -1193,32 +1282,32 @@ pub const BELT_DU: BeltMeta = BeltMeta {
   port_l: Port::None,
   cli_icon: '║',
 };
-// ┌v┐
-// │ │
-// └v┘
-pub const BELT_U_D: BeltMeta = BeltMeta {
-  btype: BeltType::U_D,
-  dbg: "BELT_U_D",
-  src: "./img/u_d.png",
-  port_u: Port::Inbound,
-  port_r: Port::None,
-  port_d: Port::Outbound,
-  port_l: Port::None,
-  cli_icon: '║',
-};
-// ┌^┐
-// │ │
-// └^┘
-pub const BELT_D_U: BeltMeta = BeltMeta {
-  btype: BeltType::D_U,
-  dbg: "BELT_D_U",
-  src: "./img/d_u.png",
-  port_u: Port::Outbound,
-  port_r: Port::None,
-  port_d: Port::Inbound,
-  port_l: Port::None,
-  cli_icon: '║',
-};
+// // ┌v┐
+// // │ │
+// // └v┘
+// pub const BELT_U_D: BeltMeta = BeltMeta {
+//   btype: BeltType::U_D,
+//   dbg: "BELT_U_D",
+//   src: "./img/u_d.png",
+//   port_u: Port::Inbound,
+//   port_r: Port::None,
+//   port_d: Port::Outbound,
+//   port_l: Port::None,
+//   cli_icon: '║',
+// };
+// // ┌^┐
+// // │ │
+// // └^┘
+// pub const BELT_D_U: BeltMeta = BeltMeta {
+//   btype: BeltType::D_U,
+//   dbg: "BELT_D_U",
+//   src: "./img/d_u.png",
+//   port_u: Port::Outbound,
+//   port_r: Port::None,
+//   port_d: Port::Inbound,
+//   port_l: Port::None,
+//   cli_icon: '║',
+// };
 // ┌─┐
 // ? ?
 // └─┘
@@ -1232,32 +1321,32 @@ pub const BELT_LR: BeltMeta = BeltMeta {
   port_l: Port::Unknown,
   cli_icon: '═',
 };
-// ┌─┐
-// > >
-// └─┘
-pub const BELT_L_R: BeltMeta = BeltMeta {
-  btype: BeltType::L_R,
-  dbg: "BELT_L_R",
-  src: "./img/l_r.png",
-  port_u: Port::None,
-  port_r: Port::Outbound,
-  port_d: Port::None,
-  port_l: Port::Inbound,
-  cli_icon: '═',
-};
-// ┌─┐
-// < <
-// └─┘
-pub const BELT_R_L: BeltMeta = BeltMeta {
-  btype: BeltType::R_L,
-  dbg: "BELT_R_L",
-  src: "./img/r_l.png",
-  port_u: Port::None,
-  port_r: Port::Inbound,
-  port_d: Port::None,
-  port_l: Port::Outbound,
-  cli_icon: '═',
-};
+// // ┌─┐
+// // > >
+// // └─┘
+// pub const BELT_L_R: BeltMeta = BeltMeta {
+//   btype: BeltType::L_R,
+//   dbg: "BELT_L_R",
+//   src: "./img/l_r.png",
+//   port_u: Port::None,
+//   port_r: Port::Outbound,
+//   port_d: Port::None,
+//   port_l: Port::Inbound,
+//   cli_icon: '═',
+// };
+// // ┌─┐
+// // < <
+// // └─┘
+// pub const BELT_R_L: BeltMeta = BeltMeta {
+//   btype: BeltType::R_L,
+//   dbg: "BELT_R_L",
+//   src: "./img/r_l.png",
+//   port_u: Port::None,
+//   port_r: Port::Inbound,
+//   port_d: Port::None,
+//   port_l: Port::Outbound,
+//   cli_icon: '═',
+// };
 // ┌?┐
 // ? ?
 // └─┘
@@ -1271,84 +1360,84 @@ pub const BELT_LRU: BeltMeta = BeltMeta {
   port_l: Port::Unknown,
   cli_icon: '╩',
 };
-// ┌v┐
-// < >
-// └─┘
-pub const BELT_U_LR: BeltMeta = BeltMeta {
-  btype: BeltType::U_LR,
-  dbg: "BELT_U_LR",
-  src: "./img/u_lr.png",
-  port_u: Port::Inbound,
-  port_r: Port::Outbound,
-  port_d: Port::None,
-  port_l: Port::Outbound,
-  cli_icon: '╩',
-};
-// ┌v┐
-// < <
-// └─┘
-pub const BELT_RU_L: BeltMeta = BeltMeta {
-  btype: BeltType::RU_L,
-  dbg: "BELT_RU_L",
-  src: "./img/ru_l.png",
-  port_u: Port::Inbound,
-  port_r: Port::Inbound,
-  port_d: Port::None,
-  port_l: Port::Outbound,
-  cli_icon: '╩',
-};
-// ┌v┐
-// > >
-// └─┘
-pub const BELT_LU_R: BeltMeta = BeltMeta {
-  btype: BeltType::LU_R,
-  dbg: "BELT_LU_R",
-  src: "./img/lu_r.png",
-  port_u: Port::Inbound,
-  port_r: Port::Outbound,
-  port_d: Port::None,
-  port_l: Port::Inbound,
-  cli_icon: '╩',
-};
-// ┌^┐
-// > >
-// └─┘
-pub const BELT_L_RU: BeltMeta = BeltMeta {
-  btype: BeltType::L_RU,
-  dbg: "BELT_L_RU",
-  src: "./img/l_ru.png",
-  port_u: Port::Outbound,
-  port_r: Port::Outbound,
-  port_d: Port::None,
-  port_l: Port::Inbound,
-  cli_icon: '╩',
-};
-// ┌^┐
-// > <
-// └─┘
-pub const BELT_LR_U: BeltMeta = BeltMeta {
-  btype: BeltType::LR_U,
-  dbg: "BELT_LR_U",
-  src: "./img/lr_u.png",
-  port_u: Port::Outbound,
-  port_r: Port::Inbound,
-  port_d: Port::None,
-  port_l: Port::Inbound,
-  cli_icon: '╩',
-};
-// ┌^┐
-// < <
-// └─┘
-pub const BELT_R_LU: BeltMeta = BeltMeta {
-  btype: BeltType::R_LU,
-  dbg: "BELT_R_LU",
-  src: "./img/r_lu.png",
-  port_u: Port::Outbound,
-  port_r: Port::Inbound,
-  port_d: Port::None,
-  port_l: Port::Outbound,
-  cli_icon: '╩',
-};
+// // ┌v┐
+// // < >
+// // └─┘
+// pub const BELT_U_LR: BeltMeta = BeltMeta {
+//   btype: BeltType::U_LR,
+//   dbg: "BELT_U_LR",
+//   src: "./img/u_lr.png",
+//   port_u: Port::Inbound,
+//   port_r: Port::Outbound,
+//   port_d: Port::None,
+//   port_l: Port::Outbound,
+//   cli_icon: '╩',
+// };
+// // ┌v┐
+// // < <
+// // └─┘
+// pub const BELT_RU_L: BeltMeta = BeltMeta {
+//   btype: BeltType::RU_L,
+//   dbg: "BELT_RU_L",
+//   src: "./img/ru_l.png",
+//   port_u: Port::Inbound,
+//   port_r: Port::Inbound,
+//   port_d: Port::None,
+//   port_l: Port::Outbound,
+//   cli_icon: '╩',
+// };
+// // ┌v┐
+// // > >
+// // └─┘
+// pub const BELT_LU_R: BeltMeta = BeltMeta {
+//   btype: BeltType::LU_R,
+//   dbg: "BELT_LU_R",
+//   src: "./img/lu_r.png",
+//   port_u: Port::Inbound,
+//   port_r: Port::Outbound,
+//   port_d: Port::None,
+//   port_l: Port::Inbound,
+//   cli_icon: '╩',
+// };
+// // ┌^┐
+// // > >
+// // └─┘
+// pub const BELT_L_RU: BeltMeta = BeltMeta {
+//   btype: BeltType::L_RU,
+//   dbg: "BELT_L_RU",
+//   src: "./img/l_ru.png",
+//   port_u: Port::Outbound,
+//   port_r: Port::Outbound,
+//   port_d: Port::None,
+//   port_l: Port::Inbound,
+//   cli_icon: '╩',
+// };
+// // ┌^┐
+// // > <
+// // └─┘
+// pub const BELT_LR_U: BeltMeta = BeltMeta {
+//   btype: BeltType::LR_U,
+//   dbg: "BELT_LR_U",
+//   src: "./img/lr_u.png",
+//   port_u: Port::Outbound,
+//   port_r: Port::Inbound,
+//   port_d: Port::None,
+//   port_l: Port::Inbound,
+//   cli_icon: '╩',
+// };
+// // ┌^┐
+// // < <
+// // └─┘
+// pub const BELT_R_LU: BeltMeta = BeltMeta {
+//   btype: BeltType::R_LU,
+//   dbg: "BELT_R_LU",
+//   src: "./img/r_lu.png",
+//   port_u: Port::Outbound,
+//   port_r: Port::Inbound,
+//   port_d: Port::None,
+//   port_l: Port::Outbound,
+//   cli_icon: '╩',
+// };
 // ┌?┐
 // │ ?
 // └?┘
@@ -1362,84 +1451,84 @@ pub const BELT_DRU: BeltMeta = BeltMeta {
   port_l: Port::None,
   cli_icon: '╠',
 };
-// ┌^┐
-// │ <
-// └v┘
-pub const BELT_R_DU: BeltMeta = BeltMeta {
-  btype: BeltType::R_DU,
-  dbg: "BELT_R_DU",
-  src: "./img/r_du.png",
-  port_u: Port::Outbound,
-  port_r: Port::Inbound,
-  port_d: Port::Outbound,
-  port_l: Port::None,
-  cli_icon: '╠',
-};
-// ┌v┐
-// │ <
-// └v┘
-pub const BELT_RU_D: BeltMeta = BeltMeta {
-  btype: BeltType::RU_D,
-  dbg: "BELT_RU_D",
-  src: "./img/ru_d.png",
-  port_u: Port::Inbound,
-  port_r: Port::Inbound,
-  port_d: Port::Outbound,
-  port_l: Port::None,
-  cli_icon: '╠',
-};
-// ┌^┐
-// │ <
-// └^┘
-pub const BELT_DR_U: BeltMeta = BeltMeta {
-  btype: BeltType::DR_U,
-  dbg: "BELT_DR_U",
-  src: "./img/dr_u.png",
-  port_u: Port::None,
-  port_r: Port::Inbound,
-  port_d: Port::Inbound,
-  port_l: Port::Outbound,
-  cli_icon: '╠',
-};
-// ┌v┐
-// │ >
-// └^┘
-pub const BELT_DU_R: BeltMeta = BeltMeta {
-  btype: BeltType::DU_R,
-  dbg: "BELT_DU_R",
-  src: "./img/du_r.png",
-  port_u: Port::Inbound,
-  port_r: Port::Outbound,
-  port_d: Port::Inbound,
-  port_l: Port::None,
-  cli_icon: '╠',
-};
-// ┌v┐
-// │ >
-// └v┘
-pub const BELT_U_DR: BeltMeta = BeltMeta {
-  btype: BeltType::U_DR,
-  dbg: "BELT_U_DR",
-  src: "./img/u_dr.png",
-  port_u: Port::Inbound,
-  port_r: Port::Outbound,
-  port_d: Port::Outbound,
-  port_l: Port::None,
-  cli_icon: '╠',
-};
-// ┌^┐
-// │ >
-// └^┘
-pub const BELT_D_RU: BeltMeta = BeltMeta {
-  btype: BeltType::D_RU,
-  dbg: "BELT_D_RU",
-  src: "./img/d_ru.png",
-  port_u: Port::Outbound,
-  port_r: Port::Outbound,
-  port_d: Port::Inbound,
-  port_l: Port::None,
-  cli_icon: '╠',
-};
+// // ┌^┐
+// // │ <
+// // └v┘
+// pub const BELT_R_DU: BeltMeta = BeltMeta {
+//   btype: BeltType::R_DU,
+//   dbg: "BELT_R_DU",
+//   src: "./img/r_du.png",
+//   port_u: Port::Outbound,
+//   port_r: Port::Inbound,
+//   port_d: Port::Outbound,
+//   port_l: Port::None,
+//   cli_icon: '╠',
+// };
+// // ┌v┐
+// // │ <
+// // └v┘
+// pub const BELT_RU_D: BeltMeta = BeltMeta {
+//   btype: BeltType::RU_D,
+//   dbg: "BELT_RU_D",
+//   src: "./img/ru_d.png",
+//   port_u: Port::Inbound,
+//   port_r: Port::Inbound,
+//   port_d: Port::Outbound,
+//   port_l: Port::None,
+//   cli_icon: '╠',
+// };
+// // ┌^┐
+// // │ <
+// // └^┘
+// pub const BELT_DR_U: BeltMeta = BeltMeta {
+//   btype: BeltType::DR_U,
+//   dbg: "BELT_DR_U",
+//   src: "./img/dr_u.png",
+//   port_u: Port::None,
+//   port_r: Port::Inbound,
+//   port_d: Port::Inbound,
+//   port_l: Port::Outbound,
+//   cli_icon: '╠',
+// };
+// // ┌v┐
+// // │ >
+// // └^┘
+// pub const BELT_DU_R: BeltMeta = BeltMeta {
+//   btype: BeltType::DU_R,
+//   dbg: "BELT_DU_R",
+//   src: "./img/du_r.png",
+//   port_u: Port::Inbound,
+//   port_r: Port::Outbound,
+//   port_d: Port::Inbound,
+//   port_l: Port::None,
+//   cli_icon: '╠',
+// };
+// // ┌v┐
+// // │ >
+// // └v┘
+// pub const BELT_U_DR: BeltMeta = BeltMeta {
+//   btype: BeltType::U_DR,
+//   dbg: "BELT_U_DR",
+//   src: "./img/u_dr.png",
+//   port_u: Port::Inbound,
+//   port_r: Port::Outbound,
+//   port_d: Port::Outbound,
+//   port_l: Port::None,
+//   cli_icon: '╠',
+// };
+// // ┌^┐
+// // │ >
+// // └^┘
+// pub const BELT_D_RU: BeltMeta = BeltMeta {
+//   btype: BeltType::D_RU,
+//   dbg: "BELT_D_RU",
+//   src: "./img/d_ru.png",
+//   port_u: Port::Outbound,
+//   port_r: Port::Outbound,
+//   port_d: Port::Inbound,
+//   port_l: Port::None,
+//   cli_icon: '╠',
+// };
 // ┌─┐
 // ? ?
 // └?┘
@@ -1453,84 +1542,84 @@ pub const BELT_DLR: BeltMeta = BeltMeta {
   port_l: Port::Unknown,
   cli_icon: '╦',
 };
-// ┌─┐
-// < >
-// └^┘
-pub const BELT_D_LR: BeltMeta = BeltMeta {
-  btype: BeltType::D_LR,
-  dbg: "BELT_D_LR",
-  src: "./img/d_lr.png",
-  port_u: Port::None,
-  port_r: Port::Outbound,
-  port_d: Port::Inbound,
-  port_l: Port::Outbound,
-  cli_icon: '╦',
-};
-// ┌─┐
-// > >
-// └^┘
-pub const BELT_DL_R: BeltMeta = BeltMeta {
-  btype: BeltType::DL_R,
-  dbg: "BELT_DL_R",
-  src: "./img/dl_r.png",
-  port_u: Port::None,
-  port_r: Port::Outbound,
-  port_d: Port::Inbound,
-  port_l: Port::Inbound,
-  cli_icon: '╦',
-};
-// ┌─┐
-// < <
-// └^┘
-pub const BELT_DR_L: BeltMeta = BeltMeta {
-  btype: BeltType::DR_L,
-  dbg: "BELT_DR_L",
-  src: "./img/dr_l.png",
-  port_u: Port::None,
-  port_r: Port::Inbound,
-  port_d: Port::Inbound,
-  port_l: Port::Outbound,
-  cli_icon: '╦',
-};
-// ┌─┐
-// > <
-// └v┘
-pub const BELT_LR_D: BeltMeta = BeltMeta {
-  btype: BeltType::LR_D,
-  dbg: "BELT_LR_D",
-  src: "./img/dr_l.png",
-  port_u: Port::None,
-  port_r: Port::Inbound,
-  port_d: Port::Outbound,
-  port_l: Port::Inbound,
-  cli_icon: '╦',
-};
-// ┌─┐
-// > >
-// └v┘
-pub const BELT_L_DR: BeltMeta = BeltMeta {
-  btype: BeltType::L_DR,
-  dbg: "BELT_L_DR",
-  src: "./img/dr_l.png",
-  port_u: Port::None,
-  port_r: Port::Outbound,
-  port_d: Port::Outbound,
-  port_l: Port::Inbound,
-  cli_icon: '╦',
-};
-// ┌─┐
-// < <
-// └v┘
-pub const BELT_R_DL: BeltMeta = BeltMeta {
-  btype: BeltType::R_DL,
-  dbg: "BELT_R_DL",
-  src: "./img/r_dl.png",
-  port_u: Port::None,
-  port_r: Port::Inbound,
-  port_d: Port::Outbound,
-  port_l: Port::Outbound,
-  cli_icon: '╦',
-};
+// // ┌─┐
+// // < >
+// // └^┘
+// pub const BELT_D_LR: BeltMeta = BeltMeta {
+//   btype: BeltType::D_LR,
+//   dbg: "BELT_D_LR",
+//   src: "./img/d_lr.png",
+//   port_u: Port::None,
+//   port_r: Port::Outbound,
+//   port_d: Port::Inbound,
+//   port_l: Port::Outbound,
+//   cli_icon: '╦',
+// };
+// // ┌─┐
+// // > >
+// // └^┘
+// pub const BELT_DL_R: BeltMeta = BeltMeta {
+//   btype: BeltType::DL_R,
+//   dbg: "BELT_DL_R",
+//   src: "./img/dl_r.png",
+//   port_u: Port::None,
+//   port_r: Port::Outbound,
+//   port_d: Port::Inbound,
+//   port_l: Port::Inbound,
+//   cli_icon: '╦',
+// };
+// // ┌─┐
+// // < <
+// // └^┘
+// pub const BELT_DR_L: BeltMeta = BeltMeta {
+//   btype: BeltType::DR_L,
+//   dbg: "BELT_DR_L",
+//   src: "./img/dr_l.png",
+//   port_u: Port::None,
+//   port_r: Port::Inbound,
+//   port_d: Port::Inbound,
+//   port_l: Port::Outbound,
+//   cli_icon: '╦',
+// };
+// // ┌─┐
+// // > <
+// // └v┘
+// pub const BELT_LR_D: BeltMeta = BeltMeta {
+//   btype: BeltType::LR_D,
+//   dbg: "BELT_LR_D",
+//   src: "./img/dr_l.png",
+//   port_u: Port::None,
+//   port_r: Port::Inbound,
+//   port_d: Port::Outbound,
+//   port_l: Port::Inbound,
+//   cli_icon: '╦',
+// };
+// // ┌─┐
+// // > >
+// // └v┘
+// pub const BELT_L_DR: BeltMeta = BeltMeta {
+//   btype: BeltType::L_DR,
+//   dbg: "BELT_L_DR",
+//   src: "./img/dr_l.png",
+//   port_u: Port::None,
+//   port_r: Port::Outbound,
+//   port_d: Port::Outbound,
+//   port_l: Port::Inbound,
+//   cli_icon: '╦',
+// };
+// // ┌─┐
+// // < <
+// // └v┘
+// pub const BELT_R_DL: BeltMeta = BeltMeta {
+//   btype: BeltType::R_DL,
+//   dbg: "BELT_R_DL",
+//   src: "./img/r_dl.png",
+//   port_u: Port::None,
+//   port_r: Port::Inbound,
+//   port_d: Port::Outbound,
+//   port_l: Port::Outbound,
+//   cli_icon: '╦',
+// };
 // ┌?┐
 // ? │
 // └?┘
@@ -1544,84 +1633,84 @@ pub const BELT_DLU: BeltMeta = BeltMeta {
   port_l: Port::Unknown,
   cli_icon: '╣',
 };
-// ┌^┐
-// > │
-// └v┘
-pub const BELT_L_DU: BeltMeta = BeltMeta {
-  btype: BeltType::L_DU,
-  dbg: "BELT_L_DU",
-  src: "./img/l_du.png",
-  port_u: Port::Outbound,
-  port_r: Port::None,
-  port_d: Port::Outbound,
-  port_l: Port::Inbound,
-  cli_icon: '╣',
-};
-// ┌v┐
-// > │
-// └v┘
-pub const BELT_LU_D: BeltMeta = BeltMeta {
-  btype: BeltType::LU_D,
-  dbg: "BELT_LU_D",
-  src: "./img/lu_d.png",
-  port_u: Port::Inbound,
-  port_r: Port::None,
-  port_d: Port::Outbound,
-  port_l: Port::Inbound,
-  cli_icon: '╣',
-};
-// ┌^┐
-// > │
-// └^┘
-pub const BELT_DL_U: BeltMeta = BeltMeta {
-  btype: BeltType::DL_U,
-  dbg: "BELT_DL_U",
-  src: "./img/dl_u.png",
-  port_u: Port::Outbound,
-  port_r: Port::None,
-  port_d: Port::Inbound,
-  port_l: Port::Inbound,
-  cli_icon: '╣',
-};
-// ┌v┐
-// < │
-// └^┘
-pub const BELT_DU_L: BeltMeta = BeltMeta {
-  btype: BeltType::DU_L,
-  dbg: "BELT_DU_L",
-  src: "./img/du_l.png",
-  port_u: Port::Inbound,
-  port_r: Port::None,
-  port_d: Port::Inbound,
-  port_l: Port::Outbound,
-  cli_icon: '╣',
-};
-// ┌v┐
-// < │
-// └v┘
-pub const BELT_U_DL: BeltMeta = BeltMeta {
-  btype: BeltType::U_DL,
-  dbg: "BELT_U_DL",
-  src: "./img/u_dl.png",
-  port_u: Port::Inbound,
-  port_r: Port::None,
-  port_d: Port::Outbound,
-  port_l: Port::Outbound,
-  cli_icon: '╣',
-};
-// ┌^┐
-// < │
-// └^┘
-pub const BELT_D_LU: BeltMeta = BeltMeta {
-  btype: BeltType::D_UL,
-  dbg: "BELT_D_UL",
-  src: "./img/d_ul.png",
-  port_u: Port::Outbound,
-  port_r: Port::None,
-  port_d: Port::Inbound,
-  port_l: Port::Outbound,
-  cli_icon: '╣',
-};
+// // ┌^┐
+// // > │
+// // └v┘
+// pub const BELT_L_DU: BeltMeta = BeltMeta {
+//   btype: BeltType::L_DU,
+//   dbg: "BELT_L_DU",
+//   src: "./img/l_du.png",
+//   port_u: Port::Outbound,
+//   port_r: Port::None,
+//   port_d: Port::Outbound,
+//   port_l: Port::Inbound,
+//   cli_icon: '╣',
+// };
+// // ┌v┐
+// // > │
+// // └v┘
+// pub const BELT_LU_D: BeltMeta = BeltMeta {
+//   btype: BeltType::LU_D,
+//   dbg: "BELT_LU_D",
+//   src: "./img/lu_d.png",
+//   port_u: Port::Inbound,
+//   port_r: Port::None,
+//   port_d: Port::Outbound,
+//   port_l: Port::Inbound,
+//   cli_icon: '╣',
+// };
+// // ┌^┐
+// // > │
+// // └^┘
+// pub const BELT_DL_U: BeltMeta = BeltMeta {
+//   btype: BeltType::DL_U,
+//   dbg: "BELT_DL_U",
+//   src: "./img/dl_u.png",
+//   port_u: Port::Outbound,
+//   port_r: Port::None,
+//   port_d: Port::Inbound,
+//   port_l: Port::Inbound,
+//   cli_icon: '╣',
+// };
+// // ┌v┐
+// // < │
+// // └^┘
+// pub const BELT_DU_L: BeltMeta = BeltMeta {
+//   btype: BeltType::DU_L,
+//   dbg: "BELT_DU_L",
+//   src: "./img/du_l.png",
+//   port_u: Port::Inbound,
+//   port_r: Port::None,
+//   port_d: Port::Inbound,
+//   port_l: Port::Outbound,
+//   cli_icon: '╣',
+// };
+// // ┌v┐
+// // < │
+// // └v┘
+// pub const BELT_U_DL: BeltMeta = BeltMeta {
+//   btype: BeltType::U_DL,
+//   dbg: "BELT_U_DL",
+//   src: "./img/u_dl.png",
+//   port_u: Port::Inbound,
+//   port_r: Port::None,
+//   port_d: Port::Outbound,
+//   port_l: Port::Outbound,
+//   cli_icon: '╣',
+// };
+// // ┌^┐
+// // < │
+// // └^┘
+// pub const BELT_D_LU: BeltMeta = BeltMeta {
+//   btype: BeltType::D_UL,
+//   dbg: "BELT_D_UL",
+//   src: "./img/d_ul.png",
+//   port_u: Port::Outbound,
+//   port_r: Port::None,
+//   port_d: Port::Inbound,
+//   port_l: Port::Outbound,
+//   cli_icon: '╣',
+// };
 // ┌?┐
 // ? ?
 // └?┘
@@ -1635,187 +1724,187 @@ pub const BELT_DLRU: BeltMeta = BeltMeta {
   port_l: Port::Unknown,
   cli_icon: '╬',
 };
-// ┌v┐
-// < >
-// └v┘
-pub const BELT_U_DLR: BeltMeta = BeltMeta {
-  btype: BeltType::U_DLR,
-  dbg: "BELT_U_DLR",
-  src: "./img/dlru.png",
-  port_u: Port::Inbound,
-  port_r: Port::Outbound,
-  port_d: Port::Outbound,
-  port_l: Port::Outbound,
-  cli_icon: '╬',
-};
-// ┌^┐
-// < <
-// └v┘
-pub const BELT_R_DLU: BeltMeta = BeltMeta {
-  btype: BeltType::R_DLU,
-  dbg: "BELT_R_DLU",
-  src: "./img/todo.png",
-  port_u: Port::Outbound,
-  port_r: Port::Inbound,
-  port_d: Port::Outbound,
-  port_l: Port::Outbound,
-  cli_icon: '╬',
-};
-// ┌^┐
-// < >
-// └^┘
-pub const BELT_D_LRU: BeltMeta = BeltMeta {
-  btype: BeltType::D_LRU,
-  dbg: "BELT_D_LRU",
-  src: "./img/todo.png",
-  port_u: Port::Outbound,
-  port_r: Port::Outbound,
-  port_d: Port::Inbound,
-  port_l: Port::Outbound,
-  cli_icon: '╬',
-};
-// ┌^┐
-// > >
-// └v┘
-pub const BELT_L_DRU: BeltMeta = BeltMeta {
-  btype: BeltType::L_DRU,
-  dbg: "BELT_L_DRU",
-  src: "./img/todo.png",
-  port_u: Port::Outbound,
-  port_r: Port::Outbound,
-  port_d: Port::Outbound,
-  port_l: Port::Inbound,
-  cli_icon: '╬',
-};
-// ┌v┐
-// < <
-// └v┘
-pub const BELT_RU_DL: BeltMeta = BeltMeta {
-  btype: BeltType::RU_DL,
-  dbg: "BELT_RU_DL",
-  src: "./img/todo.png",
-  port_u: Port::Inbound,
-  port_r: Port::Inbound,
-  port_d: Port::Outbound,
-  port_l: Port::Outbound,
-  cli_icon: '╬',
-};
-// ┌v┐
-// < >
-// └^┘
-pub const BELT_DU_LR: BeltMeta = BeltMeta {
-  btype: BeltType::DU_LR,
-  dbg: "BELT_DU_LR",
-  src: "./img/todo.png",
-  port_u: Port::Inbound,
-  port_r: Port::Outbound,
-  port_d: Port::Inbound,
-  port_l: Port::Outbound,
-  cli_icon: '╬',
-};
-// ┌v┐
-// > >
-// └v┘
-pub const BELT_LU_DR: BeltMeta = BeltMeta {
-  btype: BeltType::LU_DR,
-  dbg: "BELT_LU_DR",
-  src: "./img/todo.png",
-  port_u: Port::Inbound,
-  port_r: Port::Outbound,
-  port_d: Port::Outbound,
-  port_l: Port::Inbound,
-  cli_icon: '╬',
-};
-// ┌v┐
-// > >
-// └v┘
-pub const BELT_DL_RU: BeltMeta = BeltMeta {
-  btype: BeltType::LD_RU,
-  dbg: "BELT_LD_RU",
-  src: "./img/todo.png",
-  port_u: Port::Outbound,
-  port_r: Port::Outbound,
-  port_d: Port::Inbound,
-  port_l: Port::Inbound,
-  cli_icon: '╬',
-};
-// ┌^┐
-// < <
-// └^┘
-pub const BELT_DR_LU: BeltMeta = BeltMeta {
-  btype: BeltType::DR_LU,
-  dbg: "BELT_DR_LU",
-  src: "./img/todo.png",
-  port_u: Port::Outbound,
-  port_r: Port::Inbound,
-  port_d: Port::Inbound,
-  port_l: Port::Outbound,
-  cli_icon: '╬',
-};
-// ┌^┐
-// > <
-// └v┘
-pub const BELT_LR_DU: BeltMeta = BeltMeta {
-  btype: BeltType::LR_DU,
-  dbg: "BELT_LR_DU",
-  src: "./img/todo.png",
-  port_u: Port::Outbound,
-  port_r: Port::Inbound,
-  port_d: Port::Outbound,
-  port_l: Port::Inbound,
-  cli_icon: '╬',
-};
-// ┌^┐
-// > <
-// └^┘
-pub const BELT_DLR_U: BeltMeta = BeltMeta {
-  btype: BeltType::DLR_U,
-  dbg: "BELT_DLR_U",
-  src: "./img/todo.png",
-  port_u: Port::Outbound,
-  port_r: Port::Inbound,
-  port_d: Port::Inbound,
-  port_l: Port::Inbound,
-  cli_icon: '╬',
-};
-// ┌v┐
-// > >
-// └^┘
-pub const BELT_DLU_R: BeltMeta = BeltMeta {
-  btype: BeltType::DLU_R,
-  dbg: "BELT_DLU_R",
-  src: "./img/todo.png",
-  port_u: Port::Inbound,
-  port_r: Port::Outbound,
-  port_d: Port::Inbound,
-  port_l: Port::Inbound,
-  cli_icon: '╬',
-};
-// ┌v┐
-// > <
-// └v┘
-pub const BELT_LRU_D: BeltMeta = BeltMeta {
-  btype: BeltType::RLU_D,
-  dbg: "BELT_RLU_D",
-  src: "./img/todo.png",
-  port_u: Port::Inbound,
-  port_r: Port::Inbound,
-  port_d: Port::Outbound,
-  port_l: Port::Inbound,
-  cli_icon: '╬',
-};
-// ┌v┐
-// < <
-// └^┘
-pub const BELT_DRU_L: BeltMeta = BeltMeta {
-  btype: BeltType::DRU_L,
-  dbg: "BELT_DRU_L",
-  src: "./img/todo.png",
-  port_u: Port::Inbound,
-  port_r: Port::Inbound,
-  port_d: Port::Inbound,
-  port_l: Port::Outbound,
-  cli_icon: '╬',
-};
+// // ┌v┐
+// // < >
+// // └v┘
+// pub const BELT_U_DLR: BeltMeta = BeltMeta {
+//   btype: BeltType::U_DLR,
+//   dbg: "BELT_U_DLR",
+//   src: "./img/dlru.png",
+//   port_u: Port::Inbound,
+//   port_r: Port::Outbound,
+//   port_d: Port::Outbound,
+//   port_l: Port::Outbound,
+//   cli_icon: '╬',
+// };
+// // ┌^┐
+// // < <
+// // └v┘
+// pub const BELT_R_DLU: BeltMeta = BeltMeta {
+//   btype: BeltType::R_DLU,
+//   dbg: "BELT_R_DLU",
+//   src: "./img/todo.png",
+//   port_u: Port::Outbound,
+//   port_r: Port::Inbound,
+//   port_d: Port::Outbound,
+//   port_l: Port::Outbound,
+//   cli_icon: '╬',
+// };
+// // ┌^┐
+// // < >
+// // └^┘
+// pub const BELT_D_LRU: BeltMeta = BeltMeta {
+//   btype: BeltType::D_LRU,
+//   dbg: "BELT_D_LRU",
+//   src: "./img/todo.png",
+//   port_u: Port::Outbound,
+//   port_r: Port::Outbound,
+//   port_d: Port::Inbound,
+//   port_l: Port::Outbound,
+//   cli_icon: '╬',
+// };
+// // ┌^┐
+// // > >
+// // └v┘
+// pub const BELT_L_DRU: BeltMeta = BeltMeta {
+//   btype: BeltType::L_DRU,
+//   dbg: "BELT_L_DRU",
+//   src: "./img/todo.png",
+//   port_u: Port::Outbound,
+//   port_r: Port::Outbound,
+//   port_d: Port::Outbound,
+//   port_l: Port::Inbound,
+//   cli_icon: '╬',
+// };
+// // ┌v┐
+// // < <
+// // └v┘
+// pub const BELT_RU_DL: BeltMeta = BeltMeta {
+//   btype: BeltType::RU_DL,
+//   dbg: "BELT_RU_DL",
+//   src: "./img/todo.png",
+//   port_u: Port::Inbound,
+//   port_r: Port::Inbound,
+//   port_d: Port::Outbound,
+//   port_l: Port::Outbound,
+//   cli_icon: '╬',
+// };
+// // ┌v┐
+// // < >
+// // └^┘
+// pub const BELT_DU_LR: BeltMeta = BeltMeta {
+//   btype: BeltType::DU_LR,
+//   dbg: "BELT_DU_LR",
+//   src: "./img/todo.png",
+//   port_u: Port::Inbound,
+//   port_r: Port::Outbound,
+//   port_d: Port::Inbound,
+//   port_l: Port::Outbound,
+//   cli_icon: '╬',
+// };
+// // ┌v┐
+// // > >
+// // └v┘
+// pub const BELT_LU_DR: BeltMeta = BeltMeta {
+//   btype: BeltType::LU_DR,
+//   dbg: "BELT_LU_DR",
+//   src: "./img/todo.png",
+//   port_u: Port::Inbound,
+//   port_r: Port::Outbound,
+//   port_d: Port::Outbound,
+//   port_l: Port::Inbound,
+//   cli_icon: '╬',
+// };
+// // ┌v┐
+// // > >
+// // └v┘
+// pub const BELT_DL_RU: BeltMeta = BeltMeta {
+//   btype: BeltType::LD_RU,
+//   dbg: "BELT_LD_RU",
+//   src: "./img/todo.png",
+//   port_u: Port::Outbound,
+//   port_r: Port::Outbound,
+//   port_d: Port::Inbound,
+//   port_l: Port::Inbound,
+//   cli_icon: '╬',
+// };
+// // ┌^┐
+// // < <
+// // └^┘
+// pub const BELT_DR_LU: BeltMeta = BeltMeta {
+//   btype: BeltType::DR_LU,
+//   dbg: "BELT_DR_LU",
+//   src: "./img/todo.png",
+//   port_u: Port::Outbound,
+//   port_r: Port::Inbound,
+//   port_d: Port::Inbound,
+//   port_l: Port::Outbound,
+//   cli_icon: '╬',
+// };
+// // ┌^┐
+// // > <
+// // └v┘
+// pub const BELT_LR_DU: BeltMeta = BeltMeta {
+//   btype: BeltType::LR_DU,
+//   dbg: "BELT_LR_DU",
+//   src: "./img/todo.png",
+//   port_u: Port::Outbound,
+//   port_r: Port::Inbound,
+//   port_d: Port::Outbound,
+//   port_l: Port::Inbound,
+//   cli_icon: '╬',
+// };
+// // ┌^┐
+// // > <
+// // └^┘
+// pub const BELT_DLR_U: BeltMeta = BeltMeta {
+//   btype: BeltType::DLR_U,
+//   dbg: "BELT_DLR_U",
+//   src: "./img/todo.png",
+//   port_u: Port::Outbound,
+//   port_r: Port::Inbound,
+//   port_d: Port::Inbound,
+//   port_l: Port::Inbound,
+//   cli_icon: '╬',
+// };
+// // ┌v┐
+// // > >
+// // └^┘
+// pub const BELT_DLU_R: BeltMeta = BeltMeta {
+//   btype: BeltType::DLU_R,
+//   dbg: "BELT_DLU_R",
+//   src: "./img/todo.png",
+//   port_u: Port::Inbound,
+//   port_r: Port::Outbound,
+//   port_d: Port::Inbound,
+//   port_l: Port::Inbound,
+//   cli_icon: '╬',
+// };
+// // ┌v┐
+// // > <
+// // └v┘
+// pub const BELT_LRU_D: BeltMeta = BeltMeta {
+//   btype: BeltType::RLU_D,
+//   dbg: "BELT_RLU_D",
+//   src: "./img/todo.png",
+//   port_u: Port::Inbound,
+//   port_r: Port::Inbound,
+//   port_d: Port::Outbound,
+//   port_l: Port::Inbound,
+//   cli_icon: '╬',
+// };
+// // ┌v┐
+// // < <
+// // └^┘
+// pub const BELT_DRU_L: BeltMeta = BeltMeta {
+//   btype: BeltType::DRU_L,
+//   dbg: "BELT_DRU_L",
+//   src: "./img/todo.png",
+//   port_u: Port::Inbound,
+//   port_r: Port::Inbound,
+//   port_d: Port::Inbound,
+//   port_l: Port::Outbound,
+//   cli_icon: '╬',
+// };
 
 

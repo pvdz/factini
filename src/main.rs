@@ -40,10 +40,3 @@ fn main() {
 
   _cli::cli_main(&mut options, &mut state);
 }
-
-pub fn log(s: &str) {
-  #[cfg(not(target_arch = "wasm32"))]
-  println!("{}", s);
-  #[cfg(target_arch = "wasm32")]
-  _web::log(s);
-}

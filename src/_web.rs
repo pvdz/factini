@@ -145,11 +145,6 @@ struct MouseState {
   last_up_world_y: f64,
 }
 
-pub fn log(s: &str) {
-  // web_sys::console::log_2(&"Color : %s ".into(),&context.fill_style().into());
-  web_sys::console::log_2(&"(rust)".into(), &s.into());
-}
-
 fn dnow() -> u64 {
   js_sys::Date::now() as u64
 }
@@ -205,11 +200,11 @@ fn hit_check_between_world_belts(factory: &Factory, coord: usize, crx: f64, cry:
 }
 
 fn hit_check_cell_editor_any(wx: f64, wy: f64) -> bool {
-  // log(format!("hit_check_cell_editor_any({}, {}) {} {} {} {} = {}", wx, wy, UI_CELL_EDITOR_OX, UI_CELL_EDITOR_OY, UI_CELL_EDITOR_OX + UI_CELL_EDITOR_W, UI_CELL_EDITOR_OY + UI_CELL_EDITOR_H, wx >= UI_CELL_EDITOR_OX && wy >= UI_CELL_EDITOR_OY && wx < UI_CELL_EDITOR_OX + UI_CELL_EDITOR_W && wy < UI_CELL_EDITOR_OY + UI_CELL_EDITOR_H).as_str());
+  // log(format!("hit_check_cell_editor_any({}, {}) {} {} {} {} = {}", wx, wy, UI_CELL_EDITOR_OX, UI_CELL_EDITOR_OY, UI_CELL_EDITOR_OX + UI_CELL_EDITOR_W, UI_CELL_EDITOR_OY + UI_CELL_EDITOR_H, wx >= UI_CELL_EDITOR_OX && wy >= UI_CELL_EDITOR_OY && wx < UI_CELL_EDITOR_OX + UI_CELL_EDITOR_W && wy < UI_CELL_EDITOR_OY + UI_CELL_EDITOR_H));
   return wx >= UI_CELL_EDITOR_OX && wy >= UI_CELL_EDITOR_OY && wx < UI_CELL_EDITOR_OX + UI_CELL_EDITOR_W && wy < UI_CELL_EDITOR_OY + UI_CELL_EDITOR_H;
 }
 fn hit_check_cell_editor_grid(wx: f64, wy: f64) -> bool {
-  // log(format!("hit_check_cell_editor_grid({}, {}) {} {} {} {} = {}", wx, wy, UI_CELL_EDITOR_GRID_OX, UI_CELL_EDITOR_GRID_OY, UI_CELL_EDITOR_GRID_OX + UI_CELL_EDITOR_GRID_W, UI_CELL_EDITOR_GRID_OY + UI_CELL_EDITOR_GRID_H, wx >= UI_CELL_EDITOR_GRID_OX && wx < UI_CELL_EDITOR_GRID_OX + UI_CELL_EDITOR_GRID_W && wy >= UI_CELL_EDITOR_GRID_OY && wy < UI_CELL_EDITOR_GRID_OY + UI_CELL_EDITOR_GRID_H).as_str());
+  // log(format!("hit_check_cell_editor_grid({}, {}) {} {} {} {} = {}", wx, wy, UI_CELL_EDITOR_GRID_OX, UI_CELL_EDITOR_GRID_OY, UI_CELL_EDITOR_GRID_OX + UI_CELL_EDITOR_GRID_W, UI_CELL_EDITOR_GRID_OY + UI_CELL_EDITOR_GRID_H, wx >= UI_CELL_EDITOR_GRID_OX && wx < UI_CELL_EDITOR_GRID_OX + UI_CELL_EDITOR_GRID_W && wy >= UI_CELL_EDITOR_GRID_OY && wy < UI_CELL_EDITOR_GRID_OY + UI_CELL_EDITOR_GRID_H));
   return wx >= UI_CELL_EDITOR_GRID_OX && wx < UI_CELL_EDITOR_GRID_OX + UI_CELL_EDITOR_GRID_W && wy >= UI_CELL_EDITOR_GRID_OY && wy < UI_CELL_EDITOR_GRID_OY + UI_CELL_EDITOR_GRID_H;
 }
 fn hit_check_cell_editor_kind(wx: f64, wy: f64) -> bool {
@@ -221,7 +216,7 @@ pub fn start() -> Result<(), JsValue> {
   // Must run this once in web-mode to enable dumping panics to console.log
   panic::set_hook(Box::new(console_error_panic_hook::hook));
 
-  log("web start...");
+  log(format!("web start..."));
   let document = web_sys::window().unwrap().document().unwrap();
   let canvas = document
     .create_element("canvas")?
@@ -243,56 +238,56 @@ pub fn start() -> Result<(), JsValue> {
   // Preload the belt tiles. Create an array with a to-do image for every slot. Then create img tags
   let mut belt_tile_images: Vec<web_sys::HtmlImageElement> = vec![todo; BELT_TYPE_COUNT]; // Prefill with todo images
   belt_tile_images[BeltType::NONE as usize] = load_tile(BELT_NONE.src)?;
-  belt_tile_images[BeltType::U_R as usize] = load_tile(BELT_U_R.src)?;
-  belt_tile_images[BeltType::R_U as usize] = load_tile(BELT_R_U.src)?;
-  belt_tile_images[BeltType::R_D as usize] = load_tile(BELT_R_D.src)?;
-  belt_tile_images[BeltType::D_R as usize] = load_tile(BELT_D_R.src)?;
-  belt_tile_images[BeltType::D_L as usize] = load_tile(BELT_D_L.src)?;
-  belt_tile_images[BeltType::L_D as usize] = load_tile(BELT_L_D.src)?;
-  belt_tile_images[BeltType::L_U as usize] = load_tile(BELT_L_U.src)?;
-  belt_tile_images[BeltType::U_L as usize] = load_tile(BELT_U_L.src)?;
-  belt_tile_images[BeltType::U_D as usize] = load_tile(BELT_U_D.src)?;
-  belt_tile_images[BeltType::D_U as usize] = load_tile(BELT_D_U.src)?;
-  belt_tile_images[BeltType::L_R as usize] = load_tile(BELT_L_R.src)?;
-  belt_tile_images[BeltType::R_L as usize] = load_tile(BELT_R_L.src)?;
-  belt_tile_images[BeltType::U_LR as usize] = load_tile(BELT_U_LR.src)?;
-  belt_tile_images[BeltType::RU_L as usize] = load_tile(BELT_RU_L.src)?;
-  belt_tile_images[BeltType::LU_R as usize] = load_tile(BELT_LU_R.src)?;
-  belt_tile_images[BeltType::L_RU as usize] = load_tile(BELT_L_RU.src)?;
-  belt_tile_images[BeltType::LR_U as usize] = load_tile(BELT_LR_U.src)?;
-  belt_tile_images[BeltType::R_LU as usize] = load_tile(BELT_R_LU.src)?;
-  belt_tile_images[BeltType::R_DU as usize] = load_tile(BELT_R_DU.src)?;
-  belt_tile_images[BeltType::RU_D as usize] = load_tile(BELT_RU_D.src)?;
-  belt_tile_images[BeltType::DR_U as usize] = load_tile(BELT_DR_U.src)?;
-  belt_tile_images[BeltType::DU_R as usize] = load_tile(BELT_DU_R.src)?;
-  belt_tile_images[BeltType::U_DR as usize] = load_tile(BELT_U_DR.src)?;
-  belt_tile_images[BeltType::D_RU as usize] = load_tile(BELT_D_RU.src)?;
-  belt_tile_images[BeltType::D_LR as usize] = load_tile(BELT_D_LR.src)?;
-  belt_tile_images[BeltType::DL_R as usize] = load_tile(BELT_DL_R.src)?;
-  belt_tile_images[BeltType::DR_L as usize] = load_tile(BELT_DR_L.src)?;
-  belt_tile_images[BeltType::LR_D as usize] = load_tile(BELT_LR_D.src)?;
-  belt_tile_images[BeltType::L_DR as usize] = load_tile(BELT_L_DR.src)?;
-  belt_tile_images[BeltType::R_DL as usize] = load_tile(BELT_R_DL.src)?;
-  belt_tile_images[BeltType::L_DU as usize] = load_tile(BELT_L_DU.src)?;
-  belt_tile_images[BeltType::LU_D as usize] = load_tile(BELT_LU_D.src)?;
-  belt_tile_images[BeltType::DL_U as usize] = load_tile(BELT_DL_U.src)?;
-  belt_tile_images[BeltType::DU_L as usize] = load_tile(BELT_DU_L.src)?;
-  belt_tile_images[BeltType::U_DL as usize] = load_tile(BELT_U_DL.src)?;
-  belt_tile_images[BeltType::D_UL as usize] = load_tile(BELT_D_LU.src)?;
-  belt_tile_images[BeltType::U_DLR as usize] = load_tile(BELT_U_DLR.src)?;
-  belt_tile_images[BeltType::R_DLU as usize] = load_tile(BELT_R_DLU.src)?;
-  belt_tile_images[BeltType::D_LRU as usize] = load_tile(BELT_D_LRU.src)?;
-  belt_tile_images[BeltType::L_DRU as usize] = load_tile(BELT_L_DRU.src)?;
-  belt_tile_images[BeltType::RU_DL as usize] = load_tile(BELT_RU_DL.src)?;
-  belt_tile_images[BeltType::DU_LR as usize] = load_tile(BELT_DU_LR.src)?;
-  belt_tile_images[BeltType::LU_DR as usize] = load_tile(BELT_LU_DR.src)?;
-  belt_tile_images[BeltType::LD_RU as usize] = load_tile(BELT_DL_RU.src)?;
-  belt_tile_images[BeltType::DR_LU as usize] = load_tile(BELT_DR_LU.src)?;
-  belt_tile_images[BeltType::LR_DU as usize] = load_tile(BELT_LR_DU.src)?;
-  belt_tile_images[BeltType::DLR_U as usize] = load_tile(BELT_DLR_U.src)?;
-  belt_tile_images[BeltType::DLU_R as usize] = load_tile(BELT_DLU_R.src)?;
-  belt_tile_images[BeltType::RLU_D as usize] = load_tile(BELT_LRU_D.src)?;
-  belt_tile_images[BeltType::DRU_L as usize] = load_tile(BELT_DRU_L.src)?;
+  // belt_tile_images[BeltType::U_R as usize] = load_tile(BELT_U_R.src)?;
+  // belt_tile_images[BeltType::R_U as usize] = load_tile(BELT_R_U.src)?;
+  // belt_tile_images[BeltType::R_D as usize] = load_tile(BELT_R_D.src)?;
+  // belt_tile_images[BeltType::D_R as usize] = load_tile(BELT_D_R.src)?;
+  // belt_tile_images[BeltType::D_L as usize] = load_tile(BELT_D_L.src)?;
+  // belt_tile_images[BeltType::L_D as usize] = load_tile(BELT_L_D.src)?;
+  // belt_tile_images[BeltType::L_U as usize] = load_tile(BELT_L_U.src)?;
+  // belt_tile_images[BeltType::U_L as usize] = load_tile(BELT_U_L.src)?;
+  // belt_tile_images[BeltType::U_D as usize] = load_tile(BELT_U_D.src)?;
+  // belt_tile_images[BeltType::D_U as usize] = load_tile(BELT_D_U.src)?;
+  // belt_tile_images[BeltType::L_R as usize] = load_tile(BELT_L_R.src)?;
+  // belt_tile_images[BeltType::R_L as usize] = load_tile(BELT_R_L.src)?;
+  // belt_tile_images[BeltType::U_LR as usize] = load_tile(BELT_U_LR.src)?;
+  // belt_tile_images[BeltType::RU_L as usize] = load_tile(BELT_RU_L.src)?;
+  // belt_tile_images[BeltType::LU_R as usize] = load_tile(BELT_LU_R.src)?;
+  // belt_tile_images[BeltType::L_RU as usize] = load_tile(BELT_L_RU.src)?;
+  // belt_tile_images[BeltType::LR_U as usize] = load_tile(BELT_LR_U.src)?;
+  // belt_tile_images[BeltType::R_LU as usize] = load_tile(BELT_R_LU.src)?;
+  // belt_tile_images[BeltType::R_DU as usize] = load_tile(BELT_R_DU.src)?;
+  // belt_tile_images[BeltType::RU_D as usize] = load_tile(BELT_RU_D.src)?;
+  // belt_tile_images[BeltType::DR_U as usize] = load_tile(BELT_DR_U.src)?;
+  // belt_tile_images[BeltType::DU_R as usize] = load_tile(BELT_DU_R.src)?;
+  // belt_tile_images[BeltType::U_DR as usize] = load_tile(BELT_U_DR.src)?;
+  // belt_tile_images[BeltType::D_RU as usize] = load_tile(BELT_D_RU.src)?;
+  // belt_tile_images[BeltType::D_LR as usize] = load_tile(BELT_D_LR.src)?;
+  // belt_tile_images[BeltType::DL_R as usize] = load_tile(BELT_DL_R.src)?;
+  // belt_tile_images[BeltType::DR_L as usize] = load_tile(BELT_DR_L.src)?;
+  // belt_tile_images[BeltType::LR_D as usize] = load_tile(BELT_LR_D.src)?;
+  // belt_tile_images[BeltType::L_DR as usize] = load_tile(BELT_L_DR.src)?;
+  // belt_tile_images[BeltType::R_DL as usize] = load_tile(BELT_R_DL.src)?;
+  // belt_tile_images[BeltType::L_DU as usize] = load_tile(BELT_L_DU.src)?;
+  // belt_tile_images[BeltType::LU_D as usize] = load_tile(BELT_LU_D.src)?;
+  // belt_tile_images[BeltType::DL_U as usize] = load_tile(BELT_DL_U.src)?;
+  // belt_tile_images[BeltType::DU_L as usize] = load_tile(BELT_DU_L.src)?;
+  // belt_tile_images[BeltType::U_DL as usize] = load_tile(BELT_U_DL.src)?;
+  // belt_tile_images[BeltType::D_UL as usize] = load_tile(BELT_D_LU.src)?;
+  // belt_tile_images[BeltType::U_DLR as usize] = load_tile(BELT_U_DLR.src)?;
+  // belt_tile_images[BeltType::R_DLU as usize] = load_tile(BELT_R_DLU.src)?;
+  // belt_tile_images[BeltType::D_LRU as usize] = load_tile(BELT_D_LRU.src)?;
+  // belt_tile_images[BeltType::L_DRU as usize] = load_tile(BELT_L_DRU.src)?;
+  // belt_tile_images[BeltType::RU_DL as usize] = load_tile(BELT_RU_DL.src)?;
+  // belt_tile_images[BeltType::DU_LR as usize] = load_tile(BELT_DU_LR.src)?;
+  // belt_tile_images[BeltType::LU_DR as usize] = load_tile(BELT_LU_DR.src)?;
+  // belt_tile_images[BeltType::LD_RU as usize] = load_tile(BELT_DL_RU.src)?;
+  // belt_tile_images[BeltType::DR_LU as usize] = load_tile(BELT_DR_LU.src)?;
+  // belt_tile_images[BeltType::LR_DU as usize] = load_tile(BELT_LR_DU.src)?;
+  // belt_tile_images[BeltType::DLR_U as usize] = load_tile(BELT_DLR_U.src)?;
+  // belt_tile_images[BeltType::DLU_R as usize] = load_tile(BELT_DLU_R.src)?;
+  // belt_tile_images[BeltType::RLU_D as usize] = load_tile(BELT_LRU_D.src)?;
+  // belt_tile_images[BeltType::DRU_L as usize] = load_tile(BELT_DRU_L.src)?;
   belt_tile_images[BeltType::RU as usize] = load_tile(BELT_RU.src)?;
   belt_tile_images[BeltType::DR as usize] = load_tile(BELT_DR.src)?;
   belt_tile_images[BeltType::DL as usize] = load_tile(BELT_DL.src)?;
@@ -304,6 +299,7 @@ pub fn start() -> Result<(), JsValue> {
   belt_tile_images[BeltType::DLR as usize] = load_tile(BELT_DLR.src)?;
   belt_tile_images[BeltType::DLU as usize] = load_tile(BELT_DLU.src)?;
   belt_tile_images[BeltType::DLRU as usize] = load_tile(BELT_DLRU.src)?;
+  belt_tile_images[BeltType::UNKNOWN as usize] = load_tile(BELT_UNKNOWN.src)?;
   belt_tile_images[BeltType::INVALID as usize] = load_tile(BELT_INVALID.src)?;
 
   let part_tile_sprite: web_sys::HtmlImageElement = load_tile("./img/roguelikeitems.png")?;
@@ -416,14 +412,14 @@ pub fn start() -> Result<(), JsValue> {
 
   {
     let start_time: f64 = perf.now(); // perf.now is almost same as date.now except; it's not based on system clock (so changing system time affects date.now and does not change perf.now: https://developer.mozilla.org/en-US/docs/Web/API/Performance/now)
-    log(&format!("start time: {}", start_time));
+    log(format!("start time: {}", start_time));
 
     let context = context.clone();
 
     let mut prev_time = start_time;
 
     let mut fps: VecDeque<f64> = VecDeque::new();
-    
+
     let mut cell_selection = CellSelection {
       on: false,
       x: 0.0,
@@ -503,35 +499,9 @@ pub fn start() -> Result<(), JsValue> {
       if options.web_output_cli {
         draw_world_cli(&context, &mut options, &mut state, &factory);
       } else {
-        // Handle drag-end or click
-        if mouse_state.was_up {
-          // Clear the click state
-          last_mouse_up_x.set(0.0);
-          last_mouse_up_y.set(0.0);
+        // First handle drag-end or click
 
-
-          if mouse_state.is_dragging {
-            // This is more a visual thing I think
-          } else {
-            // Was the click inside the painted world?
-            // In that case we change/toggle the cell selection
-            if mouse_state.last_up_world_x >= WORLD_OFFSET_X && mouse_state.last_up_world_y >= WORLD_OFFSET_Y && mouse_state.last_up_world_x < WORLD_OFFSET_X + WORLD_WIDTH && mouse_state.last_up_world_y < WORLD_OFFSET_Y + WORLD_HEIGHT {
-              on_click_inside_floor(&mut options, &mut state, &mut factory, &mut cell_selection, &mouse_state);
-            }
-            // Is the click inside the cell editor?
-            else if cell_selection.on && hit_check_cell_editor_any(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
-              // Is the mouse clicking on one of the focused grid segments?
-              if hit_check_cell_editor_grid(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
-                on_click_inside_cell_editor_grid(&mut options, &mut state, &mut factory, &cell_selection, &mouse_state);
-              } else {
-                // Is the mouse clicking on the focused cell's "kind" box?
-                if hit_check_cell_editor_kind(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
-                  on_click_inside_cell_editor_kind(&options, &state, &mut factory, &cell_selection, &mouse_state);
-                }
-              }
-            }
-          }
-        }
+        handle_input(&mut cell_selection, &mut mouse_state, &mut options, &mut state, &mut factory);
 
         // Paint the world
 
@@ -694,12 +664,37 @@ fn draw_world_cli(context: &Rc<web_sys::CanvasRenderingContext2d>, options: &mut
     context.fill_text(format!("{}", lines[n]).as_str(), 50.0, (n as f64) * 24.0 + 50.0).expect("something lower error fill_text");
   }
 }
+fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, factory: &mut Factory) {
+  if mouse_state.was_up {
+    if mouse_state.is_dragging {
+      // This is more a visual thing I think
+    } else {
+      // Was the click inside the painted world?
+      // In that case we change/toggle the cell selection
+      if mouse_state.last_up_world_x >= WORLD_OFFSET_X && mouse_state.last_up_world_y >= WORLD_OFFSET_Y && mouse_state.last_up_world_x < WORLD_OFFSET_X + WORLD_WIDTH && mouse_state.last_up_world_y < WORLD_OFFSET_Y + WORLD_HEIGHT {
+        on_up_inside_floor(options, state, factory, cell_selection, &mouse_state);
+      }
+      // Is the click inside the cell editor?
+      else if cell_selection.on && hit_check_cell_editor_any(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
+        // Is the mouse clicking on one of the focused grid segments?
+        if hit_check_cell_editor_grid(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
+          on_click_inside_cell_editor_grid(options, state, factory, &cell_selection, &mouse_state);
+        } else {
+          // Is the mouse clicking on the focused cell's "kind" box?
+          if hit_check_cell_editor_kind(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
+            on_click_inside_cell_editor_kind(options, state, factory, &cell_selection, &mouse_state);
+          }
+        }
+      }
+    }
+  }
+}
 fn on_click_inside_cell_editor_kind(options: &Options, state: &State, factory: &mut Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
   // There are two cases; edge and middle cells. Supply/Demand can only go on edge.
   // Machine and Belt can only go in middle. Empty can go anywhere.
-  log(format!("from the {} {} {} {}", mouse_state.cell_x, mouse_state.cell_y, FLOOR_CELLS_W as f64 - 1.0, FLOOR_CELLS_H as f64 - 1.0).as_str());
+  log(format!("from the {} {} {} {}", mouse_state.cell_x, mouse_state.cell_y, FLOOR_CELLS_W as f64 - 1.0, FLOOR_CELLS_H as f64 - 1.0));
   if cell_selection.x == 0.0 || cell_selection.y == 0.0 || cell_selection.x == FLOOR_CELLS_W as f64 - 1.0 || cell_selection.y == FLOOR_CELLS_H as f64 - 1.0 {
-    log("from the top");
+    log(format!("from the top"));
     // Edge. Cycle between Empty, Supply, and Demand
     match factory.floor[cell_selection.coord].kind {
       CellKind::Empty => {
@@ -718,7 +713,7 @@ fn on_click_inside_cell_editor_kind(options: &Options, state: &State, factory: &
       => panic!("edge should not contain machine or belt"),
     }
   } else {
-    log("from the middle");
+    log(format!("from the middle"));
     // Middle. Cycle between Empty, Machine, and Belt
     match factory.floor[cell_selection.coord].kind {
       CellKind::Empty => {
@@ -738,7 +733,7 @@ fn on_click_inside_cell_editor_kind(options: &Options, state: &State, factory: &
 
   // Recreate cell traversal order
   let prio: Vec<usize> = create_prio_list(options, &mut factory.floor);
-  log(format!("Updated prio list: {:?}", prio).as_str());
+  log(format!("Updated prio list: {:?}", prio));
   factory.prio = prio;
 }
 fn paint_background_tiles(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, belt_tile_images: &Vec<web_sys::HtmlImageElement>, img_machine2: &web_sys::HtmlImageElement) {
@@ -981,7 +976,7 @@ fn ray_trace_dragged_line(factory: &Factory, x0: f64, y0: f64, x1: f64, y1: f64)
     let (x, y) = covered[index];
     // Always set the previous one.
     let new_from = get_from_dir_between_xy(lx, ly, x, y);
-    let bt = get_ghost_cell_from_cell(&factory, to_coord(lx, ly), if index == 1 { direction_reverse(new_from) } else { last_from }, direction_reverse(new_from), index > 1);
+    let bt = get_belt_type_for_cell_ports_extended(&factory, to_coord(lx, ly), if index == 1 { direction_reverse(new_from) } else { last_from }, direction_reverse(new_from), index > 1);
     track.push(((lx, ly), bt));
 
     lx = x;
@@ -991,7 +986,7 @@ fn ray_trace_dragged_line(factory: &Factory, x0: f64, y0: f64, x1: f64, y1: f64)
 
   // And the last one, which is excluded from the loop. If the covered vec has one element this
   // will be the first element, in which case the type will be the INVALID tile.
-  let bt = if covered.len() <= 1 { BeltType::INVALID } else { get_ghost_cell_from_cell(&factory, to_coord(lx, ly), last_from, last_from, false) };
+  let bt = if covered.len() <= 1 { BeltType::INVALID } else { get_belt_type_for_cell_ports_extended(&factory, to_coord(lx, ly), last_from, last_from, false) };
   track.push(((lx, ly), bt));
 
   return track;
@@ -1052,36 +1047,6 @@ fn get_cells_from_a_to_b(x0: f64, y0: f64, x1: f64, y1: f64) -> Vec<(usize, usiz
   }
 
   return covered;
-}
-fn get_ghost_cell_from_cell(factory: &Factory, coord: usize, dir1: Direction, dir2: Direction, ignore_neighbors: bool) -> BeltType {
-  // Given a coord and two dirs return a belt type that has _a_ port in all the directions of:
-  // - the given dirs
-  // - the non-none ports of the current cell
-  // - any dir where the neighbor is a belt (if flag is not set)
-
-  match (
-    dir1 == Direction::Up || dir2 == Direction::Up || factory.floor[coord].port_u != Port::None || (!ignore_neighbors && factory.floor[coord].coord_u != None && factory.floor[factory.floor[coord].coord_u.unwrap()].kind == CellKind::Belt),
-    dir1 == Direction::Right || dir2 == Direction::Right || factory.floor[coord].port_r != Port::None || (!ignore_neighbors && factory.floor[coord].coord_r != None && factory.floor[factory.floor[coord].coord_r.unwrap()].kind == CellKind::Belt),
-    dir1 == Direction::Down || dir2 == Direction::Down || factory.floor[coord].port_d != Port::None || (!ignore_neighbors && factory.floor[coord].coord_d != None && factory.floor[factory.floor[coord].coord_d.unwrap()].kind == CellKind::Belt),
-    dir1 == Direction::Left || dir2 == Direction::Left || factory.floor[coord].port_l != Port::None || (!ignore_neighbors && factory.floor[coord].coord_l != None && factory.floor[factory.floor[coord].coord_l.unwrap()].kind == CellKind::Belt),
-  ) {
-    (true, false, false, false) => BeltType::INVALID, // TODO
-    (true, true, false, false) => BeltType::RU,
-    (true, false, true, false) => BeltType::DU,
-    (true, false, false, true) => BeltType::LU,
-    (true, true, true, false) => BeltType::DRU,
-    (true, true, false, true) => BeltType::LRU,
-    (true, false, true, true) => BeltType::DLU,
-    (true, true, true, true) => BeltType::DLRU,
-    (false, false, false, false) => BeltType::INVALID, // TODO
-    (false, true, false, false) => BeltType::INVALID, // TODO
-    (false, false, true, false) => BeltType::INVALID, // TODO
-    (false, false, false, true) => BeltType::INVALID, // TODO
-    (false, true, true, false) => BeltType::DR,
-    (false, true, false, true) => BeltType::LR,
-    (false, false, true, true) => BeltType::DL,
-    (false, true, true, true) => BeltType::DLR,
-  }
 }
 fn draw_ghost_belt_of_type(cell_x: usize, cell_y: usize, belt_type: BeltType, context: &Rc<web_sys::CanvasRenderingContext2d>, belt_tile_images: &Vec<web_sys::HtmlImageElement>) {
   let img: &HtmlImageElement = &belt_tile_images[belt_type as usize];
@@ -1224,7 +1189,7 @@ fn paint_cell_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &
     ).as_str(), ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + 2.0 * UI_FONT_H).expect("to paint port");
   }
 }
-fn on_click_inside_floor(options: &mut Options, state: &mut State, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
+fn on_up_inside_floor(options: &mut Options, state: &mut State, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
   let last_mouse_up_cell_x = (mouse_state.last_up_world_x / CELL_W).floor();
   let last_mouse_up_cell_y = (mouse_state.last_up_world_y / CELL_H).floor();
   let last_mouse_up_cell_coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
@@ -1233,33 +1198,40 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, factory: &mut
 
   // Check if the icon between connected belts was clicked
   if last_mouse_up_cell_x >= 0.0 && last_mouse_up_cell_y >= 0.0 && last_mouse_up_cell_x < FLOOR_CELLS_W as f64 && last_mouse_up_cell_y < FLOOR_CELLS_H as f64 {
-    // let found = hit_check_between_world_belts(factory, last_mouse_up_cell_coord, last_mouse_up_inside_cell_x, last_mouse_up_inside_cell_y);
-    // log(format!("on_click_inside_floor(); hit_check_between_world_belts() -> {:?}", found).as_str());
-    // // If found (not CENTER) then drop the ports between these cells
-    // match found {
-    //   Some(Direction::Up) => {
-    //     factory.floor[last_mouse_up_cell_coord].port_u = Port::None;
-    //     factory.floor[to_coord_up(last_mouse_up_cell_coord)].port_d = Port::None;
-    //   },
-    //   Some(Direction::Right) => {
-    //     factory.floor[last_mouse_up_cell_coord].port_r = Port::None;
-    //     factory.floor[to_coord_right(last_mouse_up_cell_coord)].port_l = Port::None;
-    //   },
-    //   Some(Direction::Down) => {
-    //     factory.floor[last_mouse_up_cell_coord].port_d = Port::None;
-    //     factory.floor[to_coord_down(last_mouse_up_cell_coord)].port_u = Port::None;
-    //   },
-    //   Some(Direction::Left) => {
-    //     factory.floor[last_mouse_up_cell_coord].port_l = Port::None;
-    //     factory.floor[to_coord_left(last_mouse_up_cell_coord)].port_r = Port::None;
-    //   },
-    //   None => {
     if mouse_state.was_dragging {
       // Finalize pathing, regenerate floor
+      let track = ray_trace_dragged_line(
+        factory,
+        (mouse_state.last_down_world_x / CELL_W).floor(),
+        (mouse_state.last_down_world_y / CELL_H).floor(),
+        mouse_state.cell_x.floor(),
+        mouse_state.cell_y.floor(),
+      );
+
+      log(format!("track to solidify: {:?}", track));
+
+      let len = track.len();
+      for index in 0..len {
+        let ((x, y), belt_type) = track[index];
+        let coord = to_coord(x, y);
+
+        // Staple the track on top of the existing layout
+
+        match factory.floor[coord].kind {
+          CellKind::Belt => {
+            update_meta_to_belt_type_and_belt_neighbors(factory, coord, belt_type, index == 0 || index == len - 1);
+          }
+          CellKind::Empty => {
+            factory.floor[coord] = belt_cell(x, y, belt_type_to_belt_meta(belt_type));
+            update_ports_of_neighbor_cells(factory, coord, index == 0 || index == len - 1);
+          }
+          _ => (), // Do not overwrite machines, suppliers, or demanders
+        }
+      }
 
     } else {
         // Center means the click was not between belts with connected ports... De-/Select this cell
-        log(format!("clicked {} {} cell selection before: {:?}", last_mouse_up_cell_x, last_mouse_up_cell_y, cell_selection).as_str());
+        log(format!("clicked {} {} cell selection before: {:?}", last_mouse_up_cell_x, last_mouse_up_cell_y, cell_selection));
 
         if cell_selection.on && cell_selection.x == last_mouse_up_cell_x && cell_selection.y == last_mouse_up_cell_y {
           cell_selection.on = false;
@@ -1270,19 +1242,18 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, factory: &mut
           cell_selection.coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
         }
     }
-    //   }
-    // }
   }
 }
+
 fn on_click_inside_cell_editor_grid(options: &mut Options, state: &mut State, factory: &mut Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
-  log("TODO: on_click_inside_cell_editor_grid()");
+  log(format!("TODO: on_click_inside_cell_editor_grid()"));
 
   // Clicked inside the grid
   // Determine which segment and then rotate that segment
   let click_cell_x = ((mouse_state.last_up_world_x - UI_CELL_EDITOR_GRID_OX) / UI_SEGMENT_W).floor();
   let click_cell_y = ((mouse_state.last_up_world_y - UI_CELL_EDITOR_GRID_OY) / UI_SEGMENT_H).floor();
 
-  log(format!("sxy: {} {}", click_cell_x, click_cell_y).as_str());
+  log(format!("sxy: {} {}", click_cell_x, click_cell_y));
 
   let seg = match (click_cell_x as i8, click_cell_y as i8) {
     (1, 0) => Some(Direction::Up),
