@@ -4,6 +4,7 @@ use std::convert::TryInto;
 use super::belt::*;
 use super::cell::*;
 use super::demand::*;
+use super::factory::*;
 use super::direction::*;
 use super::machine::*;
 use super::options::*;
@@ -32,7 +33,6 @@ pub fn floor_from_str(str: String) -> [Cell; FLOOR_CELLS_WH] {
   }
 
   let mut floor = str_to_floor(str);
-  auto_layout(&mut floor);
   return floor;
 }
 
@@ -289,38 +289,39 @@ fn str_to_floor(str: String) -> [Cell; FLOOR_CELLS_WH] {
     .try_into() // runtime error if bad but this is fine
     .unwrap();
 }
-fn auto_layout(floor: &mut [Cell; FLOOR_CELLS_WH]) {
+
+pub fn auto_layout(factory: &mut Factory) {
   let mut machines = 0;
   for coord in 0..FLOOR_CELLS_WH {
-    match floor[coord].kind {
+    match factory.floor[coord].kind {
       CellKind::Empty => {}
       CellKind::Belt => {
-        let up = get_kind_at(floor, floor[coord].coord_u);
-        let right = get_kind_at(floor, floor[coord].coord_r);
-        let down = get_kind_at(floor, floor[coord].coord_d);
-        let left = get_kind_at(floor, floor[coord].coord_l);
+        let up = get_cell_kind_at(factory, factory.floor[coord].coord_u);
+        let right = get_cell_kind_at(factory, factory.floor[coord].coord_r);
+        let down = get_cell_kind_at(factory, factory.floor[coord].coord_d);
+        let left = get_cell_kind_at(factory, factory.floor[coord].coord_l);
 
-        floor[coord].belt = belt_new(belt_auto_layout(up, right, down, left));
+        factory.floor[coord].belt = belt_new(belt_auto_layout(up, right, down, left));
       }
       CellKind::Machine => {
-        if floor[coord].machine.kind == MachineKind::Unknown {
+        if factory.floor[coord].machine.kind == MachineKind::Unknown {
           // This will be the main machine cell.
           // Any neighboring machine cells will be converted to be sub cells of this machine
           // Recursively collect them and mark them now so this loop skips these sub cells
-          floor[coord].machine.kind = MachineKind::Main;
-          floor[coord].machine.main_coord = coord;
-          floor[coord].machine.id = machines;
-          floor[coord].machine.coords = vec!(coord); // First element is always main coord
-          auto_layout_tag_machine(floor, floor[coord].coord_u, coord, machines);
-          auto_layout_tag_machine(floor, floor[coord].coord_r, coord, machines);
-          auto_layout_tag_machine(floor, floor[coord].coord_d, coord, machines);
-          auto_layout_tag_machine(floor, floor[coord].coord_l, coord, machines);
+          factory.floor[coord].machine.kind = MachineKind::Main;
+          factory.floor[coord].machine.main_coord = coord;
+          factory.floor[coord].machine.id = machines;
+          factory.floor[coord].machine.coords = vec!(coord); // First element is always main coord
+          auto_layout_tag_machine(factory, factory.floor[coord].coord_u, coord, machines);
+          auto_layout_tag_machine(factory, factory.floor[coord].coord_r, coord, machines);
+          auto_layout_tag_machine(factory, factory.floor[coord].coord_d, coord, machines);
+          auto_layout_tag_machine(factory, factory.floor[coord].coord_l, coord, machines);
 
           machines += 1;
           // Since order does not _really_ matter, it's easier to debug when the subs are in
           // grid order of appearance so just sort them incrementally
-          floor[coord].machine.coords.sort();
-          println!("Machine {} @{} has these parts: {:?}", floor[coord].machine.id, coord, floor[coord].machine.coords);
+          factory.floor[coord].machine.coords.sort();
+          println!("Machine {} @{} has these parts: {:?}", factory.floor[coord].machine.id, coord, factory.floor[coord].machine.coords);
         }
       }
       CellKind::Supply => {}
@@ -328,51 +329,34 @@ fn auto_layout(floor: &mut [Cell; FLOOR_CELLS_WH]) {
     }
   }
 
-  // Start at demands, mark connected belts
-  // From connected belts, mark any other connected belt if it is connected to only one unmarked
-  // belt. If it is connected to a machine or belt with no unmarked neighbors, then it is looping.
-  // From connected machines, do the same
-  // When all paths are exhausted collect all machines and belts which are connected to at least
-  // one unmarked belt. Mark those and repeat.
-  // When there is no more
-
-  let mut attempt = 1; // start at 1 because this value gets used -1, too, and it's a u32.
-  while auto_port(floor, attempt) {
-    attempt += 1;
-  }
+  keep_auto_porting(factory);
 }
-fn auto_layout_tag_machine(floor: &mut [Cell; FLOOR_CELLS_WH], sub_coord: Option<usize>, main_coord: usize, machine_id: usize) {
+fn auto_layout_tag_machine(factory: &mut Factory, sub_coord: Option<usize>, main_coord: usize, machine_id: usize) {
   // Base "end" case for recursion: cell is not an unknown machine
   match sub_coord {
     None => {} // Noop
     Some(ocoord) => {
-      if floor[ocoord].kind == CellKind::Machine {
-        if floor[ocoord].machine.kind == MachineKind::Unknown {
-          floor[ocoord].machine.kind = MachineKind::SubBuilding;
-          floor[ocoord].machine.main_coord = main_coord;
-          floor[ocoord].machine.id = machine_id;
-          floor[main_coord].machine.coords.push(ocoord);
+      if factory.floor[ocoord].kind == CellKind::Machine {
+        if factory.floor[ocoord].machine.kind == MachineKind::Unknown {
+          factory.floor[ocoord].machine.kind = MachineKind::SubBuilding;
+          factory.floor[ocoord].machine.main_coord = main_coord;
+          factory.floor[ocoord].machine.id = machine_id;
+          factory.floor[main_coord].machine.coords.push(ocoord);
           println!("Tagged @{} as part of machine {}", ocoord, machine_id);
           // Find all neighbors. Lazily include the one you just came from. It'll be ignored.
-          auto_layout_tag_machine(floor, floor[ocoord].coord_u, main_coord, machine_id);
-          auto_layout_tag_machine(floor, floor[ocoord].coord_r, main_coord, machine_id);
-          auto_layout_tag_machine(floor, floor[ocoord].coord_d, main_coord, machine_id);
-          auto_layout_tag_machine(floor, floor[ocoord].coord_l, main_coord, machine_id);
+          auto_layout_tag_machine(factory, factory.floor[ocoord].coord_u, main_coord, machine_id);
+          auto_layout_tag_machine(factory, factory.floor[ocoord].coord_r, main_coord, machine_id);
+          auto_layout_tag_machine(factory, factory.floor[ocoord].coord_d, main_coord, machine_id);
+          auto_layout_tag_machine(factory, factory.floor[ocoord].coord_l, main_coord, machine_id);
         } else {
           // Since we're expanding from a single machine cell, we should be finding and tagging all neighboring machine cells in the same way. As such, I don't think it should be possible to have a machine of a different kind here.
           // (This may be different in the future, I don't think it's a hard long term requirement, but right now it is)
           // (One example where this won't be true anymore is when placing machines adjacent to each other. But in that case there's less auto-layout? Or maybe it's just possible in that case. Dunno yet.)
-          assert_eq!(floor[ocoord].machine.main_coord, main_coord, "if neighbor is not an unknown machine then it has to be part of the same machine");
+          assert_eq!(factory.floor[ocoord].machine.main_coord, main_coord, "if neighbor is not an unknown machine then it has to be part of the same machine");
         }
       }
     }
   }
-}
-fn get_kind_at(floor: &mut [Cell; FLOOR_CELLS_WH], coord: Option<usize>) -> CellKind {
-  return match coord {
-    None => CellKind::Empty,
-    Some(coord) => floor[coord].kind,
-  };
 }
 
 pub fn get_edge_neighbor(x: usize, y: usize, coord: usize) -> (usize, Direction, Direction) {

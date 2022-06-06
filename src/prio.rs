@@ -179,7 +179,9 @@ pub fn create_prio_list(options: &Options, floor: &mut [Cell; FLOOR_CELLS_WH]) -
         floor[coord].marked = true;
         floor[coord2].marked = true;
         if options.trace_priority_step { log(format!("- Adding {} as the cell that is connected to a Demand at {}", coord2, coord)); }
-        demand_connects.push(coord2);
+        if floor[coord2].kind != CellKind::Empty {
+          demand_connects.push(coord2);
+        }
       }
       CellKind::Empty => {
         floor[coord].marked = true;

@@ -363,11 +363,10 @@ pub fn start() -> Result<(), JsValue> {
 
 
   // Static state configuration (can still be changed by user)
-  let mut options = create_options(5.0);
+  let mut options = create_options(1.0);
 
   // General app state
   let mut state = State {};
-
 
   let map = "\
     ...............s.\n\
@@ -399,6 +398,8 @@ pub fn start() -> Result<(), JsValue> {
     d4 = g\n\
   ";
   let mut factory = create_factory(&mut options, &mut state, map.to_string());
+  print_floor_with_views(&mut options, &mut state, &mut factory);
+  print_floor_without_views(&mut options, &mut state, &mut factory);
 
   // Do not record the cost of belt cells. assume them an ongoing 10k x belt cost cost/min modifier
   // Only record the non-belt costs, which happen far less frequently and mean the delta queue
@@ -814,7 +815,7 @@ fn paint_belt_items(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &F
     match cell.kind {
       CellKind::Empty => (),
       CellKind::Belt => {
-        let progress_c = progress(factory.ticks, cell.belt.part_at, cell.belt.speed);
+        let progress_c = progress(factory.ticks, cell.belt.part_at, cell.belt.speed).min(1.0);
         let first_half = progress_c < 0.5;
 
         // Start with the coordinate to paint the icon such that it ends up centered 
@@ -1228,6 +1229,8 @@ fn on_up_inside_floor(options: &mut Options, state: &mut State, factory: &mut Fa
           _ => (), // Do not overwrite machines, suppliers, or demanders
         }
       }
+
+      auto_port(factory, 1);
 
     } else {
         // Center means the click was not between belts with connected ports... De-/Select this cell

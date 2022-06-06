@@ -8,6 +8,7 @@ use super::options::*;
 use super::machine::*;
 use super::part::*;
 use super::state::*;
+use super::utils::*;
 
 fn serialize(options: &mut Options, state: &mut State, factory: &Factory) -> String {
   let mut out = vec!();
@@ -204,7 +205,7 @@ fn serialize_cb(options: &mut Options, state: &mut State, factory: &Factory, cb:
 pub fn print_floor_with_views(options: &mut Options, state: &mut State, factory: &Factory) {
   let lines = generate_floor_with_views(options, state, factory);
   for line in lines {
-    println!("{}", line);
+    log(format!("{}", line));
   }
 }
 
@@ -281,7 +282,7 @@ pub fn generate_floor_with_views(options: &mut Options, state: &mut State, facto
 pub fn print_floor_without_views(options: &mut Options, state: &mut State, factory: &Factory) {
   let lines = generate_floor_without_views(options, state, factory);
   for line in lines {
-    println!("{}", line);
+    log(format!("{}", line));
   }
 }
 pub fn generate_floor_without_views(options: &mut Options, state: &mut State, factory: &Factory) -> Vec<String> {

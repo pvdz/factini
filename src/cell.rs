@@ -393,3 +393,10 @@ pub fn update_ports_of_neighbor_cells(factory: &mut Factory, coord: usize, fix_n
     }
   }
 }
+
+pub fn get_cell_kind_at(factory: &mut Factory, coord: Option<usize>) -> CellKind {
+  return match coord {
+    None => CellKind::Empty,
+    Some(coord) => factory.floor[coord].kind,
+  };
+}

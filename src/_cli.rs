@@ -13,15 +13,15 @@ use super::state::*;
 pub fn cli_main(options: &mut Options, state: &mut State) {
 
   let map = "\
-    ............s....\n\
-    sb.111bbbbbbbbb..\n\
-    .b.111........b..\n\
-    .b.111bbbbbb..b..\n\
-    .b.b.b.....b..b..\n\
-    .b.b.bbbb..b..b..\n\
-    .b.b....b..b..b..\n\
-    .bbb...222.b..b..\n\
-    ...b...222.b..b..\n\
+    ...............s.\n\
+    sb.111bbbbbbbb.b.\n\
+    .b.111.......b.b.\n\
+    .b.111bbbbb..bbb.\n\
+    .b.b.b....bb...b.\n\
+    .b.b.bbbb..b...b.\n\
+    .b.b....b..b...b.\n\
+    .bbb...222.b...b.\n\
+    ...b...222.b..bb.\n\
     sbbb...222.b..b..\n\
     ........b..b..bbs\n\
     ..bbbbbbb..b.....\n\
@@ -44,6 +44,12 @@ pub fn cli_main(options: &mut Options, state: &mut State) {
   let mut factory = create_factory(options, state, map.to_string());
   println!("prio: {:?}", factory.prio);
   print_floor_with_views(options, state, &mut factory);
+  println!("\n");
+  println!("\n");
+  println!("\n");
+  println!("\n");
+  println!("\n");
+  println!("\n");
 
   //         "0 123456789012345 6"
   // (   )  "┌───────────────────┐"

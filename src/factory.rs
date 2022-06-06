@@ -23,11 +23,13 @@ pub struct Factory {
 pub fn create_factory(options: &mut Options, _state: &mut State, floor_str: String) -> Factory {
   let mut floor = floor_from_str(floor_str);
   let prio = create_prio_list(options, &mut floor);
-  return Factory {
+  let mut factory = Factory {
     ticks: 0,
     floor,
     prio,
   };
+  auto_layout(&mut factory);
+  return factory;
 }
 
 pub fn tick_factory(options: &mut Options, state: &mut State, factory: &mut Factory) {

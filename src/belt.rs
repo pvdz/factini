@@ -337,15 +337,15 @@ fn tick_belt_take_from_supply(options: &mut Options, state: &mut State, factory:
 
   return false;
 }
-fn tick_belt_give_to_demand(options: &mut Options, state: &mut State, factory: &mut Factory, belt_coord: usize, belt_dir: Direction, demand_coord: usize, demand_from_dir: Direction) -> bool {
+fn tick_belt_give_to_demand(options: &mut Options, state: &mut State, factory: &mut Factory, belt_coord: usize, belt_dir_towards_demand: Direction, demand_coord: usize, demand_dir_coming_from_belt: Direction) -> bool {
   // Check if belt has part
   // Check if belt part is ready to move out
   // Check if belt part is going into this direction
   // If so, move to demand
   if factory.floor[belt_coord].belt.part.kind != PartKind::None {
-    if factory.floor[belt_coord].belt.part_to == belt_dir {
+    if factory.floor[belt_coord].belt.part_to == belt_dir_towards_demand {
       if factory.floor[belt_coord].belt.part_at > 0 && factory.ticks - factory.floor[belt_coord].belt.part_at >= factory.floor[belt_coord].belt.speed {
-        if options.print_moves || options.print_moves_demand { log(format!("({}) Demand takes {:?} at @{} from belt @{}. belt.part_at={:?}, belt_dir={:?}", factory.ticks, factory.floor[demand_coord].demand.part.kind, demand_coord, belt_coord, factory.floor[belt_coord].belt.part_to, belt_dir)); }
+        if options.print_moves || options.print_moves_demand { log(format!("({}) Demand takes {:?} at @{} from belt @{}. belt.part_at={:?}, belt_dir={:?}", factory.ticks, factory.floor[demand_coord].demand.part.kind, demand_coord, belt_coord, factory.floor[belt_coord].belt.part_to, belt_dir_towards_demand)); }
         demand_receive_part(options, state, factory, demand_coord, belt_coord);
         belt_receive_part(factory, belt_coord, Direction::Up, part_none());
         return true;
@@ -355,7 +355,7 @@ fn tick_belt_give_to_demand(options: &mut Options, state: &mut State, factory: &
   return false;
 }
 
-fn tick_belt_one_outbound_dir(options: &mut Options, state: &mut State, factory: &mut Factory, curr_coord: usize, curr_dir: Direction, to_coord: usize, to_dir: Direction) -> bool {
+fn tick_belt_one_outbound_dir(options: &mut Options, state: &mut State, factory: &mut Factory, curr_coord: usize, curr_dir_towards_neighbor: Direction, to_coord: usize, to_dir_coming_from_curr: Direction) -> bool {
   match factory.floor[to_coord].kind {
     CellKind::Empty => panic!("empty cells should not be part of .ins vector"),
     CellKind::Belt => {
@@ -372,7 +372,7 @@ fn tick_belt_one_outbound_dir(options: &mut Options, state: &mut State, factory:
       // tick_belt_take_from_supply(options, state, factory, curr_coord, to_coord, curr_dir)
     }
     CellKind::Demand => {
-      return tick_belt_give_to_demand(options, state, factory, curr_coord, curr_dir, to_coord, to_dir)
+      return tick_belt_give_to_demand(options, state, factory, curr_coord, curr_dir_towards_neighbor, to_coord, to_dir_coming_from_curr)
     }
   };
 }
@@ -420,12 +420,6 @@ pub fn tick_belt(options: &mut Options, state: &mut State, factory: &mut Factory
       let (curr_dir, _curr_coord, to_coord, to_dir) = factory.floor[curr_coord].outs[index];
       assert_eq!(curr_coord, _curr_coord);
       if tick_belt_one_outbound_dir(options, state, factory, curr_coord, curr_dir, to_coord, to_dir) {
-        // Only take from one inbound port
-        // If we picked the offset then move the offset
-        // if from_coord == 42 {
-        //   println!("updating outrot... options: {}, rot: {} -> found index {} -> new rot {}", factory.floor[from_coord].outs.len(), factory.floor[from_coord].outrot, index, ((index as u64) + 1) % (outlen as u64));
-        // }
-        // factory.floor[curr_coord].outrot = ((rotated_index + 1) % outlen) as u64;
         break;
       }
     }
@@ -435,33 +429,10 @@ pub fn tick_belt(options: &mut Options, state: &mut State, factory: &mut Factory
     let inlen = factory.floor[curr_coord].ins.len();
     for index in 0..inlen {
       let rotated_index = ((index as u64 + factory.floor[curr_coord].inrot) % (inlen as u64)) as usize;
-      // if factory.floor[curr_coord].belt.meta.dbg == "BELT_LRU" {
-      //   let kinds: Vec<PartKind> = factory.floor[curr_coord].ins.iter().map(|dir| factory.floor[match dir {
-      //     (Direction::Up, _) => factory.floor[curr_coord].coord_u.unwrap(),
-      //     (Direction::Right, _) => factory.floor[curr_coord].coord_r.unwrap(),
-      //     (Direction::Down, _) => factory.floor[curr_coord].coord_d.unwrap(),
-      //     (Direction::Left, _) => factory.floor[curr_coord].coord_l.unwrap(),
-      //   }].belt.part.kind).collect();
-      //   let progs: Vec<f64> = factory.floor[curr_coord].ins.iter().map(|dir| {
-      //     let c = match dir {
-      //       (Direction::Up, _) => factory.floor[curr_coord].coord_u.unwrap(),
-      //       (Direction::Right, _) => factory.floor[curr_coord].coord_r.unwrap(),
-      //       (Direction::Down, _) => factory.floor[curr_coord].coord_d.unwrap(),
-      //       (Direction::Left, _) => factory.floor[curr_coord].coord_l.unwrap(),
-      //     };
-      //     if factory.floor[c].belt.part_at == 0 { return 0.0; }
-      //     return (((factory.ticks - factory.floor[c].belt.part_at) as f64 / (factory.floor[c].belt.speed as f64)) * 100.0).floor().min(100.0);
-      //   }).collect();
-      //   println!("    - index {} -> rot {} -> so rotated: {}, haves? {:?}, progress: {:?}", index, factory.floor[curr_coord].inrot, rotated_index, kinds, progs);
-      // }
-
       let (curr_dir, _curr_coord, from_coord, from_dir ) = factory.floor[curr_coord].ins[rotated_index];
       assert_eq!(curr_coord, _curr_coord);
       if tick_belt_one_inbound_dir(options, state, factory, curr_coord, curr_dir, from_coord, from_dir) {
         // Only take from one inbound port
-        // if factory.floor[curr_coord].belt.meta.dbg == "BELT_LRU" {
-        //   println!("      - updating inrot... options: {}, rot: {} -> found index {} -> new rot {}", factory.floor[curr_coord].ins.len(), factory.floor[curr_coord].inrot, index, ((index as u64) + 1) % (inlen as u64));
-        // }
         factory.floor[curr_coord].inrot = ((rotated_index as u64) + 1) % (inlen as u64);
         break;
       }
