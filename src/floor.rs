@@ -634,10 +634,6 @@ pub fn to_floor_xy(coord: usize) -> (usize, usize, bool) {
   return (x, y, is_floor(x, y, FLOOR_CELLS_W, FLOOR_CELLS_H));
 }
 
-pub fn to_xy_f(index: usize) -> (usize, usize) {
-  to_xy(index)
-}
-
 pub fn to_xy(coord: usize) -> (usize, usize) {
   // Return 0,0 if coord is oob (so for edge cells)
 

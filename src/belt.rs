@@ -11,7 +11,7 @@ use super::supply::*;
 use super::state::*;
 
 #[allow(non_camel_case_types)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BeltType {
   NONE = 0,
   U_R = 1,
@@ -1069,7 +1069,7 @@ pub const BELT_R_U: BeltMeta = BeltMeta {
 pub const BELT_DR: BeltMeta = BeltMeta {
   btype: BeltType::DR,
   dbg: "BELT_DR",
-  src: "./img/rd.png",
+  src: "./img/dr.png",
   port_u: Port::None,
   port_r: Port::Unknown,
   port_d: Port::Unknown,

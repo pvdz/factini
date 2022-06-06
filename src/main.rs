@@ -11,6 +11,7 @@ pub mod _cli;
 
 pub mod belt;
 pub mod cell;
+pub mod cli_serialize;
 pub mod demand;
 pub mod direction;
 pub mod factory;
