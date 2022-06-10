@@ -288,7 +288,7 @@ pub fn fix_belt_meta(factory: &mut Factory, coord: usize) {
   factory.floor[coord].belt.meta = belt_meta;
 }
 
-pub fn update_meta_to_belt_type(factory: &mut Factory, coord: usize, belt_type: BeltType) {
+pub fn update_meta_to_belt_type_and_replace_cell(factory: &mut Factory, coord: usize, belt_type: BeltType) {
   let meta = belt_type_to_belt_meta(belt_type);
 
   if meta.port_u != Port::None {

@@ -526,14 +526,13 @@ pub fn start() -> Result<(), JsValue> {
         tick_factory(&mut options, &mut state, &mut factory);
       }
 
-      draw_green_debug(&context, &fps, now, since_prev, ticks_todo, &factory, &mouse_state);
-
       if options.web_output_cli {
         draw_world_cli(&context, &mut options, &mut state, &factory);
       } else {
-        // First handle drag-end or click
-
+        // Handle drag-end or click
         handle_input(&mut cell_selection, &mut mouse_state, &mut options, &mut state, &mut factory);
+
+        draw_green_debug(&context, &fps, now, since_prev, ticks_todo, &factory, &mouse_state);
 
         // Paint the world
 
@@ -544,12 +543,7 @@ pub fn start() -> Result<(), JsValue> {
 
         // TODO: wait for tiles to be loaded because first few frames won't paint anything while the tiles are loading...
         paint_background_tiles(&context, &factory, &belt_tile_images, &img_machine2);
-
-        // Paint cell segment grids
-        if options.paint_cell_segment_grid {
-          paint_cell_segment_grid(&context, &factory);
-        }
-
+        paint_ports(&context, &factory);
         paint_belt_items(&context, &factory, &part_tile_sprite);
 
         if mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && mouse_state.cell_x < FLOOR_CELLS_W as f64 && mouse_state.cell_y < FLOOR_CELLS_H as f64 {
@@ -808,36 +802,30 @@ fn paint_background_tiles(context: &Rc<web_sys::CanvasRenderingContext2d>, facto
     }
   }
 }
-fn paint_cell_segment_grid(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory) {
-  context.set_stroke_style(&"black".into());
+fn paint_ports(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory) {
+  context.set_stroke_style(&"gray".into());
+
+  // Adjust for font size such that it gets centered. API falls a little short in this regard.
+  let FONT_X: f64 = -5.0;
+  let FONT_Y: f64 = 4.0;
 
   for coord in 0..FLOOR_CELLS_WH {
     let (x, y) = to_xy(coord);
     if factory.floor[coord].kind != CellKind::Empty {
-      context.stroke_rect(
-        WORLD_OFFSET_X + (x as f64) * CELL_W,
-        WORLD_OFFSET_Y + (y as f64) * CELL_H,
-        CELL_W,
-        CELL_H,
-      );
+      // For each cell only paint the right and bottom port
+      // Otherwise we're just gonna paint each port twice
 
-      // context.begin_path();
-      //
-      // context.move_to(WORLD_OFFSET_X + (x as f64) * CELL_W,      WORLD_OFFSET_Y + (y as f64) * CELL_H);
-      // context.line_to(WORLD_OFFSET_X + (x as f64) * CELL_W + CELL_W, WORLD_OFFSET_Y + (y as f64) * CELL_H);
-      // context.move_to(WORLD_OFFSET_X + (x as f64) * CELL_W,      WORLD_OFFSET_Y + (y as f64) * CELL_H + SEGMENT_H);
-      // context.line_to(WORLD_OFFSET_X + (x as f64) * CELL_W + CELL_W, WORLD_OFFSET_Y + (y as f64) * CELL_H + SEGMENT_H);
-      // context.move_to(WORLD_OFFSET_X + (x as f64) * CELL_W,      WORLD_OFFSET_Y + (y as f64) * CELL_H + SEGMENT_H + SEGMENT_H);
-      // context.line_to(WORLD_OFFSET_X + (x as f64) * CELL_W + CELL_W, WORLD_OFFSET_Y + (y as f64) * CELL_H + SEGMENT_H + SEGMENT_H);
-      //
-      // context.move_to(WORLD_OFFSET_X + (x as f64) * CELL_W,                         WORLD_OFFSET_Y + (y as f64) * CELL_H);
-      // context.line_to(WORLD_OFFSET_X + (x as f64) * CELL_W,                         WORLD_OFFSET_Y + (y as f64) * CELL_H + CELL_H);
-      // context.move_to(WORLD_OFFSET_X + (x as f64) * CELL_W + SEGMENT_W,             WORLD_OFFSET_Y + (y as f64) * CELL_H);
-      // context.line_to(WORLD_OFFSET_X + (x as f64) * CELL_W + SEGMENT_W,             WORLD_OFFSET_Y + (y as f64) * CELL_H + CELL_H);
-      // context.move_to(WORLD_OFFSET_X + (x as f64) * CELL_W + SEGMENT_W + SEGMENT_W, WORLD_OFFSET_Y + (y as f64) * CELL_H);
-      // context.line_to(WORLD_OFFSET_X + (x as f64) * CELL_W + SEGMENT_W + SEGMENT_W, WORLD_OFFSET_Y + (y as f64) * CELL_H + CELL_H);
-      //
-      // context.stroke();
+      if factory.floor[coord].port_r == Port::Inbound {
+        context.stroke_text("🡄", WORLD_OFFSET_X + (x as f64) * CELL_W + CELL_W + FONT_X, WORLD_OFFSET_Y + (y as f64) * CELL_H + CELL_H / 2.0 + FONT_Y);
+      } else if factory.floor[coord].port_r == Port::Outbound {
+        context.stroke_text("🡆", WORLD_OFFSET_X + (x as f64) * CELL_W + CELL_W + FONT_X, WORLD_OFFSET_Y + (y as f64) * CELL_H + CELL_H / 2.0 + FONT_Y);
+      }
+
+      if factory.floor[coord].port_d == Port::Inbound {
+        context.stroke_text("🡅", WORLD_OFFSET_X + (x as f64) * CELL_W + CELL_W / 2.0 + FONT_X, WORLD_OFFSET_Y + (y as f64) * CELL_H + CELL_H + FONT_Y);
+      } else if factory.floor[coord].port_d == Port::Outbound {
+        context.stroke_text("🡇", WORLD_OFFSET_X + (x as f64) * CELL_W + CELL_W / 2.0 + FONT_X, WORLD_OFFSET_Y + (y as f64) * CELL_H + CELL_H + FONT_Y);
+      }
     }
   }
 }
@@ -1259,7 +1247,7 @@ fn on_drag_inside_floor(options: &mut Options, state: &mut State, factory: &mut 
     mouse_state.cell_y.floor(),
   );
 
-  log(format!("track to solidify: {:?}", track));
+  log(format!("track to solidify: {:?}, button {}", track, mouse_state.last_down_button));
 
   // Special cases:
   // - len=1
@@ -1429,7 +1417,9 @@ fn on_drag_inside_floor(options: &mut Options, state: &mut State, factory: &mut 
         // Staple the track on top of the existing layout
         match factory.floor[coord].kind {
           CellKind::Belt => {
-            update_meta_to_belt_type(factory, coord, belt_type);
+            if factory.floor[coord].belt.meta.btype != belt_type {
+              update_meta_to_belt_type_and_replace_cell(factory, coord, belt_type);
+            }
             update_ports_of_neighbor_cells(factory, coord, true);
           }
           CellKind::Empty => {

@@ -12,6 +12,7 @@ use super::part::*;
 use super::port::*;
 use super::state::*;
 use super::supply::*;
+use super::utils::*;
 
 // Edge cells can only be demand/supply/empty, other cells can only be belt/machine/empty
 pub fn floor_empty() -> [Cell; FLOOR_CELLS_WH] {
@@ -647,7 +648,7 @@ pub const fn to_coord_left(coord: usize) -> usize {
 pub fn floor_delete_cell_at_partial(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize) {
   // Note: partial because factory prio must to be updated too, elsewhere (!)
   // Running auto-porting may uncover new tracks but should not be required to run
-  
+
   // For all connected cells
   // - delete port towards this cell
   // - update belt meta to reflect new cell meta
