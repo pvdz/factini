@@ -42,14 +42,16 @@ pub fn cli_main(options: &mut Options, state: &mut State) {
     d4 = g\n\
   ";
   let mut factory = create_factory(options, state, map.to_string());
-  println!("prio: {:?}", factory.prio);
-  print_floor_with_views(options, state, &mut factory);
-  println!("\n");
-  println!("\n");
-  println!("\n");
-  println!("\n");
-  println!("\n");
-  println!("\n");
+  if options.print_initial_table {
+    println!("prio: {:?}", factory.prio);
+    print_floor_with_views(options, state, &mut factory);
+    println!("\n");
+    println!("\n");
+    println!("\n");
+    println!("\n");
+    println!("\n");
+    println!("\n");
+  }
 
   //         "0 123456789012345 6"
   // (   )  "┌───────────────────┐"

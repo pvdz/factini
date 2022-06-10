@@ -134,6 +134,12 @@ struct MouseState {
   was_dragging: bool,
   was_up: bool,
 
+  // https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/buttons
+  // bitwise field; 1=left, 2=right, 3=left|right, 4=middle, etc
+  // (8 and 16 supposedly browser back/forward button but ehhhh)
+  // On a phone/tablet this is not used of course
+  last_down_button: u16,
+
   last_down_canvas_x: f64,
   last_down_canvas_y: f64,
   last_down_world_x: f64,
@@ -314,6 +320,7 @@ pub fn start() -> Result<(), JsValue> {
   let is_mouse_down = Rc::new(Cell::new(false));
   let last_mouse_down_x = Rc::new(Cell::new(0.0));
   let last_mouse_down_y = Rc::new(Cell::new(0.0));
+  let last_mouse_down_button = Rc::new(Cell::new(0));
   let last_mouse_up_x = Rc::new(Cell::new(0.0));
   let last_mouse_up_y = Rc::new(Cell::new(0.0));
 
@@ -322,12 +329,17 @@ pub fn start() -> Result<(), JsValue> {
     let is_mouse_down = is_mouse_down.clone();
     let last_mouse_down_x = last_mouse_down_x.clone();
     let last_mouse_down_y = last_mouse_down_y.clone();
+    let last_mouse_down_button = last_mouse_down_button.clone();
     let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
       let mx = event.offset_x() as f64;
       let my = event.offset_y() as f64;
       is_mouse_down.set(true);
       last_mouse_down_x.set(mx);
       last_mouse_down_y.set(my);
+      last_mouse_down_button.set(event.buttons()); // 1=left, 2=right, 3=left-then-also-right (but right-then-also-left is still 2)
+
+      event.stop_propagation();
+      event.prevent_default();
     }) as Box<dyn FnMut(_)>);
     canvas.add_event_listener_with_callback("mousedown", closure.as_ref().unchecked_ref())?;
     closure.forget();
@@ -341,6 +353,9 @@ pub fn start() -> Result<(), JsValue> {
       let my = event.offset_y() as f64;
       mouse_x.set(mx);
       mouse_y.set(my);
+
+      event.stop_propagation();
+      event.prevent_default();
     }) as Box<dyn FnMut(_)>);
     canvas.add_event_listener_with_callback("mousemove", closure.as_ref().unchecked_ref())?;
     closure.forget();
@@ -356,14 +371,26 @@ pub fn start() -> Result<(), JsValue> {
       is_mouse_down.set(false);
       last_mouse_up_x.set(mx);
       last_mouse_up_y.set(my);
+
+      event.stop_propagation();
+      event.prevent_default();
     }) as Box<dyn FnMut(_)>);
     canvas.add_event_listener_with_callback("mouseup", closure.as_ref().unchecked_ref())?;
+    closure.forget();
+  }
+  // context menu (just to disable it so we can use rmb for interaction)
+  {
+    let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
+      event.stop_propagation();
+      event.prevent_default();
+    }) as Box<dyn FnMut(_)>);
+    canvas.add_event_listener_with_callback("contextmenu", closure.as_ref().unchecked_ref())?;
     closure.forget();
   }
 
 
   // Static state configuration (can still be changed by user)
-  let mut options = create_options(1.0);
+  let mut options = create_options(10.0);
 
   // General app state
   let mut state = State {};
@@ -398,8 +425,10 @@ pub fn start() -> Result<(), JsValue> {
     d4 = g\n\
   ";
   let mut factory = create_factory(&mut options, &mut state, map.to_string());
-  print_floor_with_views(&mut options, &mut state, &mut factory);
-  print_floor_without_views(&mut options, &mut state, &mut factory);
+  if options.print_initial_table {
+    print_floor_with_views(&mut options, &mut state, &mut factory);
+    print_floor_without_views(&mut options, &mut state, &mut factory);
+  }
 
   // Do not record the cost of belt cells. assume them an ongoing 10k x belt cost cost/min modifier
   // Only record the non-belt costs, which happen far less frequently and mean the delta queue
@@ -448,6 +477,8 @@ pub fn start() -> Result<(), JsValue> {
       was_dragging: false,
       was_up: false,
 
+      last_down_button: 0,
+
       last_down_canvas_x: 0.0,
       last_down_canvas_y: 0.0,
 
@@ -483,7 +514,7 @@ pub fn start() -> Result<(), JsValue> {
       // lagging one frame behind and has some rounding problems, especially with low % modifiers.
       let ticks_todo: u64 = (since_prev * ((ONE_SECOND as f64) * options.speed_modifier / 1000.0)) as u64;
 
-      update_mouse_state(&mut mouse_state, mouse_x.get(), mouse_y.get(), last_mouse_down_x.get(), last_mouse_down_y.get(), last_mouse_up_x.get(), last_mouse_up_y.get());
+      update_mouse_state(&mut mouse_state, mouse_x.get(), mouse_y.get(), last_mouse_down_x.get(), last_mouse_down_y.get(), last_mouse_down_button.get(), last_mouse_up_x.get(), last_mouse_up_y.get());
       last_mouse_down_x.set(0.0);
       last_mouse_down_y.set(0.0);
       last_mouse_up_x.set(0.0);
@@ -538,7 +569,7 @@ pub fn start() -> Result<(), JsValue> {
   Ok(())
 }
 
-fn update_mouse_state(mouse_state: &mut MouseState, mouse_x: f64, mouse_y: f64, last_mouse_down_x: f64, last_mouse_down_y: f64, last_mouse_up_x: f64, last_mouse_up_y: f64) {
+fn update_mouse_state(mouse_state: &mut MouseState, mouse_x: f64, mouse_y: f64, last_mouse_down_x: f64, last_mouse_down_y: f64, last_mouse_down_button: u16, last_mouse_up_x: f64, last_mouse_up_y: f64) {
   // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
   // Reset
@@ -559,6 +590,7 @@ fn update_mouse_state(mouse_state: &mut MouseState, mouse_x: f64, mouse_y: f64, 
   mouse_state.cell_rel_y = (mouse_state.world_y / CELL_H) - mouse_state.cell_y;
 
   if last_mouse_down_x > 0.0 || last_mouse_down_y > 0.0 {
+    mouse_state.last_down_button = last_mouse_down_button;
     mouse_state.last_down_canvas_x = last_mouse_down_x;
     mouse_state.last_down_canvas_y = last_mouse_down_y;
     mouse_state.last_down_world_x = last_mouse_down_x / CANVAS_CSS_WIDTH * CANVAS_WIDTH;
@@ -632,10 +664,13 @@ fn draw_green_debug(context: &Rc<web_sys::CanvasRenderingContext2d>, fps: &VecDe
   context.set_fill_style(&"lightgreen".into());
   context.fill_rect(UI_OX, UI_OY + (UI_LINE_H * ui_lines), UI_W, UI_LINE_H);
   context.set_fill_style(&"grey".into());
-  context.fill_text(format!(
-    "mouse abs  : {} x {} {}",
-    mouse_state.world_x, mouse_state.world_y,
-    if mouse_state.is_dragging { "drag" } else if mouse_state.is_down { "down" } else { "up" }).as_str(), UI_OX + UI_ML, UI_OY + (ui_lines * UI_LINE_H) + UI_FONT_H
+  context.fill_text(
+    format!(
+      "mouse abs  : {} x {} {} {}",
+      mouse_state.world_x, mouse_state.world_y,
+      if mouse_state.is_dragging { "drag" } else if mouse_state.is_down { "down" } else { "up" },
+      mouse_state.last_down_button,
+    ).as_str(), UI_OX + UI_ML, UI_OY + (ui_lines * UI_LINE_H) + UI_FONT_H
   ).expect("something error fill_text");
 
   ui_lines += 1.0;
@@ -948,7 +983,7 @@ fn draw_belt_drag_preview(context: &Rc<web_sys::CanvasRenderingContext2d>, facto
     let ((x, y), bt) = track[index];
     context.set_fill_style(&"#00770044".into());
     context.fill_rect(WORLD_OFFSET_X + CELL_W * (x as f64), WORLD_OFFSET_Y + CELL_H * (y as f64), CELL_W, CELL_H);
-    draw_ghost_belt_of_type(x, y, bt, &context, &belt_tile_images);
+    draw_ghost_belt_of_type(x, y, if mouse_state.last_down_button == 2 { BeltType::INVALID } else { bt }, &context, &belt_tile_images);
   }
 }
 fn ray_trace_dragged_line(factory: &Factory, x0: f64, y0: f64, x1: f64, y1: f64) -> Vec<((usize, usize), BeltType)> {
@@ -961,33 +996,41 @@ fn ray_trace_dragged_line(factory: &Factory, x0: f64, y0: f64, x1: f64, y1: f64)
   // - The first and last cells in the ray also auto-connect to any neighbor belts. Sections in the middle of the ray do not.
 
   let covered = get_cells_from_a_to_b(x0, y0, x1, y1);
+  assert!(covered.len() >= 1, "Should always record at least one cell coord");
+
+  if covered.len() == 1 {
+    return vec!((covered[0], BeltType::INVALID));
+  }
 
   // Note: in order of (dragging) appearance
-  let mut track: Vec<((usize, usize), BeltType)> = vec!();
+  let mut track: Vec<((usize, usize), BeltType)> = vec!(); // ((x, y), new_bt)
 
   // Draw example tiles of the path you're drawing.
-  // Special cases;
-  // - first and last tile should connect to any neighbors
-  // - middle tiles should be made compatible if they cover an existing belt (add the ports)
-  // - edge tiles should not be painted / previewed
-  // - machine cells should be skipped?
+  // Take the existing cell and add one or two ports to it;
+  // - first one only gets the "to" port added to it
+  // - last one only gets the "from" port added to it
+  // - middle parts get the "from" and "to" port added to them
   let (mut lx, mut ly) = covered[0];
   let mut last_from = Direction::Up; // first one ignores this value
   for index in 1..covered.len() {
     let (x, y) = covered[index];
     // Always set the previous one.
     let new_from = get_from_dir_between_xy(lx, ly, x, y);
-    let bt = get_belt_type_for_cell_ports_extended(&factory, to_coord(lx, ly), if index == 1 { direction_reverse(new_from) } else { last_from }, direction_reverse(new_from), index > 1);
+    // For the first one, pass on the same "to" port since there is no "from" port (it'll be a noop)
+    let bt =
+      if index == 1 {
+        add_one_ports_to_cell(factory, to_coord(lx, ly), direction_reverse(new_from))
+      } else {
+        add_two_ports_to_cell(factory, to_coord(lx, ly), last_from, direction_reverse(new_from))
+      };
     track.push(((lx, ly), bt));
 
     lx = x;
     ly = y;
     last_from = new_from;
   }
-
-  // And the last one, which is excluded from the loop. If the covered vec has one element this
-  // will be the first element, in which case the type will be the INVALID tile.
-  let bt = if covered.len() <= 1 { BeltType::INVALID } else { get_belt_type_for_cell_ports_extended(&factory, to_coord(lx, ly), last_from, last_from, false) };
+  // Final step. Only has a from port.
+  let bt = add_one_ports_to_cell(factory, to_coord(lx, ly), last_from);
   track.push(((lx, ly), bt));
 
   return track;
@@ -1200,50 +1243,301 @@ fn on_up_inside_floor(options: &mut Options, state: &mut State, factory: &mut Fa
   // Check if the icon between connected belts was clicked
   if last_mouse_up_cell_x >= 0.0 && last_mouse_up_cell_y >= 0.0 && last_mouse_up_cell_x < FLOOR_CELLS_W as f64 && last_mouse_up_cell_y < FLOOR_CELLS_H as f64 {
     if mouse_state.was_dragging {
-      // Finalize pathing, regenerate floor
-      let track = ray_trace_dragged_line(
-        factory,
-        (mouse_state.last_down_world_x / CELL_W).floor(),
-        (mouse_state.last_down_world_y / CELL_H).floor(),
-        mouse_state.cell_x.floor(),
-        mouse_state.cell_y.floor(),
-      );
+      on_drag_inside_floor(options, state, factory, cell_selection, mouse_state);
+    } else {
+      on_click_inside_floor(options, state, factory, cell_selection, mouse_state, last_mouse_up_cell_x, last_mouse_up_cell_y);
+    }
+  }
+}
+fn on_drag_inside_floor(options: &mut Options, state: &mut State, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
+  // Finalize pathing, regenerate floor
+  let track = ray_trace_dragged_line(
+    factory,
+    (mouse_state.last_down_world_x / CELL_W).floor(),
+    (mouse_state.last_down_world_y / CELL_H).floor(),
+    mouse_state.cell_x.floor(),
+    mouse_state.cell_y.floor(),
+  );
 
-      log(format!("track to solidify: {:?}", track));
+  log(format!("track to solidify: {:?}", track));
 
-      let len = track.len();
-      for index in 0..len {
-        let ((x, y), belt_type) = track[index];
-        let coord = to_coord(x, y);
+  // Special cases:
+  // - len=1
+  //   - lmb: ignore (cell selection toggle for a click, not a drag)
+  //   - rmb:
+  //     - clear part from cell
+  //     - only delete cell if it has no ports at all
+  // - len=2
+  //   - lmb:
+  //     - change empty cells to belts
+  //     - create ports between only those two cells if possible
+  //   - rmb:
+  //     - delete ports between those two cells only
+  //     - only delete affected cells if they have zero ports afterwards
+  // - len>2
+  //   - lmb:
+  //     - convert any empty cell in the track to a belt, retain other cell kinds
+  //     - connect head and tail (if belt) to any adjacent non-empty cell
+  //     - connect middle parts only to prev and next part of the dragged track
+  //     - if any existing cell is already belt, make sure to retain existing ports too
+  //   - rmb: delete cells, disconnect them from everywhere
 
+
+  let len = track.len();
+
+  if len == 1 {
+    if mouse_state.last_down_button == 1 {
+      // Ignore for a drag. Allows you to cancel a drag.
+    } else if mouse_state.last_down_button == 2 {
+      // Clear the cell if that makes sense for it
+      let ((x, y), _belt_type) = track[0];
+      let coord = to_coord(x, y);
+      clear_part_from_cell(options, state, factory, coord);
+    } else {
+      // Other mouse button. ignore for now / ever.
+      // I think this allows you to cancel a drag by pressing the rmb
+    }
+  } else if len == 2 {
+    let ((x1, y1), belt_type1) = track[0];
+    let coord1 = to_coord(x1, y1);
+    let ((x2, y2), belt_type2) = track[1];
+    let coord2 = to_coord(x2, y2);
+
+    let dx = (x1 as i8) - (x2 as i8);
+    let dy = (y1 as i8) - (y2 as i8);
+    assert!((dx == 0) != (dy == 0), "one and only one of dx or dy is zero");
+    assert!(dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1, "since they are adjacent they must be -1, 0, or 1");
+
+    if mouse_state.last_down_button == 1 {
+      // Convert empty cells to belt cells.
+      // Create a port between these two cells, but none of the other cells.
+
+      log(format!("before {:?} {:?}", factory.floor[coord1].kind, factory.floor[coord2].kind));
+      log(format!("want {:?} {:?}", belt_type1, belt_type2));
+
+
+      if factory.floor[coord1].kind == CellKind::Empty {
+        factory.floor[coord1] = belt_cell(x1, y1, belt_type_to_belt_meta(belt_type1));
+      }
+      if factory.floor[coord2].kind == CellKind::Empty {
+        factory.floor[coord2] = belt_cell(x2, y2, belt_type_to_belt_meta(belt_type2));
+      }
+
+      log(format!("after {:?} {:?}", factory.floor[coord1].kind, factory.floor[coord2].kind));
+      log(format!("a: {} {} @{}, b: {} {} @{}", x1, y1, coord1, x2, y2, coord2));
+
+      // Now connect them. Do not clobber existing ports. Should work for all possible belt kinds.
+      match ( dx, dy ) {
+        ( 0 , -1 ) => {
+          // y2 was bigger so xy1 is above xy2
+          if factory.floor[coord1].port_d == Port::None { factory.floor[coord1].port_d = Port::Unknown; }
+          if factory.floor[coord2].port_u == Port::None { factory.floor[coord2].port_u = Port::Unknown; }
+        }
+        ( 1 , 0 ) => {
+          // x1 was bigger so xy1 is right of xy2
+          if factory.floor[coord1].port_l == Port::None { factory.floor[coord1].port_l = Port::Unknown; }
+          if factory.floor[coord2].port_r == Port::None { factory.floor[coord2].port_r = Port::Unknown; }
+        }
+        ( 0 , 1 ) => {
+          // x1 was bigger so xy1 is under xy2
+          if factory.floor[coord1].port_u == Port::None { factory.floor[coord1].port_u = Port::Unknown; }
+          if factory.floor[coord2].port_d == Port::None { factory.floor[coord2].port_d = Port::Unknown; }
+        }
+        ( -1 , 0 ) => {
+          // x2 was bigger so xy1 is left of xy2
+          if factory.floor[coord1].port_r == Port::None { factory.floor[coord1].port_r = Port::Unknown; }
+          if factory.floor[coord2].port_l == Port::None { factory.floor[coord2].port_l = Port::Unknown; }
+        }
+        _ => panic!("already asserted the range of x and y"),
+      }
+
+      log(format!("papieren kwestie dxdy {} {}", dx, dy));
+
+    } else if mouse_state.last_down_button == 2 {
+      // Delete the port between the two cells but leave everything else alone.
+      // The coords must be adjacent to one side.
+
+      let ( dir1, dir2) = match ( dx, dy ) {
+        ( 0 , -1 ) => {
+          // y2 was bigger so xy1 is above xy2
+          factory.floor[coord1].port_d = Port::None;
+          factory.floor[coord2].port_u = Port::None;
+
+          (Direction::Down, Direction::Up)
+        }
+        ( 1 , 0 ) => {
+          // x1 was bigger so xy1 is right of xy2
+          factory.floor[coord1].port_l = Port::None;
+          factory.floor[coord2].port_r = Port::None;
+
+          (Direction::Left, Direction::Right)
+        }
+        ( 0 , 1 ) => {
+          // x1 was bigger so xy1 is under xy2
+          factory.floor[coord1].port_u = Port::None;
+          factory.floor[coord2].port_d = Port::None;
+
+          (Direction::Up, Direction::Down)
+        }
+        ( -1 , 0 ) => {
+          // x2 was bigger so xy1 is left of xy2
+          factory.floor[coord1].port_r = Port::None;
+          factory.floor[coord2].port_l = Port::None;
+
+          (Direction::Right, Direction::Left)
+        }
+        _ => panic!("already asserted the range of x and y"),
+      };
+
+      remove_dir_from_cell_ins(factory, coord1, dir1);
+      remove_dir_from_cell_outs(factory, coord1, dir1);
+      remove_dir_from_cell_ins(factory, coord2, dir2);
+      remove_dir_from_cell_outs(factory, coord2, dir2);
+    } else {
+      // Other mouse button or multi-button. ignore for now / ever.
+      // (Remember: this was a drag of two cells)
+    }
+
+    fix_belt_meta(factory, coord1);
+    fix_belt_meta(factory, coord2);
+
+    if mouse_state.last_down_button == 2 {
+      if factory.floor[coord1].kind == CellKind::Belt && factory.floor[coord1].port_u == Port::None && factory.floor[coord1].port_r == Port::None && factory.floor[coord1].port_d == Port::None && factory.floor[coord1].port_l == Port::None {
+        floor_delete_cell_at_partial(options, state, factory, coord1);
+      } else {
+        clear_part_from_cell(options, state, factory, coord1);
+      }
+      if factory.floor[coord2].kind == CellKind::Belt && factory.floor[coord2].port_u == Port::None && factory.floor[coord2].port_r == Port::None && factory.floor[coord2].port_d == Port::None && factory.floor[coord2].port_l == Port::None {
+        floor_delete_cell_at_partial(options, state, factory, coord2);
+      } else {
+        clear_part_from_cell(options, state, factory, coord2);
+      }
+    }
+  } else {
+    // len > 2
+    // Draw track if lmb, remove cells on track if rmb
+
+    let mut px = 0;
+    let mut py = 0;
+    let mut pcoord = 0;
+    for index in 0..len {
+      let ((x, y), belt_type) = track[index];
+      log(format!("- track {} at {} {} isa {:?}", index, x, y, belt_type));
+      let coord = to_coord(x, y);
+
+      if mouse_state.last_down_button == 1 {
         // Staple the track on top of the existing layout
-
         match factory.floor[coord].kind {
           CellKind::Belt => {
-            update_meta_to_belt_type_and_belt_neighbors(factory, coord, belt_type, index == 0 || index == len - 1);
+            update_meta_to_belt_type(factory, coord, belt_type);
+            update_ports_of_neighbor_cells(factory, coord, true);
           }
           CellKind::Empty => {
             factory.floor[coord] = belt_cell(x, y, belt_type_to_belt_meta(belt_type));
-            update_ports_of_neighbor_cells(factory, coord, index == 0 || index == len - 1);
+
+            // Force-connect this cell to the previous cell, provided that cell is now a Belt
+            // Do not change existing ports, if any (previously existing belts with those ports)
+            if index > 0 {
+              // Must cast because I want to know about negatives
+              let dx = x as i8 - (px as i8);
+              let dy = y as i8 - (py as i8);
+              assert!(dx == 0 || dy == 0, "cell should neighbor previous cell so one axis should not change {} {} - {} {}", x, y, px, py);
+              if dy < 0 {
+                // x,y is above px,py (because py>y)
+                if factory.floor[pcoord].kind == CellKind::Belt {
+                  if factory.floor[pcoord].port_u == Port::None {
+                    factory.floor[pcoord].port_u = Port::Unknown;
+                    fix_belt_meta(factory, pcoord);
+                  }
+                  factory.floor[coord].port_d = Port::Unknown;
+                }
+              } else if dx > 0 {
+                // x,y is right of px,py
+                if factory.floor[pcoord].kind == CellKind::Belt {
+                  if factory.floor[pcoord].port_r == Port::None {
+                    factory.floor[pcoord].port_r = Port::Unknown;
+                    fix_belt_meta(factory, pcoord);
+                  }
+                  factory.floor[coord].port_l = Port::Unknown;
+                }
+              } else if dy > 0 {
+                // x,y is under px,py
+                if factory.floor[pcoord].kind == CellKind::Belt {
+                  if factory.floor[pcoord].port_d == Port::None {
+                    factory.floor[pcoord].port_d = Port::Unknown;
+                    fix_belt_meta(factory, pcoord);
+                  }
+                  factory.floor[coord].port_u = Port::Unknown;
+                }
+              } else if dx < 0 {
+                // x,y is left of px,py
+                if factory.floor[pcoord].kind == CellKind::Belt {
+                  if factory.floor[pcoord].port_l == Port::None {
+                    factory.floor[pcoord].port_l = Port::Unknown;
+                    fix_belt_meta(factory, pcoord);
+                  }
+                  factory.floor[coord].port_r = Port::Unknown;
+                }
+              }
+
+              fix_belt_meta(factory, coord);
+            }
+
+            // If there are exactly two cells then do not connect the start/end to _all_ belts
+            // around them, instead connect only those two cells.
+            if len > 2 && index == 0 || index == len - 1 {
+              log(format!("    -- okay @{} got {:?} ;; {:?} {:?} {:?} {:?}", coord, belt_type, factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
+
+              log(format!("  - connect_belt_to_existing_neighbor_belts(), before: {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
+              connect_belt_to_existing_neighbor_belts(factory, coord);
+            }
           }
           _ => (), // Do not overwrite machines, suppliers, or demanders
         }
+
+      } else if mouse_state.last_down_button == 2 {
+        // Delete the cell if it is a belt, and in that case any port to it
+        match factory.floor[coord].kind {
+          CellKind::Belt => {
+            // Delete this belt tile and update the neighbors accordingly
+            floor_delete_cell_at_partial(options, state, factory, coord);
+          }
+          _ => (), // Do not delete machines, suppliers, or demanders. No need to delete empty cells
+        }
+
+      } else {
+        // Ignore whatever this is.
       }
 
-      auto_port(factory, 1);
+      px = x;
+      py = y;
+      pcoord = coord;
+    }
+  }
 
+  // auto_layout(factory); // I don't want to auto-layout. Just auto-port the new unknowns.
+  keep_auto_porting(options, state,factory);
+
+  // Recreate cell traversal order
+  let prio: Vec<usize> = create_prio_list(options, &mut factory.floor);
+  log(format!("Updated prio list: {:?}", prio));
+  factory.prio = prio;
+}
+fn on_click_inside_floor(options: &mut Options, state: &mut State, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState, last_mouse_up_cell_x: f64, last_mouse_up_cell_y: f64) {
+  if mouse_state.last_down_button == 2 {
+    let coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
+    clear_part_from_cell(options, state, factory, coord);
+  } else {
+    // De-/Select this cell
+    log(format!("clicked {} {} cell selection before: {:?}", last_mouse_up_cell_x, last_mouse_up_cell_y, cell_selection));
+
+    if cell_selection.on && cell_selection.x == last_mouse_up_cell_x && cell_selection.y == last_mouse_up_cell_y {
+      cell_selection.on = false;
     } else {
-        // Center means the click was not between belts with connected ports... De-/Select this cell
-        log(format!("clicked {} {} cell selection before: {:?}", last_mouse_up_cell_x, last_mouse_up_cell_y, cell_selection));
-
-        if cell_selection.on && cell_selection.x == last_mouse_up_cell_x && cell_selection.y == last_mouse_up_cell_y {
-          cell_selection.on = false;
-        } else {
-          cell_selection.on = true;
-          cell_selection.x = last_mouse_up_cell_x;
-          cell_selection.y = last_mouse_up_cell_y;
-          cell_selection.coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
-        }
+      cell_selection.on = true;
+      cell_selection.x = last_mouse_up_cell_x;
+      cell_selection.y = last_mouse_up_cell_y;
+      cell_selection.coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
     }
   }
 }

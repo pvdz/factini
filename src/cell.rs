@@ -125,7 +125,7 @@ pub fn belt_cell(x: usize, y: usize, meta: BeltMeta) -> Cell {
     is_side: false,
     is_zero: false,
     coord,
-    coord_u: Some(to_coord_up(coord)),
+    coord_u: Some(to_coord_up(coord)), // Note: always a Some since belt cells cannot appear on the edge, so there's always at least an edge cell next to it, never oob
     coord_r: Some(to_coord_right(coord)),
     coord_d: Some(to_coord_down(coord)),
     coord_l: Some(to_coord_left(coord)),
@@ -283,6 +283,7 @@ pub fn demand_cell(x: usize, y: usize, part: Part) -> Cell {
 
 pub fn fix_belt_meta(factory: &mut Factory, coord: usize) {
   let belt_type = get_belt_type_for_cell_ports(factory, coord);
+  log(format!("    -- okay @{} got {:?} ;; {:?} {:?} {:?} {:?}", coord, belt_type, factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
   let belt_meta = belt_type_to_belt_meta(belt_type);
   factory.floor[coord].belt.meta = belt_meta;
 }
@@ -333,10 +334,50 @@ pub fn update_meta_to_belt_type(factory: &mut Factory, coord: usize, belt_type: 
   factory.floor[coord].belt.meta = meta;
 }
 
-pub fn update_meta_to_belt_type_and_belt_neighbors(factory: &mut Factory, coord: usize, belt_type: BeltType, fix_neighbors_too: bool) {
-  update_meta_to_belt_type(factory, coord, belt_type);
-  update_ports_of_neighbor_cells(factory, coord, fix_neighbors_too);
+pub fn connect_belt_to_existing_neighbor_belts(factory: &mut Factory, coord: usize) {
+  if let Some(ocoord) = factory.floor[coord].coord_u {
+    if factory.floor[ocoord].kind == CellKind::Belt {
+      if factory.floor[ocoord].port_d == Port::None {
+        factory.floor[ocoord].port_d = Port::Unknown;
+        fix_belt_meta(factory, ocoord);
+      }
+      factory.floor[coord].port_u = Port::Unknown;
+    }
+  }
+
+  if let Some(ocoord) = factory.floor[coord].coord_r {
+    if factory.floor[ocoord].kind == CellKind::Belt {
+      if factory.floor[ocoord].port_l == Port::None {
+        factory.floor[ocoord].port_l = Port::Unknown;
+        fix_belt_meta(factory, ocoord);
+      }
+      factory.floor[coord].port_r = Port::Unknown;
+    }
+  }
+
+  if let Some(ocoord) = factory.floor[coord].coord_d {
+    if factory.floor[ocoord].kind == CellKind::Belt {
+      if factory.floor[ocoord].port_u == Port::None {
+        factory.floor[ocoord].port_u = Port::Unknown;
+        fix_belt_meta(factory, ocoord);
+      }
+      factory.floor[coord].port_d = Port::Unknown;
+    }
+  }
+
+  if let Some(ocoord) = factory.floor[coord].coord_l {
+    if factory.floor[ocoord].kind == CellKind::Belt {
+      if factory.floor[ocoord].port_r == Port::None {
+        factory.floor[ocoord].port_r = Port::Unknown;
+        fix_belt_meta(factory, ocoord);
+      }
+      factory.floor[coord].port_l = Port::Unknown;
+    }
+  }
+
+  fix_belt_meta(factory, coord);
 }
+
 
 pub fn update_ports_of_neighbor_cells(factory: &mut Factory, coord: usize, fix_neighbors_too: bool) {
   // For each side with a port, check if the other side is a belt, and if so, force a port there too
@@ -347,9 +388,7 @@ pub fn update_ports_of_neighbor_cells(factory: &mut Factory, coord: usize, fix_n
         if factory.floor[ocoord].port_d == Port::None {
           factory.floor[ocoord].port_d = Port::Unknown;
         }
-        if fix_neighbors_too {
-          fix_belt_meta(factory, ocoord);
-        }
+        fix_belt_meta(factory, ocoord);
       }
     }
   }
@@ -360,9 +399,7 @@ pub fn update_ports_of_neighbor_cells(factory: &mut Factory, coord: usize, fix_n
         if factory.floor[coord].port_l == Port::None {
           factory.floor[coord].port_l = Port::Unknown;
         }
-        if fix_neighbors_too {
-          fix_belt_meta(factory, coord);
-        }
+        fix_belt_meta(factory, coord);
       }
     }
   }
@@ -373,9 +410,7 @@ pub fn update_ports_of_neighbor_cells(factory: &mut Factory, coord: usize, fix_n
         if factory.floor[coord].port_u == Port::None {
           factory.floor[coord].port_u = Port::Unknown;
         }
-        if fix_neighbors_too {
-          fix_belt_meta(factory, coord);
-        }
+        fix_belt_meta(factory, coord);
       }
     }
   }
@@ -386,9 +421,7 @@ pub fn update_ports_of_neighbor_cells(factory: &mut Factory, coord: usize, fix_n
         if factory.floor[coord].port_r == Port::None {
           factory.floor[coord].port_r = Port::Unknown;
         }
-        if fix_neighbors_too {
-          fix_belt_meta(factory, coord);
-        }
+        fix_belt_meta(factory, coord);
       }
     }
   }
@@ -399,4 +432,45 @@ pub fn get_cell_kind_at(factory: &mut Factory, coord: Option<usize>) -> CellKind
     None => CellKind::Empty,
     Some(coord) => factory.floor[coord].kind,
   };
+}
+
+pub fn clear_part_from_cell(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize) {
+  // Clear the part from this cell
+  match factory.floor[coord].kind {
+    CellKind::Belt => {
+      factory.floor[coord].belt.part = part_none();
+    }
+    CellKind::Empty => {
+      // noop
+    }
+    CellKind::Machine => {
+      // clear inputs on main machine cell. Output doesn't exist but we could reset the timer.
+      factory.floor[factory.floor[coord].machine.main_coord].machine.input_1_have = part_none();
+      factory.floor[factory.floor[coord].machine.main_coord].machine.input_2_have = part_none();
+      factory.floor[factory.floor[coord].machine.main_coord].machine.input_3_have = part_none();
+      // Basically resets the "part is ready to move", since the part never actually exists
+      // inside the machine. We could only clear it if it is indeed 100%+ but who cares.
+      factory.floor[factory.floor[coord].machine.main_coord].machine.start_at = 0;
+    }
+    CellKind::Demand => {
+      // Noop (received parts disappear)
+    }
+    CellKind::Supply => {
+      // Clear the supplied part (reset timer? prolly doesn't matter)
+      factory.floor[coord].supply.part_at = 0;
+    }
+  }
+}
+
+
+pub fn remove_dir_from_cell_ins(factory: &mut Factory, coord: usize, needle_dir: Direction) {
+  if let Some(pos) = factory.floor[coord].ins.iter().position(|(dir, ..)| dir == &needle_dir) {
+    factory.floor[coord].ins.remove(pos);
+  }
+}
+
+pub fn remove_dir_from_cell_outs(factory: &mut Factory, coord: usize, needle_dir: Direction) {
+  if let Some(pos) = factory.floor[coord].outs.iter().position(|(dir, ..)| dir == &needle_dir) {
+    factory.floor[coord].outs.remove(pos);
+  }
 }

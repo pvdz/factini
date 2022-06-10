@@ -14,6 +14,7 @@ pub struct Options {
   pub print_factory_interval: u64,
   pub print_stats_interval: u64,
   pub trace_priority_step: bool,
+  pub print_initial_table: bool, // Print the CLI version of the floor after generating it initially?
 
   pub short_term_window: u64, // For stats; average over this many ticks
   pub long_term_window: u64, // For stats; average over this many ticks
@@ -42,6 +43,7 @@ pub fn create_options(speed_modifier: f64) -> Options {
     print_factory_interval: 5000,
     print_stats_interval: 100000,
     trace_priority_step: false,
+    print_initial_table: false,
     short_term_window: 10000,
     long_term_window: 600000,
     speed_modifier,

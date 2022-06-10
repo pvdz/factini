@@ -467,7 +467,7 @@ pub fn belt_receive_part(factory: &mut Factory, curr_coord: usize, curr_dir: Dir
     match outlen {
       0 => {
         // Probably something I'll need to fix in the future :')
-        panic!("dont pass parts to belts with no outbound ports...?");
+        // panic!("dont pass parts to belts with no outbound ports...?");
       },
       1 => {
         // One option so no further checks necessary
@@ -840,17 +840,47 @@ pub fn belt_type_to_belt_meta(belt_type: BeltType) -> BeltMeta {
   }
 }
 
-pub fn get_belt_type_for_cell_ports_extended(factory: &Factory, coord: usize, dir1: Direction, dir2: Direction, ignore_neighbors: bool) -> BeltType {
+pub fn add_one_ports_to_cell(factory: &Factory, coord: usize, dir: Direction) -> BeltType {
   // Given a coord and two dirs return a belt type that has _a_ port in all the directions of:
   // - the given dirs
   // - the non-none ports of the current cell
   // - any dir where the neighbor is a belt (if flag is not set)
 
   match (
-    dir1 == Direction::Up || dir2 == Direction::Up || factory.floor[coord].port_u != Port::None || (!ignore_neighbors && factory.floor[coord].coord_u != None && factory.floor[factory.floor[coord].coord_u.unwrap()].kind == CellKind::Belt),
-    dir1 == Direction::Right || dir2 == Direction::Right || factory.floor[coord].port_r != Port::None || (!ignore_neighbors && factory.floor[coord].coord_r != None && factory.floor[factory.floor[coord].coord_r.unwrap()].kind == CellKind::Belt),
-    dir1 == Direction::Down || dir2 == Direction::Down || factory.floor[coord].port_d != Port::None || (!ignore_neighbors && factory.floor[coord].coord_d != None && factory.floor[factory.floor[coord].coord_d.unwrap()].kind == CellKind::Belt),
-    dir1 == Direction::Left || dir2 == Direction::Left || factory.floor[coord].port_l != Port::None || (!ignore_neighbors && factory.floor[coord].coord_l != None && factory.floor[factory.floor[coord].coord_l.unwrap()].kind == CellKind::Belt),
+    dir == Direction::Up || factory.floor[coord].port_u != Port::None,
+    dir == Direction::Right || factory.floor[coord].port_r != Port::None,
+    dir == Direction::Down || factory.floor[coord].port_d != Port::None,
+    dir == Direction::Left || factory.floor[coord].port_l != Port::None,
+  ) {
+    (true, false, false, false) => BeltType::INVALID, // TODO
+    (true, true, false, false) => BeltType::RU,
+    (true, false, true, false) => BeltType::DU,
+    (true, false, false, true) => BeltType::LU,
+    (true, true, true, false) => BeltType::DRU,
+    (true, true, false, true) => BeltType::LRU,
+    (true, false, true, true) => BeltType::DLU,
+    (true, true, true, true) => BeltType::DLRU,
+    (false, false, false, false) => BeltType::INVALID, // TODO
+    (false, true, false, false) => BeltType::INVALID, // TODO
+    (false, false, true, false) => BeltType::INVALID, // TODO
+    (false, false, false, true) => BeltType::INVALID, // TODO
+    (false, true, true, false) => BeltType::DR,
+    (false, true, false, true) => BeltType::LR,
+    (false, false, true, true) => BeltType::DL,
+    (false, true, true, true) => BeltType::DLR,
+  }
+}
+pub fn add_two_ports_to_cell(factory: &Factory, coord: usize, dir1: Direction, dir2: Direction) -> BeltType {
+  // Given a coord and two dirs return a belt type that has _a_ port in all the directions of:
+  // - the given dirs
+  // - the non-none ports of the current cell
+  // - any dir where the neighbor is a belt (if flag is not set)
+
+  match (
+    dir1 == Direction::Up || dir2 == Direction::Up || factory.floor[coord].port_u != Port::None, // || (!ignore_neighbors && factory.floor[coord].coord_u != None && factory.floor[factory.floor[coord].coord_u.unwrap()].kind == CellKind::Belt),
+    dir1 == Direction::Right || dir2 == Direction::Right || factory.floor[coord].port_r != Port::None, // || (!ignore_neighbors && factory.floor[coord].coord_r != None && factory.floor[factory.floor[coord].coord_r.unwrap()].kind == CellKind::Belt),
+    dir1 == Direction::Down || dir2 == Direction::Down || factory.floor[coord].port_d != Port::None, // || (!ignore_neighbors && factory.floor[coord].coord_d != None && factory.floor[factory.floor[coord].coord_d.unwrap()].kind == CellKind::Belt),
+    dir1 == Direction::Left || dir2 == Direction::Left || factory.floor[coord].port_l != Port::None, // || (!ignore_neighbors && factory.floor[coord].coord_l != None && factory.floor[factory.floor[coord].coord_l.unwrap()].kind == CellKind::Belt),
   ) {
     (true, false, false, false) => BeltType::INVALID, // TODO
     (true, true, false, false) => BeltType::RU,

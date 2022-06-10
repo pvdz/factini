@@ -20,15 +20,16 @@ pub struct Factory {
   pub prio: Vec<usize>,
 }
 
-pub fn create_factory(options: &mut Options, _state: &mut State, floor_str: String) -> Factory {
+pub fn create_factory(options: &mut Options, state: &mut State, floor_str: String) -> Factory {
   let mut floor = floor_from_str(floor_str);
-  let prio = create_prio_list(options, &mut floor);
   let mut factory = Factory {
     ticks: 0,
     floor,
-    prio,
+    prio: vec!(),
   };
-  auto_layout(&mut factory);
+  auto_layout(options, state, &mut factory);
+  let prio = create_prio_list(options, &mut factory.floor);
+  factory.prio = prio;
   return factory;
 }
 
