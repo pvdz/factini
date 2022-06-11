@@ -1253,8 +1253,8 @@ fn on_drag_inside_floor(options: &mut Options, state: &mut State, factory: &mut 
   // - len=1
   //   - lmb: ignore (cell selection toggle for a click, not a drag)
   //   - rmb:
-  //     - clear part from cell
-  //     - only delete cell if it has no ports at all
+  //     - delete cell if it is a belt that has one or zero ports
+  //     - else clear part from cell
   // - len=2
   //   - lmb:
   //     - change empty cells to belts
@@ -1278,8 +1278,11 @@ fn on_drag_inside_floor(options: &mut Options, state: &mut State, factory: &mut 
       // Ignore for a drag. Allows you to cancel a drag.
     } else if mouse_state.last_down_button == 2 {
       // Clear the cell if that makes sense for it
+      // Do not delete a cell, not even stubs, because this would be a drag-cancel
+      // (Regular click would delete stubs)
       let ((x, y), _belt_type) = track[0];
       let coord = to_coord(x, y);
+
       clear_part_from_cell(options, state, factory, coord);
     } else {
       // Other mouse button. ignore for now / ever.
@@ -1300,19 +1303,12 @@ fn on_drag_inside_floor(options: &mut Options, state: &mut State, factory: &mut 
       // Convert empty cells to belt cells.
       // Create a port between these two cells, but none of the other cells.
 
-      log(format!("before {:?} {:?}", factory.floor[coord1].kind, factory.floor[coord2].kind));
-      log(format!("want {:?} {:?}", belt_type1, belt_type2));
-
-
       if factory.floor[coord1].kind == CellKind::Empty {
         factory.floor[coord1] = belt_cell(x1, y1, belt_type_to_belt_meta(belt_type1));
       }
       if factory.floor[coord2].kind == CellKind::Empty {
         factory.floor[coord2] = belt_cell(x2, y2, belt_type_to_belt_meta(belt_type2));
       }
-
-      log(format!("after {:?} {:?}", factory.floor[coord1].kind, factory.floor[coord2].kind));
-      log(format!("a: {} {} @{}, b: {} {} @{}", x1, y1, coord1, x2, y2, coord2));
 
       // Now connect them. Do not clobber existing ports. Should work for all possible belt kinds.
       match ( dx, dy ) {
@@ -1338,9 +1334,6 @@ fn on_drag_inside_floor(options: &mut Options, state: &mut State, factory: &mut 
         }
         _ => panic!("already asserted the range of x and y"),
       }
-
-      log(format!("papieren kwestie dxdy {} {}", dx, dy));
-
     } else if mouse_state.last_down_button == 2 {
       // Delete the port between the two cells but leave everything else alone.
       // The coords must be adjacent to one side.
@@ -1506,6 +1499,7 @@ fn on_drag_inside_floor(options: &mut Options, state: &mut State, factory: &mut 
   }
 
   // auto_layout(factory); // I don't want to auto-layout. Just auto-port the new unknowns.
+  log(format!("Auto porting after modification"));
   keep_auto_porting(options, state,factory);
 
   // Recreate cell traversal order
@@ -1515,8 +1509,36 @@ fn on_drag_inside_floor(options: &mut Options, state: &mut State, factory: &mut 
 }
 fn on_click_inside_floor(options: &mut Options, state: &mut State, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState, last_mouse_up_cell_x: f64, last_mouse_up_cell_y: f64) {
   if mouse_state.last_down_button == 2 {
+    // Clear the cell if that makes sense for it. Delete a belt with one or zero ports.
     let coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
-    clear_part_from_cell(options, state, factory, coord);
+
+    let mut ports = 999;
+    if factory.floor[coord].kind == CellKind::Belt {
+      ports = 0;
+      if factory.floor[coord].port_u != Port::None { ports += 1; }
+      if factory.floor[coord].port_r != Port::None { ports += 1; }
+      if factory.floor[coord].port_d != Port::None { ports += 1; }
+      if factory.floor[coord].port_l != Port::None { ports += 1; }
+      if ports <= 1 {
+        log(format!("Deleting stub @{} after rmb click", coord));
+        floor_delete_cell_at_partial(options, state, factory, coord);
+
+        // auto_layout(factory); // I don't want to auto-layout. Just auto-port the new unknowns.
+        log(format!("Auto porting after modification"));
+        keep_auto_porting(options, state,factory);
+
+        // Recreate cell traversal order
+        let prio: Vec<usize> = create_prio_list(options, &mut factory.floor);
+        log(format!("Updated prio list: {:?}", prio));
+        factory.prio = prio;
+      }
+    }
+
+    // If this wasn't a belt (ports=999) or the belt had more than 1 ports, then just drop its part.
+    if ports > 1 {
+      log(format!("Clearing part from @{} after rmb click (ports={})", coord, ports));
+      clear_part_from_cell(options, state, factory, coord);
+    }
   } else {
     // De-/Select this cell
     log(format!("clicked {} {} cell selection before: {:?}", last_mouse_up_cell_x, last_mouse_up_cell_y, cell_selection));
