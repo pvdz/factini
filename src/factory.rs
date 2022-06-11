@@ -21,7 +21,7 @@ pub struct Factory {
 }
 
 pub fn create_factory(options: &mut Options, state: &mut State, floor_str: String) -> Factory {
-  let mut floor = floor_from_str(floor_str);
+  let floor = floor_from_str(floor_str);
   let mut factory = Factory {
     ticks: 0,
     floor,

@@ -334,44 +334,104 @@ pub fn update_meta_to_belt_type_and_replace_cell(factory: &mut Factory, coord: u
   factory.floor[coord].belt.meta = meta;
 }
 
-pub fn connect_belt_to_existing_neighbor_belts(factory: &mut Factory, coord: usize) {
+pub fn connect_belt_to_existing_neighbor_cells(factory: &mut Factory, coord: usize) {
   if let Some(ocoord) = factory.floor[coord].coord_u {
-    if factory.floor[ocoord].kind == CellKind::Belt {
-      if factory.floor[ocoord].port_d == Port::None {
-        factory.floor[ocoord].port_d = Port::Unknown;
-        fix_belt_meta(factory, ocoord);
+    match factory.floor[ocoord].kind {
+      CellKind::Empty => {}
+      CellKind::Belt => {
+        if factory.floor[ocoord].port_d == Port::None {
+          factory.floor[ocoord].port_d = Port::Unknown;
+          fix_belt_meta(factory, ocoord);
+        }
+        factory.floor[coord].port_u = Port::Unknown;
       }
-      factory.floor[coord].port_u = Port::Unknown;
+      CellKind::Machine => {
+        factory.floor[ocoord].port_d = Port::Unknown;
+        factory.floor[coord].port_u = Port::Unknown;
+      }
+      CellKind::Supply => {
+        assert_eq!(factory.floor[ocoord].port_d, Port::Outbound, "supply port is always outbound");
+        factory.floor[coord].port_u = Port::Inbound;
+      }
+      CellKind::Demand => {
+        assert_eq!(factory.floor[ocoord].port_d, Port::Inbound, "demand port is always inbound");
+        factory.floor[coord].port_u = Port::Outbound;
+      }
     }
   }
 
   if let Some(ocoord) = factory.floor[coord].coord_r {
-    if factory.floor[ocoord].kind == CellKind::Belt {
-      if factory.floor[ocoord].port_l == Port::None {
-        factory.floor[ocoord].port_l = Port::Unknown;
-        fix_belt_meta(factory, ocoord);
+    match factory.floor[ocoord].kind {
+      CellKind::Empty => {}
+      CellKind::Belt => {
+        if factory.floor[ocoord].port_l == Port::None {
+          factory.floor[ocoord].port_l = Port::Unknown;
+          fix_belt_meta(factory, ocoord);
+        }
+        factory.floor[coord].port_r = Port::Unknown;
       }
-      factory.floor[coord].port_r = Port::Unknown;
+      CellKind::Machine => {
+        factory.floor[ocoord].port_l = Port::Unknown;
+        factory.floor[coord].port_r = Port::Unknown;
+      }
+      CellKind::Supply => {
+        assert_eq!(factory.floor[ocoord].port_l, Port::Outbound, "supply port is always outbound");
+        factory.floor[coord].port_r = Port::Inbound;
+      }
+      CellKind::Demand => {
+        assert_eq!(factory.floor[ocoord].port_l, Port::Inbound, "demand port is always inbound");
+        factory.floor[coord].port_r = Port::Outbound;
+      }
     }
   }
 
   if let Some(ocoord) = factory.floor[coord].coord_d {
-    if factory.floor[ocoord].kind == CellKind::Belt {
-      if factory.floor[ocoord].port_u == Port::None {
-        factory.floor[ocoord].port_u = Port::Unknown;
-        fix_belt_meta(factory, ocoord);
+    match factory.floor[ocoord].kind {
+      CellKind::Empty => {}
+      CellKind::Belt => {
+        if factory.floor[ocoord].port_u == Port::None {
+          factory.floor[ocoord].port_u = Port::Unknown;
+          fix_belt_meta(factory, ocoord);
+        }
+        factory.floor[coord].port_d = Port::Unknown;
       }
-      factory.floor[coord].port_d = Port::Unknown;
+      CellKind::Machine => {
+        factory.floor[ocoord].port_u = Port::Unknown;
+        factory.floor[coord].port_d = Port::Unknown;
+      }
+      CellKind::Supply => {
+        assert_eq!(factory.floor[ocoord].port_u, Port::Outbound, "supply port is always outbound");
+        factory.floor[coord].port_d = Port::Inbound;
+      }
+      CellKind::Demand => {
+        assert_eq!(factory.floor[ocoord].port_u, Port::Inbound, "demand port is always inbound");
+        factory.floor[coord].port_d = Port::Outbound;
+      }
     }
   }
 
   if let Some(ocoord) = factory.floor[coord].coord_l {
-    if factory.floor[ocoord].kind == CellKind::Belt {
-      if factory.floor[ocoord].port_r == Port::None {
-        factory.floor[ocoord].port_r = Port::Unknown;
-        fix_belt_meta(factory, ocoord);
+    match factory.floor[ocoord].kind {
+      CellKind::Empty => {}
+      CellKind::Belt => {
+        if factory.floor[ocoord].port_r == Port::None {
+          factory.floor[ocoord].port_r = Port::Unknown;
+          fix_belt_meta(factory, ocoord);
+        }
+        factory.floor[coord].port_l = Port::Unknown;
       }
-      factory.floor[coord].port_l = Port::Unknown;
+      CellKind::Machine => {
+        factory.floor[ocoord].port_r = Port::Unknown;
+        factory.floor[coord].port_l = Port::Unknown;
+      }
+      CellKind::Supply => {
+        assert_eq!(factory.floor[ocoord].port_r, Port::Outbound, "supply port is always outbound");
+        factory.floor[coord].port_l = Port::Inbound;
+      }
+      CellKind::Demand => {
+        assert_eq!(factory.floor[ocoord].port_r, Port::Inbound, "demand port is always inbound");
+        factory.floor[coord].port_l = Port::Outbound;
+      }
     }
   }
 

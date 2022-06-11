@@ -527,12 +527,12 @@ pub fn start() -> Result<(), JsValue> {
       }
 
       if options.web_output_cli {
-        draw_world_cli(&context, &mut options, &mut state, &factory);
+        paint_world_cli(&context, &mut options, &mut state, &factory);
       } else {
         // Handle drag-end or click
         handle_input(&mut cell_selection, &mut mouse_state, &mut options, &mut state, &mut factory);
 
-        draw_green_debug(&context, &fps, now, since_prev, ticks_todo, &factory, &mouse_state);
+        paint_green_debug(&context, &fps, now, since_prev, ticks_todo, &factory, &mouse_state);
 
         // Paint the world
 
@@ -615,7 +615,7 @@ fn update_mouse_state(mouse_state: &mut MouseState, mouse_x: f64, mouse_y: f64, 
     }
   }
 }
-fn draw_green_debug(context: &Rc<web_sys::CanvasRenderingContext2d>, fps: &VecDeque<f64>, now: f64, since_prev: f64, ticks_todo: u64, factory: &Factory, mouse_state: &MouseState) {
+fn paint_green_debug(context: &Rc<web_sys::CanvasRenderingContext2d>, fps: &VecDeque<f64>, now: f64, since_prev: f64, ticks_todo: u64, factory: &Factory, mouse_state: &MouseState) {
 
   let mut ui_lines = 0.0;
 
@@ -681,7 +681,7 @@ fn draw_green_debug(context: &Rc<web_sys::CanvasRenderingContext2d>, fps: &VecDe
 
   assert_eq!(ui_lines, UI_DEBUG_LINES, "keep these in sync for simplicity");
 }
-fn draw_world_cli(context: &Rc<web_sys::CanvasRenderingContext2d>, options: &mut Options, state: &mut State, factory: &Factory) {
+fn paint_world_cli(context: &Rc<web_sys::CanvasRenderingContext2d>, options: &mut Options, state: &mut State, factory: &Factory) {
   // Clear world
   context.set_fill_style(&"white".into());
   context.fill_rect(50.0, 20.0, 350.0, 700.0);
@@ -806,8 +806,8 @@ fn paint_ports(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factor
   context.set_stroke_style(&"gray".into());
 
   // Adjust for font size such that it gets centered. API falls a little short in this regard.
-  let FONT_X: f64 = -5.0;
-  let FONT_Y: f64 = 4.0;
+  let font_centering_delta_x: f64 = -5.0;
+  let font_centering_delta_y: f64 = 4.0;
 
   for coord in 0..FLOOR_CELLS_WH {
     let (x, y) = to_xy(coord);
@@ -816,15 +816,15 @@ fn paint_ports(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factor
       // Otherwise we're just gonna paint each port twice
 
       if factory.floor[coord].port_r == Port::Inbound {
-        context.stroke_text("🡄", WORLD_OFFSET_X + (x as f64) * CELL_W + CELL_W + FONT_X, WORLD_OFFSET_Y + (y as f64) * CELL_H + CELL_H / 2.0 + FONT_Y);
+        context.stroke_text("🡄", WORLD_OFFSET_X + (x as f64) * CELL_W + CELL_W + font_centering_delta_x, WORLD_OFFSET_Y + (y as f64) * CELL_H + CELL_H / 2.0 + font_centering_delta_y).expect("to paint");
       } else if factory.floor[coord].port_r == Port::Outbound {
-        context.stroke_text("🡆", WORLD_OFFSET_X + (x as f64) * CELL_W + CELL_W + FONT_X, WORLD_OFFSET_Y + (y as f64) * CELL_H + CELL_H / 2.0 + FONT_Y);
+        context.stroke_text("🡆", WORLD_OFFSET_X + (x as f64) * CELL_W + CELL_W + font_centering_delta_x, WORLD_OFFSET_Y + (y as f64) * CELL_H + CELL_H / 2.0 + font_centering_delta_y).expect("to paint");
       }
 
       if factory.floor[coord].port_d == Port::Inbound {
-        context.stroke_text("🡅", WORLD_OFFSET_X + (x as f64) * CELL_W + CELL_W / 2.0 + FONT_X, WORLD_OFFSET_Y + (y as f64) * CELL_H + CELL_H + FONT_Y);
+        context.stroke_text("🡅", WORLD_OFFSET_X + (x as f64) * CELL_W + CELL_W / 2.0 + font_centering_delta_x, WORLD_OFFSET_Y + (y as f64) * CELL_H + CELL_H + font_centering_delta_y).expect("to paint");
       } else if factory.floor[coord].port_d == Port::Outbound {
-        context.stroke_text("🡇", WORLD_OFFSET_X + (x as f64) * CELL_W + CELL_W / 2.0 + FONT_X, WORLD_OFFSET_Y + (y as f64) * CELL_H + CELL_H + FONT_Y);
+        context.stroke_text("🡇", WORLD_OFFSET_X + (x as f64) * CELL_W + CELL_W / 2.0 + font_centering_delta_x, WORLD_OFFSET_Y + (y as f64) * CELL_H + CELL_H + font_centering_delta_y).expect("to paint");
       }
     }
   }
@@ -944,10 +944,10 @@ fn paint_mouse_pointer_in_world(context: &Rc<web_sys::CanvasRenderingContext2d>,
   }
 
   if mouse_state.is_dragging {
-    draw_belt_drag_preview(context, factory, cell_selection, mouse_state, belt_tile_images);
+    paint_belt_drag_preview(context, factory, cell_selection, mouse_state, belt_tile_images);
   }
 }
-fn draw_belt_drag_preview(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState, belt_tile_images: &Vec<web_sys::HtmlImageElement>) {
+fn paint_belt_drag_preview(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState, belt_tile_images: &Vec<web_sys::HtmlImageElement>) {
   let track = ray_trace_dragged_line(
     factory,
     (mouse_state.last_down_world_x / CELL_W).floor(),
@@ -971,7 +971,7 @@ fn draw_belt_drag_preview(context: &Rc<web_sys::CanvasRenderingContext2d>, facto
     let ((x, y), bt) = track[index];
     context.set_fill_style(&"#00770044".into());
     context.fill_rect(WORLD_OFFSET_X + CELL_W * (x as f64), WORLD_OFFSET_Y + CELL_H * (y as f64), CELL_W, CELL_H);
-    draw_ghost_belt_of_type(x, y, if mouse_state.last_down_button == 2 { BeltType::INVALID } else { bt }, &context, &belt_tile_images);
+    paint_ghost_belt_of_type(x, y, if mouse_state.last_down_button == 2 { BeltType::INVALID } else { bt }, &context, &belt_tile_images);
   }
 }
 fn ray_trace_dragged_line(factory: &Factory, x0: f64, y0: f64, x1: f64, y1: f64) -> Vec<((usize, usize), BeltType)> {
@@ -1080,7 +1080,7 @@ fn get_cells_from_a_to_b(x0: f64, y0: f64, x1: f64, y1: f64) -> Vec<(usize, usiz
 
   return covered;
 }
-fn draw_ghost_belt_of_type(cell_x: usize, cell_y: usize, belt_type: BeltType, context: &Rc<web_sys::CanvasRenderingContext2d>, belt_tile_images: &Vec<web_sys::HtmlImageElement>) {
+fn paint_ghost_belt_of_type(cell_x: usize, cell_y: usize, belt_type: BeltType, context: &Rc<web_sys::CanvasRenderingContext2d>, belt_tile_images: &Vec<web_sys::HtmlImageElement>) {
   let img: &HtmlImageElement = &belt_tile_images[belt_type as usize];
 
   context.set_global_alpha(0.5);
@@ -1158,61 +1158,61 @@ fn paint_cell_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &
   };
   context.stroke_text(type_name, UI_CELL_EDITOR_KIND_OX + 4.0, UI_CELL_EDITOR_KIND_OY + UI_FONT_H + 3.0).expect("to paint port");
 
+  // Paint ports
+  context.set_stroke_style(&"black".into());
+  match factory.floor[cell_selection.coord].port_u {
+    Port::Inbound => {
+      context.stroke_text("in", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (0.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+    },
+    Port::Outbound => {
+      context.stroke_text("out", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (0.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+    },
+    Port::None => {},
+    Port::Unknown => {
+      context.stroke_text("???", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (0.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+    },
+  }
+
+  match factory.floor[cell_selection.coord].port_r {
+    Port::Inbound => {
+      context.stroke_text("in", ox + (2.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+    },
+    Port::Outbound => {
+      context.stroke_text("out", ox + (2.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+    },
+    Port::None => {},
+    Port::Unknown => {
+      context.stroke_text("???", ox + (2.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+    },
+  }
+
+  match factory.floor[cell_selection.coord].port_d {
+    Port::Inbound => {
+      context.stroke_text("in", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (2.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+    },
+    Port::Outbound => {
+      context.stroke_text("out", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (2.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+    },
+    Port::None => {},
+    Port::Unknown => {
+      context.stroke_text("???", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (2.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+    },
+  }
+
+  match factory.floor[cell_selection.coord].port_l {
+    Port::Inbound => {
+      context.stroke_text("in", ox + (0.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+    },
+    Port::Outbound => {
+      context.stroke_text("out", ox + (0.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+    },
+    Port::None => {},
+    Port::Unknown => {
+      context.stroke_text("???", ox + (0.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+    },
+  }
+
   if factory.floor[cell_selection.coord].kind == CellKind::Belt {
-    // Paint ports
-    context.set_stroke_style(&"black".into());
-    match factory.floor[cell_selection.coord].port_u {
-      Port::Inbound => {
-        context.stroke_text("in", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (0.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-      },
-      Port::Outbound => {
-        context.stroke_text("out", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (0.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-      },
-      Port::None => {},
-      Port::Unknown => {
-        context.stroke_text("???", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (0.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-      },
-    }
-
-    match factory.floor[cell_selection.coord].port_r {
-      Port::Inbound => {
-        context.stroke_text("in", ox + (2.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-      },
-      Port::Outbound => {
-        context.stroke_text("out", ox + (2.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-      },
-      Port::None => {},
-      Port::Unknown => {
-        context.stroke_text("???", ox + (2.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-      },
-    }
-
-    match factory.floor[cell_selection.coord].port_d {
-      Port::Inbound => {
-        context.stroke_text("in", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (2.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-      },
-      Port::Outbound => {
-        context.stroke_text("out", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (2.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-      },
-      Port::None => {},
-      Port::Unknown => {
-        context.stroke_text("???", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (2.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-      },
-    }
-
-    match factory.floor[cell_selection.coord].port_l {
-      Port::Inbound => {
-        context.stroke_text("in", ox + (0.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-      },
-      Port::Outbound => {
-        context.stroke_text("out", ox + (0.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-      },
-      Port::None => {},
-      Port::Unknown => {
-        context.stroke_text("???", ox + (0.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-      },
-    }
-
     // Paint current part
     context.stroke_text(format!("{}",
       if factory.floor[cell_selection.coord].belt.part.kind != PartKind::None { 'p' } else { ' ' },
@@ -1341,39 +1341,24 @@ fn on_drag_inside_floor(options: &mut Options, state: &mut State, factory: &mut 
       let ( dir1, dir2) = match ( dx, dy ) {
         ( 0 , -1 ) => {
           // y2 was bigger so xy1 is above xy2
-          factory.floor[coord1].port_d = Port::None;
-          factory.floor[coord2].port_u = Port::None;
-
           (Direction::Down, Direction::Up)
         }
         ( 1 , 0 ) => {
           // x1 was bigger so xy1 is right of xy2
-          factory.floor[coord1].port_l = Port::None;
-          factory.floor[coord2].port_r = Port::None;
-
           (Direction::Left, Direction::Right)
         }
         ( 0 , 1 ) => {
           // x1 was bigger so xy1 is under xy2
-          factory.floor[coord1].port_u = Port::None;
-          factory.floor[coord2].port_d = Port::None;
-
           (Direction::Up, Direction::Down)
         }
         ( -1 , 0 ) => {
           // x2 was bigger so xy1 is left of xy2
-          factory.floor[coord1].port_r = Port::None;
-          factory.floor[coord2].port_l = Port::None;
-
           (Direction::Right, Direction::Left)
         }
         _ => panic!("already asserted the range of x and y"),
       };
 
-      remove_dir_from_cell_ins(factory, coord1, dir1);
-      remove_dir_from_cell_outs(factory, coord1, dir1);
-      remove_dir_from_cell_ins(factory, coord2, dir2);
-      remove_dir_from_cell_outs(factory, coord2, dir2);
+      port_disconnect_cells(factory, coord1, dir1, coord2, dir2);
     } else {
       // Other mouse button or multi-button. ignore for now / ever.
       // (Remember: this was a drag of two cells)
@@ -1421,58 +1406,22 @@ fn on_drag_inside_floor(options: &mut Options, state: &mut State, factory: &mut 
             // Force-connect this cell to the previous cell, provided that cell is now a Belt
             // Do not change existing ports, if any (previously existing belts with those ports)
             if index > 0 {
-              // Must cast because I want to know about negatives
-              let dx = x as i8 - (px as i8);
-              let dy = y as i8 - (py as i8);
-              assert!(dx == 0 || dy == 0, "cell should neighbor previous cell so one axis should not change {} {} - {} {}", x, y, px, py);
-              if dy < 0 {
-                // x,y is above px,py (because py>y)
-                if factory.floor[pcoord].kind == CellKind::Belt {
-                  if factory.floor[pcoord].port_u == Port::None {
-                    factory.floor[pcoord].port_u = Port::Unknown;
-                    fix_belt_meta(factory, pcoord);
-                  }
-                  factory.floor[coord].port_d = Port::Unknown;
-                }
-              } else if dx > 0 {
-                // x,y is right of px,py
-                if factory.floor[pcoord].kind == CellKind::Belt {
-                  if factory.floor[pcoord].port_r == Port::None {
-                    factory.floor[pcoord].port_r = Port::Unknown;
-                    fix_belt_meta(factory, pcoord);
-                  }
-                  factory.floor[coord].port_l = Port::Unknown;
-                }
-              } else if dy > 0 {
-                // x,y is under px,py
-                if factory.floor[pcoord].kind == CellKind::Belt {
-                  if factory.floor[pcoord].port_d == Port::None {
-                    factory.floor[pcoord].port_d = Port::Unknown;
-                    fix_belt_meta(factory, pcoord);
-                  }
-                  factory.floor[coord].port_u = Port::Unknown;
-                }
-              } else if dx < 0 {
-                // x,y is left of px,py
-                if factory.floor[pcoord].kind == CellKind::Belt {
-                  if factory.floor[pcoord].port_l == Port::None {
-                    factory.floor[pcoord].port_l = Port::Unknown;
-                    fix_belt_meta(factory, pcoord);
-                  }
-                  factory.floor[coord].port_r = Port::Unknown;
-                }
-              }
-
-              fix_belt_meta(factory, coord);
+              floor_create_cell_at_partial(options, state, factory, pcoord, px as i8, py as i8, coord, x as i8, y as i8);
             }
 
-            // If there are exactly two cells then do not connect the start/end to _all_ belts
-            // around them, instead connect only those two cells.
-            if len > 2 && index == 0 || index == len - 1 {
-              log(format!("    -- okay @{} got {:?} ;; {:?} {:?} {:?} {:?}", coord, belt_type, factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
-
-              log(format!("  - connect_belt_to_existing_neighbor_belts(), before: {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
-              connect_belt_to_existing_neighbor_belts(factory, coord);
+            // Connect the end points to any existing neighboring cells if not already connected
+            if index == 0 || index == len - 1 {
+              // log(format!("    -- okay @{} got {:?} ;; {:?} {:?} {:?} {:?}", coord, belt_type, factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
+              // log(format!("  - connect_belt_to_existing_neighbor_belts(), before: {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
+              connect_belt_to_existing_neighbor_cells(factory, coord);
+            }
+          }
+          CellKind::Machine => {
+            // If this is the first one then ignore it
+            // Otherwise, if the previous cell is a belt, connect it to this machine
+            if index > 0 {
+              log(format!("  - machine @{}, index {} connecting to previous cell @{}", coord, index, pcoord));
+              connect_machine_if_to_belt(factory, coord, x, y,pcoord, px, py);
             }
           }
           _ => (), // Do not overwrite machines, suppliers, or demanders

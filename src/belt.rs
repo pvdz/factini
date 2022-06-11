@@ -870,6 +870,7 @@ pub fn add_one_ports_to_cell(factory: &Factory, coord: usize, dir: Direction) ->
     (false, true, true, true) => BeltType::DLR,
   }
 }
+
 pub fn add_two_ports_to_cell(factory: &Factory, coord: usize, dir1: Direction, dir2: Direction) -> BeltType {
   // Given a coord and two dirs return a belt type that has _a_ port in all the directions of:
   // - the given dirs

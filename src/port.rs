@@ -659,3 +659,72 @@ pub fn port_both_sides_lr(factory: &mut Factory, coord: usize) {
     }
   }
 }
+
+pub fn port_disconnect_cells(factory: &mut Factory, coord1: usize, dir1: Direction, coord2: usize, dir2: Direction) {
+  // Note: this still requires fixing the cell meta and a new factory prio
+  port_disconnect_cell(factory, coord1, dir1);
+  port_disconnect_cell(factory, coord2, dir2);
+}
+pub fn port_disconnect_cell(factory: &mut Factory, coord: usize, dir: Direction) {
+  // Some cells have fixed ports, only belts are dynamic, machines reset to unknown
+  // Note: this still requires fixing the cell meta and a new factory prio
+
+  match dir {
+    Direction::Up => {
+      if factory.floor[coord].kind == CellKind::Belt {
+        factory.floor[coord].port_u = Port::None;
+        remove_dir_from_cell_ins(factory, coord, dir);
+        remove_dir_from_cell_outs(factory, coord, dir);
+      } else if factory.floor[coord].kind == CellKind::Machine {
+        factory.floor[coord].port_u = Port::Unknown;
+        remove_dir_from_cell_ins(factory, coord, dir);
+        remove_dir_from_cell_outs(factory, coord, dir);
+      } else {
+        // Noop for Empty, Demand, and Supply cells
+      }
+    }
+    Direction::Right => {
+      if factory.floor[coord].kind == CellKind::Belt {
+        factory.floor[coord].port_r = Port::None;
+        remove_dir_from_cell_ins(factory, coord, dir);
+        remove_dir_from_cell_outs(factory, coord, dir);
+      } else if factory.floor[coord].kind == CellKind::Machine {
+        factory.floor[coord].port_r = Port::Unknown;
+        remove_dir_from_cell_ins(factory, coord, dir);
+        remove_dir_from_cell_outs(factory, coord, dir);
+      } else {
+        // Noop for Empty, Demand, and Supply cells
+      }
+    }
+    Direction::Down => {
+      if factory.floor[coord].kind == CellKind::Belt {
+        factory.floor[coord].port_d = Port::None;
+        remove_dir_from_cell_ins(factory, coord, dir);
+        remove_dir_from_cell_outs(factory, coord, dir);
+      } else if factory.floor[coord].kind == CellKind::Machine {
+        factory.floor[coord].port_d = Port::Unknown;
+        remove_dir_from_cell_ins(factory, coord, dir);
+        remove_dir_from_cell_outs(factory, coord, dir);
+      } else {
+        // Noop for Empty, Demand, and Supply cells
+      }
+    }
+    Direction::Left => {
+      if factory.floor[coord].kind == CellKind::Belt {
+        factory.floor[coord].port_l = Port::None;
+        remove_dir_from_cell_ins(factory, coord, dir);
+        remove_dir_from_cell_outs(factory, coord, dir);
+      } else if factory.floor[coord].kind == CellKind::Machine {
+        factory.floor[coord].port_l = Port::Unknown;
+        remove_dir_from_cell_ins(factory, coord, dir);
+        remove_dir_from_cell_outs(factory, coord, dir);
+      } else {
+        // Noop for Empty, Demand, and Supply cells
+      }
+    }
+  }
+}
+
+pub fn serialize_ports(factory: &Factory, coord: usize) -> String {
+  return format!("ports @{}:  {:?}  {:?}  {:?}  {:?}", coord, factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l);
+}

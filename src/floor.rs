@@ -33,7 +33,7 @@ pub fn floor_from_str(str: String) -> [Cell; FLOOR_CELLS_WH] {
     return floor_empty();
   }
 
-  let mut floor = str_to_floor(str);
+  let floor = str_to_floor(str);
   return floor;
 }
 
@@ -645,6 +645,56 @@ pub const fn to_coord_left(coord: usize) -> usize {
   return coord - 1;
 }
 
+pub fn floor_create_cell_at_partial(options: &mut Options, state: &mut State, factory: &mut Factory, coord1: usize, x1: i8, y1: i8, coord2: usize, x2: i8, y2: i8) {
+  // Note: this still requires auto porting and creating a new prio
+  // Note: generating part at x1,x2
+
+  // Must cast because I want to know about negatives
+  let dx = x1 - x2;
+  let dy = y1 - y2;
+  log(format!("floor_create_cell_at_partial @{} - @{} -> {} {}, ports: {} and {}", coord1, coord2, dx, dy, serialize_ports(factory, coord1), serialize_ports(factory, coord2)));
+  assert!(dx == 0 || dy == 0, "cell should neighbor previous cell so one axis should not change {} {} - {} {}", x1, y1, x2, y2);
+  if dy < 0 {
+    // x1,y1 is above x2,y2 (because y2>y1)
+    if factory.floor[coord1].kind == CellKind::Belt {
+      if factory.floor[coord1].port_d == Port::None {
+        factory.floor[coord1].port_d = Port::Unknown;
+        fix_belt_meta(factory, coord1);
+      }
+      factory.floor[coord2].port_u = Port::Unknown;
+    }
+  } else if dx > 0 {
+    // x2,y2 is right of x1,p1
+    if factory.floor[coord1].kind == CellKind::Belt {
+      if factory.floor[coord1].port_l == Port::None {
+        factory.floor[coord1].port_l = Port::Unknown;
+        fix_belt_meta(factory, coord1);
+      }
+      factory.floor[coord2].port_r = Port::Unknown;
+    }
+  } else if dy > 0 {
+    // x2,y2 is under x1,y1
+    if factory.floor[coord1].kind == CellKind::Belt {
+      if factory.floor[coord1].port_u == Port::None {
+        factory.floor[coord1].port_u = Port::Unknown;
+        fix_belt_meta(factory, coord1);
+      }
+      factory.floor[coord2].port_d = Port::Unknown;
+    }
+  } else if dx < 0 {
+    // x2,y2 is left of x1,y1
+    if factory.floor[coord1].kind == CellKind::Belt {
+      if factory.floor[coord1].port_r == Port::None {
+        factory.floor[coord1].port_r = Port::Unknown;
+        fix_belt_meta(factory, coord1);
+      }
+      factory.floor[coord2].port_l = Port::Unknown;
+    }
+  }
+  log(format!("  - after  @{} - @{} -> {} {}, ports: {} and {}", coord1, coord2, dx, dy, serialize_ports(factory, coord1), serialize_ports(factory, coord2)));
+
+  fix_belt_meta(factory, coord2);
+}
 pub fn floor_delete_cell_at_partial(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize) {
   // Note: partial because factory prio must to be updated too, elsewhere (!)
   // Running auto-porting may uncover new tracks but should not be required to run
@@ -657,61 +707,29 @@ pub fn floor_delete_cell_at_partial(options: &mut Options, state: &mut State, fa
 
   if factory.floor[coord].port_u != Port::None {
     if let Some(ocoord) = factory.floor[coord].coord_u {
-      if factory.floor[ocoord].kind == CellKind::Belt {
-        factory.floor[ocoord].port_d = Port::None;
-        fix_belt_meta(factory, ocoord);
-      }
-      if let Some(pos) = factory.floor[ocoord].ins.iter().position(|(dir, ..)| dir == &Direction::Down) {
-        factory.floor[ocoord].ins.remove(pos);
-      }
-      if let Some(pos) = factory.floor[ocoord].outs.iter().position(|(dir, ..)| dir == &Direction::Down) {
-        factory.floor[ocoord].outs.remove(pos);
-      }
+      port_disconnect_cell(factory, ocoord, Direction::Down);
+      fix_belt_meta(factory, ocoord);
     }
   }
 
   if factory.floor[coord].port_r != Port::None {
     if let Some(ocoord) = factory.floor[coord].coord_r {
-      if factory.floor[ocoord].kind == CellKind::Belt {
-        factory.floor[ocoord].port_l = Port::None;
-        fix_belt_meta(factory, ocoord);
-      }
-      if let Some(pos) = factory.floor[ocoord].ins.iter().position(|(dir, ..)| dir == &Direction::Left) {
-        factory.floor[ocoord].ins.remove(pos);
-      }
-      if let Some(pos) = factory.floor[ocoord].outs.iter().position(|(dir, ..)| dir == &Direction::Left) {
-        factory.floor[ocoord].outs.remove(pos);
-      }
+      port_disconnect_cell(factory, ocoord, Direction::Left);
+      fix_belt_meta(factory, ocoord);
     }
   }
 
   if factory.floor[coord].port_d != Port::None {
     if let Some(ocoord) = factory.floor[coord].coord_d {
-      if factory.floor[ocoord].kind == CellKind::Belt {
-        factory.floor[ocoord].port_u = Port::None;
-        fix_belt_meta(factory, ocoord);
-      }
-      if let Some(pos) = factory.floor[ocoord].ins.iter().position(|(dir, ..)| dir == &Direction::Up) {
-        factory.floor[ocoord].ins.remove(pos);
-      }
-      if let Some(pos) = factory.floor[ocoord].outs.iter().position(|(dir, ..)| dir == &Direction::Up) {
-        factory.floor[ocoord].outs.remove(pos);
-      }
+      port_disconnect_cell(factory, ocoord, Direction::Up);
+      fix_belt_meta(factory, ocoord);
     }
   }
 
   if factory.floor[coord].port_l != Port::None {
     if let Some(ocoord) = factory.floor[coord].coord_l {
-      if factory.floor[ocoord].kind == CellKind::Belt {
-        factory.floor[ocoord].port_r = Port::None;
-        fix_belt_meta(factory, ocoord);
-      }
-      if let Some(pos) = factory.floor[ocoord].ins.iter().position(|(dir, ..)| dir == &Direction::Right) {
-        factory.floor[ocoord].ins.remove(pos);
-      }
-      if let Some(pos) = factory.floor[ocoord].outs.iter().position(|(dir, ..)| dir == &Direction::Right) {
-        factory.floor[ocoord].outs.remove(pos);
-      }
+      port_disconnect_cell(factory, ocoord, Direction::Right);
+      fix_belt_meta(factory, ocoord);
     }
   }
 

@@ -5,6 +5,7 @@ use super::floor::*;
 use super::factory::*;
 use super::options::*;
 use super::part::*;
+use super::port::*;
 use super::state::*;
 use super::utils::*;
 
@@ -196,4 +197,35 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
     factory.floor[main_coord].machine.start_at = factory.ticks;
   }
 
+}
+
+pub fn connect_machine_if_to_belt(factory: &mut Factory, machine_coord: usize, machine_x: usize, machine_y: usize, belt_coord: usize, belt_x: usize, belt_y: usize) {
+  if factory.floor[belt_coord].kind != CellKind::Belt {
+    return;
+  }
+
+  log(format!("   - connect_machine_if_to_belt() {} {} v {} {}", machine_x, machine_y, belt_x, belt_y));
+
+  if machine_y < belt_y {
+    log(format!("connect_machine_if_to_belt my < by"));
+    if factory.floor[machine_coord].port_d == Port::None {
+      factory.floor[machine_coord].port_d = Port::Unknown;
+    }
+  } else if machine_x > belt_x {
+    log(format!("connect_machine_if_to_belt my > by"));
+    if factory.floor[machine_coord].port_l == Port::None {
+      factory.floor[machine_coord].port_l = Port::Unknown;
+    }
+  } else if machine_y > belt_y {
+    log(format!("connect_machine_if_to_belt my > by"));
+    if factory.floor[machine_coord].port_r == Port::None {
+      log(format!("- yes"));
+      factory.floor[machine_coord].port_r = Port::Unknown;
+    }
+  } else if machine_x < belt_x {
+    log(format!("connect_machine_if_to_belt mx < bx"));
+    if factory.floor[machine_coord].port_u == Port::None {
+      factory.floor[machine_coord].port_u = Port::Unknown;
+    }
+  }
 }
