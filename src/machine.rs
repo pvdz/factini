@@ -90,7 +90,7 @@ pub fn machine_new(kind: MachineKind, id: usize, main_coord: usize, input1: Part
     output_want: output,
     // output_have: part_none(),
 
-    speed: 0,
+    speed: 100,
     production_price: 0,
     trash_price: 0,
   };
@@ -176,14 +176,6 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
       }
     }
   }
-  //
-  // println!("({}) machine @{} ready? {:?} == {:?}, {:?} == {:?}, {:?} == {:?}",
-  //   factory.ticks,
-  //   main_coord,
-  //     factory.floor[main_coord].machine.input_1_want.kind, factory.floor[main_coord].machine.input_1_have.kind,
-  //     factory.floor[main_coord].machine.input_2_want.kind, factory.floor[main_coord].machine.input_2_have.kind,
-  //     factory.floor[main_coord].machine.input_3_want.kind, factory.floor[main_coord].machine.input_3_have.kind
-  // );
 
   if
     factory.floor[main_coord].machine.input_1_want.kind == factory.floor[main_coord].machine.input_1_have.kind &&
@@ -199,34 +191,3 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
   }
 
 }
-
-// pub fn connect_machine_if_to_belt(factory: &mut Factory, machine_coord: usize, machine_x: usize, machine_y: usize, belt_coord: usize, belt_x: usize, belt_y: usize) {
-//   if factory.floor[belt_coord].kind != CellKind::Belt {
-//     return;
-//   }
-//
-//   log(format!("   - connect_machine_if_to_belt() {} {} v {} {}", machine_x, machine_y, belt_x, belt_y));
-//
-//   if machine_y < belt_y {
-//     log(format!("connect_machine_if_to_belt my < by"));
-//     if factory.floor[machine_coord].port_d == Port::None {
-//       factory.floor[machine_coord].port_d = Port::Unknown;
-//     }
-//   } else if machine_x > belt_x {
-//     log(format!("connect_machine_if_to_belt my > by"));
-//     if factory.floor[machine_coord].port_l == Port::None {
-//       factory.floor[machine_coord].port_l = Port::Unknown;
-//     }
-//   } else if machine_y > belt_y {
-//     log(format!("connect_machine_if_to_belt my > by"));
-//     if factory.floor[machine_coord].port_r == Port::None {
-//       log(format!("- yes"));
-//       factory.floor[machine_coord].port_r = Port::Unknown;
-//     }
-//   } else if machine_x < belt_x {
-//     log(format!("connect_machine_if_to_belt mx < bx"));
-//     if factory.floor[machine_coord].port_u == Port::None {
-//       factory.floor[machine_coord].port_u = Port::Unknown;
-//     }
-//   }
-// }

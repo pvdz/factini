@@ -68,12 +68,12 @@ const UI_SEGMENT_W: f64 = 40.0;
 const UI_SEGMENT_H: f64 = 40.0;
 const UI_DEBUG_LINES: f64 = 8.0;
 
-const UI_CELL_EDITOR_OX: f64 = UI_OX + UI_ML;
+const UI_CELL_EDITOR_OX: f64 = UI_OX;
 const UI_CELL_EDITOR_OY: f64 = UI_OY + (UI_LINE_H * (UI_DEBUG_LINES + 2.0));
 const UI_CELL_EDITOR_W: f64 = UI_W;
 const UI_CELL_EDITOR_H: f64 = UI_LINE_H * 7.0;
 
-const UI_CELL_EDITOR_GRID_OX: f64 = UI_OX + UI_ML + 10.0;
+const UI_CELL_EDITOR_GRID_OX: f64 = UI_OX + 10.0;
 const UI_CELL_EDITOR_GRID_OY: f64 = UI_OY + ((UI_DEBUG_LINES + 3.0) * UI_LINE_H) + UI_FONT_H;
 const UI_CELL_EDITOR_GRID_W: f64 = 3.0 * UI_SEGMENT_W;
 const UI_CELL_EDITOR_GRID_H: f64 = 3.0 * UI_SEGMENT_H;
@@ -82,6 +82,11 @@ const UI_CELL_EDITOR_KIND_OX: f64 = UI_CELL_EDITOR_GRID_OX + (3.0 * UI_SEGMENT_W
 const UI_CELL_EDITOR_KIND_OY: f64 = UI_CELL_EDITOR_GRID_OY + (2.0 * UI_FONT_H);
 const UI_CELL_EDITOR_KIND_W: f64 = 60.0;
 const UI_CELL_EDITOR_KIND_H: f64 = 2.0 * UI_FONT_H;
+
+const UI_MACHINE_EDITOR_OX: f64 = UI_OX;
+const UI_MACHINE_EDITOR_OY: f64 = UI_CELL_EDITOR_OY + UI_CELL_EDITOR_H + UI_LINE_H;
+const UI_MACHINE_EDITOR_W: f64 = UI_CELL_EDITOR_W;
+const UI_MACHINE_EDITOR_H: f64 = 120.0;
 
 // Exports from web (on a non-module context, define a global "log" and "dnow" function)
 // Not sure how this works in threads. Probably the same. TBD.
@@ -552,6 +557,7 @@ pub fn start() -> Result<(), JsValue> {
         }
 
         paint_cell_editor(&context, &factory, &cell_selection, &mouse_state);
+        paint_machine_editor(&context, &factory, &cell_selection, &mouse_state);
       }
 
       // Schedule next frame
@@ -1090,11 +1096,10 @@ fn paint_ghost_belt_of_type(cell_x: usize, cell_y: usize, belt_type: BeltType, c
   context.set_global_alpha(1.0);
 }
 fn paint_cell_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
-  // Clear cell editor
-  context.set_fill_style(&"white".into());
-  context.fill_rect(UI_OX, UI_OY + (UI_LINE_H * 10.0), UI_W, UI_LINE_H * 10.0);
-
   if !cell_selection.on {
+    // Clear cell editor
+    context.set_fill_style(&"white".into());
+    context.fill_rect(UI_CELL_EDITOR_OX, UI_CELL_EDITOR_OY, UI_CELL_EDITOR_W, UI_CELL_EDITOR_H);
     return;
   }
 
@@ -1106,7 +1111,7 @@ fn paint_cell_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &
   context.set_fill_style(&"lightgreen".into());
   context.fill_rect(UI_CELL_EDITOR_OX, UI_CELL_EDITOR_OY, UI_CELL_EDITOR_W, UI_CELL_EDITOR_H);
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("Cell {} x {} ({})", cell_selection.x, cell_selection.y, to_coord(cell_selection.x as usize, cell_selection.y as usize)).as_str(), UI_OX + UI_ML + 10.0, UI_OY + ((UI_DEBUG_LINES + 2.0) * UI_LINE_H) + UI_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("Cell {} x {} ({})", cell_selection.x, cell_selection.y, cell_selection.coord).as_str(), UI_OX + UI_ML + 10.0, UI_OY + ((UI_DEBUG_LINES + 2.0) * UI_LINE_H) + UI_FONT_H).expect("something error fill_text");
 
   let ox = UI_CELL_EDITOR_GRID_OX;
   let oy = UI_CELL_EDITOR_GRID_OY;
@@ -1150,7 +1155,7 @@ fn paint_cell_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &
   context.set_stroke_style(&"black".into());
   context.stroke_rect(UI_CELL_EDITOR_KIND_OX, UI_CELL_EDITOR_KIND_OY, UI_CELL_EDITOR_KIND_W, UI_CELL_EDITOR_KIND_H);
   // Draw the type of the cell in this box
-  context.set_stroke_style(&"black".into());
+  context.set_fill_style(&"black".into());
   let type_name = match factory.floor[cell_selection.coord].kind {
     CellKind::Empty => "Empty",
     CellKind::Belt => "Belt",
@@ -1158,65 +1163,65 @@ fn paint_cell_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &
     CellKind::Supply => "Supply",
     CellKind::Demand => "Demand",
   };
-  context.stroke_text(type_name, UI_CELL_EDITOR_KIND_OX + 4.0, UI_CELL_EDITOR_KIND_OY + UI_FONT_H + 3.0).expect("to paint port");
+  context.fill_text(type_name, UI_CELL_EDITOR_KIND_OX + 4.0, UI_CELL_EDITOR_KIND_OY + UI_FONT_H + 3.0).expect("to paint port");
 
   // Paint ports
-  context.set_stroke_style(&"black".into());
+  context.set_fill_style(&"black".into());
   match factory.floor[cell_selection.coord].port_u {
     Port::Inbound => {
-      context.stroke_text("in", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (0.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+      context.fill_text("in", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (0.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
     },
     Port::Outbound => {
-      context.stroke_text("out", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (0.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+      context.fill_text("out", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (0.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
     },
     Port::None => {},
     Port::Unknown => {
-      context.stroke_text("???", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (0.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+      context.fill_text("???", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (0.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
     },
   }
 
   match factory.floor[cell_selection.coord].port_r {
     Port::Inbound => {
-      context.stroke_text("in", ox + (2.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+      context.fill_text("in", ox + (2.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
     },
     Port::Outbound => {
-      context.stroke_text("out", ox + (2.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+      context.fill_text("out", ox + (2.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
     },
     Port::None => {},
     Port::Unknown => {
-      context.stroke_text("???", ox + (2.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+      context.fill_text("???", ox + (2.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
     },
   }
 
   match factory.floor[cell_selection.coord].port_d {
     Port::Inbound => {
-      context.stroke_text("in", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (2.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+      context.fill_text("in", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (2.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
     },
     Port::Outbound => {
-      context.stroke_text("out", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (2.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+      context.fill_text("out", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (2.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
     },
     Port::None => {},
     Port::Unknown => {
-      context.stroke_text("???", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (2.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+      context.fill_text("???", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (2.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
     },
   }
 
   match factory.floor[cell_selection.coord].port_l {
     Port::Inbound => {
-      context.stroke_text("in", ox + (0.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+      context.fill_text("in", ox + (0.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
     },
     Port::Outbound => {
-      context.stroke_text("out", ox + (0.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+      context.fill_text("out", ox + (0.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
     },
     Port::None => {},
     Port::Unknown => {
-      context.stroke_text("???", ox + (0.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
+      context.fill_text("???", ox + (0.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
     },
   }
 
   if factory.floor[cell_selection.coord].kind == CellKind::Belt {
     // Paint current part
-    context.stroke_text(format!("{}",
+    context.fill_text(format!("{}",
       if factory.floor[cell_selection.coord].belt.part.kind != PartKind::None { 'p' } else { ' ' },
       // if factory.floor[cell_selection.coord].allocated { 'a' } else { ' ' },
       // if factory.floor[cell_selection.coord].claimed { 'c' } else { ' ' },
@@ -1492,6 +1497,48 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, factory: &mut
       cell_selection.coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
     }
   }
+}
+fn paint_machine_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
+  if !cell_selection.on {
+    // No cell selected. Clear machine editor
+    context.set_fill_style(&"white".into());
+    context.fill_rect(UI_MACHINE_EDITOR_OX, UI_MACHINE_EDITOR_OY, UI_MACHINE_EDITOR_W, UI_MACHINE_EDITOR_H);
+    return;
+  }
+
+  let coord = cell_selection.coord;
+  if factory.floor[coord].kind != CellKind::Machine {
+    // Not selected a machine. Clear machine area.
+    context.set_fill_style(&"white".into());
+    context.fill_rect(UI_MACHINE_EDITOR_OX, UI_MACHINE_EDITOR_OY, UI_MACHINE_EDITOR_W, UI_MACHINE_EDITOR_H);
+    return;
+  }
+
+  // Each cell consolidates much of its information into the main coord, usually the top-left cell
+  let main_coord = factory.floor[coord].machine.main_coord;
+  let ( main_x, main_y ) = to_xy(main_coord);
+
+  // Mark the currently selected machine main_coord
+  context.set_stroke_style(&"cyan".into());
+  context.stroke_rect(WORLD_OFFSET_X + main_x as f64 * CELL_W, WORLD_OFFSET_Y + main_y as f64 * CELL_H, CELL_W, CELL_H);
+
+  // Paint cell editor
+  context.set_fill_style(&"lightgreen".into());
+  context.fill_rect(UI_MACHINE_EDITOR_OX, UI_MACHINE_EDITOR_OY, UI_MACHINE_EDITOR_W, UI_MACHINE_EDITOR_H);
+  context.set_fill_style(&"black".into());
+  context.fill_text(format!("Machine main {} x {} ({})", main_x, main_y, main_coord).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H).expect("something error fill_text");
+  let mut in_coords = factory.floor[main_coord].ins.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
+  in_coords.sort();
+  in_coords.dedup();
+  context.fill_text(format!("Ins : {:?}", in_coords).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 2.0).expect("something error fill_text");
+  let mut out_coords = factory.floor[main_coord].outs.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
+  out_coords.sort();
+  out_coords.dedup();
+  context.fill_text(format!("Outs: {:?}", out_coords).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 3.0).expect("something error fill_text");
+  context.fill_text(format!("Wants: {} {} {}", factory.floor[main_coord].machine.input_1_want.icon, factory.floor[main_coord].machine.input_2_want.icon, factory.floor[main_coord].machine.input_3_want.icon).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 4.0).expect("something error fill_text");
+  context.fill_text(format!("Haves: {} {} {}", factory.floor[main_coord].machine.input_1_have.icon, factory.floor[main_coord].machine.input_2_have.icon, factory.floor[main_coord].machine.input_3_have.icon).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 5.0).expect("something error fill_text");
+  context.fill_text(format!("Generates: {}", factory.floor[main_coord].machine.output_want.icon).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 6.0).expect("something error fill_text");
+  context.fill_text(format!("Progress: {: >3}% ({})", (((factory.ticks - factory.floor[main_coord].machine.start_at) as f64 / factory.floor[main_coord].machine.speed as f64).min(1.0) * 100.0) as u8, factory.floor[main_coord].machine.start_at).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 7.0).expect("something error fill_text");
 }
 
 fn on_click_inside_cell_editor_grid(options: &mut Options, state: &mut State, factory: &mut Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {

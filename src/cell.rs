@@ -469,10 +469,13 @@ pub fn cell_set_port_u_to(factory: &mut Factory, coord_from: usize, port: Port, 
     return;
   }
 
+  // The .ins and .outs for machines are all stored on the main_coord
+  let machine_friendly_coord = if factory.floor[coord_from].kind == CellKind::Machine { factory.floor[coord_from].machine.main_coord } else { coord_from };
+
   // If currently in/out then that will change so remove it from the .ins and .outs
   match factory.floor[coord_from].port_u {
-    Port::Inbound => remove_dir_from_cell_ins(factory, coord_from, Direction::Up),
-    Port::Outbound => remove_dir_from_cell_outs(factory, coord_from, Direction::Up),
+    Port::Inbound => remove_dir_from_cell_ins(factory, machine_friendly_coord, Direction::Up),
+    Port::Outbound => remove_dir_from_cell_outs(factory, machine_friendly_coord, Direction::Up),
     Port::None => {},
     Port::Unknown => {}
   }
@@ -480,8 +483,8 @@ pub fn cell_set_port_u_to(factory: &mut Factory, coord_from: usize, port: Port, 
   factory.floor[coord_from].port_u = port;
   fix_belt_meta(factory, coord_from);
   match port {
-    Port::Inbound => factory.floor[coord_from].ins.push(( Direction::Up, coord_from, ocoord, Direction::Down )),
-    Port::Outbound => factory.floor[coord_from].outs.push(( Direction::Up, coord_from, ocoord, Direction::Down )),
+    Port::Inbound => factory.floor[machine_friendly_coord].ins.push(( Direction::Up, coord_from, ocoord, Direction::Down )),
+    Port::Outbound => factory.floor[machine_friendly_coord].outs.push(( Direction::Up, coord_from, ocoord, Direction::Down )),
     Port::None => {},
     Port::Unknown => {}
   }
@@ -494,10 +497,13 @@ pub fn cell_set_port_r_to(factory: &mut Factory, coord_from: usize, port: Port, 
     return;
   }
 
+  // The .ins and .outs for machines are all stored on the main_coord
+  let machine_friendly_coord = if factory.floor[coord_from].kind == CellKind::Machine { factory.floor[coord_from].machine.main_coord } else { coord_from };
+
   // If currently in/out then that will change so remove it from the .ins and .outs
   match factory.floor[coord_from].port_r {
-    Port::Inbound => remove_dir_from_cell_ins(factory, coord_from, Direction::Right),
-    Port::Outbound => remove_dir_from_cell_outs(factory, coord_from, Direction::Right),
+    Port::Inbound => remove_dir_from_cell_ins(factory, machine_friendly_coord, Direction::Right),
+    Port::Outbound => remove_dir_from_cell_outs(factory, machine_friendly_coord, Direction::Right),
     Port::None => {},
     Port::Unknown => {}
   }
@@ -505,8 +511,8 @@ pub fn cell_set_port_r_to(factory: &mut Factory, coord_from: usize, port: Port, 
   factory.floor[coord_from].port_r = port;
   fix_belt_meta(factory, coord_from);
   match port {
-    Port::Inbound => factory.floor[coord_from].ins.push(( Direction::Right, coord_from, ocoord, Direction::Left )),
-    Port::Outbound => factory.floor[coord_from].outs.push(( Direction::Right, coord_from, ocoord, Direction::Left )),
+    Port::Inbound => factory.floor[machine_friendly_coord].ins.push(( Direction::Right, coord_from, ocoord, Direction::Left )),
+    Port::Outbound => factory.floor[machine_friendly_coord].outs.push(( Direction::Right, coord_from, ocoord, Direction::Left )),
     Port::None => {},
     Port::Unknown => {}
   }
@@ -519,10 +525,13 @@ pub fn cell_set_port_d_to(factory: &mut Factory, coord_from: usize, port: Port, 
     return;
   }
 
+  // The .ins and .outs for machines are all stored on the main_coord
+  let machine_friendly_coord = if factory.floor[coord_from].kind == CellKind::Machine { factory.floor[coord_from].machine.main_coord } else { coord_from };
+
   // If currently in/out then that will change so remove it from the .ins and .outs
   match factory.floor[coord_from].port_d {
-    Port::Inbound => remove_dir_from_cell_ins(factory, coord_from, Direction::Down),
-    Port::Outbound => remove_dir_from_cell_outs(factory, coord_from, Direction::Down),
+    Port::Inbound => remove_dir_from_cell_ins(factory, machine_friendly_coord, Direction::Down),
+    Port::Outbound => remove_dir_from_cell_outs(factory, machine_friendly_coord, Direction::Down),
     Port::None => {},
     Port::Unknown => {}
   }
@@ -530,8 +539,8 @@ pub fn cell_set_port_d_to(factory: &mut Factory, coord_from: usize, port: Port, 
   factory.floor[coord_from].port_d = port;
   fix_belt_meta(factory, coord_from);
   match port {
-    Port::Inbound => factory.floor[coord_from].ins.push(( Direction::Down, coord_from, ocoord, Direction::Up )),
-    Port::Outbound => factory.floor[coord_from].outs.push(( Direction::Down, coord_from, ocoord, Direction::Up )),
+    Port::Inbound => factory.floor[machine_friendly_coord].ins.push(( Direction::Down, coord_from, ocoord, Direction::Up )),
+    Port::Outbound => factory.floor[machine_friendly_coord].outs.push(( Direction::Down, coord_from, ocoord, Direction::Up )),
     Port::None => {},
     Port::Unknown => {}
   }
@@ -544,10 +553,13 @@ pub fn cell_set_port_l_to(factory: &mut Factory, coord_from: usize, port: Port, 
     return;
   }
 
+  // The .ins and .outs for machines are all stored on the main_coord
+  let machine_friendly_coord = if factory.floor[coord_from].kind == CellKind::Machine { factory.floor[coord_from].machine.main_coord } else { coord_from };
+
   // If currently in/out then that will change so remove it from the .ins and .outs
   match factory.floor[coord_from].port_l {
-    Port::Inbound => remove_dir_from_cell_ins(factory, coord_from, Direction::Left),
-    Port::Outbound => remove_dir_from_cell_outs(factory, coord_from, Direction::Left),
+    Port::Inbound => remove_dir_from_cell_ins(factory, machine_friendly_coord, Direction::Left),
+    Port::Outbound => remove_dir_from_cell_outs(factory, machine_friendly_coord, Direction::Left),
     Port::None => {},
     Port::Unknown => {}
   }
@@ -555,8 +567,8 @@ pub fn cell_set_port_l_to(factory: &mut Factory, coord_from: usize, port: Port, 
   factory.floor[coord_from].port_l = port;
   fix_belt_meta(factory, coord_from);
   match port {
-    Port::Inbound => factory.floor[coord_from].ins.push(( Direction::Left, coord_from, ocoord, Direction::Right )),
-    Port::Outbound => factory.floor[coord_from].outs.push(( Direction::Left, coord_from, ocoord, Direction::Right )),
+    Port::Inbound => factory.floor[machine_friendly_coord].ins.push(( Direction::Left, coord_from, ocoord, Direction::Right )),
+    Port::Outbound => factory.floor[machine_friendly_coord].outs.push(( Direction::Left, coord_from, ocoord, Direction::Right )),
     Port::None => {},
     Port::Unknown => {}
   }
@@ -581,7 +593,6 @@ pub fn cell_connect_if_possible(options: &mut Options, state: &mut State, factor
   let to_kind = factory.floor[coord_to].kind;
 
   // Doing a match is going to complicate the code a lot so it'll just be if-elses to apply the rules
-
 
   if from_kind == CellKind::Supply || to_kind == CellKind::Supply {
     assert!(from_kind != CellKind::Demand || to_kind != CellKind::Demand, "not checked here so we assume this");
@@ -740,19 +751,19 @@ pub fn clear_part_from_cell(options: &mut Options, state: &mut State, factory: &
   }
 }
 
-pub fn remove_dir_from_cell_ins_and_outs(factory: &mut Factory, coord: usize, needle_dir: Direction) {
-  // Make sure given direction is not part of the .ins or .outs anymore
-  remove_dir_from_cell_ins(factory, coord, needle_dir);
-  remove_dir_from_cell_outs(factory, coord, needle_dir);
-}
+// fn remove_dir_from_cell_ins_and_outs(factory: &mut Factory, coord: usize, needle_dir: Direction) {
+//   // Make sure given direction is not part of the .ins or .outs anymore
+//   remove_dir_from_cell_ins(factory, coord, needle_dir);
+//   remove_dir_from_cell_outs(factory, coord, needle_dir);
+// }
 
-pub fn remove_dir_from_cell_ins(factory: &mut Factory, coord: usize, needle_dir: Direction) {
+fn remove_dir_from_cell_ins(factory: &mut Factory, coord: usize, needle_dir: Direction) {
   if let Some(pos) = factory.floor[coord].ins.iter().position(|(dir, ..)| dir == &needle_dir) {
     factory.floor[coord].ins.remove(pos);
   }
 }
 
-pub fn remove_dir_from_cell_outs(factory: &mut Factory, coord: usize, needle_dir: Direction) {
+fn remove_dir_from_cell_outs(factory: &mut Factory, coord: usize, needle_dir: Direction) {
   if let Some(pos) = factory.floor[coord].outs.iter().position(|(dir, ..)| dir == &needle_dir) {
     factory.floor[coord].outs.remove(pos);
   }
