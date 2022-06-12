@@ -9,6 +9,7 @@ use super::options::*;
 use super::machine::*;
 use super::part::*;
 use super::port::*;
+use super::port_auto::*;
 use super::prio::*;
 use super::state::*;
 use super::supply::*;

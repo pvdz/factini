@@ -7,6 +7,7 @@ use super::options::*;
 use super::machine::*;
 use super::part::*;
 use super::port::*;
+use super::port_auto::*;
 use super::supply::*;
 use super::state::*;
 use super::utils::*;
@@ -293,41 +294,41 @@ pub fn update_meta_to_belt_type_and_replace_cell(factory: &mut Factory, coord: u
 
   if meta.port_u != Port::None {
     if factory.floor[coord].port_u == Port::None {
-      factory.floor[coord].port_u = Port::Unknown;
+      cell_set_port_u_to(factory, coord, Port::Unknown, to_coord_up(coord));
     }
   } else {
     if factory.floor[coord].port_u != Port::None {
-      factory.floor[coord].port_u = Port::None;
+      cell_set_port_u_to(factory, coord, Port::None, to_coord_up(coord));
     }
   }
 
   if meta.port_r != Port::None {
     if factory.floor[coord].port_r == Port::None {
-      factory.floor[coord].port_r = Port::Unknown;
+      cell_set_port_r_to(factory, coord, Port::Unknown, to_coord_right(coord));
     }
   } else {
     if factory.floor[coord].port_r != Port::None {
-      factory.floor[coord].port_r = Port::None;
+      cell_set_port_r_to(factory, coord, Port::None, to_coord_right(coord));
     }
   }
 
   if meta.port_d != Port::None {
     if factory.floor[coord].port_d == Port::None {
-      factory.floor[coord].port_d = Port::Unknown;
+      cell_set_port_d_to(factory, coord, Port::Unknown, to_coord_down(coord));
     }
   } else {
     if factory.floor[coord].port_d != Port::None {
-      factory.floor[coord].port_d = Port::None;
+      cell_set_port_d_to(factory, coord, Port::None, to_coord_down(coord));
     }
   }
 
   if meta.port_l != Port::None {
     if factory.floor[coord].port_l == Port::None {
-      factory.floor[coord].port_l = Port::Unknown;
+      cell_set_port_l_to(factory, coord, Port::Unknown, to_coord_left(coord));
     }
   } else {
     if factory.floor[coord].port_l != Port::None {
-      factory.floor[coord].port_l = Port::None;
+      cell_set_port_r_to(factory, coord, Port::None, to_coord_left(coord));
     }
   }
 
@@ -335,27 +336,26 @@ pub fn update_meta_to_belt_type_and_replace_cell(factory: &mut Factory, coord: u
 }
 
 pub fn connect_belt_to_existing_neighbor_cells(factory: &mut Factory, coord: usize) {
+  // Note: this still requires factory prio update but it should take care of all the other things
+
   if let Some(ocoord) = factory.floor[coord].coord_u {
     match factory.floor[ocoord].kind {
       CellKind::Empty => {}
       CellKind::Belt => {
-        if factory.floor[ocoord].port_d == Port::None {
-          factory.floor[ocoord].port_d = Port::Unknown;
-          fix_belt_meta(factory, ocoord);
-        }
-        factory.floor[coord].port_u = Port::Unknown;
+        cell_set_port_d_to(factory, ocoord, Port::Unknown, to_coord_down(coord));
+        cell_set_port_u_to(factory, coord, Port::Unknown, to_coord_up(coord));
       }
       CellKind::Machine => {
-        factory.floor[ocoord].port_d = Port::Unknown;
-        factory.floor[coord].port_u = Port::Unknown;
+        cell_set_port_d_to(factory, ocoord, Port::Unknown, to_coord_down(coord));
+        cell_set_port_u_to(factory, coord, Port::Unknown, to_coord_up(coord));
       }
       CellKind::Supply => {
         assert_eq!(factory.floor[ocoord].port_d, Port::Outbound, "supply port is always outbound");
-        factory.floor[coord].port_u = Port::Inbound;
+        cell_set_port_u_to(factory, coord, Port::Inbound, to_coord_up(coord));
       }
       CellKind::Demand => {
         assert_eq!(factory.floor[ocoord].port_d, Port::Inbound, "demand port is always inbound");
-        factory.floor[coord].port_u = Port::Outbound;
+        cell_set_port_u_to(factory, coord, Port::Outbound, to_coord_up(coord));
       }
     }
   }
@@ -364,23 +364,20 @@ pub fn connect_belt_to_existing_neighbor_cells(factory: &mut Factory, coord: usi
     match factory.floor[ocoord].kind {
       CellKind::Empty => {}
       CellKind::Belt => {
-        if factory.floor[ocoord].port_l == Port::None {
-          factory.floor[ocoord].port_l = Port::Unknown;
-          fix_belt_meta(factory, ocoord);
-        }
-        factory.floor[coord].port_r = Port::Unknown;
+        cell_set_port_l_to(factory, ocoord, Port::Unknown, to_coord_left(coord));
+        cell_set_port_r_to(factory, coord, Port::Unknown, to_coord_right(coord));
       }
       CellKind::Machine => {
-        factory.floor[ocoord].port_l = Port::Unknown;
-        factory.floor[coord].port_r = Port::Unknown;
+        cell_set_port_l_to(factory, ocoord, Port::Unknown, to_coord_left(coord));
+        cell_set_port_r_to(factory, coord, Port::Unknown, to_coord_right(coord));
       }
       CellKind::Supply => {
         assert_eq!(factory.floor[ocoord].port_l, Port::Outbound, "supply port is always outbound");
-        factory.floor[coord].port_r = Port::Inbound;
+        cell_set_port_r_to(factory, coord, Port::Inbound, to_coord_right(coord));
       }
       CellKind::Demand => {
         assert_eq!(factory.floor[ocoord].port_l, Port::Inbound, "demand port is always inbound");
-        factory.floor[coord].port_r = Port::Outbound;
+        cell_set_port_r_to(factory, coord, Port::Outbound, to_coord_right(coord));
       }
     }
   }
@@ -389,23 +386,20 @@ pub fn connect_belt_to_existing_neighbor_cells(factory: &mut Factory, coord: usi
     match factory.floor[ocoord].kind {
       CellKind::Empty => {}
       CellKind::Belt => {
-        if factory.floor[ocoord].port_u == Port::None {
-          factory.floor[ocoord].port_u = Port::Unknown;
-          fix_belt_meta(factory, ocoord);
-        }
-        factory.floor[coord].port_d = Port::Unknown;
+        cell_set_port_u_to(factory, ocoord, Port::Unknown, to_coord_up(coord));
+        cell_set_port_d_to(factory, coord, Port::Unknown, to_coord_down(coord));
       }
       CellKind::Machine => {
-        factory.floor[ocoord].port_u = Port::Unknown;
-        factory.floor[coord].port_d = Port::Unknown;
+        cell_set_port_u_to(factory, ocoord, Port::Unknown, to_coord_up(coord));
+        cell_set_port_d_to(factory, coord, Port::Unknown, to_coord_down(coord));
       }
       CellKind::Supply => {
         assert_eq!(factory.floor[ocoord].port_u, Port::Outbound, "supply port is always outbound");
-        factory.floor[coord].port_d = Port::Inbound;
+        cell_set_port_d_to(factory, coord, Port::Inbound, to_coord_down(coord));
       }
       CellKind::Demand => {
         assert_eq!(factory.floor[ocoord].port_u, Port::Inbound, "demand port is always inbound");
-        factory.floor[coord].port_d = Port::Outbound;
+        cell_set_port_d_to(factory, coord, Port::Outbound, to_coord_down(coord));
       }
     }
   }
@@ -414,78 +408,302 @@ pub fn connect_belt_to_existing_neighbor_cells(factory: &mut Factory, coord: usi
     match factory.floor[ocoord].kind {
       CellKind::Empty => {}
       CellKind::Belt => {
-        if factory.floor[ocoord].port_r == Port::None {
-          factory.floor[ocoord].port_r = Port::Unknown;
-          fix_belt_meta(factory, ocoord);
-        }
-        factory.floor[coord].port_l = Port::Unknown;
+        cell_set_port_r_to(factory, ocoord, Port::Unknown, to_coord_right(coord));
+        cell_set_port_l_to(factory, coord, Port::Unknown, to_coord_left(coord));
       }
       CellKind::Machine => {
-        factory.floor[ocoord].port_r = Port::Unknown;
-        factory.floor[coord].port_l = Port::Unknown;
+        cell_set_port_r_to(factory, ocoord, Port::Unknown, to_coord_right(coord));
+        cell_set_port_l_to(factory, coord, Port::Unknown, to_coord_left(coord));
       }
       CellKind::Supply => {
-        assert_eq!(factory.floor[ocoord].port_r, Port::Outbound, "supply port is always outbound");
-        factory.floor[coord].port_l = Port::Inbound;
+        assert_eq!(factory.floor[ocoord].port_l, Port::Outbound, "supply port is always outbound");
+        cell_set_port_r_to(factory, coord, Port::Inbound, to_coord_right(coord));
       }
       CellKind::Demand => {
-        assert_eq!(factory.floor[ocoord].port_r, Port::Inbound, "demand port is always inbound");
-        factory.floor[coord].port_l = Port::Outbound;
-      }
-    }
-  }
-
-  fix_belt_meta(factory, coord);
-}
-
-
-pub fn update_ports_of_neighbor_cells(factory: &mut Factory, coord: usize, fix_neighbors_too: bool) {
-  // For each side with a port, check if the other side is a belt, and if so, force a port there too
-
-  if factory.floor[coord].port_u != Port::None {
-    if let Some(ocoord) = factory.floor[coord].coord_u {
-      if factory.floor[ocoord].kind == CellKind::Belt {
-        if factory.floor[ocoord].port_d == Port::None {
-          factory.floor[ocoord].port_d = Port::Unknown;
-        }
-        fix_belt_meta(factory, ocoord);
-      }
-    }
-  }
-
-  if factory.floor[coord].port_r != Port::None {
-    if let Some(coord) = factory.floor[coord].coord_r {
-      if factory.floor[coord].kind == CellKind::Belt {
-        if factory.floor[coord].port_l == Port::None {
-          factory.floor[coord].port_l = Port::Unknown;
-        }
-        fix_belt_meta(factory, coord);
-      }
-    }
-  }
-
-  if factory.floor[coord].port_d != Port::None {
-    if let Some(coord) = factory.floor[coord].coord_d {
-      if factory.floor[coord].kind == CellKind::Belt {
-        if factory.floor[coord].port_u == Port::None {
-          factory.floor[coord].port_u = Port::Unknown;
-        }
-        fix_belt_meta(factory, coord);
-      }
-    }
-  }
-
-  if factory.floor[coord].port_l != Port::None {
-    if let Some(coord) = factory.floor[coord].coord_l {
-      if factory.floor[coord].kind == CellKind::Belt {
-        if factory.floor[coord].port_r == Port::None {
-          factory.floor[coord].port_r = Port::Unknown;
-        }
-        fix_belt_meta(factory, coord);
+        assert_eq!(factory.floor[ocoord].port_l, Port::Inbound, "demand port is always inbound");
+        cell_set_port_r_to(factory, coord, Port::Outbound, to_coord_right(coord));
       }
     }
   }
 }
+
+pub fn connect_machine_to_existing_neighbor_belts(factory: &mut Factory, coord: usize) {
+  // Note: this still requires factory prio update but it should take care of all the other things
+
+  // TODO: all directions or only the drag direction (for machines cells)?
+
+  if let Some(ocoord) = factory.floor[coord].coord_u {
+   if factory.floor[ocoord].kind == CellKind::Belt {
+      cell_set_port_d_to(factory, ocoord, Port::Unknown, to_coord_down(coord));
+      cell_set_port_u_to(factory, coord, Port::Unknown, to_coord_up(coord));
+    }
+  }
+
+  if let Some(ocoord) = factory.floor[coord].coord_r {
+    if factory.floor[ocoord].kind == CellKind::Belt {
+      cell_set_port_l_to(factory, ocoord, Port::Unknown, to_coord_left(coord));
+      cell_set_port_r_to(factory, coord, Port::Unknown, to_coord_right(coord));
+    }
+  }
+
+  if let Some(ocoord) = factory.floor[coord].coord_d {
+    if factory.floor[ocoord].kind == CellKind::Belt {
+      cell_set_port_u_to(factory, ocoord, Port::Unknown, to_coord_up(coord));
+      cell_set_port_d_to(factory, coord, Port::Unknown, to_coord_down(coord));
+    }
+  }
+
+  if let Some(ocoord) = factory.floor[coord].coord_l {
+    if factory.floor[ocoord].kind == CellKind::Belt {
+      cell_set_port_r_to(factory, ocoord, Port::Unknown, to_coord_right(coord));
+      cell_set_port_l_to(factory, coord, Port::Unknown, to_coord_left(coord));
+    }
+  }
+}
+
+pub fn cell_set_port_u_to(factory: &mut Factory, coord_from: usize, port: Port, ocoord: usize) {
+  // Note: this still requires factory prio update but it should take care of all the other things
+
+  if factory.floor[coord_from].port_u == port {
+    // noop
+    return;
+  }
+
+  // If currently in/out then that will change so remove it from the .ins and .outs
+  match factory.floor[coord_from].port_u {
+    Port::Inbound => remove_dir_from_cell_ins(factory, coord_from, Direction::Up),
+    Port::Outbound => remove_dir_from_cell_outs(factory, coord_from, Direction::Up),
+    Port::None => {},
+    Port::Unknown => {}
+  }
+
+  factory.floor[coord_from].port_u = port;
+  fix_belt_meta(factory, coord_from);
+  match port {
+    Port::Inbound => factory.floor[coord_from].ins.push(( Direction::Up, coord_from, ocoord, Direction::Down )),
+    Port::Outbound => factory.floor[coord_from].outs.push(( Direction::Up, coord_from, ocoord, Direction::Down )),
+    Port::None => {},
+    Port::Unknown => {}
+  }
+}
+pub fn cell_set_port_r_to(factory: &mut Factory, coord_from: usize, port: Port, ocoord: usize) {
+  // Note: this still requires factory prio update but it should take care of all the other things
+
+  if factory.floor[coord_from].port_r == port {
+    // noop
+    return;
+  }
+
+  // If currently in/out then that will change so remove it from the .ins and .outs
+  match factory.floor[coord_from].port_r {
+    Port::Inbound => remove_dir_from_cell_ins(factory, coord_from, Direction::Right),
+    Port::Outbound => remove_dir_from_cell_outs(factory, coord_from, Direction::Right),
+    Port::None => {},
+    Port::Unknown => {}
+  }
+
+  factory.floor[coord_from].port_r = port;
+  fix_belt_meta(factory, coord_from);
+  match port {
+    Port::Inbound => factory.floor[coord_from].ins.push(( Direction::Right, coord_from, ocoord, Direction::Left )),
+    Port::Outbound => factory.floor[coord_from].outs.push(( Direction::Right, coord_from, ocoord, Direction::Left )),
+    Port::None => {},
+    Port::Unknown => {}
+  }
+}
+pub fn cell_set_port_d_to(factory: &mut Factory, coord_from: usize, port: Port, ocoord: usize) {
+  // Note: this still requires factory prio update but it should take care of all the other things
+
+  if factory.floor[coord_from].port_d == port {
+    // noop
+    return;
+  }
+
+  // If currently in/out then that will change so remove it from the .ins and .outs
+  match factory.floor[coord_from].port_d {
+    Port::Inbound => remove_dir_from_cell_ins(factory, coord_from, Direction::Down),
+    Port::Outbound => remove_dir_from_cell_outs(factory, coord_from, Direction::Down),
+    Port::None => {},
+    Port::Unknown => {}
+  }
+
+  factory.floor[coord_from].port_d = port;
+  fix_belt_meta(factory, coord_from);
+  match port {
+    Port::Inbound => factory.floor[coord_from].ins.push(( Direction::Down, coord_from, ocoord, Direction::Up )),
+    Port::Outbound => factory.floor[coord_from].outs.push(( Direction::Down, coord_from, ocoord, Direction::Up )),
+    Port::None => {},
+    Port::Unknown => {}
+  }
+}
+pub fn cell_set_port_l_to(factory: &mut Factory, coord_from: usize, port: Port, ocoord: usize) {
+  // Note: this still requires factory prio update but it should take care of all the other things
+
+  if factory.floor[coord_from].port_l == port {
+    // noop
+    return;
+  }
+
+  // If currently in/out then that will change so remove it from the .ins and .outs
+  match factory.floor[coord_from].port_l {
+    Port::Inbound => remove_dir_from_cell_ins(factory, coord_from, Direction::Left),
+    Port::Outbound => remove_dir_from_cell_outs(factory, coord_from, Direction::Left),
+    Port::None => {},
+    Port::Unknown => {}
+  }
+
+  factory.floor[coord_from].port_l = port;
+  fix_belt_meta(factory, coord_from);
+  match port {
+    Port::Inbound => factory.floor[coord_from].ins.push(( Direction::Left, coord_from, ocoord, Direction::Right )),
+    Port::Outbound => factory.floor[coord_from].outs.push(( Direction::Left, coord_from, ocoord, Direction::Right )),
+    Port::None => {},
+    Port::Unknown => {}
+  }
+}
+
+pub fn cell_connect_if_possible(options: &mut Options, state: &mut State, factory: &mut Factory, coord_from: usize, coord_to: usize, dx: i8, dy: i8) {
+  // Note: this still requires factory prio update but it should take care of all the other things
+
+  // The dx and dy values should reflect the coords' deltas. We assume the cells _are_ adjacent.
+  assert!((dx == 0) != (dy == 0), "one and only one of dx or dy is zero");
+  assert!(dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1, "since they are adjacent they must be -1, 0, or 1");
+
+  // Connect the two cells but:
+  // - If one is a supply, force the port of the other to be inbound, regardless
+  // - If one is a demand, force the port of the other to be outbound, regardless
+  // - If one is empty then do not change any port
+  // - If both are machine then do not change any port
+  // - Connect belts with each other and with machines
+  // TOOD: machine to demand/supply? ignore? connect anyways?
+
+  let from_kind = factory.floor[coord_from].kind;
+  let to_kind = factory.floor[coord_to].kind;
+
+  // Doing a match is going to complicate the code a lot so it'll just be if-elses to apply the rules
+
+
+  if from_kind == CellKind::Supply || to_kind == CellKind::Supply {
+    assert!(from_kind != CellKind::Demand || to_kind != CellKind::Demand, "not checked here so we assume this");
+    match ( dx, dy ) {
+      ( 0 , -1 ) => {
+        if from_kind != CellKind::Supply { cell_set_port_d_to(factory, coord_from, Port::Inbound, coord_to); }
+        if to_kind != CellKind::Supply { cell_set_port_u_to(factory, coord_to, Port::Inbound, coord_from); }
+      }
+      ( 1 , 0 ) => {
+        if from_kind != CellKind::Supply { cell_set_port_l_to(factory, coord_from, Port::Inbound, coord_to); }
+        if to_kind != CellKind::Supply { cell_set_port_r_to(factory, coord_to, Port::Inbound, coord_from); }
+      }
+      ( 0 , 1 ) => {
+        if from_kind != CellKind::Supply { cell_set_port_u_to(factory, coord_from, Port::Inbound, coord_to); }
+        if to_kind != CellKind::Supply { cell_set_port_d_to(factory, coord_to, Port::Inbound, coord_from); }
+      }
+      ( -1 , 0 ) => {
+        if from_kind != CellKind::Supply { cell_set_port_r_to(factory, coord_from, Port::Inbound, coord_to); }
+        if to_kind != CellKind::Supply { cell_set_port_l_to(factory, coord_to, Port::Inbound, coord_from); }
+      }
+      _ => panic!("already asserted the range of x and y"),
+    }
+  } else if from_kind == CellKind::Demand || to_kind == CellKind::Demand {
+    match ( dx, dy ) {
+      ( 0 , -1 ) => {
+        if from_kind != CellKind::Demand { cell_set_port_d_to(factory, coord_from, Port::Outbound, coord_to); }
+        if to_kind != CellKind::Demand { cell_set_port_u_to(factory, coord_to, Port::Outbound, coord_from); }
+      }
+      ( 1 , 0 ) => {
+        if from_kind != CellKind::Demand { cell_set_port_l_to(factory, coord_from, Port::Outbound, coord_to); }
+        if to_kind != CellKind::Demand { cell_set_port_r_to(factory, coord_to, Port::Outbound, coord_from); }
+      }
+      ( 0 , 1 ) => {
+        if from_kind != CellKind::Demand { cell_set_port_u_to(factory, coord_from, Port::Outbound, coord_to); }
+        if to_kind != CellKind::Demand { cell_set_port_d_to(factory, coord_to, Port::Outbound, coord_from); }
+      }
+      ( -1 , 0 ) => {
+        if from_kind != CellKind::Demand { cell_set_port_r_to(factory, coord_from, Port::Outbound, coord_to); }
+        if to_kind != CellKind::Demand { cell_set_port_l_to(factory, coord_to, Port::Outbound, coord_from); }
+      }
+      _ => panic!("already asserted the range of x and y"),
+    }
+  } else if to_kind == CellKind::Empty || from_kind == CellKind::Empty {
+    // Ignore :shrug:
+  } else if to_kind == CellKind::Machine && from_kind == CellKind::Machine {
+    // Don't connect inter-machine parts. Do not connect different machines either. Just don't.
+  } else {
+    assert!(to_kind == CellKind::Belt || to_kind == CellKind::Machine);
+    assert!(from_kind == CellKind::Belt || from_kind == CellKind::Machine);
+
+    // Regardless of whether it's belt2belt or belt2machine, set the port the same way
+
+    match ( dx, dy ) {
+      ( 0 , -1 ) => {
+        cell_set_port_d_to(factory, coord_from, Port::Outbound, coord_to);
+        cell_set_port_u_to(factory, coord_to, Port::Inbound, coord_from);
+      }
+      ( 1 , 0 ) => {
+        cell_set_port_l_to(factory, coord_from, Port::Outbound, coord_to);
+        cell_set_port_r_to(factory, coord_to, Port::Inbound, coord_from);
+      }
+      ( 0 , 1 ) => {
+        cell_set_port_u_to(factory, coord_from, Port::Outbound, coord_to);
+        cell_set_port_d_to(factory, coord_to, Port::Inbound, coord_from);
+      }
+      ( -1 , 0 ) => {
+        cell_set_port_r_to(factory, coord_from, Port::Outbound, coord_to);
+        cell_set_port_l_to(factory, coord_to, Port::Inbound, coord_from);
+      }
+      _ => panic!("already asserted the range of x and y"),
+    }
+  }
+
+}
+
+// pub fn update_ports_of_neighbor_cells(factory: &mut Factory, coord: usize, fix_neighbors_too: bool) {
+//   // For each side with a port, check if the other side is a belt, and if so, force a port there too
+//
+//   if factory.floor[coord].port_u != Port::None {
+//     if let Some(ocoord) = factory.floor[coord].coord_u {
+//       if factory.floor[ocoord].kind == CellKind::Belt {
+//         if factory.floor[ocoord].port_d == Port::None {
+//           factory.floor[ocoord].port_d = Port::Unknown;
+//         }
+//         fix_belt_meta(factory, ocoord);
+//       }
+//     }
+//   }
+//
+//   if factory.floor[coord].port_r != Port::None {
+//     if let Some(coord) = factory.floor[coord].coord_r {
+//       if factory.floor[coord].kind == CellKind::Belt {
+//         if factory.floor[coord].port_l == Port::None {
+//           factory.floor[coord].port_l = Port::Unknown;
+//         }
+//         fix_belt_meta(factory, coord);
+//       }
+//     }
+//   }
+//
+//   if factory.floor[coord].port_d != Port::None {
+//     if let Some(coord) = factory.floor[coord].coord_d {
+//       if factory.floor[coord].kind == CellKind::Belt {
+//         if factory.floor[coord].port_u == Port::None {
+//           factory.floor[coord].port_u = Port::Unknown;
+//         }
+//         fix_belt_meta(factory, coord);
+//       }
+//     }
+//   }
+//
+//   if factory.floor[coord].port_l != Port::None {
+//     if let Some(coord) = factory.floor[coord].coord_l {
+//       if factory.floor[coord].kind == CellKind::Belt {
+//         if factory.floor[coord].port_r == Port::None {
+//           factory.floor[coord].port_r = Port::Unknown;
+//         }
+//         fix_belt_meta(factory, coord);
+//       }
+//     }
+//   }
+// }
 
 pub fn get_cell_kind_at(factory: &mut Factory, coord: Option<usize>) -> CellKind {
   return match coord {
@@ -522,6 +740,11 @@ pub fn clear_part_from_cell(options: &mut Options, state: &mut State, factory: &
   }
 }
 
+pub fn remove_dir_from_cell_ins_and_outs(factory: &mut Factory, coord: usize, needle_dir: Direction) {
+  // Make sure given direction is not part of the .ins or .outs anymore
+  remove_dir_from_cell_ins(factory, coord, needle_dir);
+  remove_dir_from_cell_outs(factory, coord, needle_dir);
+}
 
 pub fn remove_dir_from_cell_ins(factory: &mut Factory, coord: usize, needle_dir: Direction) {
   if let Some(pos) = factory.floor[coord].ins.iter().position(|(dir, ..)| dir == &needle_dir) {

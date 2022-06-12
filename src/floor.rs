@@ -10,6 +10,7 @@ use super::machine::*;
 use super::options::*;
 use super::part::*;
 use super::port::*;
+use super::port_auto::*;
 use super::state::*;
 use super::supply::*;
 use super::utils::*;
@@ -645,56 +646,56 @@ pub const fn to_coord_left(coord: usize) -> usize {
   return coord - 1;
 }
 
-pub fn floor_create_cell_at_partial(options: &mut Options, state: &mut State, factory: &mut Factory, coord1: usize, x1: i8, y1: i8, coord2: usize, x2: i8, y2: i8) {
-  // Note: this still requires auto porting and creating a new prio
-  // Note: generating part at x1,x2
-
-  // Must cast because I want to know about negatives
-  let dx = x1 - x2;
-  let dy = y1 - y2;
-  log(format!("floor_create_cell_at_partial @{} - @{} -> {} {}, ports: {} and {}", coord1, coord2, dx, dy, serialize_ports(factory, coord1), serialize_ports(factory, coord2)));
-  assert!(dx == 0 || dy == 0, "cell should neighbor previous cell so one axis should not change {} {} - {} {}", x1, y1, x2, y2);
-  if dy < 0 {
-    // x1,y1 is above x2,y2 (because y2>y1)
-    if factory.floor[coord1].kind == CellKind::Belt {
-      if factory.floor[coord1].port_d == Port::None {
-        factory.floor[coord1].port_d = Port::Unknown;
-        fix_belt_meta(factory, coord1);
-      }
-      factory.floor[coord2].port_u = Port::Unknown;
-    }
-  } else if dx > 0 {
-    // x2,y2 is right of x1,p1
-    if factory.floor[coord1].kind == CellKind::Belt {
-      if factory.floor[coord1].port_l == Port::None {
-        factory.floor[coord1].port_l = Port::Unknown;
-        fix_belt_meta(factory, coord1);
-      }
-      factory.floor[coord2].port_r = Port::Unknown;
-    }
-  } else if dy > 0 {
-    // x2,y2 is under x1,y1
-    if factory.floor[coord1].kind == CellKind::Belt {
-      if factory.floor[coord1].port_u == Port::None {
-        factory.floor[coord1].port_u = Port::Unknown;
-        fix_belt_meta(factory, coord1);
-      }
-      factory.floor[coord2].port_d = Port::Unknown;
-    }
-  } else if dx < 0 {
-    // x2,y2 is left of x1,y1
-    if factory.floor[coord1].kind == CellKind::Belt {
-      if factory.floor[coord1].port_r == Port::None {
-        factory.floor[coord1].port_r = Port::Unknown;
-        fix_belt_meta(factory, coord1);
-      }
-      factory.floor[coord2].port_l = Port::Unknown;
-    }
-  }
-  log(format!("  - after  @{} - @{} -> {} {}, ports: {} and {}", coord1, coord2, dx, dy, serialize_ports(factory, coord1), serialize_ports(factory, coord2)));
-
-  fix_belt_meta(factory, coord2);
-}
+// pub fn floor_create_cell_at_partial(options: &mut Options, state: &mut State, factory: &mut Factory, coord1: usize, x1: i8, y1: i8, coord2: usize, x2: i8, y2: i8) {
+//   // Note: this still requires auto porting and creating a new prio
+//   // Note: generating cell at x1,x2
+//
+//   // Must cast because I want to know about negatives
+//   let dx = x1 - x2;
+//   let dy = y1 - y2;
+//   log(format!("floor_create_cell_at_partial @{} - @{} -> {} {}, ports: {} and {}", coord1, coord2, dx, dy, serialize_ports(factory, coord1), serialize_ports(factory, coord2)));
+//   assert!(dx == 0 || dy == 0, "cell should neighbor previous cell so one axis should not change {} {} - {} {}", x1, y1, x2, y2);
+//   if dy < 0 {
+//     // x1,y1 is above x2,y2 (because y2>y1)
+//     if factory.floor[coord1].kind == CellKind::Belt {
+//       if factory.floor[coord1].port_d == Port::None {
+//         factory.floor[coord1].port_d = Port::Unknown;
+//         fix_belt_meta(factory, coord1);
+//       }
+//       factory.floor[coord2].port_u = Port::Unknown;
+//     }
+//   } else if dx > 0 {
+//     // x2,y2 is right of x1,p1
+//     if factory.floor[coord1].kind == CellKind::Belt {
+//       if factory.floor[coord1].port_l == Port::None {
+//         factory.floor[coord1].port_l = Port::Unknown;
+//         fix_belt_meta(factory, coord1);
+//       }
+//       factory.floor[coord2].port_r = Port::Unknown;
+//     }
+//   } else if dy > 0 {
+//     // x2,y2 is under x1,y1
+//     if factory.floor[coord1].kind == CellKind::Belt {
+//       if factory.floor[coord1].port_u == Port::None {
+//         factory.floor[coord1].port_u = Port::Unknown;
+//         fix_belt_meta(factory, coord1);
+//       }
+//       factory.floor[coord2].port_d = Port::Unknown;
+//     }
+//   } else if dx < 0 {
+//     // x2,y2 is left of x1,y1
+//     if factory.floor[coord1].kind == CellKind::Belt {
+//       if factory.floor[coord1].port_r == Port::None {
+//         factory.floor[coord1].port_r = Port::Unknown;
+//         fix_belt_meta(factory, coord1);
+//       }
+//       factory.floor[coord2].port_l = Port::Unknown;
+//     }
+//   }
+//   log(format!("  - after  @{} - @{} -> {} {}, ports: {} and {}", coord1, coord2, dx, dy, serialize_ports(factory, coord1), serialize_ports(factory, coord2)));
+//
+//   fix_belt_meta(factory, coord2);
+// }
 pub fn floor_delete_cell_at_partial(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize) {
   // Note: partial because factory prio must to be updated too, elsewhere (!)
   // Running auto-porting may uncover new tracks but should not be required to run

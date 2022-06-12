@@ -29,6 +29,7 @@ use super::options::*;
 use super::machine::*;
 use super::part::*;
 use super::port::*;
+use super::port_auto::*;
 use super::prio::*;
 use super::state::*;
 use super::utils::*;
@@ -968,13 +969,13 @@ fn paint_belt_drag_preview(context: &Rc<web_sys::CanvasRenderingContext2d>, fact
   // context.stroke();
 
   for index in 0..track.len() {
-    let ((x, y), bt) = track[index];
+    let ((x, y), bt, in_port_dir, out_port_dir) = track[index];
     context.set_fill_style(&"#00770044".into());
     context.fill_rect(WORLD_OFFSET_X + CELL_W * (x as f64), WORLD_OFFSET_Y + CELL_H * (y as f64), CELL_W, CELL_H);
     paint_ghost_belt_of_type(x, y, if mouse_state.last_down_button == 2 { BeltType::INVALID } else { bt }, &context, &belt_tile_images);
   }
 }
-fn ray_trace_dragged_line(factory: &Factory, x0: f64, y0: f64, x1: f64, y1: f64) -> Vec<((usize, usize), BeltType)> {
+fn ray_trace_dragged_line(factory: &Factory, x0: f64, y0: f64, x1: f64, y1: f64) -> Vec<((usize, usize), BeltType, Direction, Direction)> {
   // We raytracing
   // The dragged line becomes a ray that we trace through cells of the floor
   // We then generate a belt track such that it fits in with the existing belts, if any
@@ -987,11 +988,11 @@ fn ray_trace_dragged_line(factory: &Factory, x0: f64, y0: f64, x1: f64, y1: f64)
   assert!(covered.len() >= 1, "Should always record at least one cell coord");
 
   if covered.len() == 1 {
-    return vec!((covered[0], BeltType::INVALID));
+    return vec!((covered[0], BeltType::INVALID, Direction::Up, Direction::Up));
   }
 
   // Note: in order of (dragging) appearance
-  let mut track: Vec<((usize, usize), BeltType)> = vec!(); // ((x, y), new_bt)
+  let mut track: Vec<((usize, usize), BeltType, Direction, Direction)> = vec!(); // ((x, y), new_bt)
 
   // Draw example tiles of the path you're drawing.
   // Take the existing cell and add one or two ports to it;
@@ -1004,14 +1005,15 @@ fn ray_trace_dragged_line(factory: &Factory, x0: f64, y0: f64, x1: f64, y1: f64)
     let (x, y) = covered[index];
     // Always set the previous one.
     let new_from = get_from_dir_between_xy(lx, ly, x, y);
+    let last_to = direction_reverse(new_from);
     // For the first one, pass on the same "to" port since there is no "from" port (it'll be a noop)
     let bt =
       if index == 1 {
-        add_one_ports_to_cell(factory, to_coord(lx, ly), direction_reverse(new_from))
+        add_one_ports_to_cell(factory, to_coord(lx, ly), last_to)
       } else {
-        add_two_ports_to_cell(factory, to_coord(lx, ly), last_from, direction_reverse(new_from))
+        add_two_ports_to_cell(factory, to_coord(lx, ly), last_from, last_to)
       };
-    track.push(((lx, ly), bt));
+    track.push(((lx, ly), bt, last_from, last_to)); // Note: no inport for first element. consumer beware?
 
     lx = x;
     ly = y;
@@ -1019,7 +1021,7 @@ fn ray_trace_dragged_line(factory: &Factory, x0: f64, y0: f64, x1: f64, y1: f64)
   }
   // Final step. Only has a from port.
   let bt = add_one_ports_to_cell(factory, to_coord(lx, ly), last_from);
-  track.push(((lx, ly), bt));
+  track.push(((lx, ly), bt, last_from, last_from)); // there's no out port for last element. consumer beware?
 
   return track;
 }
@@ -1280,7 +1282,7 @@ fn on_drag_inside_floor(options: &mut Options, state: &mut State, factory: &mut 
       // Clear the cell if that makes sense for it
       // Do not delete a cell, not even stubs, because this would be a drag-cancel
       // (Regular click would delete stubs)
-      let ((x, y), _belt_type) = track[0];
+      let ((x, y), _belt_type, _unused, _port_out_dir) = track[0]; // First element has no inbound port here
       let coord = to_coord(x, y);
 
       clear_part_from_cell(options, state, factory, coord);
@@ -1289,9 +1291,9 @@ fn on_drag_inside_floor(options: &mut Options, state: &mut State, factory: &mut 
       // I think this allows you to cancel a drag by pressing the rmb
     }
   } else if len == 2 {
-    let ((x1, y1), belt_type1) = track[0];
+    let ((x1, y1), belt_type1, _unused, _port_out_dir1) = track[0]; // First element has no inbound port here
     let coord1 = to_coord(x1, y1);
-    let ((x2, y2), belt_type2) = track[1];
+    let ((x2, y2), belt_type2, _port_in_dir2, _unused) = track[1]; // LAst element has no outbound port here
     let coord2 = to_coord(x2, y2);
 
     let dx = (x1 as i8) - (x2 as i8);
@@ -1310,30 +1312,7 @@ fn on_drag_inside_floor(options: &mut Options, state: &mut State, factory: &mut 
         factory.floor[coord2] = belt_cell(x2, y2, belt_type_to_belt_meta(belt_type2));
       }
 
-      // Now connect them. Do not clobber existing ports. Should work for all possible belt kinds.
-      match ( dx, dy ) {
-        ( 0 , -1 ) => {
-          // y2 was bigger so xy1 is above xy2
-          if factory.floor[coord1].port_d == Port::None { factory.floor[coord1].port_d = Port::Unknown; }
-          if factory.floor[coord2].port_u == Port::None { factory.floor[coord2].port_u = Port::Unknown; }
-        }
-        ( 1 , 0 ) => {
-          // x1 was bigger so xy1 is right of xy2
-          if factory.floor[coord1].port_l == Port::None { factory.floor[coord1].port_l = Port::Unknown; }
-          if factory.floor[coord2].port_r == Port::None { factory.floor[coord2].port_r = Port::Unknown; }
-        }
-        ( 0 , 1 ) => {
-          // x1 was bigger so xy1 is under xy2
-          if factory.floor[coord1].port_u == Port::None { factory.floor[coord1].port_u = Port::Unknown; }
-          if factory.floor[coord2].port_d == Port::None { factory.floor[coord2].port_d = Port::Unknown; }
-        }
-        ( -1 , 0 ) => {
-          // x2 was bigger so xy1 is left of xy2
-          if factory.floor[coord1].port_r == Port::None { factory.floor[coord1].port_r = Port::Unknown; }
-          if factory.floor[coord2].port_l == Port::None { factory.floor[coord2].port_l = Port::Unknown; }
-        }
-        _ => panic!("already asserted the range of x and y"),
-      }
+      cell_connect_if_possible(options, state, factory, coord1, coord2, dx, dy);
     } else if mouse_state.last_down_button == 2 {
       // Delete the port between the two cells but leave everything else alone.
       // The coords must be adjacent to one side.
@@ -1387,7 +1366,7 @@ fn on_drag_inside_floor(options: &mut Options, state: &mut State, factory: &mut 
     let mut py = 0;
     let mut pcoord = 0;
     for index in 0..len {
-      let ((x, y), belt_type) = track[index];
+      let ((x, y), belt_type, _port_in_dir, _port_out_dir) = track[index];
       log(format!("- track {} at {} {} isa {:?}", index, x, y, belt_type));
       let coord = to_coord(x, y);
 
@@ -1395,19 +1374,19 @@ fn on_drag_inside_floor(options: &mut Options, state: &mut State, factory: &mut 
         // Staple the track on top of the existing layout
         match factory.floor[coord].kind {
           CellKind::Belt => {
-            if factory.floor[coord].belt.meta.btype != belt_type {
-              update_meta_to_belt_type_and_replace_cell(factory, coord, belt_type);
-            }
-            update_ports_of_neighbor_cells(factory, coord, true);
+            // if factory.floor[coord].belt.meta.btype != belt_type {
+            //   update_meta_to_belt_type_and_replace_cell(factory, coord, belt_type);
+            // }
+            // update_ports_of_neighbor_cells(factory, coord, true);
           }
           CellKind::Empty => {
             factory.floor[coord] = belt_cell(x, y, belt_type_to_belt_meta(belt_type));
 
-            // Force-connect this cell to the previous cell, provided that cell is now a Belt
-            // Do not change existing ports, if any (previously existing belts with those ports)
-            if index > 0 {
-              floor_create_cell_at_partial(options, state, factory, pcoord, px as i8, py as i8, coord, x as i8, y as i8);
-            }
+            // // Force-connect this cell to the previous cell, provided that cell is now a Belt
+            // // Do not change existing ports, if any (previously existing belts with those ports)
+            // if index > 0 {
+            //   floor_create_cell_at_partial(options, state, factory, pcoord, px as i8, py as i8, coord, x as i8, y as i8);
+            // }
 
             // Connect the end points to any existing neighboring cells if not already connected
             if index == 0 || index == len - 1 {
@@ -1419,12 +1398,24 @@ fn on_drag_inside_floor(options: &mut Options, state: &mut State, factory: &mut 
           CellKind::Machine => {
             // If this is the first one then ignore it
             // Otherwise, if the previous cell is a belt, connect it to this machine
-            if index > 0 {
-              log(format!("  - machine @{}, index {} connecting to previous cell @{}", coord, index, pcoord));
-              connect_machine_if_to_belt(factory, coord, x, y,pcoord, px, py);
-            }
+            // if index > 0 {
+            //   log(format!("  - machine @{}, index {} connecting to previous cell @{}", coord, index, pcoord));
+            //   connect_machine_if_to_belt(factory, coord, x, y,pcoord, px, py);
+            // }
+
+            // TODO: do we need this? why not?
+            // Connect the end points to any existing neighboring _belt_ cells if not already connected
+            // if index == 0 || index == len - 1 {
+            //   connect_machine_to_existing_neighbor_belts(factory, coord);
+            // }
+
           }
           _ => (), // Do not overwrite machines, suppliers, or demanders
+        }
+
+        if index > 0 {
+          // (First element has no inbound)
+          cell_connect_if_possible(options, state, factory, pcoord, coord, (px as i8) - (x as i8), (py as i8) - (y as i8));
         }
 
       } else if mouse_state.last_down_button == 2 {

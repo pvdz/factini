@@ -20,6 +20,7 @@ pub mod machine;
 pub mod options;
 pub mod part;
 pub mod port;
+pub mod port_auto;
 pub mod prio;
 pub mod state;
 pub mod supply;
