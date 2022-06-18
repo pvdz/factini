@@ -231,7 +231,7 @@ pub fn belt_new(meta: BeltMeta) -> Belt {
     part_from: Direction::Up,
     part_to: Direction::Up,
     part_at: 0,
-    speed: ONE_SECOND,
+    speed: ONE_SECOND / 5,
     tick_price: 0
   };
 }

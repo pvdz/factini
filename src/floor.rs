@@ -7,6 +7,7 @@ use super::demand::*;
 use super::factory::*;
 use super::direction::*;
 use super::machine::*;
+use super::offer::*;
 use super::options::*;
 use super::part::*;
 use super::port::*;
@@ -29,16 +30,16 @@ pub fn floor_empty() -> [Cell; FLOOR_CELLS_WH] {
     .unwrap();
 }
 
-pub fn floor_from_str(str: String) -> [Cell; FLOOR_CELLS_WH] {
+pub fn floor_from_str(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
   if str.len() == 0 {
-    return floor_empty();
+    return ( floor_empty(), vec!() );
   }
 
-  let floor = str_to_floor(str);
-  return floor;
+  let ( floor, offers ) = str_to_floor(str);
+  return ( floor, offers );
 }
 
-fn str_to_floor(str: String) -> [Cell; FLOOR_CELLS_WH] {
+fn str_to_floor(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
   // Given a string in a grid format, generate a floor
   // String floor must have equal with/height as hardcoded size, for now (11x11).
   // Empty cell is space or dot, s = supply, d = demand, b = belt, m = machine. Auto-layout should fix it.
@@ -61,12 +62,13 @@ fn str_to_floor(str: String) -> [Cell; FLOOR_CELLS_WH] {
   // dbb..bbbb........
   // .....b...........
   // .....d...........
-  // m1 = ws -> b
+  // m1 = ws -> b s:50
   // m2 = b -> g
-  // s1 = w
-  // s2 = s
+  // s1 = w s:100
+  // s2 = s c:50
   // d1 = g
   // d2 = g
+  // os = g
   // ```
   // Forming something like this:
   // ┌────────────────────┐
@@ -90,6 +92,7 @@ fn str_to_floor(str: String) -> [Cell; FLOOR_CELLS_WH] {
   // │ └────────────────┘ │
   // │      d2            │
   // └────────────────────┘
+  // Offers: supply that gives 'g' with default speed and delay
 
   let mut len = 0;
   for c in str.bytes() {
@@ -102,77 +105,215 @@ fn str_to_floor(str: String) -> [Cell; FLOOR_CELLS_WH] {
   //   panic!("Error: input string (ignoring newlines) must be exactly {}x{}={} chars, but had {} chars", FLOOR_CELLS_W, FLOOR_CELLS_H, FLOOR_CELLS_WH, len);
   // }
 
-  let lines = str.split('\n').collect::<Vec<&str>>();
+  let lines = str.lines().collect::<Vec<&str>>();
 
   println!("Importing string map:\n```\n{}\n```", str);
 
-  let defs = &lines[FLOOR_CELLS_H..lines.len()]
-  //   .map(|s| {
-  //   let bytes = s.bytes();
-  //   match bytes.next() {
-  //     'm' => {
-  //       // Machine lines are in the form of `m[1..9] ?=? ?[a-z]?[a-z]?[a-z]? ? -?>? ? [a-z]`
-  //       // While the `=` and `->` and spacing is optional, the "parser" may fall off the rails if you mess up too badly.
-  //
-  //       // 1..9
-  //       let n = bytes.next();
-  //
-  //       // a-z or -
-  //       let mut i_1 = bytes.next();
-  //       while i_1 == ' ' || i_1 == '=' {
-  //         i_1 = bytes.next();
-  //       }
-  //       // a-z or -
-  //       let mut i_2 = if i_1 == '-' { '-' } else { bytes.next() };
-  //       while i_2 == ' ' || i_2 == '=' {
-  //         i_2 = bytes.next();
-  //       }
-  //       // a-z or -
-  //       let mut i_3 = if i_2 == '-' { '-' } else { bytes.next() };
-  //       while i_3 == ' ' || i_3 == '=' {
-  //         i_3 = bytes.next();
-  //       }
-  //
-  //       // a-z
-  //       let mut o = bytes.next();
-  //       while o == ' ' || o == '-' || o == '>' {
-  //         o = bytes.next();
-  //       }
-  //
-  //       // Should now have up to three inputs and one output
-  //
-  //
-  //     }
-  //     'd' => {
-  //       // 1..9
-  //       let n = bytes.next();
-  //
-  //       // a-z
-  //       let mut part = bytes.next();
-  //       while part == ' ' || part == '=' || part == '-' || part == '>' {
-  //         part = bytes.next();
-  //       }
-  //     }
-  //     's' => {
-  //       // 1..9
-  //       let n = bytes.next();
-  //
-  //       // a-z
-  //       let mut part = bytes.next();
-  //       while part == ' ' || part == '=' || part == '-' || part == '>' {
-  //         part = bytes.next();
-  //       }
-  //     }
-  //     _ => panic!("Legend lines should start with m (machine), d (demand), or s (supply)").
-  //   }
-  // })
-  ;
+  let defs = &lines[FLOOR_CELLS_H..lines.len()];
   println!("defs: {:?}", defs);
+
+  let mut offers: Vec<Offer> = vec!();
+  for line in lines[FLOOR_CELLS_H..lines.len()].iter().map(|s| s.bytes()).collect::<Vec<_>>().iter_mut() {
+    if line.next().or(Some('-' as u8)).unwrap() as char == 'o' {
+      // os = x         Offer of a supply that gives x
+      // od = x         Offer of a demand that takes x
+      // om = ab -> c    Offer of a machine that takes a and b and generates c
+      // suppliers and machines can have c: and s: modifiers after them, setting cooldown and speed
+
+      match line.next().or(Some('-' as u8)).unwrap() as char {
+        's' => {
+          let mut speed: u64 = 100;
+          let mut cooldown: u64 = 50;
+          let kind_icon = loop {
+            // Skip spaces and equal signs. Stop if it hits EOL.
+            let d = line.next().or(Some('?' as u8)).unwrap() as char;
+            if d != ' ' && d != '=' && d != '-' {
+              break d;
+            }
+          };
+          // Now look for s:xxx and c:xxx
+          loop {
+            // Skip spaces. Stop if it hits EOL.
+            let modifier = line.next().or(Some('?' as u8)).unwrap() as char;
+            if modifier != ' ' {
+              if modifier == 's' && (line.next().or(Some('?' as u8)).unwrap() as char) == ':' {
+                // parse the value for speed
+                speed = 0;
+
+                loop {
+                  // Skip spaces and equal signs. Stop if it hits EOL.
+                  let d = line.next().or(Some('?' as u8)).unwrap() as char;
+                  if d >= '0' && d <= '9' {
+                    speed = speed * 10 + (d as u64 - '0' as u64);
+                  } else {
+                    break;
+                  }
+                }
+                if speed == 0 {
+                  // This means the value was zero or more zeroes. Set it to one, shrug.
+                  speed = 1;
+                }
+              }
+              else if modifier == 'c' && (line.next().or(Some('?' as u8)).unwrap() as char) == ':' {
+                // parse the value for speed
+                cooldown = 0;
+
+                loop {
+                  // Skip spaces and equal signs. Stop if it hits EOL.
+                  let d = line.next().or(Some('?' as u8)).unwrap() as char;
+                  if d >= '0' && d <= '9' {
+                    cooldown = cooldown * 10 + (d as u64 - '0' as u64);
+                  } else {
+                    break;
+                  }
+                }
+                if cooldown == 0 {
+                  // This means the value was zero or more zeroes. Set it to one, shrug.
+                  cooldown = 1;
+                }
+              }
+              else {
+                // Keep parsing while we find s: and c: modifiers
+                break;
+              }
+            }
+          };
+
+          // The store kind should be in kind_icon, or it is `-` for EOL
+          let offer = Offer {
+            kind: CellKind::Supply,
+            supply_icon: kind_icon,
+            demand_icon: ' ',
+            machine_input1: ' ',
+            machine_input2: ' ',
+            machine_input3: ' ',
+            machine_output: ' ',
+            speed,
+            cooldown,
+          };
+          // log(format!("Parsed an offer: {:?}", offer));
+          offers.push(offer);
+        }
+        'd' => {
+          let kind_icon = loop {
+            // either until it hits EOL or it hits a space or an eq sign
+            let d = line.next().or(Some('?' as u8)).unwrap() as char;
+            if d != ' ' && d != '=' && d != '-' {
+              break d;
+            }
+          };
+          // The store kind should be in kind_icon, or it is `-` for EOL
+          let offer = Offer {
+            kind: CellKind::Demand,
+            supply_icon: ' ',
+            demand_icon: kind_icon,
+            machine_input1: ' ',
+            machine_input2: ' ',
+            machine_input3: ' ',
+            machine_output: ' ',
+            speed: 1,
+            cooldown: 1,
+          };
+          // log(format!("Parsed an offer: {:?}", offer));
+          offers.push(offer);
+        }
+        'm' => {
+          let mut speed: u64 = 100;
+          // we can ignore the = but we have to parse at least 3 characters for inputs, or up
+          // to the dash. After that one more for the output. Ignore the rest.
+          let input1_icon = loop {
+            // either until it hits EOL or it hits a space or an eq sign
+            let d = line.next().or(Some('?' as u8)).unwrap() as char;
+            if d != ' ' && d != '=' {
+              if d == '-' {
+                break ' ';
+              }
+              break d;
+            }
+          };
+          let input2_icon = if input1_icon == ' ' { ' ' } else {
+            loop {
+              // either until it hits EOL or it hits a space or an eq sign
+              let d = line.next().or(Some('?' as u8)).unwrap() as char;
+              if d != ' ' {
+                if d == '-' {
+                  break ' ';
+                }
+                break d;
+              }
+            }
+          };
+          let input3_icon = if input2_icon == ' ' { ' ' } else {
+            loop {
+              // either until it hits EOL or it hits a space or an eq sign
+              let d = line.next().or(Some('?' as u8)).unwrap() as char;
+              if d != ' ' {
+                if d == '-' {
+                  break ' ';
+                }
+                break d;
+              }
+            }
+          };
+          let output_icon = loop {
+            // either until it hits EOL or it hits a space or an eq sign
+            let d = line.next().or(Some('?' as u8)).unwrap() as char;
+            if d != ' ' && d != '-' && d != '>' {
+              break d;
+            }
+          };
+          loop {
+            // Skip spaces. Stop if it hits EOL.
+            let modifier = line.next().or(Some('?' as u8)).unwrap() as char;
+            if modifier != ' ' {
+              if modifier == 's' && (line.next().or(Some('?' as u8)).unwrap() as char) == ':' {
+                // parse the value for speed
+                speed = 0;
+
+                loop {
+                  // Skip spaces and equal signs. Stop if it hits EOL.
+                  let d = line.next().or(Some('?' as u8)).unwrap() as char;
+                  if d >= '0' && d <= '9' {
+                    speed = speed * 10 + (d as u64 - '0' as u64);
+                  } else {
+                    break;
+                  }
+                }
+                if speed == 0 {
+                  // This means the value was zero or more zeroes. Set it to one, shrug.
+                  speed = 1;
+                }
+              }
+              else {
+                // Keep parsing while we find s:
+                break;
+              }
+            }
+          };
+          // The store kind should be in kind_icon, or it is `-` for EOL
+          let offer = Offer {
+            kind: CellKind::Machine,
+            supply_icon: ' ',
+            demand_icon: ' ',
+            machine_input1: input1_icon,
+            machine_input2: input2_icon,
+            machine_input3: input3_icon,
+            machine_output: output_icon,
+            speed,
+            cooldown: 1,
+          };
+          // log(format!("Parsed an offer: {:?}", offer));
+          offers.push(offer);
+        }
+        _ => ()
+      }
+    }
+  }
 
   let mut suppliers: u8 = '0' as u8;
   let mut demanders: u8 = '0' as u8;
 
-  return lines[0..FLOOR_CELLS_H].iter().map(|s| s.bytes()).flatten().enumerate().map(|(coord, c)| {
+  let floor: [Cell; FLOOR_CELLS_WH] = lines[0..FLOOR_CELLS_H].iter().map(|s| s.bytes()).flatten().enumerate().map(|(coord, c)| {
     let (x, y) = to_xy(coord);
 
     return match c as char {
@@ -213,16 +354,47 @@ fn str_to_floor(str: String) -> [Cell; FLOOR_CELLS_WH] {
               out = b.next().or(Some('w' as u8)).unwrap() as char;
             }
 
+            // Now look for s:xxx
+            let mut speed: u64 = 100;
+            loop {
+              // Skip spaces. Stop if it hits EOL.
+              let modifier = b.next().or(Some('?' as u8)).unwrap() as char;
+              if modifier != ' ' {
+                if modifier == 's' && (b.next().or(Some('?' as u8)).unwrap() as char) == ':' {
+                  // parse the value for speed
+                  speed = 0;
+
+                  loop {
+                    // Skip spaces and equal signs. Stop if it hits EOL.
+                    let d = b.next().or(Some('?' as u8)).unwrap() as char;
+                    if d >= '0' && d <= '9' {
+                      speed = speed * 10 + (d as u64 - '0' as u64);
+                    } else {
+                      break;
+                    }
+                  }
+                  if speed == 0 {
+                    // This means the value was zero or more zeroes. Set it to one, shrug.
+                    speed = 1;
+                  }
+                }
+                else {
+                  // Keep parsing while we find s:
+                  break;
+                }
+              }
+            };
+
             println!("Creating machine id={} with inputs({} {} {}) and output({})", c, in1, in2, in3, out);
 
-            let cell = machine_cell(x, y, MachineKind::Unknown, part_c(in1), if in2 == '-' { part_none() } else { part_c(in2) }, if in3 == '-' { part_none() } else { part_c(in3) }, part_c(out), 1, 1);
+            let cell = machine_cell(x, y, MachineKind::Unknown, part_c(in1), if in2 == '-' { part_none() } else { part_c(in2) }, if in3 == '-' { part_none() } else { part_c(in3) }, part_c(out), speed, 1, 1);
             return Some(cell);
           }
 
           // This wasn't the target machine definition
           return None;
         })
-          .or(Some(machine_cell(x, y, MachineKind::Unknown, part_none(), part_none(), part_none(), part_none(), 1, 1)))
+          .or(Some(machine_cell(x, y, MachineKind::Unknown, part_none(), part_none(), part_none(), part_none(), 888, 1, 1)))
           .unwrap(); // Always returns a some due to the .or()
 
         return cell;
@@ -241,9 +413,59 @@ fn str_to_floor(str: String) -> [Cell; FLOOR_CELLS_WH] {
               gives = b.next().or(Some('x' as u8)).unwrap() as char;
             }
 
+            // Now look for s:xxx and c:xxx
+            let mut speed: u64 = 100;
+            let mut cooldown: u64 = 50;
+            loop {
+              // Skip spaces. Stop if it hits EOL.
+              let modifier = b.next().or(Some('?' as u8)).unwrap() as char;
+              if modifier != ' ' {
+                if modifier == 's' && (b.next().or(Some('?' as u8)).unwrap() as char) == ':' {
+                  // parse the value for speed
+                  speed = 0;
+
+                  loop {
+                    // Skip spaces and equal signs. Stop if it hits EOL.
+                    let d = b.next().or(Some('?' as u8)).unwrap() as char;
+                    if d >= '0' && d <= '9' {
+                      speed = speed * 10 + (d as u64 - '0' as u64);
+                    } else {
+                      break;
+                    }
+                  }
+                  if speed == 0 {
+                    // This means the value was zero or more zeroes. Set it to one, shrug.
+                    speed = 1;
+                  }
+                }
+                else if modifier == 'c' && (b.next().or(Some('?' as u8)).unwrap() as char) == ':' {
+                  // parse the value for speed
+                  cooldown = 0;
+
+                  loop {
+                    // Skip spaces and equal signs. Stop if it hits EOL.
+                    let d = b.next().or(Some('?' as u8)).unwrap() as char;
+                    if d >= '0' && d <= '9' {
+                      cooldown = cooldown * 10 + (d as u64 - '0' as u64);
+                    } else {
+                      break;
+                    }
+                  }
+                  if cooldown == 0 {
+                    // This means the value was zero or more zeroes. Set it to one, shrug.
+                    cooldown = 1;
+                  }
+                }
+                else {
+                  // Keep parsing while we find s: and c: modifiers
+                  break;
+                }
+              }
+            };
+
             println!("Creating supplier {}, id={} which gives ({})", suppliers, c, gives);
 
-            let cell = supply_cell(x, y, part_c(gives), 1, 1, 1);
+            let cell = supply_cell(x, y, part_c(gives), speed, cooldown, 1);
             return Some(cell);
           }
 
@@ -290,6 +512,8 @@ fn str_to_floor(str: String) -> [Cell; FLOOR_CELLS_WH] {
     .collect::<Vec<Cell>>()
     .try_into() // runtime error if bad but this is fine
     .unwrap();
+
+  return ( floor, offers );
 }
 
 pub fn auto_layout(options: &mut Options, state: &mut State, factory: &mut Factory) {
@@ -699,7 +923,27 @@ pub const fn to_coord_left(coord: usize) -> usize {
 pub fn floor_delete_cell_at_partial(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize) {
   // Note: partial because factory prio must to be updated too, elsewhere (!)
   // Running auto-porting may uncover new tracks but should not be required to run
+  // Can be used for any cell
 
+  if factory.floor[coord].kind == CellKind::Machine {
+    let main_coord = factory.floor[coord].machine.main_coord;
+    log(format!("Dropping entire factory, {} cells", factory.floor[main_coord].machine.coords.len()));
+    // Special case: we have to remove the entire machine, not just this cell
+    // For every part of it we have to remove all ports relating to it.
+    for index in 0..factory.floor[main_coord].machine.coords.len() {
+      let coord = factory.floor[main_coord].machine.coords[index];
+      if coord != main_coord {
+        floor_delete_cell_at_partial_sub(options, state, factory, coord);
+      }
+    }
+    // Do main coord last since we indirectly reference it while removing the other subs
+    floor_delete_cell_at_partial_sub(options, state, factory, main_coord);
+    log(format!("-- dropped"));
+  } else {
+    return floor_delete_cell_at_partial_sub(options, state, factory, coord);
+  }
+}
+pub fn floor_delete_cell_at_partial_sub(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize) {
   // For all connected cells
   // - delete port towards this cell
   // - update belt meta to reflect new cell meta

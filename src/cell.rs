@@ -149,13 +149,15 @@ pub fn belt_cell(x: usize, y: usize, meta: BeltMeta) -> Cell {
   };
 }
 
-pub fn machine_cell(x: usize, y: usize, kind: MachineKind, input1: Part, input2: Part, input3: Part, output: Part, machine_production_price: i32, machine_trash_price: i32) -> Cell {
+pub fn machine_cell(x: usize, y: usize, kind: MachineKind, input1: Part, input2: Part, input3: Part, output: Part, speed: u64, machine_production_price: i32, machine_trash_price: i32) -> Cell {
+  assert!(x > 0 && y > 0 && x < FLOOR_CELLS_W - 1 && y < FLOOR_CELLS_H - 1);
+
   let coord = x + y * FLOOR_CELLS_W;
 
-  let coord_u = if y == 0 { None } else { Some(to_coord_up(coord)) };
-  let coord_r = if x == FLOOR_CELLS_W - 1 { None } else { Some(to_coord_right(coord)) };
-  let coord_d = if y == FLOOR_CELLS_H - 1 { None } else { Some(to_coord_down(coord)) };
-  let coord_l = if x == 0 { None } else { Some(to_coord_left(coord)) };
+  let coord_u = Some(to_coord_up(coord)); // if y == 0 { None } else { Some(to_coord_up(coord)) };
+  let coord_r = Some(to_coord_right(coord)); // if x == FLOOR_CELLS_W - 1 { None } else { Some(to_coord_right(coord)) };
+  let coord_d = Some(to_coord_down(coord)); // if y == FLOOR_CELLS_H - 1 { None } else { Some(to_coord_down(coord)) };
+  let coord_l = Some(to_coord_left(coord)); // if x == 0 { None } else { Some(to_coord_left(coord)) };
 
   return Cell {
     kind: CellKind::Machine,
@@ -165,9 +167,9 @@ pub fn machine_cell(x: usize, y: usize, kind: MachineKind, input1: Part, input2:
     x,
     y,
 
-    is_edge: x == 0 || y == 0 || x == FLOOR_CELLS_W - 1 || y == FLOOR_CELLS_H - 1,
-    is_side: x == 0 || x == FLOOR_CELLS_W - 1,
-    is_zero: x == 0 || y == 0,
+    is_edge: false, // x == 0 || y == 0 || x == FLOOR_CELLS_W - 1 || y == FLOOR_CELLS_H - 1,
+    is_side: false, // x == 0 || x == FLOOR_CELLS_W - 1,
+    is_zero: false, // x == 0 || y == 0,
     coord,
     coord_u,
     coord_r,
@@ -186,7 +188,7 @@ pub fn machine_cell(x: usize, y: usize, kind: MachineKind, input1: Part, input2:
     marked: false,
 
     belt: belt_none(),
-    machine: machine_new(kind, 999, coord, input1, input2, input3, output),
+    machine: machine_new(kind, 999, coord, input1, input2, input3, output, speed),
     demand: demand_none(),
     supply: supply_none(),
   };
@@ -577,7 +579,7 @@ pub fn cell_set_port_l_to(factory: &mut Factory, coord_from: usize, port: Port, 
 pub fn cell_connect_if_possible(options: &mut Options, state: &mut State, factory: &mut Factory, coord_from: usize, coord_to: usize, dx: i8, dy: i8) {
   // Note: this still requires factory prio update but it should take care of all the other things
 
-  // The dx and dy values should reflect the coords' deltas. We assume the cells _are_ adjacent.
+  // The dx and dy values should reflect the coords' deltas. We assume the cells _are_ adjacent and belts or machines.
   assert!((dx == 0) != (dy == 0), "one and only one of dx or dy is zero");
   assert!(dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1, "since they are adjacent they must be -1, 0, or 1");
 
@@ -587,7 +589,6 @@ pub fn cell_connect_if_possible(options: &mut Options, state: &mut State, factor
   // - If one is empty then do not change any port
   // - If both are machine then do not change any port
   // - Connect belts with each other and with machines
-  // TOOD: machine to demand/supply? ignore? connect anyways?
 
   let from_kind = factory.floor[coord_from].kind;
   let to_kind = factory.floor[coord_to].kind;

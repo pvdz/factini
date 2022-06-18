@@ -49,9 +49,10 @@ pub fn create_options(speed_modifier: f64) -> Options {
   };
 }
 
-pub const ONE_MS: u64 = 5; // design is 10
+// Design is for the default speed to run 10k ticks per real world second
+pub const ONE_MS: u64 = 10;
 pub const ONE_SECOND: u64 = 1000 * ONE_MS;
-pub const MAX_TICKS_PER_FRAME: u64 = 1000;
+pub const MAX_TICKS_PER_FRAME: u64 = 1000; // Frame limiter
 
 pub const FLOOR_CELLS_W: usize = 1 + 5*3 + 1;
 pub const FLOOR_CELLS_H: usize = 1 + 5*3 + 1;

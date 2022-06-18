@@ -26,6 +26,7 @@ pub struct Supply {
   pub speed: u64,
   // Delay between last dispensed part and generation of next part
   pub cooldown: u64, // Generate new part every this many ticks
+  pub supplied: u64,
 }
 
 pub const fn supply_none() -> Supply {
@@ -39,7 +40,8 @@ pub const fn supply_none() -> Supply {
     gives: part_none(),
     part_price: 0,
     speed: 0,
-    cooldown: 0
+    cooldown: 0,
+    supplied: 0,
   };
 }
 
@@ -55,6 +57,7 @@ pub fn supply_new(gives: Part, neighbor_coord: usize, outgoing_dir: Direction, n
     part_price: price,
     speed,
     cooldown,
+    supplied: 0,
   };
 }
 
@@ -74,6 +77,7 @@ pub fn tick_supply(options: &mut Options, state: &mut State, factory: &mut Facto
 }
 
 pub fn supply_clear_part(factory: &mut Factory, supply_coord: usize) {
+  factory.floor[supply_coord].supply.supplied += 1;
   factory.floor[supply_coord].supply.part_at = 0;
   factory.floor[supply_coord].supply.last_part_out_at = factory.ticks;
 }

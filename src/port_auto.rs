@@ -491,48 +491,52 @@ fn auto_port_convert_machine_unknown_to(options: &mut Options, state: &mut State
 
   // for cur_coord in floor[coord].machine.coords {
   for i in 0..factory.floor[coord].machine.coords.len() {
-    let cur_coord= factory.floor[coord].machine.coords[i]; // Is this cheaper than the alt?
+    let sub_machine_coord = factory.floor[coord].machine.coords[i]; // Is this cheaper than the alt?
 
-    if factory.floor[cur_coord].port_u == Port::Unknown {
-      if options.trace_priority_step { log(format!("  - machine @{}; up port is {:?}", cur_coord, new_port)); }
-      factory.floor[cur_coord].port_u = new_port;
+    if factory.floor[sub_machine_coord].port_u == Port::Unknown {
+      if options.trace_priority_step { log(format!("  - machine @{}; up port is {:?}", sub_machine_coord, new_port)); }
+      factory.floor[sub_machine_coord].port_u = new_port;
+      factory.changed = true;
       if new_port == Port::Inbound {
-        factory.floor[factory.floor[cur_coord].machine.main_coord].ins.push(( Direction::Up, cur_coord, factory.floor[coord].coord_u.unwrap(), Direction::Down ));
+        factory.floor[factory.floor[sub_machine_coord].machine.main_coord].ins.push(( Direction::Up, sub_machine_coord, factory.floor[coord].coord_u.unwrap(), Direction::Down ));
       } else {
-        factory.floor[factory.floor[cur_coord].machine.main_coord].outs.push(( Direction::Up, cur_coord, factory.floor[coord].coord_u.unwrap(), Direction::Down ));
+        factory.floor[factory.floor[sub_machine_coord].machine.main_coord].outs.push(( Direction::Up, sub_machine_coord, factory.floor[coord].coord_u.unwrap(), Direction::Down ));
       }
       return;
     }
 
-    if factory.floor[cur_coord].port_r == Port::Unknown {
-      if options.trace_priority_step { log(format!("  - machine @{}; right port is {:?}", cur_coord, new_port)); }
-      factory.floor[cur_coord].port_r = new_port;
+    if factory.floor[sub_machine_coord].port_r == Port::Unknown {
+      if options.trace_priority_step { log(format!("  - machine @{}; right port is {:?}", sub_machine_coord, new_port)); }
+      factory.floor[sub_machine_coord].port_r = new_port;
+      factory.changed = true;
       if new_port == Port::Inbound {
-        factory.floor[factory.floor[cur_coord].machine.main_coord].ins.push(( Direction::Right, cur_coord, factory.floor[coord].coord_r.unwrap(), Direction::Left ));
+        factory.floor[factory.floor[sub_machine_coord].machine.main_coord].ins.push(( Direction::Right, sub_machine_coord, factory.floor[coord].coord_r.unwrap(), Direction::Left ));
       } else {
-        factory.floor[factory.floor[cur_coord].machine.main_coord].outs.push(( Direction::Right, cur_coord, factory.floor[coord].coord_r.unwrap(), Direction::Left ));
+        factory.floor[factory.floor[sub_machine_coord].machine.main_coord].outs.push(( Direction::Right, sub_machine_coord, factory.floor[coord].coord_r.unwrap(), Direction::Left ));
       }
       return;
     }
 
-    if factory.floor[cur_coord].port_d == Port::Unknown {
-      if options.trace_priority_step { log(format!("  - machine @{}; down port is {:?}", cur_coord, new_port)); }
-      factory.floor[cur_coord].port_d = new_port;
+    if factory.floor[sub_machine_coord].port_d == Port::Unknown {
+      if options.trace_priority_step { log(format!("  - machine @{}; down port is {:?}", sub_machine_coord, new_port)); }
+      factory.floor[sub_machine_coord].port_d = new_port;
+      factory.changed = true;
       if new_port == Port::Inbound {
-        factory.floor[factory.floor[cur_coord].machine.main_coord].ins.push(( Direction::Down, cur_coord, factory.floor[coord].coord_d.unwrap(), Direction::Up ));
+        factory.floor[factory.floor[sub_machine_coord].machine.main_coord].ins.push(( Direction::Down, sub_machine_coord, factory.floor[coord].coord_d.unwrap(), Direction::Up ));
       } else {
-        factory.floor[factory.floor[cur_coord].machine.main_coord].outs.push(( Direction::Down, cur_coord, factory.floor[coord].coord_d.unwrap(), Direction::Up ));
+        factory.floor[factory.floor[sub_machine_coord].machine.main_coord].outs.push(( Direction::Down, sub_machine_coord, factory.floor[coord].coord_d.unwrap(), Direction::Up ));
       }
       return;
     }
 
-    if factory.floor[cur_coord].port_l == Port::Unknown {
-      if options.trace_priority_step { log(format!("  - machine @{}; left port is {:?}", cur_coord, new_port)); }
-      factory.floor[cur_coord].port_l = new_port;
+    if factory.floor[sub_machine_coord].port_l == Port::Unknown {
+      if options.trace_priority_step { log(format!("  - machine @{}; left port is {:?}", sub_machine_coord, new_port)); }
+      factory.floor[sub_machine_coord].port_l = new_port;
+      factory.changed = true;
       if new_port == Port::Inbound {
-        factory.floor[factory.floor[cur_coord].machine.main_coord].ins.push(( Direction::Left, cur_coord, factory.floor[coord].coord_l.unwrap(), Direction::Right ));
+        factory.floor[factory.floor[sub_machine_coord].machine.main_coord].ins.push(( Direction::Left, sub_machine_coord, factory.floor[coord].coord_l.unwrap(), Direction::Right ));
       } else {
-        factory.floor[factory.floor[cur_coord].machine.main_coord].outs.push(( Direction::Left, cur_coord, factory.floor[coord].coord_l.unwrap(), Direction::Right ));
+        factory.floor[factory.floor[sub_machine_coord].machine.main_coord].outs.push(( Direction::Left, sub_machine_coord, factory.floor[coord].coord_l.unwrap(), Direction::Right ));
       }
       return;
     }

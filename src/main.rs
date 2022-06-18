@@ -17,6 +17,7 @@ pub mod direction;
 pub mod factory;
 pub mod floor;
 pub mod machine;
+pub mod offer;
 pub mod options;
 pub mod part;
 pub mod port;
