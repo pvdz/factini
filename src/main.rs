@@ -16,6 +16,7 @@ pub mod demand;
 pub mod direction;
 pub mod factory;
 pub mod floor;
+pub mod init;
 pub mod machine;
 pub mod offer;
 pub mod options;
