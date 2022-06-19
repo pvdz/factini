@@ -10,7 +10,7 @@ use super::part::*;
 use super::state::*;
 use super::utils::*;
 
-fn serialize(options: &mut Options, state: &mut State, factory: &Factory) -> String {
+fn serialize(options: &mut Options, state: &mut State, factory: &Factory, dump: bool) -> String {
   let mut out = vec!();
 
   // Top line
@@ -85,7 +85,7 @@ fn serialize(options: &mut Options, state: &mut State, factory: &Factory) -> Str
         }
       },
       CellKind::Belt => {
-        if factory.floor[coord].belt.part.kind != PartKind::None {
+        if !dump && factory.floor[coord].belt.part.kind != PartKind::None {
           factory.floor[coord].belt.part.icon
         } else {
           factory.floor[coord].belt.meta.cli_icon
@@ -210,7 +210,7 @@ pub fn print_floor_with_views(options: &mut Options, state: &mut State, factory:
 }
 
 pub fn generate_floor_with_views(options: &mut Options, state: &mut State, factory: &Factory) -> Vec<String>{
-  let aa = serialize(options, state, factory);
+  let aa = serialize(options, state, factory, false);
   let mut a = aa.split('\n');
 
   let bb = serialize_cb(options, state, factory, |cell: &Cell| match cell.port_u {
@@ -286,13 +286,13 @@ pub fn print_floor_without_views(options: &mut Options, state: &mut State, facto
   }
 }
 pub fn generate_floor_without_views(options: &mut Options, state: &mut State, factory: &Factory) -> Vec<String> {
-  let aa = serialize(options, state, factory);
+  let aa = serialize(options, state, factory, false);
   let mut a = aa.split('\n');
 
   let mut out = vec!();
 
   let mut cor = 0; // Helps to account for lines where no real cells are printed
-  out.push(format!("        \"0 123456789012345 6\"                port_u                     port_r                     port_d                     port_l                       belt_from                   belt_to"));
+  out.push(format!("        \"0 123456789012345 6\""));
   //         (   )  "┌───────────────────┐"       "┌───────────────────┐"    "┌───────────────────┐"    "┌───────────────────┐"    "┌───────────────────┐"        "┌───────────────────┐"    "┌───────────────────┐"
   for i in 0..FLOOR_CELLS_H+4 {
     if i != 0 && i != 1 && i != 3 && i != FLOOR_CELLS_H+2 { cor += 1 }
@@ -303,5 +303,15 @@ pub fn generate_floor_without_views(options: &mut Options, state: &mut State, fa
   //         (   )  "└───────────────────┘"       "└───────────────────┘"    "└───────────────────┘"    "└───────────────────┘"    "└───────────────────┘"        "└───────────────────┘"    "└───────────────────┘"
   out.push(format!("        \"0 123456789012345 6\""));
 
+  return out;
+}
+pub fn generate_floor_dump(options: &mut Options, state: &mut State, factory: &Factory) -> Vec<String> {
+  // Send help. I'm sure this is wrong on multiple levels. But it works.
+  let aa = serialize(options, state, factory, true);
+  let a = aa.split('\n');
+  let mut out = vec!();
+  for n in a {
+    out.push(format!("{}", n));
+  }
   return out;
 }

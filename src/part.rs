@@ -1,3 +1,4 @@
+use super::utils::*;
 
 #[derive(Clone, Debug)]
 pub struct Part {
@@ -28,7 +29,8 @@ pub const fn part_c(icon: char) -> Part {
       's' => PartKind::Sapphire,
       'b' => PartKind::BlueWand,
       'g' => PartKind::GoldenBlueWand,
-      _ => PartKind::WoodenStick,
+      ' ' => PartKind::None,
+      _ => PartKind::None,
     },
     icon,
   }

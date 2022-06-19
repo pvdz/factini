@@ -827,21 +827,12 @@ pub fn get_edge_neighbor(x: usize, y: usize, coord: usize) -> (usize, Direction,
 //   };
 // }
 
-pub fn is_floor(x: usize, y: usize, w: usize, h: usize) -> bool {
-  return x != 0 && y != 0 && x != w - 1 && y != h - 1;
+pub fn is_middle(x: usize, y: usize) -> bool {
+  return x > 0 && y > 0 && x < FLOOR_CELLS_W - 1 && y < FLOOR_CELLS_H - 1;
 }
 
-pub fn is_edge(x: usize, y: usize, w: usize, h: usize) -> bool {
-  return x == 0 || y == 0 || x == w - 1 || y == h - 1;
-}
-
-pub fn to_floor_xy(coord: usize) -> (usize, usize, bool) {
-  // Return 0,0 if coord is oob (so for edge cells)
-
-  let x = coord % FLOOR_CELLS_W;
-  let y = coord / FLOOR_CELLS_W; // int division
-
-  return (x, y, is_floor(x, y, FLOOR_CELLS_W, FLOOR_CELLS_H));
+pub fn is_edge(x: usize, y: usize) -> bool {
+  return x == 0 || y == 0 || x == FLOOR_CELLS_W - 1 || y == FLOOR_CELLS_H - 1;
 }
 
 pub fn to_xy(coord: usize) -> (usize, usize) {

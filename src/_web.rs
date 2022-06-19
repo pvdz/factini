@@ -1,6 +1,18 @@
 // This file should only be included for `wasm-pack build --target web`
 // The main.rs will include this file when `#[cfg(target_arch = "wasm32")]`
 
+// - demand and supply are passive, belts determine it
+// - why do belts get stuck?
+// - when placing a machine it should attach any belt that it overwrote
+// - machine offers should have size
+// - export all the things
+// - machine selection should select the entire machine, not the main coord
+// - pause button
+// - crash button
+// - restart button
+// - clear parts button
+// - clear belts button
+
 // This is required to export panic to the web
 use std::panic;
 
@@ -37,10 +49,10 @@ use super::utils::*;
 
 // These are the actual pixels we can paint to
 const CANVAS_WIDTH: f64 = 1000.0;
-const CANVAS_HEIGHT: f64 = 1000.0;
+const CANVAS_HEIGHT: f64 = 700.0;
 // Need this for mouse2world coord conversion
 const CANVAS_CSS_WIDTH: f64 = 1000.0;
-const CANVAS_CSS_HEIGHT: f64 = 1000.0;
+const CANVAS_CSS_HEIGHT: f64 = 700.0;
 
 // World size in world pixels (as painted on the canvas)
 const WORLD_OFFSET_X: f64 = 20.0;
@@ -75,6 +87,12 @@ const UI_OFFERS_W: f64 = 100.0;
 const UI_OFFERS_H: f64 = 100.0;
 const UI_OFFERS_H_PLUS_MARGIN: f64 = UI_OFFERS_H + 10.0;
 
+const UI_BUTTONS_OX: f64 = WORLD_OFFSET_X;
+const UI_BUTTONS_OY: f64 = CANVAS_HEIGHT - UI_BUTTON_H - 10.0;
+const UI_BUTTON_W: f64 = 50.0;
+const UI_BUTTON_H: f64 = 20.0;
+const UI_BUTTON_SPACING: f64 = 10.0;
+
 const UI_CELL_EDITOR_OX: f64 = UI_OX;
 const UI_CELL_EDITOR_OY: f64 = UI_OY + (UI_LINE_H * (UI_DEBUG_LINES + 2.0));
 const UI_CELL_EDITOR_W: f64 = UI_W;
@@ -97,7 +115,7 @@ const UI_MACHINE_EDITOR_H: f64 = 150.0;
 
 // Temp placeholder
 const COLOR_SUPPLY: &str = "pink";
-const COLOR_SUPPLY_SEMI: &str = "#ff7fcc55";
+const COLOR_SUPPLY_SEMI: &str = "#6f255154";
 const COLOR_DEMAND: &str = "lightgreen";
 const COLOR_DEMAND_SEMI: &str = "#00aa0055";
 const COLOR_MACHINE: &str = "lightyellow";
@@ -208,7 +226,7 @@ pub fn start() -> Result<(), JsValue> {
   canvas.set_height(CANVAS_HEIGHT as u32);
   canvas.style().set_property("border", "solid")?;
   canvas.style().set_property("width", format!("{}px", CANVAS_CSS_WIDTH as u32).as_str())?;
-  canvas.style().set_property("width", format!("{}px", CANVAS_CSS_HEIGHT as u32).as_str())?;
+  canvas.style().set_property("height", format!("{}px", CANVAS_CSS_HEIGHT as u32).as_str())?;
   let context = canvas
     .get_context("2d")?
     .unwrap()
@@ -545,6 +563,11 @@ pub fn start() -> Result<(), JsValue> {
           factory.prio = prio;
 
           factory.changed = false;
+          factory.first_out_at = 0;
+          factory.accepted = 0;
+          factory.produced = 0;
+          factory.trashed = 0;
+          factory.supplied = 0;
         }
 
         // Paint the world (no input or world mutations after this point)
@@ -554,10 +577,14 @@ pub fn start() -> Result<(), JsValue> {
         // context.set_fill_style(&"lightblue".into());
         context.fill_rect(0.0, 0.0, CANVAS_WIDTH as f64, CANVAS_HEIGHT as f64);
 
+        context.set_stroke_style(&"#aaa".into());
+        context.stroke_rect(WORLD_OFFSET_X, WORLD_OFFSET_Y, FLOOR_CELLS_W as f64 * CELL_W, FLOOR_CELLS_H as f64 * CELL_H);
+
         paint_green_debug(&context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
 
         paint_top_stats(&context, &mut factory);
         paint_ui_offers(&context, &mut factory, &mouse_state);
+        paint_ui_buttons(&context, &mouse_state);
 
         // TODO: wait for tiles to be loaded because first few frames won't paint anything while the tiles are loading...
         paint_background_tiles(&context, &factory, &belt_tile_images, &img_machine2);
@@ -694,6 +721,30 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
           }
         }
       }
+      // Was one of the buttons below the floor clicked?
+      else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_BUTTONS_OX, UI_BUTTONS_OY, UI_BUTTONS_OX + 2.0 * (UI_BUTTON_W + UI_BUTTON_SPACING), UI_BUTTONS_OY + UI_BUTTON_H) {
+        let button_index = (mouse_state.last_up_world_x - UI_BUTTONS_OX) / (UI_BUTTON_W + UI_BUTTON_SPACING);
+        if button_index % 1.0 < (UI_BUTTON_W / (UI_BUTTON_W + UI_BUTTON_SPACING)) {
+          log(format!("clicked inside button {}", button_index));
+          match button_index.floor() as u8 {
+            0 => { // Clear
+              log(format!("Clearing factory..."));
+              for coord in 0..factory.floor.len() {
+                let (x, y) = to_xy(coord);
+                factory.floor[coord] = empty_cell(x, y);
+              }
+              factory.changed = true;
+            }
+            1 => { // Dump
+              log(format!("Dumping factory..."));
+              log(format!("\n{}", generate_floor_dump(options, state, &factory).join("\n")));
+            }
+            _ => panic!("Clicked on button that is missing a click implementation..."),
+          }
+        } else {
+          log(format!("clicked margin after button {}", button_index));
+        }
+      }
     }
 
     mouse_state.dragging_offer = false;
@@ -714,7 +765,7 @@ fn update_mouse_state(factory: &mut Factory, mouse_state: &mut MouseState, mouse
   mouse_state.canvas_x = mouse_x;
   mouse_state.canvas_y = mouse_y;
   mouse_state.world_x = mouse_x / CANVAS_CSS_WIDTH * CANVAS_WIDTH;
-  mouse_state.world_y = mouse_y / CANVAS_CSS_WIDTH * CANVAS_WIDTH;
+  mouse_state.world_y = mouse_y / CANVAS_CSS_HEIGHT * CANVAS_HEIGHT;
   mouse_state.cell_x = ((mouse_x - WORLD_OFFSET_X) / CELL_W).floor();
   mouse_state.cell_y = ((mouse_y - WORLD_OFFSET_Y) / CELL_H).floor();
   mouse_state.cell_coord = to_coord(mouse_state.cell_x as usize, mouse_state.cell_y as usize);
@@ -817,104 +868,111 @@ fn on_click_inside_cell_editor_kind(options: &Options, state: &State, factory: &
   };
 }
 fn on_up_inside_floor(options: &mut Options, state: &mut State, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
+  log(format!("on_up_inside_floor()"));
+
+  if mouse_state.was_dragging {
+    if mouse_state.dragging_offer {
+      on_drag_offer_into_floor(options, state, factory, mouse_state);
+    }
+    // Drag ended on the floor, did drag start on the floor?
+    else if bounds_check(mouse_state.last_down_world_x - WORLD_OFFSET_X, mouse_state.last_down_world_y - WORLD_OFFSET_Y, 0.0,  0.0,WORLD_WIDTH, WORLD_HEIGHT) {
+      // Is the mouse currently on the floor?
+      on_drag_end_inside_floor(options, state, factory, cell_selection, mouse_state);
+    } else {
+      log(format!("Drag ended on floor but did not start there. noop"));
+    }
+  } else {
+    on_click_inside_floor(options, state, factory, cell_selection, mouse_state);
+  }
+}
+fn on_drag_offer_into_floor(options: &mut Options, state: &mut State, factory: &mut Factory, mouse_state: &MouseState) {
+  log(format!("on_drag_offer_into_floor()"));
+
   let last_mouse_up_cell_x = ((mouse_state.last_up_world_x - WORLD_OFFSET_X) / CELL_W).floor();
   let last_mouse_up_cell_y = ((mouse_state.last_up_world_y - WORLD_OFFSET_Y) / CELL_H).floor();
   let last_mouse_up_cell_coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
   let last_mouse_up_inside_cell_x = ((mouse_state.last_up_world_x - WORLD_OFFSET_X) / CELL_W) - last_mouse_up_cell_x;
   let last_mouse_up_inside_cell_y = ((mouse_state.last_up_world_y - WORLD_OFFSET_Y) / CELL_H) - last_mouse_up_cell_y;
 
-  // Check if the icon between connected belts was clicked
-  if last_mouse_up_cell_x >= 0.0 && last_mouse_up_cell_y >= 0.0 && last_mouse_up_cell_x < FLOOR_CELLS_W as f64 && last_mouse_up_cell_y < FLOOR_CELLS_H as f64 {
-    if mouse_state.was_dragging {
-      if mouse_state.dragging_offer {
-        // Was dragging an offer and released it on the floor
-        // Offers have cell constraints. In particular, supply/demand can only go on edges and
-        // machines can not go on the edge.
-        match factory.offers[mouse_state.offer_index].kind {
-          CellKind::Machine => {
-            if last_mouse_up_cell_x >= 1.0 && last_mouse_up_cell_x < FLOOR_CELLS_W as f64 - 1.0 && last_mouse_up_cell_y >= 0.0 && last_mouse_up_cell_y < FLOOR_CELLS_H as f64 - 1.0 {
-              log(format!("Dropped a machine on the floor. Deploying..."));
-              // If there's already something on this cell then we need to remove it first
-              if factory.floor[last_mouse_up_cell_coord].kind != CellKind::Empty {
-                // Must be belt or machine
-                // We should be able to replace this one with the new tile without having to update
-                // the neighbors (if any). We do have to update the prio list (in case belt->machine).
-                log(format!("Remove old middle cell..."));
-                floor_delete_cell_at_partial(options, state, factory, last_mouse_up_cell_coord);
-              }
-              log(format!("Add new machine cell..."));
-              factory.floor[last_mouse_up_cell_coord] = machine_cell(
-                last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize,
-                MachineKind::Main,
-                part_c(factory.offers[mouse_state.offer_index].machine_input1),
-                part_c(factory.offers[mouse_state.offer_index].machine_input2),
-                part_c(factory.offers[mouse_state.offer_index].machine_input3),
-                part_c(factory.offers[mouse_state.offer_index].machine_output),
-                factory.offers[mouse_state.offer_index].speed,
-                1, 1
-              );
-              // TODO: either
-              factory.floor[last_mouse_up_cell_coord].port_u = Port::None;
-              factory.floor[last_mouse_up_cell_coord].port_r = Port::None;
-              factory.floor[last_mouse_up_cell_coord].port_d = Port::None;
-              factory.floor[last_mouse_up_cell_coord].port_l = Port::None;
-              factory.changed = true;
-            } else {
-              log(format!("Dropped a machine on the edge. Ignoring."));
-            }
-          }
-          CellKind::Supply => {
-            if (last_mouse_up_cell_x == 0.0 || last_mouse_up_cell_x == FLOOR_CELLS_W as f64 - 1.0) != (last_mouse_up_cell_y == 0.0 || last_mouse_up_cell_y == FLOOR_CELLS_H as f64 - 1.0) {
-              log(format!("Dropped a supply on an edge cell that is not corner. Deploying..."));
-              // If there's already something on this cell then we need to remove it first
-              if factory.floor[last_mouse_up_cell_coord].kind != CellKind::Empty {
-                // Must be supply or demand
-                // We should be able to replace this one with the new tile without having to update
-                // the neighbors (if any). We do have to update the prio list (in case demand->supply).
-                log(format!("Remove old edge cell..."));
-                floor_delete_cell_at_partial(options, state, factory, last_mouse_up_cell_coord);
-              }
-              log(format!("Add new supply cell..."));
-              factory.floor[last_mouse_up_cell_coord] = supply_cell(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_c(factory.offers[mouse_state.offer_index].supply_icon), 1, 1, 1);
-              factory.changed = true;
-            } else {
-              log(format!("Dropped a supply on the floor or a corner. Ignoring."));
-            }
-          }
-          CellKind::Demand => {
-            if (last_mouse_up_cell_x == 1.0 || last_mouse_up_cell_x == FLOOR_CELLS_W as f64 - 1.0) != (last_mouse_up_cell_y == 0.0 || last_mouse_up_cell_y == FLOOR_CELLS_H as f64 - 1.0) {
-              log(format!("Dropped a demand on an edge cell that is not corner. Deploying..."));
-              // If there's already something on this cell then we need to remove it first
-              if factory.floor[last_mouse_up_cell_coord].kind != CellKind::Empty {
-                // Must be supply or demand
-                // We should be able to replace this one with the new tile without having to update
-                // the neighbors (if any). We do have to update the prio list (in case demand->supply).
-                log(format!("Remove old edge cell..."));
-                floor_delete_cell_at_partial(options, state, factory, last_mouse_up_cell_coord);
-              }
-              log(format!("Add new demand cell..."));
-              factory.floor[last_mouse_up_cell_coord] = demand_cell(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_c(factory.offers[mouse_state.offer_index].supply_icon));
-              factory.changed = true;
-            } else {
-              log(format!("Dropped a demand on the floor or a corner. Ignoring."));
-            }
-          }
-          CellKind::Empty => panic!("no"),
-          CellKind::Belt => panic!("no"),
+  // Was dragging an offer and released it on the floor
+  // Offers have cell constraints. In particular, supply/demand can only go on edges and
+  // machines can not go on the edge.
+  match factory.offers[mouse_state.offer_index].kind {
+    CellKind::Machine => {
+      if last_mouse_up_cell_x >= 1.0 && last_mouse_up_cell_x < FLOOR_CELLS_W as f64 - 1.0 && last_mouse_up_cell_y >= 0.0 && last_mouse_up_cell_y < FLOOR_CELLS_H as f64 - 1.0 {
+        log(format!("Dropped a machine on the floor. Deploying..."));
+        // If there's already something on this cell then we need to remove it first
+        if factory.floor[last_mouse_up_cell_coord].kind != CellKind::Empty {
+          // Must be belt or machine
+          // We should be able to replace this one with the new tile without having to update
+          // the neighbors (if any). We do have to update the prio list (in case belt->machine).
+          log(format!("Remove old middle cell..."));
+          floor_delete_cell_at_partial(options, state, factory, last_mouse_up_cell_coord);
         }
+        log(format!("Add new machine cell..."));
+        factory.floor[last_mouse_up_cell_coord] = machine_cell(
+          last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize,
+          MachineKind::Main,
+          part_c(factory.offers[mouse_state.offer_index].machine_input1),
+          part_c(factory.offers[mouse_state.offer_index].machine_input2),
+          part_c(factory.offers[mouse_state.offer_index].machine_input3),
+          part_c(factory.offers[mouse_state.offer_index].machine_output),
+          factory.offers[mouse_state.offer_index].speed,
+          1, 1
+        );
+        // TODO: either
+        factory.floor[last_mouse_up_cell_coord].port_u = Port::None;
+        factory.floor[last_mouse_up_cell_coord].port_r = Port::None;
+        factory.floor[last_mouse_up_cell_coord].port_d = Port::None;
+        factory.floor[last_mouse_up_cell_coord].port_l = Port::None;
+        factory.changed = true;
       } else {
-        if mouse_state.last_down_world_x - WORLD_OFFSET_X >= 0.0 && mouse_state.last_down_world_x - WORLD_OFFSET_X < WORLD_WIDTH && mouse_state.last_down_world_y - WORLD_OFFSET_Y >= 0.0 && mouse_state.last_down_world_y - WORLD_OFFSET_Y < WORLD_HEIGHT {
-          if mouse_state.world_x >= WORLD_OFFSET_X && mouse_state.world_x < WORLD_WIDTH && mouse_state.world_y >= WORLD_OFFSET_Y && mouse_state.world_y < WORLD_HEIGHT {
-            on_drag_end_inside_floor(options, state, factory, cell_selection, mouse_state);
-          }
-        }
+        log(format!("Dropped a machine on the edge. Ignoring."));
       }
-    } else {
-      on_click_inside_floor(options, state, factory, cell_selection, mouse_state, last_mouse_up_cell_x, last_mouse_up_cell_y);
     }
+    CellKind::Supply => {
+      if (last_mouse_up_cell_x == 0.0 || last_mouse_up_cell_x == FLOOR_CELLS_W as f64 - 1.0) != (last_mouse_up_cell_y == 0.0 || last_mouse_up_cell_y == FLOOR_CELLS_H as f64 - 1.0) {
+        log(format!("Dropped a supply on an edge cell that is not corner. Deploying..."));
+        // If there's already something on this cell then we need to remove it first
+        if factory.floor[last_mouse_up_cell_coord].kind != CellKind::Empty {
+          // Must be supply or demand
+          // We should be able to replace this one with the new tile without having to update
+          // the neighbors (if any). We do have to update the prio list (in case demand->supply).
+          log(format!("Remove old edge cell..."));
+          floor_delete_cell_at_partial(options, state, factory, last_mouse_up_cell_coord);
+        }
+        log(format!("Add new supply cell..."));
+        factory.floor[last_mouse_up_cell_coord] = supply_cell(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_c(factory.offers[mouse_state.offer_index].supply_icon), 1, 1, 1);
+        factory.changed = true;
+      } else {
+        log(format!("Dropped a supply on the floor or a corner. Ignoring."));
+      }
+    }
+    CellKind::Demand => {
+      if (last_mouse_up_cell_x == 0.0 || last_mouse_up_cell_x == FLOOR_CELLS_W as f64 - 1.0) != (last_mouse_up_cell_y == 0.0 || last_mouse_up_cell_y == FLOOR_CELLS_H as f64 - 1.0) {
+        log(format!("Dropped a demand on an edge cell that is not corner. Deploying..."));
+        // If there's already something on this cell then we need to remove it first
+        if factory.floor[last_mouse_up_cell_coord].kind != CellKind::Empty {
+          // Must be supply or demand
+          // We should be able to replace this one with the new tile without having to update
+          // the neighbors (if any). We do have to update the prio list (in case demand->supply).
+          log(format!("Remove old edge cell..."));
+          floor_delete_cell_at_partial(options, state, factory, last_mouse_up_cell_coord);
+        }
+        log(format!("Add new demand cell..."));
+        factory.floor[last_mouse_up_cell_coord] = demand_cell(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_c(factory.offers[mouse_state.offer_index].supply_icon));
+        factory.changed = true;
+      } else {
+        log(format!("Dropped a demand on the floor or a corner. Ignoring."));
+      }
+    }
+    CellKind::Empty => panic!("no"),
+    CellKind::Belt => panic!("no"),
   }
 }
 fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
+  log(format!("on_drag_end_inside_floor()"));
+
   // Finalize pathing, regenerate floor
   let track = ray_trace_dragged_line(
     factory,
@@ -922,6 +980,7 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, factory: &
     ((mouse_state.last_down_world_y - WORLD_OFFSET_Y) / CELL_H).floor(),
     mouse_state.cell_x.floor(),
     mouse_state.cell_y.floor(),
+    false
   );
 
   log(format!("track to solidify: {:?}, button {}", track, mouse_state.last_down_button));
@@ -966,6 +1025,7 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, factory: &
       // I think this allows you to cancel a drag by pressing the rmb
     }
   } else if len == 2 {
+    log(format!("two cell path with button {}", mouse_state.last_down_button));
     let ((cell_x1, cell_y1), belt_type1, _unused, _port_out_dir1) = track[0]; // First element has no inbound port here
     let coord1 = to_coord(cell_x1, cell_y1);
     let ((cell_x2, cell_y2), belt_type2, _port_in_dir2, _unused) = track[1]; // LAst element has no outbound port here
@@ -981,10 +1041,14 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, factory: &
       // Create a port between these two cells, but none of the other cells.
 
       if factory.floor[coord1].kind == CellKind::Empty {
-        factory.floor[coord1] = belt_cell(cell_x1, cell_y1, belt_type_to_belt_meta(belt_type1));
+        if is_middle(cell_x1, cell_y1) {
+          factory.floor[coord1] = belt_cell(cell_x1, cell_y1, belt_type_to_belt_meta(belt_type1));
+        }
       }
       if factory.floor[coord2].kind == CellKind::Empty {
-        factory.floor[coord2] = belt_cell(cell_x2, cell_y2, belt_type_to_belt_meta(belt_type2));
+        if is_middle(cell_x2, cell_y2) {
+          factory.floor[coord2] = belt_cell(cell_x2, cell_y2, belt_type_to_belt_meta(belt_type2));
+        }
       }
 
       cell_connect_if_possible(options, state, factory, coord1, coord2, dx, dy);
@@ -1047,30 +1111,15 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, factory: &
 
       if mouse_state.last_down_button == 1 {
         // Staple the track on top of the existing layout
-        match factory.floor[coord].kind {
-          CellKind::Belt => {
-            // if factory.floor[coord].belt.meta.btype != belt_type {
-            //   update_meta_to_belt_type_and_replace_cell(factory, coord, belt_type);
-            // }
-            // update_ports_of_neighbor_cells(factory, coord, true);
-          }
-          CellKind::Empty => {
-            factory.floor[coord] = belt_cell(cell_x, cell_y, belt_type_to_belt_meta(belt_type));
+        if factory.floor[coord].kind == CellKind::Empty && is_middle(cell_x, cell_y) {
+          factory.floor[coord] = belt_cell(cell_x, cell_y, belt_type_to_belt_meta(belt_type));
 
-            // // Force-connect this cell to the previous cell, provided that cell is now a Belt
-            // // Do not change existing ports, if any (previously existing belts with those ports)
-            // if index > 0 {
-            //   floor_create_cell_at_partial(options, state, factory, pcoord, px as i8, py as i8, coord, x as i8, y as i8);
-            // }
-
-            // Connect the end points to any existing neighboring cells if not already connected
-            if index == 0 || index == len - 1 {
-              // log(format!("    -- okay @{} got {:?} ;; {:?} {:?} {:?} {:?}", coord, belt_type, factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
-              // log(format!("  - connect_belt_to_existing_neighbor_belts(), before: {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
-              connect_belt_to_existing_neighbor_cells(factory, coord);
-            }
+          // Connect the end points to any existing neighboring cells if not already connected
+          if index == 0 || index == len - 1 {
+            // log(format!("    -- okay @{} got {:?} ;; {:?} {:?} {:?} {:?}", coord, belt_type, factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
+            // log(format!("  - connect_belt_to_existing_neighbor_belts(), before: {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
+            connect_belt_to_existing_neighbor_cells(factory, coord);
           }
-          _ => (), // Do not overwrite machines, suppliers, or demanders with belts
         }
 
         if index > 0 {
@@ -1100,7 +1149,11 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, factory: &
 
   factory.changed = true;
 }
-fn on_click_inside_floor(options: &mut Options, state: &mut State, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState, last_mouse_up_cell_x: f64, last_mouse_up_cell_y: f64) {
+fn on_click_inside_floor(options: &mut Options, state: &mut State, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
+  log(format!("on_click_inside_floor()"));
+  let last_mouse_up_cell_x = ((mouse_state.last_up_world_x - WORLD_OFFSET_X) / CELL_W).floor();
+  let last_mouse_up_cell_y = ((mouse_state.last_up_world_y - WORLD_OFFSET_Y) / CELL_H).floor();
+
   if mouse_state.last_down_button == 2 {
     // Clear the cell if that makes sense for it. Delete a belt with one or zero ports.
     let coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
@@ -1201,7 +1254,7 @@ fn hit_check_cell_editor_grid(wx: f64, wy: f64) -> bool {
 fn hit_check_cell_editor_kind(wx: f64, wy: f64) -> bool {
   return wx >= UI_CELL_EDITOR_KIND_OX && wx < UI_CELL_EDITOR_KIND_OX + UI_CELL_EDITOR_KIND_W && wy >= UI_CELL_EDITOR_KIND_OY && wy < UI_CELL_EDITOR_KIND_OY + UI_CELL_EDITOR_KIND_H;
 }
-fn ray_trace_dragged_line(factory: &Factory, x0: f64, y0: f64, x1: f64, y1: f64) -> Vec<((usize, usize), BeltType, Direction, Direction)> {
+fn ray_trace_dragged_line(factory: &Factory, x0: f64, y0: f64, x1: f64, y1: f64, for_preview: bool) -> Vec<((usize, usize), BeltType, Direction, Direction)> {
   // We raytracing
   // The dragged line becomes a ray that we trace through cells of the floor
   // We then generate a belt track such that it fits in with the existing belts, if any
@@ -1225,6 +1278,7 @@ fn ray_trace_dragged_line(factory: &Factory, x0: f64, y0: f64, x1: f64, y1: f64)
   // - first one only gets the "to" port added to it
   // - last one only gets the "from" port added to it
   // - middle parts get the "from" and "to" port added to them
+  // let mut is_first = true;
   let (mut lx, mut ly) = covered[0];
   let mut last_from = Direction::Up; // first one ignores this value
   for index in 1..covered.len() {
@@ -1234,11 +1288,14 @@ fn ray_trace_dragged_line(factory: &Factory, x0: f64, y0: f64, x1: f64, y1: f64)
     let last_to = direction_reverse(new_from);
     // For the first one, pass on the same "to" port since there is no "from" port (it'll be a noop)
     let bt =
-        if index == 1 {
-          add_one_ports_to_cell(factory, to_coord(lx, ly), last_to)
-        } else {
-          add_two_ports_to_cell(factory, to_coord(lx, ly), last_from, last_to)
-        };
+      if !for_preview || x == 0 {
+        // add_one_ports_to_cell(factory, to_coord(lx, ly), last_to)
+        BeltType::INVALID
+      } else {
+        // This is necessary to make preview work but it may crash edge cells for actual placement
+        // When placing the meta is updated to represent the final state after patching
+        add_two_ports_to_cell(factory, to_coord(lx, ly), last_from, last_to)
+      };
     track.push(((lx, ly), bt, last_from, last_to)); // Note: no inport for first element. consumer beware?
 
     lx = x;
@@ -1551,6 +1608,7 @@ fn paint_belt_drag_preview(context: &Rc<web_sys::CanvasRenderingContext2d>, fact
     ((mouse_state.last_down_world_y - WORLD_OFFSET_Y) / CELL_H).floor(),
     mouse_state.cell_x.floor(),
     mouse_state.cell_y.floor(),
+    true, // if we dont then the preview will show only broken belt cells
   );
 
   for index in 0..track.len() {
@@ -1835,11 +1893,11 @@ fn paint_demand_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory:
 }
 fn paint_top_stats(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory) {
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("Ticks: {}, Supplied: {}, Produced: {}, Received: {}, Trashed: {}", factory.ticks, factory.supplied, factory.produced, factory.accepted, factory.trashed).as_str(), 20.0, 20.0);
+  context.fill_text(format!("Ticks: {}, Supplied: {}, Produced: {}, Received: {}, Trashed: {}", factory.ticks, factory.supplied, factory.produced, factory.accepted, factory.trashed).as_str(), 20.0, 20.0).expect("to paint");
   if factory.first_out_at == 0 {
-    context.fill_text(format!("Waiting for first part to reach a Demand...").as_str(), 20.0, 40.0);
+    context.fill_text(format!("Waiting for first part to reach a Demand...").as_str(), 20.0, 40.0).expect("to paint");
   } else {
-    context.fill_text(format!("Current time: {}, goal: {}, best: {}", factory.ticks - factory.first_out_at, 10000, 9999).as_str(), 20.0, 40.0);
+    context.fill_text(format!("Current time: {}, goal: {}, best: {}", factory.ticks - factory.first_out_at, 10000, 9999).as_str(), 20.0, 40.0).expect("to paint");
   }
 }
 fn paint_ui_offers(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState) {
@@ -1850,6 +1908,25 @@ fn paint_ui_offers(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Fa
   for index in 0..factory.offers.len() {
     paint_ui_offer_supply(&context, factory, index, is_down_on_offer && index == down_inside_offer_index);
   }
+}
+fn paint_ui_buttons(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  paint_ui_button(context, mouse_state, 0.0, "Clear");
+  paint_ui_button(context, mouse_state, 1.0, "Dump");
+}
+fn paint_ui_button(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, index: f64, text: &str) {
+  let x = UI_BUTTONS_OX + index * (UI_BUTTON_W + UI_BUTTON_SPACING);
+  let y = UI_BUTTONS_OY;
+
+  if bounds_check(mouse_state.world_x, mouse_state.world_y, x, y, x + UI_BUTTON_W, y + UI_BUTTON_H) {
+    context.set_fill_style(&"#eee".into());
+  } else {
+    context.set_fill_style(&"#aaa".into());
+  }
+  context.fill_rect(x, y, UI_BUTTON_W, UI_BUTTON_H);
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(x, y, UI_BUTTON_W, UI_BUTTON_H);
+  context.set_fill_style(&"black".into());
+  context.fill_text(text, x + 5.0, y + 14.0).expect("to paint");
 }
 fn paint_ui_offer_supply(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, index: usize, hovering: bool) {
   let offer = &factory.offers[index];

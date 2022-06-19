@@ -638,6 +638,7 @@ pub fn cell_connect_if_possible(options: &mut Options, state: &mut State, factor
     }
   } else if to_kind == CellKind::Empty || from_kind == CellKind::Empty {
     // Ignore :shrug:
+    log(format!("connecting to empty? nope"));
   } else if to_kind == CellKind::Machine && from_kind == CellKind::Machine {
     // Don't connect inter-machine parts. Do not connect different machines either. Just don't.
   } else {
