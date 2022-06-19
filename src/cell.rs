@@ -149,7 +149,7 @@ pub fn belt_cell(x: usize, y: usize, meta: BeltMeta) -> Cell {
   };
 }
 
-pub fn machine_cell(x: usize, y: usize, kind: MachineKind, input1: Part, input2: Part, input3: Part, output: Part, speed: u64, machine_production_price: i32, machine_trash_price: i32) -> Cell {
+pub fn machine_cell(x: usize, y: usize, cell_width: usize, cell_height: usize, kind: MachineKind, input1: Part, input2: Part, input3: Part, output: Part, speed: u64, machine_production_price: i32, machine_trash_price: i32) -> Cell {
   assert!(x > 0 && y > 0 && x < FLOOR_CELLS_W - 1 && y < FLOOR_CELLS_H - 1);
 
   let coord = x + y * FLOOR_CELLS_W;
@@ -188,7 +188,7 @@ pub fn machine_cell(x: usize, y: usize, kind: MachineKind, input1: Part, input2:
     marked: false,
 
     belt: belt_none(),
-    machine: machine_new(kind, 999, coord, input1, input2, input3, output, speed),
+    machine: machine_new(kind, cell_width, cell_height, 999, coord, input1, input2, input3, output, speed),
     demand: demand_none(),
     supply: supply_none(),
   };

@@ -387,14 +387,14 @@ fn str_to_floor(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
 
             println!("Creating machine id={} with inputs({} {} {}) and output({})", c, in1, in2, in3, out);
 
-            let cell = machine_cell(x, y, MachineKind::Unknown, part_c(in1), if in2 == '-' { part_none() } else { part_c(in2) }, if in3 == '-' { part_none() } else { part_c(in3) }, part_c(out), speed, 1, 1);
+            let cell = machine_cell(x, y, 1, 1, MachineKind::Unknown, part_c(in1), if in2 == '-' { part_none() } else { part_c(in2) }, if in3 == '-' { part_none() } else { part_c(in3) }, part_c(out), speed, 1, 1);
             return Some(cell);
           }
 
           // This wasn't the target machine definition
           return None;
         })
-          .or(Some(machine_cell(x, y, MachineKind::Unknown, part_none(), part_none(), part_none(), part_none(), 888, 1, 1)))
+          .or(Some(machine_cell(x, y, 1, 1, MachineKind::Unknown, part_none(), part_none(), part_none(), part_none(), 888, 1, 1)))
           .unwrap(); // Always returns a some due to the .or()
 
         return cell;
@@ -531,22 +531,74 @@ pub fn auto_layout(options: &mut Options, state: &mut State, factory: &mut Facto
       }
       CellKind::Machine => {
         if factory.floor[coord].machine.kind == MachineKind::Unknown {
+          let main_coord = coord;
           // This will be the main machine cell.
           // Any neighboring machine cells will be converted to be sub cells of this machine
           // Recursively collect them and mark them now so this loop skips these sub cells
+          // This process is greedy for any valid machine, meaning it will read create the biggest
+          // rectangle, but without backtracking (in case that matters).
+          // As such, this unprocessed machine should be the top-left most cell of any machine and
+          // we only have to check the rectangle moving to the right and downward. Then verify that
+          // all cells inside are also unknowns. Then mark them to their new owner.
+
+          let ( x, y ) = to_xy(main_coord);
+          let mut max_width = FLOOR_CELLS_W - x;
+          let mut max_height = FLOOR_CELLS_H - y;
+
+          let mut biggest_area_size = 0;
+          let mut biggest_area_width = 0;
+          let mut biggest_area_height = 0;
+
+          // Find biggest machine rectangle area wise, with x,y in the top-left corner
+          for n in y .. y + FLOOR_CELLS_H - y {
+            max_height = n - y;
+            for m in x .. x + max_width {
+              let c = to_coord(m, n);
+              log(format!("- {}x{} {:?} {:?}", m, n, factory.floor[c].kind, factory.floor[c].machine.kind));
+              if factory.floor[c].kind != CellKind::Machine || factory.floor[c].machine.kind != MachineKind::Unknown {
+                log(format!("  - end of machine row, max width {}, max height {}, first col? {}, area is {}, biggest is {}", max_width, max_height, m==x, max_width * max_height, biggest_area_size));
+
+                if max_width * max_height > biggest_area_size {
+                  biggest_area_size = max_width * max_height;
+                  biggest_area_width = max_width;
+                  biggest_area_height = max_height;
+                }
+
+                max_width = m - x;
+                break;
+              }
+            }
+            if max_width == 0 {
+              break;
+            }
+          }
+          log(format!("  - last area: {} ({} by {})", max_width * max_height, max_width, max_height));
+          if max_width * max_height > biggest_area_size {
+            biggest_area_size = max_width * max_height;
+            biggest_area_width = max_width;
+            biggest_area_height = max_height;
+          }
+          log(format!("final biggest area: {} at {} x {}, assigning machine id {}", biggest_area_size, biggest_area_width, biggest_area_height, machines));
+          log(format!("======"));
+
+          // Now collect all cells in this grid and assign them to be the same machine
+          factory.floor[main_coord].machine.coords.clear();
+          for dx in 0..biggest_area_width {
+            for dy in 0..biggest_area_height {
+              let ocoord = to_coord(x + dx, y + dy);
+              factory.floor[ocoord].machine.kind = MachineKind::SubBuilding;
+              factory.floor[ocoord].machine.main_coord = main_coord;
+              factory.floor[ocoord].machine.id = machines;
+              factory.floor[ocoord].machine.coords.clear();
+              factory.floor[main_coord].machine.coords.push(ocoord);
+            }
+          }
           factory.floor[coord].machine.kind = MachineKind::Main;
-          factory.floor[coord].machine.main_coord = coord;
-          factory.floor[coord].machine.id = machines;
-          factory.floor[coord].machine.coords = vec!(coord); // First element is always main coord
-          auto_layout_tag_machine(factory, factory.floor[coord].coord_u, coord, machines);
-          auto_layout_tag_machine(factory, factory.floor[coord].coord_r, coord, machines);
-          auto_layout_tag_machine(factory, factory.floor[coord].coord_d, coord, machines);
-          auto_layout_tag_machine(factory, factory.floor[coord].coord_l, coord, machines);
+          factory.floor[coord].machine.cell_width = biggest_area_width;
+          factory.floor[coord].machine.cell_height = biggest_area_height;
+          factory.floor[coord].machine.coords.sort(); // Makes debugging easier
 
           machines += 1;
-          // Since order does not _really_ matter, it's easier to debug when the subs are in
-          // grid order of appearance so just sort them incrementally
-          factory.floor[coord].machine.coords.sort();
           println!("Machine {} @{} has these parts: {:?}", factory.floor[coord].machine.id, coord, factory.floor[coord].machine.coords);
         }
       }
@@ -556,33 +608,6 @@ pub fn auto_layout(options: &mut Options, state: &mut State, factory: &mut Facto
   }
 
   keep_auto_porting(options, state, factory);
-}
-fn auto_layout_tag_machine(factory: &mut Factory, sub_coord: Option<usize>, main_coord: usize, machine_id: usize) {
-  // Base "end" case for recursion: cell is not an unknown machine
-  match sub_coord {
-    None => {} // Noop
-    Some(ocoord) => {
-      if factory.floor[ocoord].kind == CellKind::Machine {
-        if factory.floor[ocoord].machine.kind == MachineKind::Unknown {
-          factory.floor[ocoord].machine.kind = MachineKind::SubBuilding;
-          factory.floor[ocoord].machine.main_coord = main_coord;
-          factory.floor[ocoord].machine.id = machine_id;
-          factory.floor[main_coord].machine.coords.push(ocoord);
-          println!("Tagged @{} as part of machine {}", ocoord, machine_id);
-          // Find all neighbors. Lazily include the one you just came from. It'll be ignored.
-          auto_layout_tag_machine(factory, factory.floor[ocoord].coord_u, main_coord, machine_id);
-          auto_layout_tag_machine(factory, factory.floor[ocoord].coord_r, main_coord, machine_id);
-          auto_layout_tag_machine(factory, factory.floor[ocoord].coord_d, main_coord, machine_id);
-          auto_layout_tag_machine(factory, factory.floor[ocoord].coord_l, main_coord, machine_id);
-        } else {
-          // Since we're expanding from a single machine cell, we should be finding and tagging all neighboring machine cells in the same way. As such, I don't think it should be possible to have a machine of a different kind here.
-          // (This may be different in the future, I don't think it's a hard long term requirement, but right now it is)
-          // (One example where this won't be true anymore is when placing machines adjacent to each other. But in that case there's less auto-layout? Or maybe it's just possible in that case. Dunno yet.)
-          assert_eq!(factory.floor[ocoord].machine.main_coord, main_coord, "if neighbor is not an unknown machine then it has to be part of the same machine");
-        }
-      }
-    }
-  }
 }
 
 pub fn get_edge_neighbor(x: usize, y: usize, coord: usize) -> (usize, Direction, Direction) {

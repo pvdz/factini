@@ -23,6 +23,8 @@ pub struct Machine {
   pub kind: MachineKind,
   pub main_coord: usize, // If this is a sub building, what is the coord of the main machine cell?
   pub coords: Vec<usize>, // First element is main coord. List of coords part of this machine
+  pub cell_width: usize, // Number of cells this factory spans
+  pub cell_height: usize,
   pub id: usize,
 
   // Required input for this machine. Can be none. Can require up to three things.
@@ -53,6 +55,8 @@ pub const fn machine_none(main_coord: usize) -> Machine {
     kind: MachineKind::None,
     main_coord,
     coords: vec!(),
+    cell_width: 0,
+    cell_height: 0,
     id: 999,
 
     input_1_want: part_none(),
@@ -75,11 +79,13 @@ pub const fn machine_none(main_coord: usize) -> Machine {
   };
 }
 
-pub fn machine_new(kind: MachineKind, id: usize, main_coord: usize, input1: Part, input2: Part, input3: Part, output: Part, speed: u64) -> Machine {
+pub fn machine_new(kind: MachineKind, cell_width: usize, cell_height: usize, id: usize, main_coord: usize, input1: Part, input2: Part, input3: Part, output: Part, speed: u64) -> Machine {
   return Machine {
     kind,
     main_coord,
     coords: vec!(),
+    cell_width,
+    cell_height,
     id,
 
     input_1_want: input1,

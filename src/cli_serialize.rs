@@ -75,14 +75,14 @@ fn serialize(options: &mut Options, state: &mut State, factory: &Factory, dump: 
         let greek_lo = "αβγδεζηθικλμνξοπρςτυφχψω";
         let greek_hi = "ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ";
         let id = factory.floor[coord].machine.id;
-        if id < 24 {
-          match greek_lo.char_indices().nth(id) {
-            None => '!',
-            Some((_, c)) => c,
-          }
-        } else {
-          (65 + id) as u8 as char
-        }
+        // if id < 24 {
+        //   match greek_lo.char_indices().nth(id) {
+        //     None => '!',
+        //     Some((_, c)) => c,
+        //   }
+        // } else {
+          ('0' as usize + id) as u8 as char
+        // }
       },
       CellKind::Belt => {
         if !dump && factory.floor[coord].belt.part.kind != PartKind::None {

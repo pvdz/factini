@@ -7,9 +7,6 @@
 // - machine offers should have size
 // - export all the things
 // - machine selection should select the entire machine, not the main coord
-// - restart button
-// - clear parts button
-// - clear belts button
 
 // This is required to export panic to the web
 use std::panic;
@@ -851,7 +848,7 @@ fn on_click_inside_cell_editor_kind(options: &Options, state: &State, factory: &
         factory.changed = true;
       },
       CellKind::Belt => {
-        factory.floor[cell_selection.coord] = machine_cell(factory.floor[cell_selection.coord].x, factory.floor[cell_selection.coord].y, MachineKind::Main, part_none(), part_none(), part_none(), part_none(), 101, -15, -3);
+        factory.floor[cell_selection.coord] = machine_cell(factory.floor[cell_selection.coord].x, factory.floor[cell_selection.coord].y, 3, 3, MachineKind::Main, part_none(), part_none(), part_none(), part_none(), 101, -15, -3);
         factory.changed = true;
       },
       CellKind::Machine => {
@@ -909,6 +906,7 @@ fn on_drag_offer_into_floor(options: &mut Options, state: &mut State, factory: &
         log(format!("Add new machine cell..."));
         factory.floor[last_mouse_up_cell_coord] = machine_cell(
           last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize,
+          1, 1, // TODO: offer size
           MachineKind::Main,
           part_c(factory.offers[mouse_state.offer_index].machine_input1),
           part_c(factory.offers[mouse_state.offer_index].machine_input2),
@@ -1777,7 +1775,7 @@ fn paint_machine_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory
 
   // Mark the currently selected machine main_coord
   context.set_stroke_style(&"cyan".into());
-  context.stroke_rect(WORLD_OFFSET_X + main_x as f64 * CELL_W, WORLD_OFFSET_Y + main_y as f64 * CELL_H, CELL_W, CELL_H);
+  context.stroke_rect(WORLD_OFFSET_X + main_x as f64 * CELL_W, WORLD_OFFSET_Y + main_y as f64 * CELL_H, CELL_W * factory.floor[main_coord].machine.cell_width as f64, CELL_H * factory.floor[main_coord].machine.cell_height as f64);
 
   // Paint cell editor
   context.set_fill_style(&"lightgreen".into());
