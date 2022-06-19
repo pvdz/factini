@@ -7,7 +7,6 @@
 // - machine offers should have size
 // - export all the things
 // - machine selection should select the entire machine, not the main coord
-// - pause button
 // - crash button
 // - restart button
 // - clear parts button
@@ -87,9 +86,10 @@ const UI_OFFERS_W: f64 = 100.0;
 const UI_OFFERS_H: f64 = 100.0;
 const UI_OFFERS_H_PLUS_MARGIN: f64 = UI_OFFERS_H + 10.0;
 
+const UI_BUTTON_COUNT: f64 = 3.0; // Update after adding new button
 const UI_BUTTONS_OX: f64 = WORLD_OFFSET_X;
 const UI_BUTTONS_OY: f64 = CANVAS_HEIGHT - UI_BUTTON_H - 10.0;
-const UI_BUTTON_W: f64 = 50.0;
+const UI_BUTTON_W: f64 = 60.0;
 const UI_BUTTON_H: f64 = 20.0;
 const UI_BUTTON_SPACING: f64 = 10.0;
 
@@ -387,7 +387,9 @@ pub fn start() -> Result<(), JsValue> {
   let mut options = create_options(1.0);
 
   // General app state
-  let mut state = State {};
+  let mut state = State {
+    paused: false,
+  };
 
   let map = "\
     ...............s.\n\
@@ -533,13 +535,13 @@ pub fn start() -> Result<(), JsValue> {
           ( ticks_todo, 0u64 )
         };
 
-      context.set_font(&"12px monospace");
+      if !state.paused {
+        for _ in 0..ticks_todo.min(MAX_TICKS_PER_FRAME) {
+          tick_factory(&mut options, &mut state, &mut factory);
+        }
 
-      for _ in 0..ticks_todo.min(MAX_TICKS_PER_FRAME) {
-        tick_factory(&mut options, &mut state, &mut factory);
+        factory_collect_stats(&mut options, &mut state, &mut factory);
       }
-
-      factory_collect_stats(&mut options, &mut state, &mut factory);
 
       if options.web_output_cli {
         paint_world_cli(&context, &mut options, &mut state, &factory);
@@ -572,6 +574,8 @@ pub fn start() -> Result<(), JsValue> {
 
         // Paint the world (no input or world mutations after this point)
 
+        context.set_font(&"12px monospace");
+
         // Clear canvas
         context.set_fill_style(&"#E86A17".into());
         // context.set_fill_style(&"lightblue".into());
@@ -584,7 +588,7 @@ pub fn start() -> Result<(), JsValue> {
 
         paint_top_stats(&context, &mut factory);
         paint_ui_offers(&context, &mut factory, &mouse_state);
-        paint_ui_buttons(&context, &mouse_state);
+        paint_ui_buttons(&mut options, &mut state, &context, &mouse_state);
 
         // TODO: wait for tiles to be loaded because first few frames won't paint anything while the tiles are loading...
         paint_background_tiles(&context, &factory, &belt_tile_images, &img_machine2);
@@ -722,7 +726,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         }
       }
       // Was one of the buttons below the floor clicked?
-      else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_BUTTONS_OX, UI_BUTTONS_OY, UI_BUTTONS_OX + 2.0 * (UI_BUTTON_W + UI_BUTTON_SPACING), UI_BUTTONS_OY + UI_BUTTON_H) {
+      else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_BUTTONS_OX, UI_BUTTONS_OY, UI_BUTTONS_OX + UI_BUTTON_COUNT * (UI_BUTTON_W + UI_BUTTON_SPACING), UI_BUTTONS_OY + UI_BUTTON_H) {
         let button_index = (mouse_state.last_up_world_x - UI_BUTTONS_OX) / (UI_BUTTON_W + UI_BUTTON_SPACING);
         if button_index % 1.0 < (UI_BUTTON_W / (UI_BUTTON_W + UI_BUTTON_SPACING)) {
           log(format!("clicked inside button {}", button_index));
@@ -738,6 +742,10 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
             1 => { // Dump
               log(format!("Dumping factory..."));
               log(format!("\n{}", generate_floor_dump(options, state, &factory).join("\n")));
+            }
+            2 => { // Pause / Unpause
+              log(format!("Toggling pause state..."));
+              state.paused = !state.paused;
             }
             _ => panic!("Clicked on button that is missing a click implementation..."),
           }
@@ -1909,9 +1917,11 @@ fn paint_ui_offers(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Fa
     paint_ui_offer_supply(&context, factory, index, is_down_on_offer && index == down_inside_offer_index);
   }
 }
-fn paint_ui_buttons(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+fn paint_ui_buttons(options: &mut Options, state: &mut State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   paint_ui_button(context, mouse_state, 0.0, "Clear");
   paint_ui_button(context, mouse_state, 1.0, "Dump");
+  paint_ui_button(context, mouse_state, 2.0, if state.paused { "Unpause" } else { "Pause" });
+  assert!(UI_BUTTON_COUNT == 3.0, "Update after adding new buttons");
 }
 fn paint_ui_button(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, index: f64, text: &str) {
   let x = UI_BUTTONS_OX + index * (UI_BUTTON_W + UI_BUTTON_SPACING);
