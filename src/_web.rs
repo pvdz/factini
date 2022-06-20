@@ -4,9 +4,7 @@
 // - demand and supply are passive, belts determine it
 // - why do belts get stuck?
 // - when placing a machine it should attach any belt that it overwrote
-// - machine offers should have size
 // - export all the things
-// - machine selection should select the entire machine, not the main coord
 
 // This is required to export panic to the web
 use std::panic;
@@ -573,13 +571,17 @@ pub fn start() -> Result<(), JsValue> {
               context.fill_rect(WORLD_OFFSET_X + WORLD_WIDTH - CELL_W, WORLD_OFFSET_Y + CELL_H, CELL_W, WORLD_HEIGHT - CELL_H);
               context.fill_rect(WORLD_OFFSET_X, WORLD_OFFSET_Y + WORLD_HEIGHT - CELL_H, WORLD_WIDTH - CELL_W, CELL_H);
 
-              // Do not snap if x or y is edge
               if
                 mouse_state.cell_x == 0.0 || mouse_state.cell_x == FLOOR_CELLS_W as f64 - 1.0 || mouse_state.cell_y == 0.0 || mouse_state.cell_y == FLOOR_CELLS_H as f64 - 1.0
               {
-                ( mouse_state.world_x - ((CELL_W as f64) / 2.0), mouse_state.world_y - ((CELL_H as f64) / 2.0) )
+                // Do not snap if x or y is edge
+                let ox = mouse_state.world_x - ((offer.cell_width as f64) * (CELL_W as f64) / 2.0 );
+                let oy = mouse_state.world_y - ((offer.cell_height as f64) * (CELL_H as f64) / 2.0 );
+                ( ox, oy )
               } else {
-                ( WORLD_OFFSET_X + mouse_state.cell_x * CELL_W, WORLD_OFFSET_Y + mouse_state.cell_y * CELL_H )
+                let cx = world_x_to_cell_x_while_dragging_offer(mouse_state.world_x, offer.cell_width);
+                let cy = world_y_to_cell_y_while_dragging_offer(mouse_state.world_y, offer.cell_height);
+                ( WORLD_OFFSET_X + cx.round() * CELL_W, WORLD_OFFSET_Y + cy.round() * CELL_H )
               }
             } else {
               // Corners
@@ -608,9 +610,9 @@ pub fn start() -> Result<(), JsValue> {
             CellKind::Belt => panic!("no"),
             CellKind::Machine => {
               context.set_fill_style(&COLOR_MACHINE_SEMI.into());
-              context.fill_rect(paint_at_x, paint_at_y, CELL_W, CELL_H);
+              context.fill_rect(paint_at_x, paint_at_y, (offer.cell_width as f64) * CELL_W, (offer.cell_height as f64) * CELL_H);
               context.set_fill_style(&"black".into());
-              context.fill_text("M", paint_at_x + CELL_W / 2.0 - 5.0, paint_at_y + CELL_H / 2.0 + 2.0).expect("no error")
+              context.fill_text("M", paint_at_x + (offer.cell_width as f64) * CELL_W / 2.0 - 5.0, paint_at_y + (offer.cell_height as f64) * CELL_H / 2.0 + 2.0).expect("no error")
             },
             CellKind::Supply => {
               context.set_fill_style(&COLOR_SUPPLY_SEMI.into());
@@ -643,6 +645,18 @@ pub fn start() -> Result<(), JsValue> {
   }
 
   Ok(())
+}
+
+fn world_x_to_cell_x_while_dragging_offer(world_x: f64, offer_width: usize) -> f64 {
+  // Abstracted this to make sure the preview and actual action use the same computation
+  let compx = if offer_width % 2 == 1 { 0.0 } else { 0.5 };
+  let ox = ((world_x + -WORLD_OFFSET_X).floor() / CELL_W + compx).floor() - (offer_width / 2) as f64;
+  return ox;
+}
+fn world_y_to_cell_y_while_dragging_offer(world_y: f64, offer_height: usize) -> f64 {
+  let compy = if offer_height % 2 == 1 { 0.0 } else { 0.5 };
+  let oy = ((world_y + -WORLD_OFFSET_Y).floor() / CELL_H + compy).floor() - (offer_height / 2) as f64;
+  return oy;
 }
 
 fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, factory: &mut Factory) {
@@ -848,7 +862,7 @@ fn on_click_inside_cell_editor_kind(options: &Options, state: &State, factory: &
         factory.changed = true;
       },
       CellKind::Belt => {
-        factory.floor[cell_selection.coord] = machine_cell(factory.floor[cell_selection.coord].x, factory.floor[cell_selection.coord].y, 3, 3, MachineKind::Main, part_none(), part_none(), part_none(), part_none(), 101, -15, -3);
+        factory.floor[cell_selection.coord] = machine_main_cell(factory.floor[cell_selection.coord].x, factory.floor[cell_selection.coord].y, 3, 3, part_none(), part_none(), part_none(), part_none(), 101, -15, -3);
         factory.changed = true;
       },
       CellKind::Machine => {
@@ -866,7 +880,7 @@ fn on_up_inside_floor(options: &mut Options, state: &mut State, factory: &mut Fa
 
   if mouse_state.was_dragging {
     if mouse_state.dragging_offer {
-      on_drag_offer_into_floor(options, state, factory, mouse_state);
+      on_dragend_offer_over_floor(options, state, factory, mouse_state);
     }
     // Drag ended on the floor, did drag start on the floor?
     else if bounds_check(mouse_state.last_down_world_x - WORLD_OFFSET_X, mouse_state.last_down_world_y - WORLD_OFFSET_Y, 0.0,  0.0,WORLD_WIDTH, WORLD_HEIGHT) {
@@ -879,7 +893,7 @@ fn on_up_inside_floor(options: &mut Options, state: &mut State, factory: &mut Fa
     on_click_inside_floor(options, state, factory, cell_selection, mouse_state);
   }
 }
-fn on_drag_offer_into_floor(options: &mut Options, state: &mut State, factory: &mut Factory, mouse_state: &MouseState) {
+fn on_dragend_offer_over_floor(options: &mut Options, state: &mut State, factory: &mut Factory, mouse_state: &MouseState) {
   log(format!("on_drag_offer_into_floor()"));
 
   let last_mouse_up_cell_x = ((mouse_state.last_up_world_x - WORLD_OFFSET_X) / CELL_W).floor();
@@ -888,26 +902,35 @@ fn on_drag_offer_into_floor(options: &mut Options, state: &mut State, factory: &
   let last_mouse_up_inside_cell_x = ((mouse_state.last_up_world_x - WORLD_OFFSET_X) / CELL_W) - last_mouse_up_cell_x;
   let last_mouse_up_inside_cell_y = ((mouse_state.last_up_world_y - WORLD_OFFSET_Y) / CELL_H) - last_mouse_up_cell_y;
 
+  let offer = &factory.offers[mouse_state.offer_index];
+
   // Was dragging an offer and released it on the floor
   // Offers have cell constraints. In particular, supply/demand can only go on edges and
   // machines can not go on the edge.
-  match factory.offers[mouse_state.offer_index].kind {
+  match offer.kind {
     CellKind::Machine => {
       if last_mouse_up_cell_x >= 1.0 && last_mouse_up_cell_x < FLOOR_CELLS_W as f64 - 1.0 && last_mouse_up_cell_y >= 0.0 && last_mouse_up_cell_y < FLOOR_CELLS_H as f64 - 1.0 {
+
+        let ocw = offer.cell_width;
+        let och = offer.cell_height;
+        let cx = world_x_to_cell_x_while_dragging_offer(mouse_state.last_up_world_x, ocw);
+        let cy = world_y_to_cell_y_while_dragging_offer(mouse_state.last_up_world_y, och);
+        let ccoord = to_coord(cx as usize, cy as usize);
+
+
         log(format!("Dropped a machine on the floor. Deploying..."));
         // If there's already something on this cell then we need to remove it first
-        if factory.floor[last_mouse_up_cell_coord].kind != CellKind::Empty {
+        if factory.floor[ccoord].kind != CellKind::Empty {
           // Must be belt or machine
           // We should be able to replace this one with the new tile without having to update
           // the neighbors (if any). We do have to update the prio list (in case belt->machine).
           log(format!("Remove old middle cell..."));
-          floor_delete_cell_at_partial(options, state, factory, last_mouse_up_cell_coord);
+          floor_delete_cell_at_partial(options, state, factory, ccoord);
         }
         log(format!("Add new machine cell..."));
-        factory.floor[last_mouse_up_cell_coord] = machine_cell(
-          last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize,
-          1, 1, // TODO: offer size
-          MachineKind::Main,
+        factory.floor[ccoord] = machine_main_cell(
+          cx as usize, cy as usize,
+          ocw, och,
           part_c(factory.offers[mouse_state.offer_index].machine_input1),
           part_c(factory.offers[mouse_state.offer_index].machine_input2),
           part_c(factory.offers[mouse_state.offer_index].machine_input3),
@@ -916,10 +939,35 @@ fn on_drag_offer_into_floor(options: &mut Options, state: &mut State, factory: &
           1, 1
         );
         // TODO: either
-        factory.floor[last_mouse_up_cell_coord].port_u = Port::None;
-        factory.floor[last_mouse_up_cell_coord].port_r = Port::None;
-        factory.floor[last_mouse_up_cell_coord].port_d = Port::None;
-        factory.floor[last_mouse_up_cell_coord].port_l = Port::None;
+        factory.floor[ccoord].port_u = Port::None;
+        factory.floor[ccoord].port_r = Port::None;
+        factory.floor[ccoord].port_d = Port::None;
+        factory.floor[ccoord].port_l = Port::None;
+
+        // Fill the rest with sub machine cells
+        for i in 0..ocw {
+          for j in 0..och {
+            if i > 0 || j > 0 {
+              let coord = to_coord(cx as usize + i, cy as usize + j);
+              if factory.floor[coord].kind != CellKind::Empty {
+                // Must be belt or machine
+                // We should be able to replace this one with the new tile without having to update
+                // the neighbors (if any). We do have to update the prio list (in case belt->machine).
+                log(format!("Remove old middle cell..."));
+                floor_delete_cell_at_partial(options, state, factory, coord);
+              }
+
+              factory.floor[coord] = machine_sub_cell(cx as usize + i, cy as usize + j, ccoord);
+              factory.floor[ccoord].machine.coords.push(coord);
+              // TODO: either
+              factory.floor[coord].port_u = Port::None;
+              factory.floor[coord].port_r = Port::None;
+              factory.floor[coord].port_d = Port::None;
+              factory.floor[coord].port_l = Port::None;
+            }
+          }
+        }
+
         factory.changed = true;
       } else {
         log(format!("Dropped a machine on the edge. Ignoring."));
@@ -1967,9 +2015,10 @@ fn paint_ui_offer_supply(context: &Rc<web_sys::CanvasRenderingContext2d>, factor
       context.fill_text(format!("Takes: {}", offer.demand_icon).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 2.0 * UI_FONT_H).expect("something error fill_text");
     }
     CellKind::Machine => {
-      context.fill_text(format!("Inputs: {} {} {}", offer.machine_input1, offer.machine_input2, offer.machine_input3).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 2.0 * UI_FONT_H).expect("something error fill_text");
-      context.fill_text(format!("Output: {}", offer.machine_output).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 3.0 * UI_FONT_H).expect("something error fill_text");
-      context.fill_text(format!("Speed: {}", offer.speed).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 4.0 * UI_FONT_H).expect("something error fill_text");
+      context.fill_text(format!("Size: {} x {}", offer.cell_width, offer.cell_height).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 2.0 * UI_FONT_H).expect("something error fill_text");
+      context.fill_text(format!("Inputs: {} {} {}", offer.machine_input1, offer.machine_input2, offer.machine_input3).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 3.0 * UI_FONT_H).expect("something error fill_text");
+      context.fill_text(format!("Output: {}", offer.machine_output).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 4.0 * UI_FONT_H).expect("something error fill_text");
+      context.fill_text(format!("Speed: {}", offer.speed).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 5.0 * UI_FONT_H).expect("something error fill_text");
     }
     _ => panic!("this kind should not get here"),
   }

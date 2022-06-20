@@ -149,7 +149,7 @@ pub fn belt_cell(x: usize, y: usize, meta: BeltMeta) -> Cell {
   };
 }
 
-pub fn machine_cell(x: usize, y: usize, cell_width: usize, cell_height: usize, kind: MachineKind, input1: Part, input2: Part, input3: Part, output: Part, speed: u64, machine_production_price: i32, machine_trash_price: i32) -> Cell {
+pub fn machine_any_cell(x: usize, y: usize, cell_width: usize, cell_height: usize, kind: MachineKind, input1: Part, input2: Part, input3: Part, output: Part, speed: u64, machine_production_price: i32, machine_trash_price: i32) -> Cell {
   assert!(x > 0 && y > 0 && x < FLOOR_CELLS_W - 1 && y < FLOOR_CELLS_H - 1);
 
   let coord = x + y * FLOOR_CELLS_W;
@@ -193,6 +193,97 @@ pub fn machine_cell(x: usize, y: usize, cell_width: usize, cell_height: usize, k
     supply: supply_none(),
   };
 }
+
+pub fn machine_main_cell(x: usize, y: usize, cell_width: usize, cell_height: usize, input1: Part, input2: Part, input3: Part, output: Part, speed: u64, machine_production_price: i32, machine_trash_price: i32) -> Cell {
+  assert!(x > 0 && y > 0 && x < FLOOR_CELLS_W - 1 && y < FLOOR_CELLS_H - 1);
+
+  let coord = x + y * FLOOR_CELLS_W;
+
+  let coord_u = Some(to_coord_up(coord)); // if y == 0 { None } else { Some(to_coord_up(coord)) };
+  let coord_r = Some(to_coord_right(coord)); // if x == FLOOR_CELLS_W - 1 { None } else { Some(to_coord_right(coord)) };
+  let coord_d = Some(to_coord_down(coord)); // if y == FLOOR_CELLS_H - 1 { None } else { Some(to_coord_down(coord)) };
+  let coord_l = Some(to_coord_left(coord)); // if x == 0 { None } else { Some(to_coord_left(coord)) };
+
+  return Cell {
+    kind: CellKind::Machine,
+
+    ticks: 0,
+    auto_counter: 0,
+    x,
+    y,
+
+    is_edge: false, // x == 0 || y == 0 || x == FLOOR_CELLS_W - 1 || y == FLOOR_CELLS_H - 1,
+    is_side: false, // x == 0 || x == FLOOR_CELLS_W - 1,
+    is_zero: false, // x == 0 || y == 0,
+    coord,
+    coord_u,
+    coord_r,
+    coord_d,
+    coord_l,
+    ins: vec!(),
+    outs: vec!(),
+    inrot: 0,
+    outrot: 0,
+
+    port_u: Port::Unknown,
+    port_r: Port::Unknown,
+    port_d: Port::Unknown,
+    port_l: Port::Unknown,
+
+    marked: false,
+
+    belt: belt_none(),
+    machine: machine_new(MachineKind::Main, cell_width, cell_height, 989, coord, input1, input2, input3, output, speed),
+    demand: demand_none(),
+    supply: supply_none(),
+  };
+}
+
+pub fn machine_sub_cell(x: usize, y: usize, main_coord: usize) -> Cell {
+  assert!(x > 0 && y > 0 && x < FLOOR_CELLS_W - 1 && y < FLOOR_CELLS_H - 1);
+
+  let coord = x + y * FLOOR_CELLS_W;
+
+  let coord_u = Some(to_coord_up(coord)); // if y == 0 { None } else { Some(to_coord_up(coord)) };
+  let coord_r = Some(to_coord_right(coord)); // if x == FLOOR_CELLS_W - 1 { None } else { Some(to_coord_right(coord)) };
+  let coord_d = Some(to_coord_down(coord)); // if y == FLOOR_CELLS_H - 1 { None } else { Some(to_coord_down(coord)) };
+  let coord_l = Some(to_coord_left(coord)); // if x == 0 { None } else { Some(to_coord_left(coord)) };
+
+  return Cell {
+    kind: CellKind::Machine,
+
+    ticks: 0,
+    auto_counter: 0,
+    x,
+    y,
+
+    is_edge: false, // x == 0 || y == 0 || x == FLOOR_CELLS_W - 1 || y == FLOOR_CELLS_H - 1,
+    is_side: false, // x == 0 || x == FLOOR_CELLS_W - 1,
+    is_zero: false, // x == 0 || y == 0,
+    coord,
+    coord_u,
+    coord_r,
+    coord_d,
+    coord_l,
+    ins: vec!(),
+    outs: vec!(),
+    inrot: 0,
+    outrot: 0,
+
+    port_u: Port::Unknown,
+    port_r: Port::Unknown,
+    port_d: Port::Unknown,
+    port_l: Port::Unknown,
+
+    marked: false,
+
+    belt: belt_none(),
+    machine: machine_new(MachineKind::SubBuilding, 777, 888, 999, main_coord, part_none(), part_none(), part_none(), part_none(), 666),
+    demand: demand_none(),
+    supply: supply_none(),
+  };
+}
+
 
 pub fn supply_cell(x: usize, y: usize, part: Part, speed: u64, cooldown: u64, price: i32) -> Cell {
   let coord = x + y * FLOOR_CELLS_W;

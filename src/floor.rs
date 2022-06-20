@@ -69,6 +69,7 @@ fn str_to_floor(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
   // d1 = g
   // d2 = g
   // os = g
+  // om = rgb -> a d:3x2
   // ```
   // Forming something like this:
   // ┌────────────────────┐
@@ -92,7 +93,9 @@ fn str_to_floor(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
   // │ └────────────────┘ │
   // │      d2            │
   // └────────────────────┘
-  // Offers: supply that gives 'g' with default speed and delay
+  // Offers:
+  // - supply that gives 'g' with default speed and delay
+  // - machine that takes r g and b and generates an a, 3 cells wide by 2 cells high
 
   let mut len = 0;
   for c in str.bytes() {
@@ -118,7 +121,9 @@ fn str_to_floor(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
       // os = x         Offer of a supply that gives x
       // od = x         Offer of a demand that takes x
       // om = ab -> c    Offer of a machine that takes a and b and generates c
-      // suppliers and machines can have c: and s: modifiers after them, setting cooldown and speed
+      // suppliers and machines can have a s: modifier, setting speed
+      // suppliers can have a c: modifier, setting cooldown
+      // machines can have a d: modifier, setting cell width/height of the machine
 
       match line.next().or(Some('-' as u8)).unwrap() as char {
         's' => {
@@ -182,6 +187,8 @@ fn str_to_floor(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
           // The store kind should be in kind_icon, or it is `-` for EOL
           let offer = Offer {
             kind: CellKind::Supply,
+            cell_width: 1,
+            cell_height: 1,
             supply_icon: kind_icon,
             demand_icon: ' ',
             machine_input1: ' ',
@@ -205,6 +212,8 @@ fn str_to_floor(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
           // The store kind should be in kind_icon, or it is `-` for EOL
           let offer = Offer {
             kind: CellKind::Demand,
+            cell_width: 1,
+            cell_height: 1,
             supply_icon: ' ',
             demand_icon: kind_icon,
             machine_input1: ' ',
@@ -219,6 +228,8 @@ fn str_to_floor(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
         }
         'm' => {
           let mut speed: u64 = 100;
+          let mut cell_width: usize = 1;
+          let mut cell_height: usize = 1;
           // we can ignore the = but we have to parse at least 3 characters for inputs, or up
           // to the dash. After that one more for the output. Ignore the rest.
           let input1_icon = loop {
@@ -284,6 +295,38 @@ fn str_to_floor(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
                   speed = 1;
                 }
               }
+              else if modifier == 'd' && (line.next().or(Some('?' as u8)).unwrap() as char) == ':' {
+                // parse the width and height
+                speed = 0;
+
+                loop {
+                  // Skip non-digits, stop at EOL.
+                  let d = line.next().or(Some('?' as u8)).unwrap() as char;
+                  if d >= '0' && d <= '9' {
+                    cell_width = d as usize - '0' as usize;
+                    if cell_width == 0 {
+                      cell_width = 1;
+                    }
+                    break;
+                  } else if d == '?' {
+                    break; // EOL
+                  }
+                }
+
+                loop {
+                  // Skip non-digits, stop at EOL.
+                  let d = line.next().or(Some('?' as u8)).unwrap() as char;
+                  if d >= '0' && d <= '9' {
+                    cell_height = d as usize - '0' as usize;
+                    if cell_height == 0 {
+                      cell_height = 1;
+                    }
+                    break;
+                  } else if d == '?' {
+                    break; // EOL
+                  }
+                }
+              }
               else {
                 // Keep parsing while we find s:
                 break;
@@ -293,6 +336,8 @@ fn str_to_floor(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
           // The store kind should be in kind_icon, or it is `-` for EOL
           let offer = Offer {
             kind: CellKind::Machine,
+            cell_width,
+            cell_height,
             supply_icon: ' ',
             demand_icon: ' ',
             machine_input1: input1_icon,
@@ -387,14 +432,14 @@ fn str_to_floor(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
 
             println!("Creating machine id={} with inputs({} {} {}) and output({})", c, in1, in2, in3, out);
 
-            let cell = machine_cell(x, y, 1, 1, MachineKind::Unknown, part_c(in1), if in2 == '-' { part_none() } else { part_c(in2) }, if in3 == '-' { part_none() } else { part_c(in3) }, part_c(out), speed, 1, 1);
+            let cell = machine_any_cell(x, y, 1, 1, MachineKind::Unknown, part_c(in1), if in2 == '-' { part_none() } else { part_c(in2) }, if in3 == '-' { part_none() } else { part_c(in3) }, part_c(out), speed, 1, 1);
             return Some(cell);
           }
 
           // This wasn't the target machine definition
           return None;
         })
-          .or(Some(machine_cell(x, y, 1, 1, MachineKind::Unknown, part_none(), part_none(), part_none(), part_none(), 888, 1, 1)))
+          .or(Some(machine_any_cell(x, y, 1, 1, MachineKind::Unknown, part_none(), part_none(), part_none(), part_none(), 888, 1, 1)))
           .unwrap(); // Always returns a some due to the .or()
 
         return cell;
@@ -813,44 +858,6 @@ pub fn get_edge_neighbor(x: usize, y: usize, coord: usize) -> (usize, Direction,
 // │     └───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘     │
 // └───────────────────────────────────────────────────────┘
 
-
-
-
-
-
-// pub fn test_floor() -> Floor {
-//   let club = Part { kind: PartKind::WoodenStick, icon: 'w'};
-//   let gem = Part { kind: PartKind::Sapphire, icon: 's'};
-//   let wand = Part { kind: PartKind::BlueWand, icon: 'b'};
-//   let gwand = Part { kind: PartKind::GoldenBlueWand, icon: 'g'};
-//
-//   let supply_top = supply_cell(3, 0, club.clone(), 1000, 1000, 100);
-//   let supply_right = supply_cell(6, 4,  gem.clone(), 1000, 1000, 100);
-//
-//   let demand_down = demand_cell(2, 6, gwand.clone());
-//
-//   let machine1 = machine_cell(2, 2, MachineKind::Composer, wand.clone(), part_none(), part_none(), gwand.clone(), -15, -3);
-//   let machine2 = machine_cell(2, 2, MachineKind::Smasher, club.clone(), gem.clone(), part_none(), wand.clone(), -25, -10);
-//
-//   let width: usize = 5;
-//   let height: usize = 5;
-//
-//   return Floor {
-//     width,
-//     height,
-//     sum: width * height,
-//     fsum: (width+2) * (height+2),
-//     cells: [
-//       empty_cell(0, 0), empty_cell(1, 0), empty_cell(2, 0), supply_top, empty_cell(4, 0), empty_cell(5, 0), empty_cell(6, 0),
-//       empty_cell(0, 1), machine2, belt_cell(2, 1, CELL_BELT_R_L), belt_cell(3, 1, CELL_BELT_RU_L), belt_cell(4, 1, CELL_BELT_R_L), belt_cell(5, 1, CELL_BELT_D_L), empty_cell(6, 1),
-//       empty_cell(0, 2), belt_cell(1, 2, CELL_BELT_U_R), belt_cell(2, 2, CELL_BELT_L_R), belt_cell(3, 2, CELL_BELT_L_D), empty_cell(4, 2), belt_cell(5, 2, CELL_BELT_D_U), empty_cell(6, 2),
-//       empty_cell(0, 3), empty_cell(1, 3), empty_cell(2, 3), machine1, empty_cell(4, 3), belt_cell(5, 3, CELL_BELT_D_U), empty_cell(6, 3),
-//       empty_cell(0, 4), empty_cell(1, 4), empty_cell(2, 4), belt_cell(3, 4, CELL_BELT_U_D), empty_cell(4, 4), belt_cell(5, 4, CELL_BELT_R_U), supply_right,
-//       empty_cell(0, 5), empty_cell(1, 5), belt_cell(2, 5, CELL_BELT_R_D), belt_cell(3, 5, CELL_BELT_U_L), empty_cell(4, 5), empty_cell(5, 5), empty_cell(6, 5),
-//       empty_cell(0, 6), empty_cell(1, 6), demand_down, empty_cell(3, 6), empty_cell(4, 6), empty_cell(5, 6), empty_cell(6, 6),
-//     ]
-//   };
-// }
 
 pub fn is_middle(x: usize, y: usize) -> bool {
   return x > 0 && y > 0 && x < FLOOR_CELLS_W - 1 && y < FLOOR_CELLS_H - 1;

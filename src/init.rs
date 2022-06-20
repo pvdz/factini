@@ -56,8 +56,10 @@ pub fn init() -> ( Options, State, Factory ) {
     os = w s:10 c:5\n\
     os = s s:10 c:5\n\
     od = g\n\
-    om = sw -> b s:10\n\
+    om = sw -> b s:10 d:3x2\n\
     om = b -> g s:10\n\
+    om = b -> g s:10 d:3x3\n\
+    om = b -> g s:10 d:4x4\n\
   ";
 
   let factory = create_factory(&mut options, &mut state, map.to_string());
