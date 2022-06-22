@@ -3,7 +3,6 @@
 
 // - demand and supply are passive, belts determine it
 // - why do belts get stuck?
-// - when placing a machine it should attach any belt that it overwrote
 // - export all the things
 
 // This is required to export panic to the web
@@ -556,6 +555,8 @@ pub fn start() -> Result<(), JsValue> {
         paint_ports(&context, &factory);
         paint_belt_items(&context, &factory, &part_tile_sprite);
 
+        paint_mouse_cursor(&context, &mouse_state);
+
         if mouse_state.dragging_offer {
           let offer = &factory.offers[mouse_state.offer_index];
 
@@ -563,7 +564,7 @@ pub fn start() -> Result<(), JsValue> {
           context.set_fill_style(&"#00004444".into());
 
           // Face out illegal options
-          let ( paint_at_x, paint_at_y ) =
+          let ( paint_at_x, paint_at_y, legal ) =
             if offer.kind == CellKind::Machine {
               // All edges
               context.fill_rect(WORLD_OFFSET_X, WORLD_OFFSET_Y, CELL_W, WORLD_HEIGHT - CELL_H);
@@ -581,9 +582,9 @@ pub fn start() -> Result<(), JsValue> {
                 // Do not snap if machine would cover the edge
                 let ox = mouse_state.world_x - ((offer.cell_width as f64) * (CELL_W as f64) / 2.0 );
                 let oy = mouse_state.world_y - ((offer.cell_height as f64) * (CELL_H as f64) / 2.0 );
-                ( ox, oy )
+                ( ox, oy, false )
               } else {
-                ( WORLD_OFFSET_X + top_left_machine_cell_x.round() * CELL_W, WORLD_OFFSET_Y + top_left_machine_cell_y.round() * CELL_H )
+                ( WORLD_OFFSET_X + top_left_machine_cell_x.round() * CELL_W, WORLD_OFFSET_Y + top_left_machine_cell_y.round() * CELL_H, true )
               }
             } else {
               // Corners
@@ -600,11 +601,38 @@ pub fn start() -> Result<(), JsValue> {
                   !=
                 (mouse_state.cell_y == 0.0 || mouse_state.cell_y == FLOOR_CELLS_H as f64 - 1.0)
               {
-                ( WORLD_OFFSET_X + mouse_state.cell_x * CELL_W, WORLD_OFFSET_Y + mouse_state.cell_y * CELL_H )
+                ( WORLD_OFFSET_X + mouse_state.cell_x * CELL_W, WORLD_OFFSET_Y + mouse_state.cell_y * CELL_H, true )
               } else {
-                ( mouse_state.world_x - ((CELL_W as f64) / 2.0), mouse_state.world_y - ((CELL_H as f64) / 2.0) )
+                ( mouse_state.world_x - ((CELL_W as f64) / 2.0), mouse_state.world_y - ((CELL_H as f64) / 2.0), false )
               }
             };
+
+          fn paint_illegal(context: &Rc<web_sys::CanvasRenderingContext2d>, x: f64, y: f64, w: f64, h: f64) {
+            // tbd. dont like this part but it gets the job done I guess.
+            context.set_stroke_style(&"red".into());
+            context.stroke_rect(x, y, w, h);
+            // context.set_line_width(3.0);
+            // context.set_line_cap("round");
+            let n = 11.0;
+            let ws = w / n;
+            let hs = h / n;
+            for i in 0..ws as u32 {
+              for j in 0..hs as u32 {
+                let fi = i as f64;
+                let fj = j as f64;
+
+                context.begin_path();
+                context.move_to(x, y + fj * n);
+                context.line_to(x + w, y + fj * n);
+                context.stroke();
+
+                context.begin_path();
+                context.move_to(x + fi * n, y);
+                context.line_to(x + fi * n, y + h);
+                context.stroke();
+              }
+            }
+          }
 
           context.set_fill_style(&"black".into());
           match offer.kind {
@@ -613,18 +641,21 @@ pub fn start() -> Result<(), JsValue> {
             CellKind::Machine => {
               context.set_fill_style(&COLOR_MACHINE_SEMI.into());
               context.fill_rect(paint_at_x, paint_at_y, (offer.cell_width as f64) * CELL_W, (offer.cell_height as f64) * CELL_H);
+              if !legal { paint_illegal(&context, paint_at_x, paint_at_y, (offer.cell_width as f64) * CELL_W, (offer.cell_height as f64) * CELL_H); }
               context.set_fill_style(&"black".into());
               context.fill_text("M", paint_at_x + (offer.cell_width as f64) * CELL_W / 2.0 - 5.0, paint_at_y + (offer.cell_height as f64) * CELL_H / 2.0 + 2.0).expect("no error")
             },
             CellKind::Supply => {
               context.set_fill_style(&COLOR_SUPPLY_SEMI.into());
               context.fill_rect(paint_at_x, paint_at_y, CELL_W, CELL_H);
+              if !legal { paint_illegal(&context, paint_at_x, paint_at_y, CELL_W, CELL_H); }
               context.set_fill_style(&"black".into());
               context.fill_text("S", paint_at_x + CELL_W / 2.0 - 5.0, paint_at_y + CELL_H / 2.0 + 2.0).expect("no error")
             },
             CellKind::Demand => {
               context.set_fill_style(&COLOR_DEMAND_SEMI.into());
               context.fill_rect(paint_at_x, paint_at_y, CELL_W, CELL_H);
+              if !legal { paint_illegal(&context, paint_at_x, paint_at_y, CELL_W, CELL_H); }
               context.set_fill_style(&"black".into());
               context.fill_text("D", paint_at_x + CELL_W / 2.0 - 5.0, paint_at_y + CELL_H / 2.0 + 2.0).expect("no error")
             },
@@ -1624,12 +1655,13 @@ fn paint_belt_items(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &F
     }
   }
 }
-fn paint_mouse_stuff_in_floor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState, belt_tile_images: &Vec<web_sys::HtmlImageElement>) {
+fn paint_mouse_cursor(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   context.set_fill_style(&"#ff00ff7f".into()); // Semi transparent circles
   context.begin_path();
   context.ellipse(mouse_state.world_x, mouse_state.world_y, PART_W / 2.0, PART_H / 2.0, 3.14, 0.0, 6.28).expect("to paint a circle");
   context.fill();
-
+}
+fn paint_mouse_stuff_in_floor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState, belt_tile_images: &Vec<web_sys::HtmlImageElement>) {
   if mouse_state.cell_x != cell_selection.x || mouse_state.cell_y != cell_selection.y {
     context.set_stroke_style(&"red".into());
     context.stroke_rect(WORLD_OFFSET_X + mouse_state.cell_x * CELL_W, WORLD_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
