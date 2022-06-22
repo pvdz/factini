@@ -220,3 +220,36 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
     }
   }
 }
+
+pub fn machine_discover_ins_and_outs(factory: &mut Factory, main_coord: usize) {
+  factory.floor[main_coord].ins.clear();
+  factory.floor[main_coord].outs.clear();
+
+  for index in 0..factory.floor[main_coord].machine.coords.len() {
+    let coord = factory.floor[main_coord].machine.coords[index];
+    match factory.floor[coord].port_u {
+      Port::Inbound => factory.floor[main_coord].ins.push(( Direction::Up, coord, to_coord_up(coord), Direction::Down )),
+      Port::Outbound => factory.floor[main_coord].outs.push(( Direction::Up, coord, to_coord_up(coord), Direction::Down )),
+      Port::None => {}
+      Port::Unknown => {}
+    };
+    match factory.floor[coord].port_r {
+      Port::Inbound => factory.floor[main_coord].ins.push(( Direction::Right, coord, to_coord_right(coord), Direction::Left )),
+      Port::Outbound => factory.floor[main_coord].outs.push(( Direction::Right, coord, to_coord_right(coord), Direction::Left )),
+      Port::None => {}
+      Port::Unknown => {}
+    };
+    match factory.floor[coord].port_d {
+      Port::Inbound => factory.floor[main_coord].ins.push(( Direction::Down, coord, to_coord_down(coord), Direction::Up )),
+      Port::Outbound => factory.floor[main_coord].outs.push(( Direction::Down, coord, to_coord_down(coord), Direction::Up )),
+      Port::None => {}
+      Port::Unknown => {}
+    };
+    match factory.floor[coord].port_l {
+      Port::Inbound => factory.floor[main_coord].ins.push(( Direction::Left, coord, to_coord_left(coord), Direction::Right )),
+      Port::Outbound => factory.floor[main_coord].outs.push(( Direction::Left, coord, to_coord_left(coord), Direction::Right )),
+      Port::None => {}
+      Port::Unknown => {}
+    };
+  }
+}

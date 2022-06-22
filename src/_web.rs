@@ -571,17 +571,19 @@ pub fn start() -> Result<(), JsValue> {
               context.fill_rect(WORLD_OFFSET_X + WORLD_WIDTH - CELL_W, WORLD_OFFSET_Y + CELL_H, CELL_W, WORLD_HEIGHT - CELL_H);
               context.fill_rect(WORLD_OFFSET_X, WORLD_OFFSET_Y + WORLD_HEIGHT - CELL_H, WORLD_WIDTH - CELL_W, CELL_H);
 
+              // Note that mouse cell x is not where the top-left most cell of the machine would be
+              let top_left_machine_cell_x = world_x_to_top_left_cell_x_while_dragging_offer(mouse_state.world_x, offer.cell_width);
+              let top_left_machine_cell_y = world_y_to_top_left_cell_y_while_dragging_offer(mouse_state.world_y, offer.cell_height);
+              // Make sure the entire machine fits, not just the center or topleft cell
               if
-                mouse_state.cell_x == 0.0 || mouse_state.cell_x == FLOOR_CELLS_W as f64 - 1.0 || mouse_state.cell_y == 0.0 || mouse_state.cell_y == FLOOR_CELLS_H as f64 - 1.0
+                !bounds_check(top_left_machine_cell_x, top_left_machine_cell_y, 1.0, 1.0, FLOOR_CELLS_W as f64 - (offer.cell_width as f64), FLOOR_CELLS_H as f64 - (offer.cell_height as f64))
               {
-                // Do not snap if x or y is edge
+                // Do not snap if machine would cover the edge
                 let ox = mouse_state.world_x - ((offer.cell_width as f64) * (CELL_W as f64) / 2.0 );
                 let oy = mouse_state.world_y - ((offer.cell_height as f64) * (CELL_H as f64) / 2.0 );
                 ( ox, oy )
               } else {
-                let cx = world_x_to_cell_x_while_dragging_offer(mouse_state.world_x, offer.cell_width);
-                let cy = world_y_to_cell_y_while_dragging_offer(mouse_state.world_y, offer.cell_height);
-                ( WORLD_OFFSET_X + cx.round() * CELL_W, WORLD_OFFSET_Y + cy.round() * CELL_H )
+                ( WORLD_OFFSET_X + top_left_machine_cell_x.round() * CELL_W, WORLD_OFFSET_Y + top_left_machine_cell_y.round() * CELL_H )
               }
             } else {
               // Corners
@@ -647,13 +649,13 @@ pub fn start() -> Result<(), JsValue> {
   Ok(())
 }
 
-fn world_x_to_cell_x_while_dragging_offer(world_x: f64, offer_width: usize) -> f64 {
+fn world_x_to_top_left_cell_x_while_dragging_offer(world_x: f64, offer_width: usize) -> f64 {
   // Abstracted this to make sure the preview and actual action use the same computation
   let compx = if offer_width % 2 == 1 { 0.0 } else { 0.5 };
   let ox = ((world_x + -WORLD_OFFSET_X).floor() / CELL_W + compx).floor() - (offer_width / 2) as f64;
   return ox;
 }
-fn world_y_to_cell_y_while_dragging_offer(world_y: f64, offer_height: usize) -> f64 {
+fn world_y_to_top_left_cell_y_while_dragging_offer(world_y: f64, offer_height: usize) -> f64 {
   let compy = if offer_height % 2 == 1 { 0.0 } else { 0.5 };
   let oy = ((world_y + -WORLD_OFFSET_Y).floor() / CELL_H + compy).floor() - (offer_height / 2) as f64;
   return oy;
@@ -909,64 +911,59 @@ fn on_dragend_offer_over_floor(options: &mut Options, state: &mut State, factory
   // machines can not go on the edge.
   match offer.kind {
     CellKind::Machine => {
-      if last_mouse_up_cell_x >= 1.0 && last_mouse_up_cell_x < FLOOR_CELLS_W as f64 - 1.0 && last_mouse_up_cell_y >= 0.0 && last_mouse_up_cell_y < FLOOR_CELLS_H as f64 - 1.0 {
-
-        let ocw = offer.cell_width;
-        let och = offer.cell_height;
-        let cx = world_x_to_cell_x_while_dragging_offer(mouse_state.last_up_world_x, ocw);
-        let cy = world_y_to_cell_y_while_dragging_offer(mouse_state.last_up_world_y, och);
+      // would every part of the machine be on a middle cell, not edge?
+      let ocw = offer.cell_width;
+      let och = offer.cell_height;
+      let cx = world_x_to_top_left_cell_x_while_dragging_offer(mouse_state.last_up_world_x, ocw);
+      let cy = world_y_to_top_left_cell_y_while_dragging_offer(mouse_state.last_up_world_y, och);
+      // Make sure the entire machine fits, not just the center or topleft cell
+      if bounds_check(cx, cy, 1.0, 1.0, FLOOR_CELLS_W as f64 - (ocw as f64), FLOOR_CELLS_H as f64 - (och as f64)) {
         let ccoord = to_coord(cx as usize, cy as usize);
 
-
-        log(format!("Dropped a machine on the floor. Deploying..."));
-        // If there's already something on this cell then we need to remove it first
-        if factory.floor[ccoord].kind != CellKind::Empty {
-          // Must be belt or machine
-          // We should be able to replace this one with the new tile without having to update
-          // the neighbors (if any). We do have to update the prio list (in case belt->machine).
-          log(format!("Remove old middle cell..."));
-          floor_delete_cell_at_partial(options, state, factory, ccoord);
-        }
-        log(format!("Add new machine cell..."));
-        factory.floor[ccoord] = machine_main_cell(
-          cx as usize, cy as usize,
-          ocw, och,
-          part_c(factory.offers[mouse_state.offer_index].machine_input1),
-          part_c(factory.offers[mouse_state.offer_index].machine_input2),
-          part_c(factory.offers[mouse_state.offer_index].machine_input3),
-          part_c(factory.offers[mouse_state.offer_index].machine_output),
-          factory.offers[mouse_state.offer_index].speed,
-          1, 1
-        );
-        // TODO: either
-        factory.floor[ccoord].port_u = Port::None;
-        factory.floor[ccoord].port_r = Port::None;
-        factory.floor[ccoord].port_d = Port::None;
-        factory.floor[ccoord].port_l = Port::None;
+        log(format!("Dropped a machine on the floor. Deploying... {} {} @{}", cx, cy, ccoord));
 
         // Fill the rest with sub machine cells
         for i in 0..ocw {
           for j in 0..och {
-            if i > 0 || j > 0 {
-              let coord = to_coord(cx as usize + i, cy as usize + j);
-              if factory.floor[coord].kind != CellKind::Empty {
-                // Must be belt or machine
-                // We should be able to replace this one with the new tile without having to update
-                // the neighbors (if any). We do have to update the prio list (in case belt->machine).
-                log(format!("Remove old middle cell..."));
-                floor_delete_cell_at_partial(options, state, factory, coord);
-              }
+            let x = cx as usize + i;
+            let y = cy as usize + j;
+            let coord = to_coord(x, y);
 
-              factory.floor[coord] = machine_sub_cell(cx as usize + i, cy as usize + j, ccoord);
-              factory.floor[ccoord].machine.coords.push(coord);
-              // TODO: either
-              factory.floor[coord].port_u = Port::None;
-              factory.floor[coord].port_r = Port::None;
-              factory.floor[coord].port_d = Port::None;
-              factory.floor[coord].port_l = Port::None;
+            // Meh. But we want to remember this state for checks below.
+            let ( port_u, port_r, port_d, port_l ) = match factory.floor[coord] {
+              super::cell::Cell { port_u, port_r, port_d, port_l, .. } => ( port_u, port_r, port_d, port_l )
+            };
+
+            // Make sure to drop machines properly. Belts are 1x1 so no problem. Empty are fine.
+            if factory.floor[coord].kind == CellKind::Machine {
+              floor_delete_cell_at_partial(options, state, factory, coord);
             }
+
+            if i == 0 && j == 0 {
+              // Top-left cell is the main_coord here
+              factory.floor[coord] = machine_main_cell(
+                x, y,
+                ocw, och,
+                part_c(factory.offers[mouse_state.offer_index].machine_input1),
+                part_c(factory.offers[mouse_state.offer_index].machine_input2),
+                part_c(factory.offers[mouse_state.offer_index].machine_input3),
+                part_c(factory.offers[mouse_state.offer_index].machine_output),
+                factory.offers[mouse_state.offer_index].speed,
+                1, 1
+              );
+            } else {
+              factory.floor[coord] = machine_sub_cell(x, y, ccoord);
+            }
+            factory.floor[ccoord].machine.coords.push(coord);
+
+            factory.floor[coord].port_u = if j == 0 { port_u } else { Port::None };
+            factory.floor[coord].port_r = if i == ocw - 1 { port_r } else { Port::None };
+            factory.floor[coord].port_d = if j == och - 1 { port_d } else { Port::None };
+            factory.floor[coord].port_l = if i == 0 { port_l } else { Port::None };
           }
         }
+
+        machine_discover_ins_and_outs(factory, ccoord);
 
         factory.changed = true;
       } else {
