@@ -416,7 +416,6 @@ pub fn tick_belt(options: &mut Options, state: &mut State, factory: &mut Factory
     // This means the belt has a part but it was not yet able to determine to which
     // port the part goes to because there was no port available last tick.
     belt_determine_part_target_port(factory, curr_coord);
-
   }
 }
 
@@ -519,13 +518,108 @@ pub fn belt_determine_part_target_port(factory: &mut Factory, curr_coord: usize)
     },
     3 => {
       // Three options
-      // If all are taken, I dunno. Do nothing? Pick "next" in rotating order?
+      // If all are taken do nothing
       // If two are taken, pick the other one
       // If one is taken, pick one of the other two in rotating order
       // If none are taken, pick next in rotating order
-      println!("FIXME: belt_receive_part() with three outs");
-      factory.floor[curr_coord].belt.part_to = factory.floor[curr_coord].outs[0].0;
-      factory.floor[curr_coord].belt.part_to_tbd = false;
+
+
+      let ( a_out_dir, a_coord, a_neighbor_coord, a_neighbor_in_dir ) = factory.floor[curr_coord].outs[0];
+      let ( b_out_dir, b_coord, b_neighbor_coord, b_neighbor_in_dir ) = factory.floor[curr_coord].outs[1];
+      let ( c_out_dir, c_coord, c_neighbor_coord, c_neighbor_in_dir ) = factory.floor[curr_coord].outs[2];
+
+      let a_available =
+        factory.floor[a_neighbor_coord].kind == CellKind::Demand ||
+        factory.floor[a_neighbor_coord].kind == CellKind::Machine || // TODO: if the machine has no space then it should not be considered available here?
+        (factory.floor[a_neighbor_coord].kind == CellKind::Belt && factory.floor[a_neighbor_coord].belt.part.kind == PartKind::None);
+      let b_available =
+        factory.floor[b_neighbor_coord].kind == CellKind::Demand ||
+        factory.floor[b_neighbor_coord].kind == CellKind::Machine || // TODO: if the machine has no space then it should not be considered available here?
+        (factory.floor[b_neighbor_coord].kind == CellKind::Belt && factory.floor[b_neighbor_coord].belt.part.kind == PartKind::None);
+      let c_available =
+        factory.floor[c_neighbor_coord].kind == CellKind::Demand ||
+        factory.floor[c_neighbor_coord].kind == CellKind::Machine || // TODO: if the machine has no space then it should not be considered available here?
+        (factory.floor[c_neighbor_coord].kind == CellKind::Belt && factory.floor[c_neighbor_coord].belt.part.kind == PartKind::None);
+
+
+      // This if-else is basically the same as above but longer because 3 options. Oh well.
+      if a_available && b_available && c_available {
+        // All are available. Pick in rotating order.
+        if factory.floor[curr_coord].outrot == 0 {
+          // if curr_coord == 195 { println!("picking a"); }
+          factory.floor[curr_coord].belt.part_to = a_out_dir;
+          factory.floor[curr_coord].outrot = 1;
+        } else if factory.floor[curr_coord].outrot == 1 {
+          // if curr_coord == 195 { println!("picking b"); }
+          factory.floor[curr_coord].belt.part_to = b_out_dir;
+          factory.floor[curr_coord].outrot = 2;
+        } else {
+          // if curr_coord == 195 { println!("picking c"); }
+          factory.floor[curr_coord].belt.part_to = c_out_dir;
+          factory.floor[curr_coord].outrot = 0;
+        }
+        factory.floor[curr_coord].belt.part_to_tbd = false;
+      } else if !a_available && !b_available && !c_available {
+        // Both are unavailable.
+        // if curr_coord == 195 { println!("picking none"); }
+        // leave part_to_tbd set to true
+      } else if a_available && b_available {
+        // Two are available. Pick in rotating order.
+        if factory.floor[curr_coord].outrot == 0 {
+          // if curr_coord == 195 { println!("picking a"); }
+          factory.floor[curr_coord].belt.part_to = a_out_dir;
+          factory.floor[curr_coord].outrot = 1;
+        } else {
+          // if curr_coord == 195 { println!("picking b"); }
+          factory.floor[curr_coord].belt.part_to = b_out_dir;
+          factory.floor[curr_coord].outrot = 2;
+        }
+        factory.floor[curr_coord].belt.part_to_tbd = false;
+      } else if a_available && c_available {
+        // Two are available. Pick in rotating order.
+        if factory.floor[curr_coord].outrot != 1 {
+          // if curr_coord == 195 { println!("picking a"); }
+          factory.floor[curr_coord].belt.part_to = a_out_dir;
+          factory.floor[curr_coord].outrot = 1;
+        } else {
+          // if curr_coord == 195 { println!("picking b"); }
+          factory.floor[curr_coord].belt.part_to = c_out_dir;
+          factory.floor[curr_coord].outrot = 0;
+        }
+        factory.floor[curr_coord].belt.part_to_tbd = false;
+      } else if b_available && c_available {
+        // Two are available. Pick in rotating order.
+        if factory.floor[curr_coord].outrot <= 1 {
+          // if curr_coord == 195 { println!("picking a"); }
+          factory.floor[curr_coord].belt.part_to = b_out_dir;
+          factory.floor[curr_coord].outrot = 2;
+        } else {
+          // if curr_coord == 195 { println!("picking b"); }
+          factory.floor[curr_coord].belt.part_to = c_out_dir;
+          factory.floor[curr_coord].outrot = 0;
+        }
+        factory.floor[curr_coord].belt.part_to_tbd = false;
+      } else if a_available {
+        // if curr_coord == 195 { println!("forced a"); }
+        // b must be unavailable so pick a
+        factory.floor[curr_coord].belt.part_to = a_out_dir;
+        factory.floor[curr_coord].outrot = 1;
+        factory.floor[curr_coord].belt.part_to_tbd = false;
+      } else if b_available {
+        // a must be unavailable so pick b
+        // if curr_coord == 195 { println!("forced b"); }
+        factory.floor[curr_coord].belt.part_to = b_out_dir;
+        factory.floor[curr_coord].outrot = 2;
+        factory.floor[curr_coord].belt.part_to_tbd = false;
+      } else if c_available {
+        // a must be unavailable so pick b
+        // if curr_coord == 195 { println!("forced c"); }
+        factory.floor[curr_coord].belt.part_to = c_out_dir;
+        factory.floor[curr_coord].outrot = 0;
+        factory.floor[curr_coord].belt.part_to_tbd = false;
+      } else {
+        panic!("what option is left? dont think this is reachable");
+      }
     },
     _ => {
       // Can't be four options (there must be one incoming)
