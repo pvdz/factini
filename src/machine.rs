@@ -167,7 +167,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
         // TODO: can we assume the other side is a belt?
         if factory.floor[from_coord].kind == CellKind::Belt {
           let belt_part = factory.floor[from_coord].belt.part.kind;
-          if belt_part != PartKind::None && factory.ticks - factory.floor[from_coord].belt.part_at >= factory.floor[from_coord].belt.speed {
+          if belt_part != PartKind::None && factory.floor[from_coord].belt.part_progress >= factory.floor[from_coord].belt.speed {
             if belt_part == factory.floor[main_coord].machine.input_1_want.kind && belt_part != factory.floor[main_coord].machine.input_1_have.kind && factory.floor[main_coord].machine.input_1_have.kind == PartKind::None {
               if options.print_moves || options.print_moves_machine {
                 log(format!("({}) Machine @{} (sub @{}) accepting part {:?} as input1 from belt @{}, had {:?}", factory.ticks, main_coord, sub_coord, belt_part, from_coord, factory.floor[main_coord].machine.input_1_have));

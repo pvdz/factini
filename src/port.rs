@@ -39,6 +39,8 @@ pub fn port_disconnect_cell(factory: &mut Factory, coord: usize, dir: Direction)
       Direction::Left => cell_set_port_l_to(factory, coord, Port::None, to_coord_left(coord)),
     }
   }
+
+  belt_receive_part(factory, coord, Direction::Up, part_none());
 }
 
 pub fn serialize_ports(factory: &Factory, coord: usize) -> String {

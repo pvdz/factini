@@ -2,7 +2,6 @@
 // The main.rs will include this file when `#[cfg(target_arch = "wasm32")]`
 
 // - demand and supply are passive, belts determine it
-// - why do belts get stuck?
 // - export all the things
 
 // This is required to export panic to the web
@@ -97,10 +96,8 @@ const UI_CELL_EDITOR_GRID_OY: f64 = UI_OY + ((UI_DEBUG_LINES + 3.0) * UI_LINE_H)
 const UI_CELL_EDITOR_GRID_W: f64 = 3.0 * UI_SEGMENT_W;
 const UI_CELL_EDITOR_GRID_H: f64 = 3.0 * UI_SEGMENT_H;
 
-const UI_CELL_EDITOR_KIND_OX: f64 = UI_CELL_EDITOR_GRID_OX + (3.0 * UI_SEGMENT_W) + 10.0;
-const UI_CELL_EDITOR_KIND_OY: f64 = UI_CELL_EDITOR_GRID_OY + (2.0 * UI_FONT_H);
-const UI_CELL_EDITOR_KIND_W: f64 = 60.0;
-const UI_CELL_EDITOR_KIND_H: f64 = 2.0 * UI_FONT_H;
+const UI_CELL_EDITOR_PART_OX: f64 = UI_CELL_EDITOR_GRID_OX + (3.0 * UI_SEGMENT_W) + 10.0;
+const UI_CELL_EDITOR_PART_OY: f64 = UI_CELL_EDITOR_GRID_OY + (2.0 * UI_FONT_H);
 
 const UI_MACHINE_EDITOR_OX: f64 = UI_OX;
 const UI_MACHINE_EDITOR_OY: f64 = UI_CELL_EDITOR_OY + UI_CELL_EDITOR_H + UI_LINE_H;
@@ -728,11 +725,6 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         // Is the mouse clicking on one of the focused grid segments?
         if hit_check_cell_editor_grid(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
           on_click_inside_cell_editor_grid(options, state, factory, &cell_selection, &mouse_state);
-        } else {
-          // Is the mouse clicking on the focused cell's "kind" box?
-          if hit_check_cell_editor_kind(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
-            on_click_inside_cell_editor_kind(options, state, factory, &cell_selection, &mouse_state);
-          }
         }
       }
       // Was one of the buttons below the floor clicked?
@@ -859,54 +851,6 @@ fn update_mouse_state(factory: &mut Factory, mouse_state: &mut MouseState, mouse
       mouse_state.was_dragging = true;
     }
   }
-}
-fn on_click_inside_cell_editor_kind(options: &Options, state: &State, factory: &mut Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
-  // There are two cases; edge and middle cells. Supply/Demand can only go on edge.
-  // Machine and Belt can only go in middle. Empty can go anywhere.
-  log(format!("from the {} {} {} {}", mouse_state.cell_x, mouse_state.cell_y, FLOOR_CELLS_W as f64 - 1.0, FLOOR_CELLS_H as f64 - 1.0));
-  if cell_selection.x == 0.0 || cell_selection.y == 0.0 || cell_selection.x == FLOOR_CELLS_W as f64 - 1.0 || cell_selection.y == FLOOR_CELLS_H as f64 - 1.0 {
-    log(format!("from the top"));
-    // Edge. Cycle between Empty, Supply, and Demand
-    match factory.floor[cell_selection.coord].kind {
-      CellKind::Empty => {
-        // x: usize, y: usize, part: Part, speed: u64, cooldown: u64, price: i32
-        factory.floor[cell_selection.coord] = supply_cell(factory.floor[cell_selection.coord].x, factory.floor[cell_selection.coord].y, part_c('g'), 1000, 10000, 10000);
-        factory.changed = true;
-      },
-      CellKind::Supply => {
-        // x: usize, y: usize, part: Part
-        factory.floor[cell_selection.coord] = demand_cell(factory.floor[cell_selection.coord].x, factory.floor[cell_selection.coord].y, part_c('g'));
-        factory.changed = true;
-      },
-      CellKind::Demand => {
-        factory.floor[cell_selection.coord] = empty_cell(factory.floor[cell_selection.coord].x, factory.floor[cell_selection.coord].y);
-        factory.changed = true;
-      },
-      | CellKind::Belt
-      | CellKind::Machine
-      => panic!("edge should not contain machine or belt"),
-    }
-  } else {
-    log(format!("from the middle"));
-    // Middle. Cycle between Empty, Machine, and Belt
-    match factory.floor[cell_selection.coord].kind {
-      CellKind::Empty => {
-        factory.floor[cell_selection.coord] = belt_cell(factory.floor[cell_selection.coord].x, factory.floor[cell_selection.coord].y, BELT_NONE);
-        factory.changed = true;
-      },
-      CellKind::Belt => {
-        factory.floor[cell_selection.coord] = machine_main_cell(factory.floor[cell_selection.coord].x, factory.floor[cell_selection.coord].y, 3, 3, part_none(), part_none(), part_none(), part_none(), 101, -15, -3);
-        factory.changed = true;
-      },
-      CellKind::Machine => {
-        factory.floor[cell_selection.coord] = empty_cell(factory.floor[cell_selection.coord].x, factory.floor[cell_selection.coord].y);
-        factory.changed = true;
-      }
-      | CellKind::Supply
-      | CellKind::Demand
-      => panic!("middle should not contain supply or demand"),
-    }
-  };
 }
 fn on_up_inside_floor(options: &mut Options, state: &mut State, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
   log(format!("on_up_inside_floor()"));
@@ -1322,9 +1266,6 @@ fn hit_check_cell_editor_grid(wx: f64, wy: f64) -> bool {
   // log(format!("hit_check_cell_editor_grid({}, {}) {} {} {} {} = {}", wx, wy, UI_CELL_EDITOR_GRID_OX, UI_CELL_EDITOR_GRID_OY, UI_CELL_EDITOR_GRID_OX + UI_CELL_EDITOR_GRID_W, UI_CELL_EDITOR_GRID_OY + UI_CELL_EDITOR_GRID_H, wx >= UI_CELL_EDITOR_GRID_OX && wx < UI_CELL_EDITOR_GRID_OX + UI_CELL_EDITOR_GRID_W && wy >= UI_CELL_EDITOR_GRID_OY && wy < UI_CELL_EDITOR_GRID_OY + UI_CELL_EDITOR_GRID_H));
   return wx >= UI_CELL_EDITOR_GRID_OX && wx < UI_CELL_EDITOR_GRID_OX + UI_CELL_EDITOR_GRID_W && wy >= UI_CELL_EDITOR_GRID_OY && wy < UI_CELL_EDITOR_GRID_OY + UI_CELL_EDITOR_GRID_H;
 }
-fn hit_check_cell_editor_kind(wx: f64, wy: f64) -> bool {
-  return wx >= UI_CELL_EDITOR_KIND_OX && wx < UI_CELL_EDITOR_KIND_OX + UI_CELL_EDITOR_KIND_W && wy >= UI_CELL_EDITOR_KIND_OY && wy < UI_CELL_EDITOR_KIND_OY + UI_CELL_EDITOR_KIND_H;
-}
 fn ray_trace_dragged_line(factory: &Factory, x0: f64, y0: f64, x1: f64, y1: f64, for_preview: bool) -> Vec<((usize, usize), BeltType, Direction, Direction)> {
   // We raytracing
   // The dragged line becomes a ray that we trace through cells of the floor
@@ -1588,7 +1529,7 @@ fn paint_belt_items(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &F
     match cell.kind {
       CellKind::Empty => (),
       CellKind::Belt => {
-        let progress_c = progress(factory.ticks, cell.belt.part_at, cell.belt.speed).min(1.0);
+        let progress_c = ((cell.belt.part_progress as f64) / (cell.belt.speed as f64)).min(1.0);
         let first_half = progress_c < 0.5;
 
         // Start with the coordinate to paint the icon such that it ends up centered 
@@ -1753,10 +1694,6 @@ fn paint_cell_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &
     context.stroke_rect(ox + (mouse_cell_editor_grid_x * UI_SEGMENT_W), oy + (mouse_cell_editor_grid_y * UI_SEGMENT_H), UI_SEGMENT_W, UI_SEGMENT_H);
   }
 
-  // Box where the type of the cell will be painted. Like a button.
-  context.set_stroke_style(&"black".into());
-  context.stroke_rect(UI_CELL_EDITOR_KIND_OX, UI_CELL_EDITOR_KIND_OY, UI_CELL_EDITOR_KIND_W, UI_CELL_EDITOR_KIND_H);
-  // Draw the type of the cell in this box
   context.set_fill_style(&"black".into());
   let type_name = match factory.floor[cell_selection.coord].kind {
     CellKind::Empty => "Empty",
@@ -1765,7 +1702,7 @@ fn paint_cell_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &
     CellKind::Supply => "Supply",
     CellKind::Demand => "Demand",
   };
-  context.fill_text(type_name, UI_CELL_EDITOR_KIND_OX + 4.0, UI_CELL_EDITOR_KIND_OY + UI_FONT_H + 3.0).expect("to paint port");
+  context.fill_text(type_name, UI_OX + UI_ML + 10.0, UI_OY + ((UI_DEBUG_LINES + 2.0) * UI_LINE_H) + 2.0 * UI_FONT_H).expect("something error fill_text");
 
   // Paint ports
   context.set_fill_style(&"black".into());
@@ -1821,13 +1758,23 @@ fn paint_cell_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &
     },
   }
 
-  if factory.floor[cell_selection.coord].kind == CellKind::Belt {
-    // Paint current part
-    context.fill_text(format!("{}",
-      if factory.floor[cell_selection.coord].belt.part.kind != PartKind::None { 'p' } else { ' ' },
-      // if factory.floor[cell_selection.coord].allocated { 'a' } else { ' ' },
-      // if factory.floor[cell_selection.coord].claimed { 'c' } else { ' ' },
-    ).as_str(), ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + 2.0 * UI_FONT_H).expect("to paint port");
+  if factory.floor[cell_selection.coord].kind == CellKind::Belt && factory.floor[cell_selection.coord].belt.part.kind != PartKind::None{
+    // Paint current part details
+    let progress = ((factory.floor[cell_selection.coord].belt.part_progress as f64) / (factory.floor[cell_selection.coord].belt.speed as f64) * 100.0).round();
+    let to =
+      if factory.floor[cell_selection.coord].belt.part_to_tbd {
+        "TBD"
+      } else {
+        match factory.floor[cell_selection.coord].belt.part_to {
+          Direction::Up => "up",
+          Direction::Right => "right",
+          Direction::Down => "down",
+          Direction::Left => "left",
+        }
+      };
+    context.fill_text("part", UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_PART_OY + 3.0 * UI_FONT_H).expect("to paint port");
+    context.fill_text(format!("{} %", progress).as_str(), UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_PART_OY + 4.0 * UI_FONT_H).expect("to paint port");
+    context.fill_text(format!("to: {}", to).as_str(), UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_PART_OY + 5.0 * UI_FONT_H).expect("to paint port");
   }
 }
 fn paint_machine_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
