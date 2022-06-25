@@ -1,8 +1,9 @@
 // This file should only be included for `wasm-pack build --target web`
 // The main.rs will include this file when `#[cfg(target_arch = "wasm32")]`
 
-// - demand and supply are passive, belts determine it
 // - export all the things
+// - eraser toggle?
+// - clean up cell editor
 
 // This is required to export panic to the web
 use std::panic;
@@ -85,6 +86,9 @@ const UI_BUTTONS_OY: f64 = CANVAS_HEIGHT - UI_BUTTON_H - 10.0;
 const UI_BUTTON_W: f64 = 60.0;
 const UI_BUTTON_H: f64 = 20.0;
 const UI_BUTTON_SPACING: f64 = 10.0;
+const UI_SPEED_BUBBLE_OX: f64 = UI_BUTTONS_OX + UI_BUTTON_COUNT * (UI_BUTTON_W + UI_BUTTON_SPACING);
+const UI_SPEED_BUBBLE_OY: f64 = UI_BUTTONS_OY;
+const UI_SPEED_BUBBLE_RADIUS: f64 = 15.0;
 
 const UI_CELL_EDITOR_OX: f64 = UI_OX;
 const UI_CELL_EDITOR_OY: f64 = UI_OY + (UI_LINE_H * (UI_DEBUG_LINES + 2.0));
@@ -541,7 +545,7 @@ pub fn start() -> Result<(), JsValue> {
         context.set_stroke_style(&"#aaa".into());
         context.stroke_rect(WORLD_OFFSET_X, WORLD_OFFSET_Y, FLOOR_CELLS_W as f64 * CELL_W, FLOOR_CELLS_H as f64 * CELL_H);
 
-        paint_green_debug(&context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
+        paint_green_debug(&options, &state, &context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
 
         paint_top_stats(&context, &mut factory);
         paint_ui_offers(&context, &mut factory, &mouse_state);
@@ -777,6 +781,9 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         } else {
           log(format!("clicked margin after button {}", button_index));
         }
+      }
+      else if hit_check_speed_bubbles_any(options, state, mouse_state) {
+        on_click_speed_bubbles(options, state, mouse_state);
       }
     }
 
@@ -1377,8 +1384,48 @@ fn get_cells_from_a_to_b(x0: f64, y0: f64, x1: f64, y1: f64) -> Vec<(usize, usiz
 
   return covered;
 }
+fn hit_check_speed_bubbles_any(options: &mut Options, state: &mut State, mouse_state: &MouseState) -> bool {
+  let ox = UI_SPEED_BUBBLE_OX + 10.0 - UI_SPEED_BUBBLE_RADIUS;
+  let oy = UI_SPEED_BUBBLE_OY + 5.0 - UI_SPEED_BUBBLE_RADIUS;
+  let bubble_box_width = 40.0;
 
-fn paint_green_debug(context: &Rc<web_sys::CanvasRenderingContext2d>, fps: &VecDeque<f64>, now: f64, since_prev: f64, ticks_todo: u64, estimated_fps: f64, rounded_fps: u64, factory: &Factory, mouse_state: &MouseState) {
+  return bounds_check(mouse_state.world_x, mouse_state.world_y, ox, oy, ox + 5.0 * bubble_box_width, oy + 2.0 * UI_SPEED_BUBBLE_RADIUS);
+}
+fn on_click_speed_bubbles(options: &mut Options, state: &mut State, mouse_state: &MouseState) {
+  log(format!("on_click_speed_bubbles()"));
+
+  if hit_check_speed_bubble(options, state, mouse_state, 0, "-") {
+    let m = options.speed_modifier;
+    options.speed_modifier = options.speed_modifier.min(0.5) * 0.5;
+    log(format!("pressed time minus, from {} to {}", m, options.speed_modifier));
+  } else if hit_check_speed_bubble(options, state, mouse_state, 1, "½") {
+    let m = options.speed_modifier;
+    options.speed_modifier = 0.5;
+    log(format!("pressed time half, from {} to {}", m, options.speed_modifier));
+  } else if hit_check_speed_bubble(options, state, mouse_state, 2, "1") {
+    let m = options.speed_modifier;
+    options.speed_modifier = 1.0;
+    log(format!("pressed time one, from {} to {}", m, options.speed_modifier));
+  } else if hit_check_speed_bubble(options, state, mouse_state, 3, "2") {
+    let m = options.speed_modifier;
+    options.speed_modifier = 2.0;
+    log(format!("pressed time two, from {} to {}", m, options.speed_modifier));
+  } else if hit_check_speed_bubble(options, state, mouse_state, 4, "+") {
+    let m = options.speed_modifier;
+    options.speed_modifier = options.speed_modifier.max(2.0) * 1.5;
+    log(format!("pressed time plus, from {} to {}", m, options.speed_modifier));
+  }
+}
+fn hit_check_speed_bubble(options: &Options, state: &State, mouse_state: &MouseState, index: usize, text: &str) -> bool {
+  let bubble_box_width = 40.0;
+  let cx = UI_SPEED_BUBBLE_OX + 10.0 + bubble_box_width * (index as f64);
+  let cy = UI_SPEED_BUBBLE_OY + 5.0;
+  let cr = UI_SPEED_BUBBLE_RADIUS;
+
+  return bounds_check(mouse_state.world_x, mouse_state.world_y, cx - cr, cy - cr, cx + cr, cy + cr);
+}
+
+fn paint_green_debug(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, fps: &VecDeque<f64>, now: f64, since_prev: f64, ticks_todo: u64, estimated_fps: f64, rounded_fps: u64, factory: &Factory, mouse_state: &MouseState) {
 
   let mut ui_lines = 0.0;
 
@@ -1409,7 +1456,7 @@ fn paint_green_debug(context: &Rc<web_sys::CanvasRenderingContext2d>, fps: &VecD
   context.set_fill_style(&"lightgreen".into());
   context.fill_rect(UI_OX, UI_OY + (UI_LINE_H * ui_lines), UI_W, UI_LINE_H);
   context.set_fill_style(&"grey".into());
-  // context.fill_text(format!("$ /  1s    : {}", factory.stats.2).as_str(), UI_OX + UI_ML, UI_OY + (ui_lines * UI_LINE_H) + UI_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("Speed: {}", options.speed_modifier).as_str(), UI_OX + UI_ML, UI_OY + (ui_lines * UI_LINE_H) + UI_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"lightgreen".into());
@@ -1936,6 +1983,8 @@ fn paint_ui_buttons(options: &mut Options, state: &mut State, context: &Rc<web_s
   paint_ui_button(context, mouse_state, 4.0, "Reset");
   paint_ui_button(context, mouse_state, 5.0, "Panic");
   assert!(UI_BUTTON_COUNT == 6.0, "Update after adding new buttons");
+
+  paint_ui_time_control(options, state, context, mouse_state);
 }
 fn paint_ui_button(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, index: f64, text: &str) {
   let x = UI_BUTTONS_OX + index * (UI_BUTTON_W + UI_BUTTON_SPACING);
@@ -1951,6 +2000,41 @@ fn paint_ui_button(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state:
   context.stroke_rect(x, y, UI_BUTTON_W, UI_BUTTON_H);
   context.set_fill_style(&"black".into());
   context.fill_text(text, x + 5.0, y + 14.0).expect("to paint");
+}
+fn paint_ui_time_control(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  paint_ui_speed_bubble(options, state, context, mouse_state, 0, "-");
+  paint_ui_speed_bubble(options, state, context, mouse_state, 1, "½");
+  paint_ui_speed_bubble(options, state, context, mouse_state, 2, "1");
+  paint_ui_speed_bubble(options, state, context, mouse_state, 3, "2");
+  paint_ui_speed_bubble(options, state, context, mouse_state, 4, "+");
+}
+fn paint_ui_speed_bubble(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, index: usize, text: &str) {
+  let cx = UI_SPEED_BUBBLE_OX + 10.0 + 40.0 * (index as f64);
+  let cy = UI_SPEED_BUBBLE_OY + 5.0;
+  let cr = UI_SPEED_BUBBLE_RADIUS;
+
+  if text == "1" && options.speed_modifier == 1.0 {
+    context.set_fill_style(&"#0f0".into());
+  } else if text == "½" && options.speed_modifier == 0.5 {
+    context.set_fill_style(&"#0f0".into());
+  } else if text == "2" && options.speed_modifier == 2.0 {
+    context.set_fill_style(&"#0f0".into());
+  } else if text == "-" && options.speed_modifier < 0.5 {
+    context.set_fill_style(&"#0f0".into());
+  } else if text == "+" && options.speed_modifier > 2.0 {
+    context.set_fill_style(&"#0f0".into());
+  } else if bounds_check(mouse_state.world_x, mouse_state.world_y, cx - cr, cy - cr, cx + cr, cy + cr) {
+    context.set_fill_style(&"#eee".into());
+  } else {
+    context.set_fill_style(&"#aaa".into());
+  }
+  context.begin_path();
+  context.arc(cx, cy, cr, 0.0, 2.0 * 3.14);
+  context.fill();
+  context.set_fill_style(&"stroke".into());
+  context.stroke();
+  context.set_fill_style(&"black".into());
+  context.fill_text(text, cx - 3.0, cy + 4.0).expect("to paint");
 }
 fn paint_ui_offer_supply(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, index: usize, hovering: bool) {
   let offer = &factory.offers[index];
