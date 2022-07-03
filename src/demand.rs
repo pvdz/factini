@@ -8,7 +8,8 @@ use super::part::*;
 use super::state::*;
 use super::utils::*;
 
-#[derive(Debug)]
+// Clone but not Copy... I don't want to accidentally clone cells when I want to move them
+#[derive(Debug, Clone)]
 pub struct Demand {
   pub part: Part, // The part that this demander is waiting for
   pub neighbor_coord: usize, // Cell coord of the only neighbor this demand has

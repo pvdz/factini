@@ -23,6 +23,10 @@ pub fn init() -> ( Options, State, Factory ) {
   let mut state = State {
     paused: false,
     reset_next_frame: false,
+    mouse_mode_erasing: false,
+    mouse_mode_selecting: false,
+    selected_area_copy: vec!(),
+    test: false,
   };
 
   let map = "\

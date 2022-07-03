@@ -21,6 +21,7 @@ pub mod machine;
 pub mod offer;
 pub mod options;
 pub mod part;
+pub mod paste;
 pub mod port;
 pub mod port_auto;
 pub mod prio;

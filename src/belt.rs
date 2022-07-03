@@ -3,6 +3,7 @@ use super::cell::*;
 use super::demand::*;
 use super::direction::*;
 use super::factory::*;
+use super::floor::*;
 use super::machine::*;
 use super::options::*;
 use super::part::*;
@@ -84,7 +85,8 @@ pub enum BeltType {
 // Keep in sync...
 pub const BELT_TYPE_COUNT: usize = (BeltType::INVALID as usize) + 1;
 
-#[derive(Debug)]
+// Clone but not Copy... I don't want to accidentally clone cells when I want to move them
+#[derive(Debug, Clone)]
 pub struct Belt {
   pub meta: BeltMeta,
   pub part: Part,
@@ -200,7 +202,8 @@ pub fn belt_auto_layout(up: CellKind, right: CellKind, down: CellKind, left: Cel
 //   }
 // }
 
-#[derive(Debug)]
+// Clone but not Copy... I don't want to accidentally clone cells when I want to move them
+#[derive(Debug, Clone)]
 pub struct BeltMeta {
   pub btype: BeltType, // BELT_FROM_TO
   pub dbg: &'static str,
@@ -241,7 +244,6 @@ pub fn belt_new(meta: BeltMeta) -> Belt {
     tick_price: 0
   };
 }
-
 
 fn tick_belt_take_from_belt(options: &mut Options, state: &mut State, factory: &mut Factory, curr_coord: usize, curr_dir: Direction, from_coord: usize, from_dir: Direction) -> bool {
   // Take from neighbor belt if and only if the part is heading this way and at at least 100%
@@ -326,7 +328,14 @@ fn tick_belt_give_to_demand(options: &mut Options, state: &mut State, factory: &
 
 fn tick_belt_one_outbound_dir(options: &mut Options, state: &mut State, factory: &mut Factory, curr_coord: usize, curr_dir_towards_neighbor: Direction, to_coord: usize, to_dir_coming_from_curr: Direction) -> bool {
   match factory.floor[to_coord].kind {
-    CellKind::Empty => panic!("empty cells should not be part of .ins vector"),
+    CellKind::Empty => {
+      if !state.test {
+        // panic!("empty cells should not be part of .outs vector")
+        log(format!("TODO: empty cells should not be part of .outs vector"));
+        state.test = true;
+      }
+      return false;
+    },
     CellKind::Belt => {
       // noop
       return false;
@@ -348,7 +357,14 @@ fn tick_belt_one_outbound_dir(options: &mut Options, state: &mut State, factory:
 
 fn tick_belt_one_inbound_dir(options: &mut Options, state: &mut State, factory: &mut Factory, curr_coord: usize, curr_dir: Direction, from_coord: usize, from_dir: Direction) -> bool {
   match factory.floor[from_coord].kind {
-    CellKind::Empty => panic!("empty cells should not be part of .ins vector"),
+    CellKind::Empty => {
+      // panic!("empty cells should not be part of .ins vector")
+      if !state.test {
+        log(format!("TODO: empty cells should not be part of .ins vector"));
+        state.test = true;
+      }
+      return false;
+    },
     CellKind::Belt => {
       // if curr_coord == 42 {
       //   println!("      - is belt");
@@ -363,7 +379,7 @@ fn tick_belt_one_inbound_dir(options: &mut Options, state: &mut State, factory: 
       return tick_belt_take_from_supply(options, state, factory, curr_coord, from_coord, curr_dir);
     }
     CellKind::Demand => {
-      panic!("Demanders cannot be inbound");
+      panic!("Demanders cannot be connected to the inbound port of a belt");
     }
   };
 }
@@ -393,7 +409,7 @@ pub fn tick_belt(options: &mut Options, state: &mut State, factory: &mut Factory
       // let rotated_index = ((index as u64 + factory.floor[curr_coord].outrot) % (outlen as u64)) as usize;
 
       let (curr_dir, _curr_coord, to_coord, to_dir) = factory.floor[curr_coord].outs[index];
-      assert_eq!(curr_coord, _curr_coord);
+      assert_eq!(curr_coord, _curr_coord, "cell .outs cur__coord must match position in factory");
       if tick_belt_one_outbound_dir(options, state, factory, curr_coord, curr_dir, to_coord, to_dir) {
         break;
       }
@@ -1002,6 +1018,37 @@ pub fn get_belt_type_for_cell_ports(factory: &Factory, coord: usize) -> BeltType
     (false, true, true, true) => BeltType::DLR,
   }
 }
+
+pub fn belt_discover_ins_and_outs(factory: &mut Factory, coord: usize) {
+  factory.floor[coord].ins.clear();
+  factory.floor[coord].outs.clear();
+
+  match factory.floor[coord].port_u {
+    Port::Inbound => factory.floor[coord].ins.push(( Direction::Up, coord, to_coord_up(coord), Direction::Down )),
+    Port::Outbound => factory.floor[coord].outs.push(( Direction::Up, coord, to_coord_up(coord), Direction::Down )),
+    Port::None => {}
+    Port::Unknown => {}
+  };
+  match factory.floor[coord].port_r {
+    Port::Inbound => factory.floor[coord].ins.push(( Direction::Right, coord, to_coord_right(coord), Direction::Left )),
+    Port::Outbound => factory.floor[coord].outs.push(( Direction::Right, coord, to_coord_right(coord), Direction::Left )),
+    Port::None => {}
+    Port::Unknown => {}
+  };
+  match factory.floor[coord].port_d {
+    Port::Inbound => factory.floor[coord].ins.push(( Direction::Down, coord, to_coord_down(coord), Direction::Up )),
+    Port::Outbound => factory.floor[coord].outs.push(( Direction::Down, coord, to_coord_down(coord), Direction::Up )),
+    Port::None => {}
+    Port::Unknown => {}
+  };
+  match factory.floor[coord].port_l {
+    Port::Inbound => factory.floor[coord].ins.push(( Direction::Left, coord, to_coord_left(coord), Direction::Right )),
+    Port::Outbound => factory.floor[coord].outs.push(( Direction::Left, coord, to_coord_left(coord), Direction::Right )),
+    Port::None => {}
+    Port::Unknown => {}
+  };
+}
+
 
 const BOX_ARROW_U: char = '^';
 const BOX_ARROW_R: char = '>';

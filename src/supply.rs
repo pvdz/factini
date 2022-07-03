@@ -11,7 +11,8 @@ use super::part::*;
 use super::state::*;
 use super::utils::*;
 
-#[derive(Debug)]
+// Clone but not Copy... I don't want to accidentally clone cells when I want to move them
+#[derive(Debug, Clone)]
 pub struct Supply {
   // pub part: Part, // ex: Current part that's moving out. dont use this, just get it from .gives
   pub part_at: u64, // Last time part was generated

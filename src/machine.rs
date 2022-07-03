@@ -18,7 +18,8 @@ pub enum MachineKind {
   SubBuilding, // Extra part but not the main building
 }
 
-#[derive(Debug)]
+// Clone but not Copy... I don't want to accidentally clone cells when I want to move them
+#[derive(Debug, Clone)]
 pub struct Machine {
   pub kind: MachineKind,
   pub main_coord: usize, // If this is a sub building, what is the coord of the main machine cell?

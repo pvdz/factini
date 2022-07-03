@@ -2,8 +2,17 @@
 // The main.rs will include this file when `#[cfg(target_arch = "wasm32")]`
 
 // - export all the things
-// - eraser toggle?
 // - clean up cell editor
+// - score card stuff
+// - nodir button (mouse mode or all the things?)
+// - import/export with clipboard
+// - stamp instead of paste button (paste on click)
+// - remove pause, move nodir there, add "play" icons to the timeline
+// - machine image full over all cells of the same machine
+// - supply/demand could say what they give/take
+// - auto-create trash when moving unconnected belt against edge?
+// - auto-cancel selection mode when trying to drag offer
+// - connect machines, demands, and supplies to dangling belts when placed
 
 // This is required to export panic to the web
 use std::panic;
@@ -22,6 +31,7 @@ use wasm_bindgen::prelude::*;
 
 use std::collections::VecDeque;
 use web_sys::{HtmlCanvasElement, HtmlImageElement};
+use crate::port;
 
 use super::belt::*;
 use super::cell::*;
@@ -34,6 +44,7 @@ use super::offer::*;
 use super::options::*;
 use super::machine::*;
 use super::part::*;
+use super::paste::*;
 use super::port::*;
 use super::port_auto::*;
 use super::prio::*;
@@ -42,10 +53,10 @@ use super::utils::*;
 
 // These are the actual pixels we can paint to
 const CANVAS_WIDTH: f64 = 1000.0;
-const CANVAS_HEIGHT: f64 = 700.0;
+const CANVAS_HEIGHT: f64 = 710.0;
 // Need this for mouse2world coord conversion
 const CANVAS_CSS_WIDTH: f64 = 1000.0;
-const CANVAS_CSS_HEIGHT: f64 = 700.0;
+const CANVAS_CSS_HEIGHT: f64 = 710.0;
 
 // World size in world pixels (as painted on the canvas)
 const WORLD_OFFSET_X: f64 = 20.0;
@@ -77,18 +88,19 @@ const UI_DEBUG_LINES: f64 = 8.0;
 const UI_OFFERS_OX: f64 = UI_OX - 100.0 - 10.0;
 const UI_OFFERS_OY: f64 = UI_OY;
 const UI_OFFERS_W: f64 = 100.0;
-const UI_OFFERS_H: f64 = 100.0;
+const UI_OFFERS_H: f64 = 90.0;
 const UI_OFFERS_H_PLUS_MARGIN: f64 = UI_OFFERS_H + 10.0;
 
-const UI_BUTTON_COUNT: f64 = 6.0; // Update after adding new button
+const UI_BUTTON_COUNT: f64 = 7.0; // Update after adding new button
 const UI_BUTTONS_OX: f64 = WORLD_OFFSET_X;
-const UI_BUTTONS_OY: f64 = CANVAS_HEIGHT - UI_BUTTON_H - 10.0;
-const UI_BUTTON_W: f64 = 60.0;
+const UI_BUTTONS_OY: f64 = CANVAS_HEIGHT - 50.0;
+const UI_BUTTONS_OY2: f64 = CANVAS_HEIGHT - 25.0;
+const UI_BUTTON_W: f64 = 50.0;
 const UI_BUTTON_H: f64 = 20.0;
 const UI_BUTTON_SPACING: f64 = 10.0;
-const UI_SPEED_BUBBLE_OX: f64 = UI_BUTTONS_OX + UI_BUTTON_COUNT * (UI_BUTTON_W + UI_BUTTON_SPACING);
-const UI_SPEED_BUBBLE_OY: f64 = UI_BUTTONS_OY;
-const UI_SPEED_BUBBLE_RADIUS: f64 = 15.0;
+const UI_SPEED_BUBBLE_OX: f64 = UI_BUTTONS_OX + UI_BUTTON_COUNT * (UI_BUTTON_W + UI_BUTTON_SPACING + 1.0);
+const UI_SPEED_BUBBLE_OY: f64 = UI_BUTTONS_OY + 4.0;
+const UI_SPEED_BUBBLE_RADIUS: f64 = 13.0;
 
 const UI_CELL_EDITOR_OX: f64 = UI_OX;
 const UI_CELL_EDITOR_OY: f64 = UI_OY + (UI_LINE_H * (UI_DEBUG_LINES + 2.0));
@@ -144,6 +156,9 @@ struct CellSelection {
   x: f64,
   y: f64,
   coord: usize,
+  area: bool,
+  x2: f64,
+  y2: f64,
 }
 
 #[derive(Debug)]
@@ -410,6 +425,9 @@ pub fn start() -> Result<(), JsValue> {
       x: 0.0,
       y: 0.0,
       coord: 0,
+      area: false,
+      x2: 0.0,
+      y2: 0.0,
     };
     let mut mouse_state: MouseState = MouseState {
       canvas_x: 0.0,
@@ -550,6 +568,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_top_stats(&context, &mut factory);
         paint_ui_offers(&context, &mut factory, &mouse_state);
         paint_ui_buttons(&mut options, &mut state, &context, &mouse_state);
+        paint_ui_buttons2(&mut options, &mut state, &context, &mouse_state);
 
         // TODO: wait for tiles to be loaded because first few frames won't paint anything while the tiles are loading...
         paint_background_tiles(&context, &factory, &belt_tile_images, &img_machine2);
@@ -558,7 +577,46 @@ pub fn start() -> Result<(), JsValue> {
 
         paint_mouse_cursor(&context, &mouse_state);
 
-        if mouse_state.dragging_offer {
+        if state.mouse_mode_erasing {
+          // Don't paint anything or paint the invalid belt stub
+          if bounds_check(mouse_state.cell_x, mouse_state.cell_y, 0.0, 0.0, FLOOR_CELLS_W as f64, FLOOR_CELLS_H as f64) {
+            // Do paint the current cell
+            context.set_stroke_style(&"red".into());
+            context.stroke_rect(WORLD_OFFSET_X + mouse_state.cell_x * CELL_W, WORLD_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
+          }
+        }
+        else if state.mouse_mode_selecting {
+          if mouse_state.is_down {
+            if bounds_check(mouse_state.cell_x, mouse_state.cell_y, 0.0, 0.0, FLOOR_CELLS_W as f64, FLOOR_CELLS_H as f64) {
+              // Draw dotted stroke rect around cells from mouse down cell to current cell
+              context.set_stroke_style(&"blue".into());
+              let down_cell_x = ((mouse_state.last_down_world_x - WORLD_OFFSET_X) / CELL_W).floor();
+              let down_cell_y = ((mouse_state.last_down_world_y - WORLD_OFFSET_Y) / CELL_H).floor();
+              let now_cell_x = mouse_state.cell_x.floor();
+              let now_cell_y = mouse_state.cell_y.floor();
+              context.stroke_rect(WORLD_OFFSET_X + down_cell_x.min(now_cell_x) * CELL_W, WORLD_OFFSET_Y + down_cell_y.min(now_cell_y) * CELL_H, (1.0 + (down_cell_x - now_cell_x).abs()) * CELL_W, (1.0 + (down_cell_y - now_cell_y).abs()) * CELL_H);
+            }
+          } else {
+            if cell_selection.on {
+              // Rectangle around current selection, if any
+              context.set_stroke_style(&"blue".into());
+              context.stroke_rect(WORLD_OFFSET_X + cell_selection.x * CELL_W, WORLD_OFFSET_Y + cell_selection.y * CELL_H, (1.0 + (cell_selection.x - cell_selection.x2).abs()) * CELL_W, (1.0 + (cell_selection.y - cell_selection.y2).abs()) * CELL_H);
+              if state.selected_area_copy.len() > 0 {
+                // Draw a rectangle to indicate paste area. Always a rectangle of sorts.
+                let w = state.selected_area_copy[0].len(); // There must be at least one
+                let h = state.selected_area_copy.len();
+                context.set_stroke_style(&"green".into());
+                context.stroke_rect(WORLD_OFFSET_X + cell_selection.x * CELL_W, WORLD_OFFSET_Y + cell_selection.y * CELL_H, w as f64 * CELL_W, h as f64 * CELL_H);
+              }
+            }
+            if bounds_check(mouse_state.cell_x, mouse_state.cell_y, 0.0, 0.0, FLOOR_CELLS_W as f64, FLOOR_CELLS_H as f64) {
+              // Rectangle around current cell
+              context.set_stroke_style(&"red".into());
+              context.stroke_rect(WORLD_OFFSET_X + mouse_state.cell_x * CELL_W, WORLD_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
+            }
+          }
+        }
+        else if mouse_state.dragging_offer {
           let offer = &factory.offers[mouse_state.offer_index];
 
           // Paint drop zone over the edge cells
@@ -661,7 +719,8 @@ pub fn start() -> Result<(), JsValue> {
               context.fill_text("D", paint_at_x + CELL_W / 2.0 - 5.0, paint_at_y + CELL_H / 2.0 + 2.0).expect("no error")
             },
           }
-        } else if mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && mouse_state.cell_x < FLOOR_CELLS_W as f64 && mouse_state.cell_y < FLOOR_CELLS_H as f64 {
+        }
+        else if mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && mouse_state.cell_x < FLOOR_CELLS_W as f64 && mouse_state.cell_y < FLOOR_CELLS_H as f64 {
           paint_mouse_stuff_in_floor(&context, &factory, &cell_selection, &mouse_state, &belt_tile_images);
         }
 
@@ -694,12 +753,52 @@ fn world_y_to_top_left_cell_y_while_dragging_offer(world_y: f64, offer_height: u
 }
 
 fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, factory: &mut Factory) {
+  if state.mouse_mode_erasing {
+    if mouse_state.is_down && bounds_check(mouse_state.world_x, mouse_state.world_y, WORLD_OFFSET_X, WORLD_OFFSET_Y, WORLD_OFFSET_X + WORLD_WIDTH, WORLD_OFFSET_Y + WORLD_HEIGHT) {
+      // On the floor. Delete anything.
+      let coord = mouse_state.cell_coord;
+      if factory.floor[coord].kind != CellKind::Empty {
+        floor_delete_cell_at_partial(options, state, factory, coord);
+        factory.changed = true;
+      }
+    } else if mouse_state.was_up {
+      // Still allow to use menu buttons while deleting, but ignore other hit boxes
+      log(format!("({}) handle_mouse_up_over_menu_buttons from erasing", factory.ticks));
+      handle_mouse_up_over_menu_buttons(cell_selection, mouse_state, options, state, factory);
+    }
+    return;
+  }
+
+  if state.mouse_mode_selecting {
+    if mouse_state.was_up {
+      if bounds_check(mouse_state.world_x, mouse_state.world_y, WORLD_OFFSET_X, WORLD_OFFSET_Y, WORLD_OFFSET_X + WORLD_WIDTH, WORLD_OFFSET_Y + WORLD_HEIGHT) {
+        log(format!("was down in floor"));
+        let down_cell_x = ((mouse_state.last_down_world_x - WORLD_OFFSET_X) / CELL_W).floor();
+        let down_cell_y = ((mouse_state.last_down_world_y - WORLD_OFFSET_Y) / CELL_H).floor();
+        let now_cell_x = mouse_state.cell_x.floor();
+        let now_cell_y = mouse_state.cell_y.floor();
+
+        cell_selection.x = down_cell_x.min(now_cell_x);
+        cell_selection.y = down_cell_y.min(now_cell_y);
+        cell_selection.x2 = down_cell_x.max(now_cell_x);
+        cell_selection.y2 = down_cell_y.max(now_cell_y);
+        cell_selection.on = true;
+      } else {
+        // Still allow to use menu buttons while deleting, but ignore other hit boxes
+        log(format!("({}) handle_mouse_up_over_menu_buttons from selection", factory.ticks));
+        handle_mouse_up_over_menu_buttons(cell_selection, mouse_state, options, state, factory);
+      }
+    }
+    return;
+  }
+
   if mouse_state.is_drag_start {
     if bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, WORLD_OFFSET_X, WORLD_OFFSET_Y, WORLD_OFFSET_X + WORLD_WIDTH, WORLD_OFFSET_Y + WORLD_HEIGHT) {
       // Drag start on floor. Do nothing here.
       // This is computed on the fly and state is already recorded through other means.
       log(format!("Started dragging from floor"));
-    } else {
+    }
+    else {
       log(format!("Started dragging not on floor"));
 
       let ( over_offer, offer_index ) = hit_test_offers(factory, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
@@ -713,12 +812,13 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         log(format!("Started dragging from unsupported location"));
       }
     }
-
   }
+
   if mouse_state.was_up {
     if mouse_state.is_dragging {
       // This is more a visual thing I think
-    } else {
+    }
+    else {
       // Was the click inside the painted world?
       // In that case we change/toggle the cell selection
       if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, WORLD_OFFSET_X, WORLD_OFFSET_Y, WORLD_OFFSET_X + WORLD_WIDTH, WORLD_OFFSET_Y + WORLD_HEIGHT) {
@@ -730,64 +830,198 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         if hit_check_cell_editor_grid(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
           on_click_inside_cell_editor_grid(options, state, factory, &cell_selection, &mouse_state);
         }
-      }
-      // Was one of the buttons below the floor clicked?
-      else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_BUTTONS_OX, UI_BUTTONS_OY, UI_BUTTONS_OX + UI_BUTTON_COUNT * (UI_BUTTON_W + UI_BUTTON_SPACING), UI_BUTTONS_OY + UI_BUTTON_H) {
-        let button_index = (mouse_state.last_up_world_x - UI_BUTTONS_OX) / (UI_BUTTON_W + UI_BUTTON_SPACING);
-        if button_index % 1.0 < (UI_BUTTON_W / (UI_BUTTON_W + UI_BUTTON_SPACING)) {
-          log(format!("clicked inside button {}", button_index));
-          match button_index.floor() as u8 {
-            0 => { // Empty
-              log(format!("Removing all cells from the factory..."));
-              for coord in 0..factory.floor.len() {
-                let (x, y) = to_xy(coord);
-                factory.floor[coord] = empty_cell(x, y);
-              }
-              factory.changed = true;
-            }
-            1 => { // Unbelt
-              log(format!("Removing all belts from the factory"));
-              for coord in 0..factory.floor.len() {
-                let (x, y) = to_xy(coord);
-                match factory.floor[coord].kind {
-                  CellKind::Belt => factory.floor[coord] = empty_cell(x, y),
-                  CellKind::Empty => (),
-                  CellKind::Demand => (),
-                  CellKind::Supply => (),
-                  CellKind::Machine => {
-                    factory.floor[coord].port_u = Port::None;
-                    factory.floor[coord].port_r = Port::None;
-                    factory.floor[coord].port_d = Port::None;
-                    factory.floor[coord].port_l = Port::None;
-                  },
-                }
-              }
-              factory.changed = true;
-            }
-            2 => { // Dump
-              log(format!("Dumping factory..."));
-              log(format!("\n{}", generate_floor_dump(options, state, &factory).join("\n")));
-            }
-            3 => { // Pause / Unpause
-              log(format!("Toggling pause state..."));
-              state.paused = !state.paused;
-            }
-            4 => {
-              log(format!("Restarting game at the start of next frame"));
-              state.reset_next_frame = true;
-            }
-            _ => panic!("Hit the panic button. Or another button without implementation."),
-          }
-        } else {
-          log(format!("clicked margin after button {}", button_index));
-        }
-      }
-      else if hit_check_speed_bubbles_any(options, state, mouse_state) {
-        on_click_speed_bubbles(options, state, mouse_state);
+      } else {
+        log(format!("({}) handle_mouse_up_over_menu_buttons from normal", factory.ticks));
+        handle_mouse_up_over_menu_buttons(cell_selection, mouse_state, options, state, factory);
       }
     }
 
     mouse_state.dragging_offer = false;
+  }
+}
+fn handle_mouse_up_over_menu_buttons(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, factory: &mut Factory) {
+  // Was one of the buttons below the floor clicked?
+  if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_BUTTONS_OX, UI_BUTTONS_OY, UI_BUTTONS_OX + UI_BUTTON_COUNT * (UI_BUTTON_W + UI_BUTTON_SPACING), UI_BUTTONS_OY + UI_BUTTON_H) {
+    let button_index = (mouse_state.last_up_world_x - UI_BUTTONS_OX) / (UI_BUTTON_W + UI_BUTTON_SPACING);
+    if button_index % 1.0 < (UI_BUTTON_W / (UI_BUTTON_W + UI_BUTTON_SPACING)) {
+      log(format!("clicked inside button {}", button_index));
+      match button_index.floor() as u8 {
+        0 => { // Empty
+          log(format!("Removing all cells from the factory..."));
+          for coord in 0..factory.floor.len() {
+            let (x, y) = to_xy(coord);
+            factory.floor[coord] = empty_cell(x, y);
+          }
+          factory.changed = true;
+        }
+        1 => { // Unbelt
+          log(format!("Removing all belts from the factory"));
+          for coord in 0..factory.floor.len() {
+            let (x, y) = to_xy(coord);
+            match factory.floor[coord].kind {
+              CellKind::Belt => factory.floor[coord] = empty_cell(x, y),
+              CellKind::Empty => (),
+              CellKind::Demand => (),
+              CellKind::Supply => (),
+              CellKind::Machine => {
+                factory.floor[coord].port_u = Port::None;
+                factory.floor[coord].port_r = Port::None;
+                factory.floor[coord].port_d = Port::None;
+                factory.floor[coord].port_l = Port::None;
+              },
+            }
+          }
+          factory.changed = true;
+        }
+        2 => { // Unpart
+          log(format!("Removing all part data from the factory"));
+          for coord in 0..factory.floor.len() {
+            let (x, y) = to_xy(coord);
+            match factory.floor[coord].kind {
+              CellKind::Belt => {
+                belt_receive_part(factory, coord, Direction::Up, part_none());
+              },
+              CellKind::Empty => (),
+              CellKind::Demand => (),
+              CellKind::Supply => {
+                factory.floor[coord].supply.part_at = 0;
+                factory.floor[coord].supply.last_part_out_at = 0;
+              },
+              CellKind::Machine => {
+                factory.floor[coord].machine.input_1_have = part_none();
+                factory.floor[coord].machine.input_2_have = part_none();
+                factory.floor[coord].machine.input_3_have = part_none();
+                factory.floor[coord].machine.start_at = 0;
+              },
+            }
+          }
+          factory.changed = true;
+        }
+        3 => { // Dump
+          log(format!("Dumping factory..."));
+          log(format!("\n{}", generate_floor_dump(options, state, &factory).join("\n")));
+        }
+        4 => { // Pause / Unpause
+          log(format!("Toggling pause state..."));
+          state.paused = !state.paused;
+        }
+        5 => {
+          log(format!("Restarting game at the start of next frame"));
+          state.reset_next_frame = true;
+        }
+        _ => panic!("Hit the panic button. Or another button without implementation."),
+      }
+    } else {
+      log(format!("clicked margin after button {}", button_index));
+    }
+  }
+  // Second row of buttons?
+  else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_BUTTONS_OX, UI_BUTTONS_OY2, UI_BUTTONS_OX + UI_BUTTON_COUNT * (UI_BUTTON_W + UI_BUTTON_SPACING), UI_BUTTONS_OY2 + UI_BUTTON_H) {
+    log(format!("yeah ok?"));
+    let button_index = (mouse_state.last_up_world_x - UI_BUTTONS_OX) / (UI_BUTTON_W + UI_BUTTON_SPACING);
+    if button_index % 1.0 < (UI_BUTTON_W / (UI_BUTTON_W + UI_BUTTON_SPACING)) {
+      log(format!("({}) clicked inside button {}", factory.ticks, button_index));
+      match button_index.floor() as u8 {
+        0 => { // Draw / Erase
+          log(format!("toggle draw/erase mode"));
+          state.mouse_mode_erasing = !state.mouse_mode_erasing;
+          state.mouse_mode_selecting = false;
+          cell_selection.area = false;
+          cell_selection.on = false;
+          state.selected_area_copy = vec!(); // Or retain this?
+        }
+        1 => { // Select
+          log(format!("Toggle selection mode"));
+          state.mouse_mode_selecting = !state.mouse_mode_selecting;
+          state.mouse_mode_erasing = false;
+          cell_selection.area = state.mouse_mode_selecting;
+          cell_selection.on = false;
+          state.selected_area_copy = vec!(); // Or retain this?
+        }
+        2 => { // Copy
+          log(format!("Copy selection"));
+          if state.mouse_mode_selecting && cell_selection.on {
+            // clone each cell in the area verbatim
+            // Store this copy in... state
+            let mut area = vec!();
+            // Only copy belts. Machines are too hard to deal with. Edge stuff is too tricky.
+            let cox = cell_selection.x.min(cell_selection.x2) as usize;
+            let coy = cell_selection.y.min(cell_selection.y2) as usize;
+            for y in 0..1 + (cell_selection.y - cell_selection.y2).abs() as usize {
+              area.push(vec!());
+              for x in 0..1 + (cell_selection.x - cell_selection.x2).abs() as usize {
+                area[y].push(factory.floor[to_coord(cox + x, coy + y)].clone());
+              }
+            }
+
+            state.selected_area_copy = area;
+          }
+        }
+        3 => { // Paste
+          log(format!("Paste from clipboard"));
+          if state.mouse_mode_selecting && cell_selection.on && state.selected_area_copy.len() > 0 {
+            let selected_ox = cell_selection.x.min(cell_selection.x2) as usize;
+            let selected_oy = cell_selection.y.min(cell_selection.y2) as usize;
+            let clipboard_w = state.selected_area_copy[0].len();
+            let clipboard_h = state.selected_area_copy.len();
+
+            for y in 0..clipboard_h {
+              for x in 0..clipboard_w {
+                let cx = selected_ox + x;
+                let cy = selected_oy + y;
+                let coord = to_coord(cx, cy);
+
+                paste_one_cell(options, state, factory, x, y, clipboard_w, clipboard_h, cx, cy, coord);
+              }
+            }
+
+            for y in 0..clipboard_h {
+              for x in 0..clipboard_w {
+                // Only consider edge and corner cells of the pasted area
+                // if x == 0 || x == clipboard_w -1 || y == 0 || y == clipboard_h -1 {
+                  let cx = selected_ox + x;
+                  let cy = selected_oy + y;
+                  if is_middle(cx, cy) {
+                    let coord = to_coord(cx, cy);
+                    log(format!("patching edge: {} {} -> {}", x, y, coord));
+                    log(format!("  fixing belt {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
+
+                    // Belt may be in an inconsistent state if it was connected to a machine, demand, or supply, since we don't copy those.
+                    // For that reason we have to do a sanity check on each cell and remove/update any incorrectly connected ports
+                    // This should only affect ports connecting to other cells of the paste but I suppose that overhead doesn't matter here.
+                    belt_fix_semi_connected_ports_partial(options, state, factory, coord);
+
+                    // At this point the ports and that of the neighbor should be fixed. Fix the meta.
+                    fix_belt_meta(factory, coord);
+                    // And fix the .ins and .outs of this and its neighbor
+                    belt_discover_ins_and_outs(factory, coord);
+                  } else {
+                    log(format!("Skipping {} {} because they are not in the middle of the floor", cx, cy));
+                  }
+                }
+              // }
+            }
+
+            factory.changed = true;
+          }
+        }
+        4 => { // Nodir
+          log(format!("Setting ports to unknown direction"));
+        }
+        5 => { // tbd
+          log(format!("(no button here)"));
+        }
+        6 => { // tbd
+          log(format!("(no button here)"));
+        }
+        _ => panic!("Hit a button2 without implementation."),
+      }
+    } else {
+      log(format!("clicked margin after button {}", button_index));
+    }
+  }
+  else if hit_check_speed_bubbles_any(options, state, mouse_state) {
+    on_click_speed_bubbles(options, state, mouse_state);
   }
 }
 fn update_mouse_state(factory: &mut Factory, mouse_state: &mut MouseState, mouse_x: f64, mouse_y: f64, last_mouse_down_x: f64, last_mouse_down_y: f64, last_mouse_down_button: u16, last_mouse_up_x: f64, last_mouse_up_y: f64) {
@@ -1805,6 +2039,18 @@ fn paint_cell_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &
     },
   }
 
+  // // Paint ins and outs (pointless; only relevant for machine main coords)
+  // let mut in_coords = factory.floor[cell_selection.coord].ins.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
+  // in_coords.sort();
+  // in_coords.dedup();
+  // context.fill_text(".ins:", UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_OY + 3.0 * UI_FONT_H).expect("to text");
+  // context.fill_text(format!("  {:?}", in_coords).as_str(), UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_OY + 4.0 * UI_FONT_H).expect("to text");
+  // let mut out_coords = factory.floor[cell_selection.coord].outs.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
+  // out_coords.sort();
+  // out_coords.dedup();
+  // context.fill_text(".outs:", UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_OY + 5.0 * UI_FONT_H).expect("to text");
+  // context.fill_text(format!("  {:?}", out_coords).as_str(), UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_OY + 6.0 * UI_FONT_H).expect("to text");
+
   if factory.floor[cell_selection.coord].kind == CellKind::Belt && factory.floor[cell_selection.coord].belt.part.kind != PartKind::None{
     // Paint current part details
     let progress = ((factory.floor[cell_selection.coord].belt.part_progress as f64) / (factory.floor[cell_selection.coord].belt.speed as f64) * 100.0).round();
@@ -1978,11 +2224,12 @@ fn paint_ui_offers(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Fa
 fn paint_ui_buttons(options: &mut Options, state: &mut State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   paint_ui_button(context, mouse_state, 0.0, "Empty");
   paint_ui_button(context, mouse_state, 1.0, "Unbelt");
-  paint_ui_button(context, mouse_state, 2.0, "Dump");
-  paint_ui_button(context, mouse_state, 3.0, if state.paused { "Unpause" } else { "Pause" });
-  paint_ui_button(context, mouse_state, 4.0, "Reset");
-  paint_ui_button(context, mouse_state, 5.0, "Panic");
-  assert!(UI_BUTTON_COUNT == 6.0, "Update after adding new buttons");
+  paint_ui_button(context, mouse_state, 2.0, "Unpart");
+  paint_ui_button(context, mouse_state, 3.0, "Dump");
+  paint_ui_button(context, mouse_state, 4.0, if state.paused { "Unpause" } else { "Pause" });
+  paint_ui_button(context, mouse_state, 5.0, "Reset");
+  paint_ui_button(context, mouse_state, 6.0, "Panic");
+  assert!(UI_BUTTON_COUNT == 7.0, "Update after adding new buttons");
 
   paint_ui_time_control(options, state, context, mouse_state);
 }
@@ -1991,6 +2238,33 @@ fn paint_ui_button(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state:
   let y = UI_BUTTONS_OY;
 
   if bounds_check(mouse_state.world_x, mouse_state.world_y, x, y, x + UI_BUTTON_W, y + UI_BUTTON_H) {
+    context.set_fill_style(&"#eee".into());
+  } else {
+    context.set_fill_style(&"#aaa".into());
+  }
+  context.fill_rect(x, y, UI_BUTTON_W, UI_BUTTON_H);
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(x, y, UI_BUTTON_W, UI_BUTTON_H);
+  context.set_fill_style(&"black".into());
+  context.fill_text(text, x + 5.0, y + 14.0).expect("to paint");
+}
+fn paint_ui_buttons2(options: &mut Options, state: &mut State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  paint_ui_button2(context, mouse_state, 0.0, if state.mouse_mode_erasing { "erase" } else { "draw" }, state.mouse_mode_erasing);
+  paint_ui_button2(context, mouse_state, 1.0, "select", state.mouse_mode_selecting);
+  paint_ui_button2(context, mouse_state, 2.0, "copy", false);
+  paint_ui_button2(context, mouse_state, 3.0, "paste", false);
+  paint_ui_button2(context, mouse_state, 4.0, "nodir", false);
+  // paint_ui_button2(context, mouse_state, 5.0, "togoal"); // fast forward to goal
+  // paint_ui_button2(context, mouse_state, 6.0, "Panic");
+  assert!(UI_BUTTON_COUNT == 7.0, "Update after adding new buttons");
+}
+fn paint_ui_button2(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, index: f64, text: &str, on: bool) {
+  let x = UI_BUTTONS_OX + index * (UI_BUTTON_W + UI_BUTTON_SPACING);
+  let y = UI_BUTTONS_OY2;
+
+  if on {
+    context.set_fill_style(&"lightgreen".into());
+  } else if bounds_check(mouse_state.world_x, mouse_state.world_y, x, y, x + UI_BUTTON_W, y + UI_BUTTON_H) {
     context.set_fill_style(&"#eee".into());
   } else {
     context.set_fill_style(&"#aaa".into());
@@ -2029,12 +2303,12 @@ fn paint_ui_speed_bubble(options: &Options, state: &State, context: &Rc<web_sys:
     context.set_fill_style(&"#aaa".into());
   }
   context.begin_path();
-  context.arc(cx, cy, cr, 0.0, 2.0 * 3.14);
+  context.arc(cx, cy, cr, 0.0, 2.0 * 3.14).expect("to paint");
   context.fill();
   context.set_fill_style(&"stroke".into());
   context.stroke();
   context.set_fill_style(&"black".into());
-  context.fill_text(text, cx - 3.0, cy + 4.0).expect("to paint");
+  context.fill_text(text, cx - 4.0, cy + 4.0).expect("to paint");
 }
 fn paint_ui_offer_supply(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, index: usize, hovering: bool) {
   let offer = &factory.offers[index];

@@ -12,7 +12,8 @@ use super::supply::*;
 use super::state::*;
 use super::utils::*;
 
-#[derive(Debug)]
+// Clone but not Copy... I don't want to accidentally clone cells when I want to move them
+#[derive(Debug, Clone)]
 pub struct Cell {
   pub kind: CellKind,
 
@@ -377,7 +378,7 @@ pub fn demand_cell(x: usize, y: usize, part: Part) -> Cell {
 
 pub fn fix_belt_meta(factory: &mut Factory, coord: usize) {
   let belt_type = get_belt_type_for_cell_ports(factory, coord);
-  log(format!("    -- okay @{} got {:?} ;; {:?} {:?} {:?} {:?}", coord, belt_type, factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
+  log(format!("    -- fix_belt_meta() @{} current {:?}, new {:?} ;; {:?} {:?} {:?} {:?}", coord, factory.floor[coord].belt.meta.btype, belt_type, factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
   let belt_meta = belt_type_to_belt_meta(belt_type);
   factory.floor[coord].belt.meta = belt_meta;
 }
@@ -730,6 +731,25 @@ pub fn cell_connect_if_possible(options: &mut Options, state: &mut State, factor
   } else if to_kind == CellKind::Empty || from_kind == CellKind::Empty {
     // Ignore :shrug:
     log(format!("connecting to empty? nope"));
+    match ( dx, dy ) {
+      ( 0 , -1 ) => {
+        if from_kind != CellKind::Demand { cell_set_port_d_to(factory, coord_from, Port::None, coord_to); }
+        if to_kind != CellKind::Demand { cell_set_port_u_to(factory, coord_to, Port::None, coord_from); }
+      }
+      ( 1 , 0 ) => {
+        if from_kind != CellKind::Demand { cell_set_port_l_to(factory, coord_from, Port::None, coord_to); }
+        if to_kind != CellKind::Demand { cell_set_port_r_to(factory, coord_to, Port::None, coord_from); }
+      }
+      ( 0 , 1 ) => {
+        if from_kind != CellKind::Demand { cell_set_port_u_to(factory, coord_from, Port::None, coord_to); }
+        if to_kind != CellKind::Demand { cell_set_port_d_to(factory, coord_to, Port::None, coord_from); }
+      }
+      ( -1 , 0 ) => {
+        if from_kind != CellKind::Demand { cell_set_port_r_to(factory, coord_from, Port::None, coord_to); }
+        if to_kind != CellKind::Demand { cell_set_port_l_to(factory, coord_to, Port::None, coord_from); }
+      }
+      _ => panic!("already asserted the range of x and y"),
+    }
   } else if to_kind == CellKind::Machine && from_kind == CellKind::Machine {
     // Don't connect inter-machine parts. Do not connect different machines either. Just don't.
   } else {
@@ -760,54 +780,6 @@ pub fn cell_connect_if_possible(options: &mut Options, state: &mut State, factor
   }
 
 }
-
-// pub fn update_ports_of_neighbor_cells(factory: &mut Factory, coord: usize, fix_neighbors_too: bool) {
-//   // For each side with a port, check if the other side is a belt, and if so, force a port there too
-//
-//   if factory.floor[coord].port_u != Port::None {
-//     if let Some(ocoord) = factory.floor[coord].coord_u {
-//       if factory.floor[ocoord].kind == CellKind::Belt {
-//         if factory.floor[ocoord].port_d == Port::None {
-//           factory.floor[ocoord].port_d = Port::Unknown;
-//         }
-//         fix_belt_meta(factory, ocoord);
-//       }
-//     }
-//   }
-//
-//   if factory.floor[coord].port_r != Port::None {
-//     if let Some(coord) = factory.floor[coord].coord_r {
-//       if factory.floor[coord].kind == CellKind::Belt {
-//         if factory.floor[coord].port_l == Port::None {
-//           factory.floor[coord].port_l = Port::Unknown;
-//         }
-//         fix_belt_meta(factory, coord);
-//       }
-//     }
-//   }
-//
-//   if factory.floor[coord].port_d != Port::None {
-//     if let Some(coord) = factory.floor[coord].coord_d {
-//       if factory.floor[coord].kind == CellKind::Belt {
-//         if factory.floor[coord].port_u == Port::None {
-//           factory.floor[coord].port_u = Port::Unknown;
-//         }
-//         fix_belt_meta(factory, coord);
-//       }
-//     }
-//   }
-//
-//   if factory.floor[coord].port_l != Port::None {
-//     if let Some(coord) = factory.floor[coord].coord_l {
-//       if factory.floor[coord].kind == CellKind::Belt {
-//         if factory.floor[coord].port_r == Port::None {
-//           factory.floor[coord].port_r = Port::Unknown;
-//         }
-//         fix_belt_meta(factory, coord);
-//       }
-//     }
-//   }
-// }
 
 pub fn get_cell_kind_at(factory: &mut Factory, coord: Option<usize>) -> CellKind {
   return match coord {
