@@ -8,7 +8,6 @@
 // - import/export with clipboard
 // - stamp instead of paste button (paste on click)
 // - remove pause, move nodir there, add "play" icons to the timeline
-// - supply/demand could say what they give/take
 // - auto-cancel selection/draw mode when trying to drag offer
 // - do not start selection drag outside of floor
 // - input (string map) validation
@@ -1801,7 +1800,7 @@ fn paint_background_tiles(options: &Options, state: &State, context: &Rc<web_sys
         context.fill_rect( ox, oy, CELL_W, CELL_H);
         if !options.print_priority_tile_order {
           context.set_fill_style(&"black".into());
-          context.fill_text("S", ox + 13.0, oy + 21.0).expect("something lower error fill_text");
+          context.fill_text(format!("<{}>", factory.floor[coord].supply.gives.icon).as_str(), ox + 6.0, oy + 21.0).expect("something lower error fill_text");
         }
       }
       CellKind::Demand => {
@@ -1810,7 +1809,7 @@ fn paint_background_tiles(options: &Options, state: &State, context: &Rc<web_sys
         context.fill_rect( ox, oy, CELL_W, CELL_H);
         if !options.print_priority_tile_order {
           context.set_fill_style(&"black".into());
-          context.fill_text("D", ox + 13.0, oy + 21.0).expect("something lower error fill_text");
+          context.fill_text(format!(">{}<", factory.floor[coord].demand.part.icon).as_str(), ox + 8.0, oy + 21.0).expect("something lower error fill_text");
         }
       }
     }
