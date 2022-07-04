@@ -8,7 +8,6 @@
 // - import/export with clipboard
 // - stamp instead of paste button (paste on click)
 // - remove pause, move nodir there, add "play" icons to the timeline
-// - machine image full over all cells of the same machine
 // - supply/demand could say what they give/take
 // - auto-cancel selection/draw mode when trying to drag offer
 // - do not start selection drag outside of floor
@@ -317,6 +316,7 @@ pub fn start() -> Result<(), JsValue> {
   let img_machine1: web_sys::HtmlImageElement = load_tile("./img/machine1.png")?;
   let img_machine2: web_sys::HtmlImageElement = load_tile("./img/machine2.png")?;
   let img_machine3: web_sys::HtmlImageElement = load_tile("./img/machine3.png")?;
+  let img_machine4: web_sys::HtmlImageElement = load_tile("./img/machine4.png")?;
 
   // Tbh this whole Rc approach is copied from the original template. It works so why not, :shrug:
   let mouse_x = Rc::new(Cell::new(0.0));
@@ -571,7 +571,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_ui_buttons2(&mut options, &mut state, &context, &mouse_state);
 
         // TODO: wait for tiles to be loaded because first few frames won't paint anything while the tiles are loading...
-        paint_background_tiles(&options, &state, &context, &factory, &belt_tile_images, &img_machine2);
+        paint_background_tiles(&options, &state, &context, &factory, &belt_tile_images, &img_machine4);
         paint_ports(&context, &factory);
         paint_belt_items(&context, &factory, &part_tile_sprite);
 
@@ -1789,7 +1789,11 @@ fn paint_background_tiles(options: &Options, state: &State, context: &Rc<web_sys
         context.draw_image_with_html_image_element_and_dw_and_dh(&img, ox, oy, CELL_W, CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
       },
       CellKind::Machine => {
-        context.draw_image_with_html_image_element_and_dw_and_dh(img_machine2, ox, oy, CELL_W, CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+        // For machines, paint the top-left cell only but make the painted area cover the whole machine
+        // TODO: each machine size should have a unique, customized, sprite
+        if factory.floor[coord].machine.main_coord == coord {
+          context.draw_image_with_html_image_element_and_dw_and_dh(img_machine2, ox, oy, factory.floor[coord].machine.cell_width as f64 * CELL_W, factory.floor[coord].machine.cell_height as f64 * CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+        }
       },
       CellKind::Supply => {
         // TODO: paint supply image
