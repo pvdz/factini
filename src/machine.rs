@@ -154,7 +154,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
   {
     // Find the input connected to a belt with matching part as any of the inputs that await one
     for index in 0..factory.floor[main_coord].ins.len() {
-      let (sub_dir, sub_coord, _main_neighbor_coord, _main_neighbor_in_dir) = factory.floor[main_coord].ins[index];
+      let (sub_dir, sub_coord, _main_neighbor_coord, main_neighbor_in_dir) = factory.floor[main_coord].ins[index];
       let (from_coord, incoming_dir ) = match sub_dir {
         Direction::Up => ( factory.floor[sub_coord].coord_u, Direction::Down ),
         Direction::Right => ( factory.floor[sub_coord].coord_r, Direction::Left ),
@@ -164,10 +164,11 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
 
       // Can't we assume ocoord exists here (use unwrap instead)?
       if let Some(from_coord) = from_coord {
-        // TODO: can we assume the other side is a belt?
         if factory.floor[from_coord].kind == CellKind::Belt {
+          // Verify that there is a part, the part is at 100% progress, and that the part is determined to go towards the machine
           let belt_part = factory.floor[from_coord].belt.part.kind;
-          if belt_part != PartKind::None && factory.floor[from_coord].belt.part_progress >= factory.floor[from_coord].belt.speed {
+          if belt_part != PartKind::None && !factory.floor[from_coord].belt.part_to_tbd && factory.floor[from_coord].belt.part_to == main_neighbor_in_dir && factory.floor[from_coord].belt.part_progress >= factory.floor[from_coord].belt.speed {
+            // Check whether it fits in any input slot. If so, put it there. Otherwise trash it unless all slots are full (only trash input parts while actually waiting for more input).
             if belt_part == factory.floor[main_coord].machine.input_1_want.kind && belt_part != factory.floor[main_coord].machine.input_1_have.kind && factory.floor[main_coord].machine.input_1_have.kind == PartKind::None {
               if options.print_moves || options.print_moves_machine {
                 log(format!("({}) Machine @{} (sub @{}) accepting part {:?} as input1 from belt @{}, had {:?}", factory.ticks, main_coord, sub_coord, belt_part, from_coord, factory.floor[main_coord].machine.input_1_have));

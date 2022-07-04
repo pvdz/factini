@@ -631,3 +631,36 @@ fn one_to_three_crossing() {
   print_floor_with_views(options, state, &mut factory);
 
 }
+
+fn greedy_machine() {
+  // If a machine was next to a belt split it would still eat all the parts from the belt,
+  // regardless of the direction the port was going into.
+
+  let map = "\
+    .........d.......\n\
+    sbbbaaabbb.......\n\
+    ...baaa..........\n\
+    ...baaa..........\n\
+    ...b.b...........\n\
+    ...b.b...........\n\
+    sbbbbb...........\n\
+    .................\n\
+    .................\n\
+    .................\n\
+    .................\n\
+    .................\n\
+    .................\n\
+    .................\n\
+    .................\n\
+    .................\n\
+    .................\n\
+    s1 = w\n\
+    s1 = s\n\
+    d1 = b\n\
+    m1 = ws -> b\n\
+  ";
+  let mut factory = create_factory(options, state, map.to_string());
+  println!("prio: {:?}", factory.prio);
+  print_floor_with_views(options, state, &mut factory);
+
+}

@@ -13,7 +13,6 @@
 // - auto-create trash when moving unconnected belt against edge?
 // - auto-cancel selection/draw mode when trying to drag offer
 // - do not start selection drag outside of floor
-// - split next to machine will still pick up part even if it was not bound for the machine
 // - input (string map) validation
 
 // This is required to export panic to the web
@@ -2067,8 +2066,8 @@ fn paint_cell_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &
 
   // // Paint in/out rotation index
   let mut in_coords = factory.floor[cell_selection.coord].ins.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
-  context.fill_text(format!("ins:  {:?}", factory.floor[cell_selection.coord].ins.iter().map(|(d,..)| match d { Direction::Up => 'u', Direction::Right => 'r', Direction::Down => 'd', Direction::Left => 'l'})).as_str(), UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_OY + 3.0 * UI_FONT_H).expect("to text");
-  context.fill_text(format!("outs: {:?}", factory.floor[cell_selection.coord].outs.iter().map(|(d,..)| match d { Direction::Up => 'u', Direction::Right => 'r', Direction::Down => 'd', Direction::Left => 'l'})).as_str(), UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_OY + 4.0 * UI_FONT_H).expect("to text");
+  context.fill_text(format!("ins:  {}", ins_outs_to_str(&factory.floor[cell_selection.coord].ins)).as_str(), UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_OY + 3.0 * UI_FONT_H).expect("to text");
+  context.fill_text(format!("outs: {}", ins_outs_to_str(&factory.floor[cell_selection.coord].outs)).as_str(), UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_OY + 4.0 * UI_FONT_H).expect("to text");
 
   if factory.floor[cell_selection.coord].kind == CellKind::Belt && factory.floor[cell_selection.coord].belt.part.kind != PartKind::None{
     // Paint current part details
@@ -2432,4 +2431,9 @@ fn document() -> web_sys::Document {
 }
 fn body() -> web_sys::HtmlElement {
   document().body().expect("document should have a body")
+}
+
+fn ins_outs_to_str(list: &Vec<(Direction, usize, usize, Direction)>) -> String {
+  let map = list.iter().map(|(d,..)| match d { Direction::Up => 'u', Direction::Right => 'r', Direction::Down => 'd', Direction::Left => 'l'});
+  return map.collect::<String>();
 }
