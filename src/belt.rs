@@ -1049,6 +1049,51 @@ pub fn belt_discover_ins_and_outs(factory: &mut Factory, coord: usize) {
   };
 }
 
+pub fn connect_to_neighbor_dead_end_belts(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize) {
+  log(format!("connect_to_neighbor_dead_end_belts({})", coord));
+
+  let from_machine = factory.floor[coord].kind == CellKind::Machine;
+  // Connect if the neighbor belt is a dead end or has no ports at all
+  // Ignores the case where the neighbor is a dead end that leads to this coord already
+  if let Some(ocoord) = factory.floor[coord].coord_u {
+    if factory.floor[ocoord].kind == CellKind::Belt && port_count(factory, ocoord) <= 1 {
+      if from_machine { cell_connect_if_possible(options, state, factory, ocoord, coord, 0, 1); }
+      else { cell_connect_if_possible(options, state, factory, coord, ocoord, 0, -1); }
+      fix_belt_meta(factory, ocoord);
+      // Note: the supply should not need a meta update but maybe that changes later?
+      fix_belt_meta(factory, coord);
+    }
+  }
+  if let Some(ocoord) = factory.floor[coord].coord_r {
+    if factory.floor[ocoord].kind == CellKind::Belt && port_count(factory, ocoord) <= 1 {
+      if from_machine { cell_connect_if_possible(options, state, factory, ocoord, coord, -1, 0); }
+      else { cell_connect_if_possible(options, state, factory, coord, ocoord, 1, 0); }
+      fix_belt_meta(factory, ocoord);
+      // Note: the supply should not need a meta update but maybe that changes later?
+      fix_belt_meta(factory, coord);
+    }
+  }
+  if let Some(ocoord) = factory.floor[coord].coord_d {
+    log(format!("- has down neighbor"));
+    if factory.floor[ocoord].kind == CellKind::Belt && port_count(factory, ocoord) <= 1 {
+      log(format!("  - down is a belt with one or zero ports. connect it!"));
+      if from_machine { cell_connect_if_possible(options, state, factory, ocoord, coord, 0, -1); }
+      else { cell_connect_if_possible(options, state, factory, coord, ocoord, 0, 1); }
+      fix_belt_meta(factory, ocoord);
+      // Note: the supply should not need a meta update but maybe that changes later?
+      fix_belt_meta(factory, coord);
+    }
+  }
+  if let Some(ocoord) = factory.floor[coord].coord_l {
+    if factory.floor[ocoord].kind == CellKind::Belt && port_count(factory, ocoord) <= 1 {
+      if from_machine { cell_connect_if_possible(options, state, factory, ocoord, coord, 1, 0); }
+      else { cell_connect_if_possible(options, state, factory, coord, ocoord, -1, 0); }
+      fix_belt_meta(factory, ocoord);
+      // Note: the supply should not need a meta update but maybe that changes later?
+      fix_belt_meta(factory, coord);
+    }
+  }
+}
 
 const BOX_ARROW_U: char = '^';
 const BOX_ARROW_R: char = '>';

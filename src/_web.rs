@@ -12,7 +12,7 @@
 // - supply/demand could say what they give/take
 // - auto-create trash when moving unconnected belt against edge?
 // - auto-cancel selection mode when trying to drag offer
-// - connect machines, demands, and supplies to dangling belts when placed
+// - split next to machine will still pick up part even if it was not bound for the machine
 
 // This is required to export panic to the web
 use std::panic;
@@ -1179,16 +1179,22 @@ fn on_dragend_offer_over_floor(options: &mut Options, state: &mut State, factory
           }
         }
 
+        log(format!("Attaching machine to neighbor dead ending belts"));
+        for i in 0..factory.floor[ccoord].machine.coords.len() {
+          let coord = factory.floor[ccoord].machine.coords[i];
+          connect_to_neighbor_dead_end_belts(options, state, factory, coord);
+        }
+
         machine_discover_ins_and_outs(factory, ccoord);
 
         factory.changed = true;
       } else {
-        log(format!("Dropped a machine on the edge. Ignoring."));
+        log(format!("Dropped a machine on the edge. Ignoring. {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize));
       }
     }
     CellKind::Supply => {
-      if (last_mouse_up_cell_x == 0.0 || last_mouse_up_cell_x == FLOOR_CELLS_W as f64 - 1.0) != (last_mouse_up_cell_y == 0.0 || last_mouse_up_cell_y == FLOOR_CELLS_H as f64 - 1.0) {
-        log(format!("Dropped a supply on an edge cell that is not corner. Deploying..."));
+      if is_edge_not_corner(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize) {
+        log(format!("Dropped a supply on an edge cell that is not corner. Deploying... {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize));
         // If there's already something on this cell then we need to remove it first
         if factory.floor[last_mouse_up_cell_coord].kind != CellKind::Empty {
           // Must be supply or demand
@@ -1199,13 +1205,14 @@ fn on_dragend_offer_over_floor(options: &mut Options, state: &mut State, factory
         }
         log(format!("Add new supply cell..."));
         factory.floor[last_mouse_up_cell_coord] = supply_cell(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_c(factory.offers[mouse_state.offer_index].supply_icon), 1, 1, 1);
+        connect_to_neighbor_dead_end_belts(options, state, factory, last_mouse_up_cell_coord);
         factory.changed = true;
       } else {
-        log(format!("Dropped a supply on the floor or a corner. Ignoring."));
+        log(format!("Dropped a supply on the floor or a corner. Ignoring. {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize));
       }
     }
     CellKind::Demand => {
-      if (last_mouse_up_cell_x == 0.0 || last_mouse_up_cell_x == FLOOR_CELLS_W as f64 - 1.0) != (last_mouse_up_cell_y == 0.0 || last_mouse_up_cell_y == FLOOR_CELLS_H as f64 - 1.0) {
+      if is_edge_not_corner(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize) {
         log(format!("Dropped a demand on an edge cell that is not corner. Deploying..."));
         // If there's already something on this cell then we need to remove it first
         if factory.floor[last_mouse_up_cell_coord].kind != CellKind::Empty {
@@ -1217,9 +1224,10 @@ fn on_dragend_offer_over_floor(options: &mut Options, state: &mut State, factory
         }
         log(format!("Add new demand cell..."));
         factory.floor[last_mouse_up_cell_coord] = demand_cell(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_c(factory.offers[mouse_state.offer_index].supply_icon));
+        connect_to_neighbor_dead_end_belts(options, state, factory, last_mouse_up_cell_coord);
         factory.changed = true;
       } else {
-        log(format!("Dropped a demand on the floor or a corner. Ignoring."));
+        log(format!("Dropped a demand on the floor or a corner. Ignoring. {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize));
       }
     }
     CellKind::Empty => panic!("no"),
@@ -1287,8 +1295,8 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, factory: &
     let ((cell_x2, cell_y2), belt_type2, _port_in_dir2, _unused) = track[1]; // LAst element has no outbound port here
     let coord2 = to_coord(cell_x2, cell_y2);
 
-    let dx = (cell_x1 as i8) - (cell_x2 as i8);
-    let dy = (cell_y1 as i8) - (cell_y2 as i8);
+    let dx = (cell_x2 as i8) - (cell_x1 as i8);
+    let dy = (cell_y2 as i8) - (cell_y1 as i8);
     assert!((dx == 0) != (dy == 0), "one and only one of dx or dy is zero");
     assert!(dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1, "since they are adjacent they must be -1, 0, or 1");
 
@@ -1314,20 +1322,20 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, factory: &
 
       let ( dir1, dir2) = match ( dx, dy ) {
         ( 0 , -1 ) => {
-          // y2 was bigger so xy1 is above xy2
-          (Direction::Down, Direction::Up)
-        }
-        ( 1 , 0 ) => {
-          // x1 was bigger so xy1 is right of xy2
-          (Direction::Left, Direction::Right)
-        }
-        ( 0 , 1 ) => {
           // x1 was bigger so xy1 is under xy2
           (Direction::Up, Direction::Down)
         }
-        ( -1 , 0 ) => {
+        ( 1 , 0 ) => {
           // x2 was bigger so xy1 is left of xy2
           (Direction::Right, Direction::Left)
+        }
+        ( 0 , 1 ) => {
+          // y2 was bigger so xy1 is above xy2
+          (Direction::Down, Direction::Up)
+        }
+        ( -1 , 0 ) => {
+          // x1 was bigger so xy1 is right of xy2
+          (Direction::Left, Direction::Right)
         }
         _ => panic!("already asserted the range of x and y"),
       };
@@ -1380,7 +1388,7 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, factory: &
 
         if index > 0 {
           // (First element has no inbound)
-          cell_connect_if_possible(options, state, factory, pcoord, coord, (px as i8) - (cell_x as i8), (py as i8) - (cell_y as i8));
+          cell_connect_if_possible(options, state, factory, pcoord, coord, (cell_x as i8) - (px as i8), (cell_y as i8) - (py as i8));
         }
 
       } else if mouse_state.last_down_button == 2 {

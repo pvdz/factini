@@ -46,3 +46,11 @@ pub fn port_disconnect_cell(factory: &mut Factory, coord: usize, dir: Direction)
 pub fn serialize_ports(factory: &Factory, coord: usize) -> String {
   return format!("ports @{}:  {:?}  {:?}  {:?}  {:?}", coord, factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l);
 }
+
+pub fn port_count(factory: &Factory, coord: usize) -> u8 {
+  return
+    if factory.floor[coord].port_u != Port::None { 1 } else { 0 } +
+    if factory.floor[coord].port_r != Port::None { 1 } else { 0 } +
+    if factory.floor[coord].port_d != Port::None { 1 } else { 0 } +
+    if factory.floor[coord].port_l != Port::None { 1 } else { 0 };
+}

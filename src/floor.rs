@@ -867,6 +867,10 @@ pub fn is_edge(x: usize, y: usize) -> bool {
   return x == 0 || y == 0 || x == FLOOR_CELLS_W - 1 || y == FLOOR_CELLS_H - 1;
 }
 
+pub fn is_edge_not_corner(x: usize, y: usize) -> bool {
+  return (x == 0 || x == FLOOR_CELLS_W - 1) != (y == 0 || y == FLOOR_CELLS_H - 1);
+}
+
 pub fn to_xy(coord: usize) -> (usize, usize) {
   // Return 0,0 if coord is oob (so for edge cells)
 
