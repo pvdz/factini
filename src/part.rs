@@ -13,6 +13,7 @@ pub enum PartKind {
   WoodenStick,
   BlueWand,
   GoldenBlueWand,
+  Trash, // Pseudo special case
 }
 
 pub const fn part_none() -> Part {
@@ -29,6 +30,7 @@ pub const fn part_c(icon: char) -> Part {
       's' => PartKind::Sapphire,
       'b' => PartKind::BlueWand,
       'g' => PartKind::GoldenBlueWand,
+      't' => PartKind::Trash,
       ' ' => PartKind::None,
       _ => PartKind::None,
     },

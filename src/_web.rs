@@ -10,7 +10,6 @@
 // - remove pause, move nodir there, add "play" icons to the timeline
 // - machine image full over all cells of the same machine
 // - supply/demand could say what they give/take
-// - auto-create trash when moving unconnected belt against edge?
 // - auto-cancel selection/draw mode when trying to drag offer
 // - do not start selection drag outside of floor
 // - input (string map) validation
@@ -1099,7 +1098,7 @@ fn on_up_inside_floor(options: &mut Options, state: &mut State, factory: &mut Fa
 
   if mouse_state.was_dragging {
     if mouse_state.dragging_offer {
-      on_dragend_offer_over_floor(options, state, factory, mouse_state);
+      on_drag_end_offer_over_floor(options, state, factory, mouse_state);
     }
     // Drag ended on the floor, did drag start on the floor?
     else if bounds_check(mouse_state.last_down_world_x - WORLD_OFFSET_X, mouse_state.last_down_world_y - WORLD_OFFSET_Y, 0.0,  0.0,WORLD_WIDTH, WORLD_HEIGHT) {
@@ -1112,7 +1111,7 @@ fn on_up_inside_floor(options: &mut Options, state: &mut State, factory: &mut Fa
     on_click_inside_floor(options, state, factory, cell_selection, mouse_state);
   }
 }
-fn on_dragend_offer_over_floor(options: &mut Options, state: &mut State, factory: &mut Factory, mouse_state: &MouseState) {
+fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, factory: &mut Factory, mouse_state: &MouseState) {
   log(format!("on_drag_offer_into_floor()"));
 
   let last_mouse_up_cell_x = ((mouse_state.last_up_world_x - WORLD_OFFSET_X) / CELL_W).floor();
@@ -1306,12 +1305,20 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, factory: &
       // Create a port between these two cells, but none of the other cells.
 
       if factory.floor[coord1].kind == CellKind::Empty {
-        if is_middle(cell_x1, cell_y1) {
+        if is_edge_not_corner(cell_x1, cell_y1) {
+          // Cell is empty so place a trash supplier here as a placeholder
+          factory.floor[coord1] = supply_cell(cell_x1, cell_y1, part_c('t'), 0, 0, 0);
+        }
+        else if is_middle(cell_x1, cell_y1) {
           factory.floor[coord1] = belt_cell(cell_x1, cell_y1, belt_type_to_belt_meta(belt_type1));
         }
       }
       if factory.floor[coord2].kind == CellKind::Empty {
-        if is_middle(cell_x2, cell_y2) {
+        if is_edge_not_corner(cell_x2, cell_y2) {
+          // Cell is empty so place a trash demander here as a placeholder
+          factory.floor[coord2] = demand_cell(cell_x2, cell_y2, part_c('t'));
+        }
+        else if is_middle(cell_x2, cell_y2) {
           factory.floor[coord2] = belt_cell(cell_x2, cell_y2, belt_type_to_belt_meta(belt_type2));
         }
       }
@@ -1376,14 +1383,27 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, factory: &
 
       if mouse_state.last_down_button == 1 {
         // Staple the track on top of the existing layout
-        if factory.floor[coord].kind == CellKind::Empty && is_middle(cell_x, cell_y) {
-          factory.floor[coord] = belt_cell(cell_x, cell_y, belt_type_to_belt_meta(belt_type));
+        if factory.floor[coord].kind == CellKind::Empty {
+          if is_edge_not_corner(cell_x, cell_y) {
+            if index == 0 {
+              factory.floor[coord] = supply_cell(cell_x, cell_y, part_c('t'), 0, 0, 0);
+            }
+            else {
+              // Note: the drag can only start inside the floor, so we don't have to worry about
+              //       the index here since we always drag in a straight line. Once the edge is
+              //       reached, we assume the line to end and we can put a trash Demand down.
+              factory.floor[coord] = demand_cell(cell_x, cell_y, part_c('t'));
+            }
+          }
+          else if is_middle(cell_x, cell_y) {
+            factory.floor[coord] = belt_cell(cell_x, cell_y, belt_type_to_belt_meta(belt_type));
 
-          // Connect the end points to any existing neighboring cells if not already connected
-          if index == 0 || index == len - 1 {
-            // log(format!("    -- okay @{} got {:?} ;; {:?} {:?} {:?} {:?}", coord, belt_type, factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
-            // log(format!("  - connect_belt_to_existing_neighbor_belts(), before: {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
-            connect_belt_to_existing_neighbor_cells(factory, coord);
+            // Connect the end points to any existing neighboring cells if not already connected
+            if index == 0 || index == len - 1 {
+              // log(format!("    -- okay @{} got {:?} ;; {:?} {:?} {:?} {:?}", coord, belt_type, factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
+              // log(format!("  - connect_belt_to_existing_neighbor_belts(), before: {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
+              connect_belt_to_existing_neighbor_cells(factory, coord);
+            }
           }
         }
 
@@ -1409,6 +1429,11 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, factory: &
       px = cell_x;
       py = cell_y;
       pcoord = coord;
+
+      if index > 0 && is_edge(cell_x, cell_y) {
+        // The line can cover multiple edge cells but we only care about the first one.
+        break;
+      }
     }
   }
 
@@ -2396,6 +2421,11 @@ fn paint_segment_part(context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile
     PartKind::GoldenBlueWand => {
       // This is the golden blue wand
       (4.0, 11.0)
+      // context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(context, part_tile_sprite, dx, dy, dw, dh, 4.0, 11.0, segx, segy, sw, sh).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+    },
+    PartKind::Trash => {
+      // This is something that looks like a grey rock
+      (11.0, 10.0)
       // context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(context, part_tile_sprite, dx, dy, dw, dh, 4.0, 11.0, segx, segy, sw, sh).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
     },
     PartKind::None => {
