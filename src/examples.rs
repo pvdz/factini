@@ -599,3 +599,35 @@ fn two_supplies_one_demand_switching() {
   print_floor_with_views(options, state, &mut factory);
 
 }
+
+fn one_to_three_crossing() {
+  // A crossing with one inbound and three outbounds. Was broken so I needed a test.
+
+  let map = "\
+    ....s.d..........\n\
+    ....b.b..........\n\
+    ....b.b..........\n\
+    dbbbbbb..........\n\
+    ....b............\n\
+    dbbbb............\n\
+    .................\n\
+    .................\n\
+    .................\n\
+    .................\n\
+    .................\n\
+    .................\n\
+    .................\n\
+    .................\n\
+    .................\n\
+    .................\n\
+    .................\n\
+    s1 = w s:10 c:5\n\
+    d1 = s\n\
+    d2 = s\n\
+    d3 = s\n\
+  ";
+  let mut factory = create_factory(options, state, map.to_string());
+  println!("prio: {:?}", factory.prio);
+  print_floor_with_views(options, state, &mut factory);
+
+}

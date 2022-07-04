@@ -37,10 +37,8 @@ pub struct Cell {
   pub port_r: Port,
   pub port_d: Port,
   pub port_l: Port,
-  pub ins: Vec<(Direction, usize, usize, Direction)>, // (curr outgoing dir, curr coord (relevant for machines), target coord, target incoming dir)
-  pub outs: Vec<(Direction, usize, usize, Direction)>, // (curr outgoing dir, curr coord (relevant for machines), target coord, target incoming dir)
-  pub inrot: u64, // Rotate ins vec
-  pub outrot: u64, // Rotate outs vec
+  pub ins: Vec<(Direction, usize, usize, Direction)>, // Ordered priority list of tuples: (curr outgoing dir, curr coord (relevant for machines), target coord, target incoming dir)
+  pub outs: Vec<(Direction, usize, usize, Direction)>, // Ordered priority list of tuples: (curr outgoing dir, curr coord (relevant for machines), target coord, target incoming dir)
 
   // This flag is used during pathing
   pub marked: bool,
@@ -87,8 +85,6 @@ pub const fn empty_cell(x: usize, y: usize) -> Cell {
     coord_l,
     ins: vec!(),
     outs: vec!(),
-    inrot: 0,
-    outrot: 0,
 
     port_u: Port::None,
     port_r: Port::None,
@@ -133,8 +129,6 @@ pub fn belt_cell(x: usize, y: usize, meta: BeltMeta) -> Cell {
     coord_l: Some(to_coord_left(coord)),
     ins: vec!(), // To be filled by the auto layout func
     outs: vec!(), // To be filled by the auto layout func
-    inrot: 0,
-    outrot: 0,
 
     port_u: meta.port_u, // Port::Unknown,
     port_r: meta.port_r,
@@ -178,8 +172,6 @@ pub fn machine_any_cell(x: usize, y: usize, cell_width: usize, cell_height: usiz
     coord_l,
     ins: vec!(),
     outs: vec!(),
-    inrot: 0,
-    outrot: 0,
 
     port_u: Port::Unknown,
     port_r: Port::Unknown,
@@ -223,8 +215,6 @@ pub fn machine_main_cell(x: usize, y: usize, cell_width: usize, cell_height: usi
     coord_l,
     ins: vec!(),
     outs: vec!(),
-    inrot: 0,
-    outrot: 0,
 
     port_u: Port::Unknown,
     port_r: Port::Unknown,
@@ -268,8 +258,6 @@ pub fn machine_sub_cell(x: usize, y: usize, main_coord: usize) -> Cell {
     coord_l,
     ins: vec!(),
     outs: vec!(),
-    inrot: 0,
-    outrot: 0,
 
     port_u: Port::Unknown,
     port_r: Port::Unknown,
@@ -285,6 +273,55 @@ pub fn machine_sub_cell(x: usize, y: usize, main_coord: usize) -> Cell {
   };
 }
 
+pub fn back_of_the_line(ins_or_outs: &mut Vec<(Direction, usize, usize, Direction)>, index: usize) {
+  // Make sure the element at index is at the end of the list.
+
+  let len = ins_or_outs.len();
+  assert!(len > 0, "if this function was called then there should at least be one port in this list...");
+
+  if len == 4 {
+    // I'm not sure if this is a realistic case but you could have a part on a cell and then change
+    // its last port to be inbound, causing all ports to be inbound. I think we can prevent that
+    // case but oh well. Just noop it. Not going to care, not going to crash.
+    return;
+  }
+
+  // There's three simple cases left to deal with: 1, 2, or 3 elements. For machines there's 4+
+
+  if len == 1 {
+    // Noop. The list can't change.
+    return;
+  }
+
+  if len == 2 {
+    // Swap if the first element was picked
+    // If not then the last element is already last which is a noop
+    if index == 0 {
+      ins_or_outs.swap(0, 1);
+    }
+    return;
+  }
+
+  if len == 3 {
+    // Now the case depends on the index.
+    // If index is 0 then swap twice. If index is 1 then swap once. Otherwise do not swap at all.
+    if index <= 1 {
+      ins_or_outs.swap(0, 1);
+    }
+    if index == 0 {
+      ins_or_outs.swap(1, 2);
+    }
+    return;
+  }
+
+  // Len is 4+. This happens with machines who can have one port per outward facing edge.
+  // This is the most expensive one because we just use a loop but so be it. I think the
+  // above set of cases still catch the majority of machines as well.
+
+  for i in index..len-1 {
+    ins_or_outs.swap(index, index+1);
+  }
+}
 
 pub fn supply_cell(x: usize, y: usize, part: Part, speed: u64, cooldown: u64, price: i32) -> Cell {
   let coord = x + y * FLOOR_CELLS_W;
@@ -314,8 +351,6 @@ pub fn supply_cell(x: usize, y: usize, part: Part, speed: u64, cooldown: u64, pr
     coord_l,
     ins: vec!(),
     outs: vec!(( outgoing_dir, coord, neighbor_coord, neighbor_incoming_dir )),
-    inrot: 0,
-    outrot: 0,
 
     port_u: if y == FLOOR_CELLS_H - 1 { Port::Outbound } else { Port::None },
     port_r: if x == 0                 { Port::Outbound } else { Port::None },
@@ -359,8 +394,6 @@ pub fn demand_cell(x: usize, y: usize, part: Part) -> Cell {
     coord_l,
     ins: vec!(( incoming_dir, coord, neighbor_coord, neighbor_outgoing_dir )),
     outs: vec!(),
-    inrot: 0,
-    outrot: 0,
 
     port_u: if y == FLOOR_CELLS_H - 1 { Port::Inbound } else { Port::None },
     port_r: if x == 0                 { Port::Inbound } else { Port::None },

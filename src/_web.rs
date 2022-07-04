@@ -11,8 +11,10 @@
 // - machine image full over all cells of the same machine
 // - supply/demand could say what they give/take
 // - auto-create trash when moving unconnected belt against edge?
-// - auto-cancel selection mode when trying to drag offer
+// - auto-cancel selection/draw mode when trying to drag offer
+// - do not start selection drag outside of floor
 // - split next to machine will still pick up part even if it was not bound for the machine
+// - input (string map) validation
 
 // This is required to export panic to the web
 use std::panic;
@@ -571,7 +573,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_ui_buttons2(&mut options, &mut state, &context, &mouse_state);
 
         // TODO: wait for tiles to be loaded because first few frames won't paint anything while the tiles are loading...
-        paint_background_tiles(&context, &factory, &belt_tile_images, &img_machine2);
+        paint_background_tiles(&options, &state, &context, &factory, &belt_tile_images, &img_machine2);
         paint_ports(&context, &factory);
         paint_belt_items(&context, &factory, &part_tile_sprite);
 
@@ -1746,7 +1748,7 @@ fn paint_world_cli(context: &Rc<web_sys::CanvasRenderingContext2d>, options: &mu
     context.fill_text(format!("{}", lines[n]).as_str(), 50.0, (n as f64) * 24.0 + 50.0).expect("something lower error fill_text");
   }
 }
-fn paint_background_tiles(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, belt_tile_images: &Vec<web_sys::HtmlImageElement>, img_machine2: &web_sys::HtmlImageElement) {
+fn paint_background_tiles(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, belt_tile_images: &Vec<web_sys::HtmlImageElement>, img_machine2: &web_sys::HtmlImageElement) {
   // Paint background cell tiles
   for coord in 0..FLOOR_CELLS_WH {
     let (cx, cy) = to_xy(coord);
@@ -1769,16 +1771,32 @@ fn paint_background_tiles(context: &Rc<web_sys::CanvasRenderingContext2d>, facto
         // TODO: paint supply image
         context.set_fill_style(&COLOR_SUPPLY.into());
         context.fill_rect( ox, oy, CELL_W, CELL_H);
-        context.set_fill_style(&"black".into());
-        context.fill_text("S", ox + 13.0, oy + 21.0).expect("something lower error fill_text");
+        if !options.print_priority_tile_order {
+          context.set_fill_style(&"black".into());
+          context.fill_text("S", ox + 13.0, oy + 21.0).expect("something lower error fill_text");
+        }
       }
       CellKind::Demand => {
         // TODO: paint demand image
         context.set_fill_style(&COLOR_DEMAND.into());
         context.fill_rect( ox, oy, CELL_W, CELL_H);
-        context.set_fill_style(&"black".into());
-        context.fill_text("D", ox + 13.0, oy + 21.0).expect("something lower error fill_text");
+        if !options.print_priority_tile_order {
+          context.set_fill_style(&"black".into());
+          context.fill_text("D", ox + 13.0, oy + 21.0).expect("something lower error fill_text");
+        }
       }
+    }
+  }
+
+  if options.print_priority_tile_order {
+    for i in 0..factory.prio.len() {
+      let coord = factory.prio[i];
+      let (cx, cy) = to_xy(coord);
+      if factory.floor[coord].kind == CellKind::Belt { context.set_stroke_style(&"white".into()); }
+      else { context.set_stroke_style(&"blue".into()); }
+      let ox = WORLD_OFFSET_X + CELL_W * (cx as f64) + (CELL_W / 2.0 - 7.0);
+      let oy = WORLD_OFFSET_Y + CELL_H * (cy as f64) + CELL_H / 2.0 + 3.0;
+      context.stroke_text(format!("{}", i).as_str(), ox, oy);
     }
   }
 }
@@ -2047,17 +2065,10 @@ fn paint_cell_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &
     },
   }
 
-  // // Paint ins and outs (pointless; only relevant for machine main coords)
-  // let mut in_coords = factory.floor[cell_selection.coord].ins.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
-  // in_coords.sort();
-  // in_coords.dedup();
-  // context.fill_text(".ins:", UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_OY + 3.0 * UI_FONT_H).expect("to text");
-  // context.fill_text(format!("  {:?}", in_coords).as_str(), UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_OY + 4.0 * UI_FONT_H).expect("to text");
-  // let mut out_coords = factory.floor[cell_selection.coord].outs.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
-  // out_coords.sort();
-  // out_coords.dedup();
-  // context.fill_text(".outs:", UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_OY + 5.0 * UI_FONT_H).expect("to text");
-  // context.fill_text(format!("  {:?}", out_coords).as_str(), UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_OY + 6.0 * UI_FONT_H).expect("to text");
+  // // Paint in/out rotation index
+  let mut in_coords = factory.floor[cell_selection.coord].ins.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
+  context.fill_text(format!("ins:  {:?}", factory.floor[cell_selection.coord].ins.iter().map(|(d,..)| match d { Direction::Up => 'u', Direction::Right => 'r', Direction::Down => 'd', Direction::Left => 'l'})).as_str(), UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_OY + 3.0 * UI_FONT_H).expect("to text");
+  context.fill_text(format!("outs: {:?}", factory.floor[cell_selection.coord].outs.iter().map(|(d,..)| match d { Direction::Up => 'u', Direction::Right => 'r', Direction::Down => 'd', Direction::Left => 'l'})).as_str(), UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_OY + 4.0 * UI_FONT_H).expect("to text");
 
   if factory.floor[cell_selection.coord].kind == CellKind::Belt && factory.floor[cell_selection.coord].belt.part.kind != PartKind::None{
     // Paint current part details
