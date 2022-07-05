@@ -7,7 +7,6 @@
 // - nodir button (mouse mode or all the things?)
 // - import/export with clipboard
 // - stamp instead of paste button (paste on click)
-// - remove pause, move nodir there, add "play" icons to the timeline
 // - auto-cancel selection/draw mode when trying to drag offer
 // - do not start selection drag outside of floor
 // - input (string map) validation
@@ -896,13 +895,30 @@ fn handle_mouse_up_over_menu_buttons(cell_selection: &mut CellSelection, mouse_s
           }
           factory.changed = true;
         }
-        3 => { // Dump
+        3 => { // Undir
+          log(format!("Applying undir..."));
+          for coord in 0..factory.floor.len() {
+            let (x, y) = to_xy(coord);
+            if factory.floor[coord].kind != CellKind::Supply && factory.floor[coord].kind != CellKind::Demand {
+              if factory.floor[coord].port_u != Port::None {
+                cell_set_port_u_to(factory, coord, Port::Unknown, to_coord_up(coord));
+              }
+              if factory.floor[coord].port_r != Port::None {
+                cell_set_port_r_to(factory, coord, Port::Unknown, to_coord_right(coord));
+              }
+              if factory.floor[coord].port_d != Port::None {
+                cell_set_port_d_to(factory, coord, Port::Unknown, to_coord_down(coord));
+              }
+              if factory.floor[coord].port_l != Port::None {
+                cell_set_port_l_to(factory, coord, Port::Unknown, to_coord_left(coord));
+              }
+            }
+          }
+          factory.changed = true;
+        }
+        4 => { // Dump
           log(format!("Dumping factory..."));
           log(format!("\n{}", generate_floor_dump(options, state, &factory).join("\n")));
-        }
-        4 => { // Pause / Unpause
-          log(format!("Toggling pause state..."));
-          state.paused = !state.paused;
         }
         5 => {
           log(format!("Restarting game at the start of next frame"));
@@ -1004,8 +1020,8 @@ fn handle_mouse_up_over_menu_buttons(cell_selection: &mut CellSelection, mouse_s
             factory.changed = true;
           }
         }
-        4 => { // Nodir
-          log(format!("Setting ports to unknown direction"));
+        4 => { // tbd
+          log(format!("(no button here)"));
         }
         5 => { // tbd
           log(format!("(no button here)"));
@@ -1669,9 +1685,15 @@ fn on_click_speed_bubbles(options: &mut Options, state: &mut State, mouse_state:
     let m = options.speed_modifier;
     options.speed_modifier = 0.5;
     log(format!("pressed time half, from {} to {}", m, options.speed_modifier));
-  } else if hit_check_speed_bubble(options, state, mouse_state, 2, "1") {
+  } else if hit_check_speed_bubble(options, state, mouse_state, 2, "⏭") {
     let m = options.speed_modifier;
-    options.speed_modifier = 1.0;
+    if m == 1.0 {
+      options.speed_modifier = 0.0;
+      state.paused = true;
+    } else {
+      options.speed_modifier = 1.0;
+      state.paused = false;
+    }
     log(format!("pressed time one, from {} to {}", m, options.speed_modifier));
   } else if hit_check_speed_bubble(options, state, mouse_state, 3, "2") {
     let m = options.speed_modifier;
@@ -2093,7 +2115,7 @@ fn paint_cell_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &
   }
 
   // // Paint in/out rotation index
-  let mut in_coords = factory.floor[cell_selection.coord].ins.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
+  // let mut in_coords = factory.floor[cell_selection.coord].ins.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
   context.fill_text(format!("ins:  {}", ins_outs_to_str(&factory.floor[cell_selection.coord].ins)).as_str(), UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_OY + 3.0 * UI_FONT_H).expect("to text");
   context.fill_text(format!("outs: {}", ins_outs_to_str(&factory.floor[cell_selection.coord].outs)).as_str(), UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_OY + 4.0 * UI_FONT_H).expect("to text");
 
@@ -2271,8 +2293,8 @@ fn paint_ui_buttons(options: &mut Options, state: &mut State, context: &Rc<web_s
   paint_ui_button(context, mouse_state, 0.0, "Empty");
   paint_ui_button(context, mouse_state, 1.0, "Unbelt");
   paint_ui_button(context, mouse_state, 2.0, "Unpart");
-  paint_ui_button(context, mouse_state, 3.0, "Dump");
-  paint_ui_button(context, mouse_state, 4.0, if state.paused { "Unpause" } else { "Pause" });
+  paint_ui_button(context, mouse_state, 3.0, "Undir");
+  paint_ui_button(context, mouse_state, 4.0, "Dump");
   paint_ui_button(context, mouse_state, 5.0, "Reset");
   paint_ui_button(context, mouse_state, 6.0, "Panic");
   assert!(UI_BUTTON_COUNT == 7.0, "Update after adding new buttons");
@@ -2299,7 +2321,7 @@ fn paint_ui_buttons2(options: &mut Options, state: &mut State, context: &Rc<web_
   paint_ui_button2(context, mouse_state, 1.0, "select", state.mouse_mode_selecting);
   paint_ui_button2(context, mouse_state, 2.0, "copy", false);
   paint_ui_button2(context, mouse_state, 3.0, "paste", false);
-  paint_ui_button2(context, mouse_state, 4.0, "nodir", false);
+  // paint_ui_button2(context, mouse_state, 4.0, "nodir", false);
   // paint_ui_button2(context, mouse_state, 5.0, "togoal"); // fast forward to goal
   // paint_ui_button2(context, mouse_state, 6.0, "Panic");
   assert!(UI_BUTTON_COUNT == 7.0, "Update after adding new buttons");
@@ -2324,7 +2346,7 @@ fn paint_ui_button2(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state
 fn paint_ui_time_control(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   paint_ui_speed_bubble(options, state, context, mouse_state, 0, "-");
   paint_ui_speed_bubble(options, state, context, mouse_state, 1, "½");
-  paint_ui_speed_bubble(options, state, context, mouse_state, 2, "1");
+  paint_ui_speed_bubble(options, state, context, mouse_state, 2, "⏭");
   paint_ui_speed_bubble(options, state, context, mouse_state, 3, "2");
   paint_ui_speed_bubble(options, state, context, mouse_state, 4, "+");
 }
@@ -2333,19 +2355,28 @@ fn paint_ui_speed_bubble(options: &Options, state: &State, context: &Rc<web_sys:
   let cy = UI_SPEED_BUBBLE_OY + 5.0;
   let cr = UI_SPEED_BUBBLE_RADIUS;
 
-  if text == "1" && options.speed_modifier == 1.0 {
+  if text == "⏭" && options.speed_modifier == 0.0 {
+    context.set_fill_style(&"tomato".into());
+  }
+  else if text == "⏭" && options.speed_modifier == 1.0 {
     context.set_fill_style(&"#0f0".into());
-  } else if text == "½" && options.speed_modifier == 0.5 {
+  }
+  else if text == "½" && options.speed_modifier == 0.5 {
     context.set_fill_style(&"#0f0".into());
-  } else if text == "2" && options.speed_modifier == 2.0 {
+  }
+  else if text == "2" && options.speed_modifier == 2.0 {
     context.set_fill_style(&"#0f0".into());
-  } else if text == "-" && options.speed_modifier < 0.5 {
+  }
+  else if text == "-" && (options.speed_modifier > 0.0 && options.speed_modifier < 0.5) {
     context.set_fill_style(&"#0f0".into());
-  } else if text == "+" && options.speed_modifier > 2.0 {
+  }
+  else if text == "+" && options.speed_modifier > 2.0 {
     context.set_fill_style(&"#0f0".into());
-  } else if bounds_check(mouse_state.world_x, mouse_state.world_y, cx - cr, cy - cr, cx + cr, cy + cr) {
+  }
+  else if bounds_check(mouse_state.world_x, mouse_state.world_y, cx - cr, cy - cr, cx + cr, cy + cr) {
     context.set_fill_style(&"#eee".into());
-  } else {
+  }
+  else {
     context.set_fill_style(&"#aaa".into());
   }
   context.begin_path();
