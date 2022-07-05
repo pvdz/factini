@@ -858,6 +858,10 @@ pub fn get_edge_neighbor(x: usize, y: usize, coord: usize) -> (usize, Direction,
 // │     └───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘     │
 // └───────────────────────────────────────────────────────┘
 
+pub fn is_floor(x: usize, y: usize) -> bool {
+  // Note: usize is
+  return x <= FLOOR_CELLS_W - 1 && y <= FLOOR_CELLS_H - 1;
+}
 
 pub fn is_middle(x: usize, y: usize) -> bool {
   return x > 0 && y > 0 && x < FLOOR_CELLS_W - 1 && y < FLOOR_CELLS_H - 1;

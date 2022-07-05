@@ -7,8 +7,6 @@
 // - nodir button (mouse mode or all the things?)
 // - import/export with clipboard
 // - stamp instead of paste button (paste on click)
-// - auto-cancel selection/draw mode when trying to drag offer
-// - do not start selection drag outside of floor
 // - input (string map) validation
 
 // This is required to export panic to the web
@@ -585,11 +583,11 @@ pub fn start() -> Result<(), JsValue> {
         }
         else if state.mouse_mode_selecting {
           if mouse_state.is_down {
-            if bounds_check(mouse_state.cell_x, mouse_state.cell_y, 0.0, 0.0, FLOOR_CELLS_W as f64, FLOOR_CELLS_H as f64) {
+            let down_cell_x = ((mouse_state.last_down_world_x - WORLD_OFFSET_X) / CELL_W).floor();
+            let down_cell_y = ((mouse_state.last_down_world_y - WORLD_OFFSET_Y) / CELL_H).floor();
+            if down_cell_x >= 0.0 && down_cell_y >= 0.0 && is_floor(down_cell_x as usize, down_cell_y as usize) && mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && is_floor(mouse_state.cell_x as usize, mouse_state.cell_y as usize) {
               // Draw dotted stroke rect around cells from mouse down cell to current cell
               context.set_stroke_style(&"blue".into());
-              let down_cell_x = ((mouse_state.last_down_world_x - WORLD_OFFSET_X) / CELL_W).floor();
-              let down_cell_y = ((mouse_state.last_down_world_y - WORLD_OFFSET_Y) / CELL_H).floor();
               let now_cell_x = mouse_state.cell_x.floor();
               let now_cell_y = mouse_state.cell_y.floor();
               context.stroke_rect(WORLD_OFFSET_X + down_cell_x.min(now_cell_x) * CELL_W, WORLD_OFFSET_Y + down_cell_y.min(now_cell_y) * CELL_H, (1.0 + (down_cell_x - now_cell_x).abs()) * CELL_W, (1.0 + (down_cell_y - now_cell_y).abs()) * CELL_H);
@@ -751,15 +749,34 @@ fn world_y_to_top_left_cell_y_while_dragging_offer(world_y: f64, offer_height: u
 }
 
 fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, factory: &mut Factory) {
+  let mut was_offer_drag_start = false;
+
+  if mouse_state.is_drag_start {
+    // Do this one before the erasing/selecting. It may cancel those states even if active.
+    let ( over_offer, offer_index ) = hit_test_offers(factory, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
+    if over_offer {
+      // Need to remember which offer we are currently dragging.
+      log(format!("Started to drag from offer {} ({:?})", offer_index, factory.offers[offer_index].kind));
+      mouse_state.dragging_offer = true;
+      mouse_state.over_offer = over_offer;
+      was_offer_drag_start = true;
+      state.mouse_mode_erasing = false;
+      state.mouse_mode_selecting = false;
+    }
+  }
+
   if state.mouse_mode_erasing {
-    if mouse_state.is_down && bounds_check(mouse_state.world_x, mouse_state.world_y, WORLD_OFFSET_X, WORLD_OFFSET_Y, WORLD_OFFSET_X + WORLD_WIDTH, WORLD_OFFSET_Y + WORLD_HEIGHT) {
-      // On the floor. Delete anything.
-      let coord = mouse_state.cell_coord;
-      if factory.floor[coord].kind != CellKind::Empty {
-        floor_delete_cell_at_partial(options, state, factory, coord);
-        factory.changed = true;
+    if mouse_state.is_down {
+      if bounds_check(mouse_state.world_x, mouse_state.world_y, WORLD_OFFSET_X, WORLD_OFFSET_Y, WORLD_OFFSET_X + WORLD_WIDTH, WORLD_OFFSET_Y + WORLD_HEIGHT) {
+        // On the floor. Delete anything.
+        let coord = mouse_state.cell_coord;
+        if factory.floor[coord].kind != CellKind::Empty {
+          floor_delete_cell_at_partial(options, state, factory, coord);
+          factory.changed = true;
+        }
       }
-    } else if mouse_state.was_up {
+    }
+    else if mouse_state.was_up {
       // Still allow to use menu buttons while deleting, but ignore other hit boxes
       log(format!("({}) handle_mouse_up_over_menu_buttons from erasing", factory.ticks));
       handle_mouse_up_over_menu_buttons(cell_selection, mouse_state, options, state, factory);
@@ -769,21 +786,27 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
 
   if state.mouse_mode_selecting {
     if mouse_state.was_up {
-      if bounds_check(mouse_state.world_x, mouse_state.world_y, WORLD_OFFSET_X, WORLD_OFFSET_Y, WORLD_OFFSET_X + WORLD_WIDTH, WORLD_OFFSET_Y + WORLD_HEIGHT) {
-        log(format!("was down in floor"));
-        let down_cell_x = ((mouse_state.last_down_world_x - WORLD_OFFSET_X) / CELL_W).floor();
-        let down_cell_y = ((mouse_state.last_down_world_y - WORLD_OFFSET_Y) / CELL_H).floor();
-        let now_cell_x = mouse_state.cell_x.floor();
-        let now_cell_y = mouse_state.cell_y.floor();
+      log(format!("mouse up with selection mode enabled..."));
+      let down_cell_x = ((mouse_state.last_down_world_x - WORLD_OFFSET_X) / CELL_W).floor();
+      let down_cell_y = ((mouse_state.last_down_world_y - WORLD_OFFSET_Y) / CELL_H).floor();
+      if mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && is_floor(mouse_state.cell_x as usize, mouse_state.cell_y as usize) {
+        log(format!("  was up on floor"));
+        if down_cell_x >= 0.0 && down_cell_y >= 0.0 && is_floor(down_cell_x as usize, down_cell_y as usize) {
+          log(format!("  was down in floor, too. ok!"));
+          let now_cell_x = mouse_state.cell_x.floor();
+          let now_cell_y = mouse_state.cell_y.floor();
 
-        cell_selection.x = down_cell_x.min(now_cell_x);
-        cell_selection.y = down_cell_y.min(now_cell_y);
-        cell_selection.x2 = down_cell_x.max(now_cell_x);
-        cell_selection.y2 = down_cell_y.max(now_cell_y);
-        cell_selection.on = true;
+          cell_selection.x = down_cell_x.min(now_cell_x);
+          cell_selection.y = down_cell_y.min(now_cell_y);
+          cell_selection.x2 = down_cell_x.max(now_cell_x);
+          cell_selection.y2 = down_cell_y.max(now_cell_y);
+          cell_selection.on = true;
+        } else {
+          log(format!("  not down in floor"));
+        }
       } else {
         // Still allow to use menu buttons while deleting, but ignore other hit boxes
-        log(format!("({}) handle_mouse_up_over_menu_buttons from selection", factory.ticks));
+        log(format!("({}) handle_mouse_up_over_menu_buttons() with selection mode enabled", factory.ticks));
         handle_mouse_up_over_menu_buttons(cell_selection, mouse_state, options, state, factory);
       }
     }
@@ -795,20 +818,6 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
       // Drag start on floor. Do nothing here.
       // This is computed on the fly and state is already recorded through other means.
       log(format!("Started dragging from floor"));
-    }
-    else {
-      log(format!("Started dragging not on floor"));
-
-      let ( over_offer, offer_index ) = hit_test_offers(factory, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
-      if over_offer {
-        // Need to remember which offer we are currently dragging.
-        log(format!("Started to drag from offer {} ({:?})", offer_index, factory.offers[offer_index].kind));
-        mouse_state.dragging_offer = true;
-        mouse_state.over_offer = over_offer;
-      } else {
-        // unsupported drag.
-        log(format!("Started dragging from unsupported location"));
-      }
     }
   }
 
@@ -932,7 +941,7 @@ fn handle_mouse_up_over_menu_buttons(cell_selection: &mut CellSelection, mouse_s
   }
   // Second row of buttons?
   else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_BUTTONS_OX, UI_BUTTONS_OY2, UI_BUTTONS_OX + UI_BUTTON_COUNT * (UI_BUTTON_W + UI_BUTTON_SPACING), UI_BUTTONS_OY2 + UI_BUTTON_H) {
-    log(format!("yeah ok?"));
+    log(format!("Second row of buttons"));
     let button_index = (mouse_state.last_up_world_x - UI_BUTTONS_OX) / (UI_BUTTON_W + UI_BUTTON_SPACING);
     if button_index % 1.0 < (UI_BUTTON_W / (UI_BUTTON_W + UI_BUTTON_SPACING)) {
       log(format!("({}) clicked inside button {}", factory.ticks, button_index));
