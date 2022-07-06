@@ -5,6 +5,7 @@
 // - import/export with clipboard
 // - input (string map) validation
 // - score card stuff
+// - small problem with tick_belt_take_from_belt when a belt crossing is next to a supply and another belt; it will ignore the other belt as input.
 
 // This is required to export panic to the web
 use std::panic;
@@ -707,8 +708,6 @@ fn world_y_to_top_left_cell_y_while_dragging_offer(world_y: f64, offer_height: u
 }
 
 fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, factory: &mut Factory) {
-  let mut was_offer_drag_start = false;
-
   if mouse_state.is_drag_start {
     // Do this one before the erasing/selecting. It may cancel those states even if active.
     let ( over_offer, offer_index ) = hit_test_offers(factory, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
@@ -717,7 +716,6 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
       log(format!("Started to drag from offer {} ({:?})", offer_index, factory.offers[offer_index].kind));
       mouse_state.dragging_offer = true;
       mouse_state.over_offer = over_offer;
-      was_offer_drag_start = true;
       state.mouse_mode_erasing = false;
       state.mouse_mode_selecting = false;
     }
@@ -1246,26 +1244,31 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, factory: &
       // Convert empty cells to belt cells.
       // Create a port between these two cells, but none of the other cells.
 
-      if factory.floor[coord1].kind == CellKind::Empty {
-        if is_edge_not_corner(cell_x1, cell_y1) {
-          // Cell is empty so place a trash supplier here as a placeholder
-          factory.floor[coord1] = supply_cell(cell_x1, cell_y1, part_c('t'), 0, 0, 0);
-        }
-        else if is_middle(cell_x1, cell_y1) {
-          factory.floor[coord1] = belt_cell(cell_x1, cell_y1, belt_type_to_belt_meta(belt_type1));
-        }
+      if is_edge(cell_x1, cell_y1) && is_edge(cell_x2, cell_y2) {
+        // Noop. Just don't.
       }
-      if factory.floor[coord2].kind == CellKind::Empty {
-        if is_edge_not_corner(cell_x2, cell_y2) {
-          // Cell is empty so place a trash demander here as a placeholder
-          factory.floor[coord2] = demand_cell(cell_x2, cell_y2, part_c('t'));
+      else {
+        if factory.floor[coord1].kind == CellKind::Empty {
+          if is_edge_not_corner(cell_x1, cell_y1) {
+            // Cell is empty so place a trash supplier here as a placeholder
+            factory.floor[coord1] = supply_cell(cell_x1, cell_y1, part_c('t'), 0, 0, 0);
+          }
+          else if is_middle(cell_x1, cell_y1) {
+            factory.floor[coord1] = belt_cell(cell_x1, cell_y1, belt_type_to_belt_meta(belt_type1));
+          }
         }
-        else if is_middle(cell_x2, cell_y2) {
-          factory.floor[coord2] = belt_cell(cell_x2, cell_y2, belt_type_to_belt_meta(belt_type2));
+        if factory.floor[coord2].kind == CellKind::Empty {
+          if is_edge_not_corner(cell_x2, cell_y2) {
+            // Cell is empty so place a trash demander here as a placeholder
+            factory.floor[coord2] = demand_cell(cell_x2, cell_y2, part_c('t'));
+          }
+          else if is_middle(cell_x2, cell_y2) {
+            factory.floor[coord2] = belt_cell(cell_x2, cell_y2, belt_type_to_belt_meta(belt_type2));
+          }
         }
-      }
 
-      cell_connect_if_possible(options, state, factory, coord1, coord2, dx, dy);
+        cell_connect_if_possible(options, state, factory, coord1, coord2, dx, dy);
+      }
     } else if mouse_state.last_down_button == 2 {
       // Delete the port between the two cells but leave everything else alone.
       // The coords must be adjacent to one side.
@@ -1315,6 +1318,8 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, factory: &
     // len > 2
     // Draw track if lmb, remove cells on track if rmb
 
+    let mut still_starting_on_edge = true; // start true until first middle cell
+    let mut already_ending_on_edge = false; // start false until still_starting_on_edge and current cell is edge
     let mut px = 0;
     let mut py = 0;
     let mut pcoord = 0;
@@ -1324,27 +1329,67 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, factory: &
       let coord = to_coord(cell_x, cell_y);
 
       if mouse_state.last_down_button == 1 {
-        // Staple the track on top of the existing layout
-        if factory.floor[coord].kind == CellKind::Empty {
-          if is_edge_not_corner(cell_x, cell_y) {
-            if index == 0 {
-              factory.floor[coord] = supply_cell(cell_x, cell_y, part_c('t'), 0, 0, 0);
-            }
-            else {
-              // Note: the drag can only start inside the floor, so we don't have to worry about
-              //       the index here since we always drag in a straight line. Once the edge is
-              //       reached, we assume the line to end and we can put a trash Demand down.
-              factory.floor[coord] = demand_cell(cell_x, cell_y, part_c('t'));
+        if still_starting_on_edge {
+          // Note: if the first cell is in the middle then the track does not start on the edge
+          if index == 0 {
+            log(format!("({}) first track part...", index));
+            if is_middle(cell_x, cell_y) {
+              // The track starts in the middle of the floor. Do not add a trashcan.
+              log(format!("({})  - in middle. still_starting_on_edge now false", index));
+              still_starting_on_edge = false;
             }
           }
+          // Still on the edge but not the first so the prior part of the track and all pieces
+          // before it were all on the edge. If this one is not then the previous cell should
+          // get the trashcan treatment. And otherwise we noop until the next cell.
           else if is_middle(cell_x, cell_y) {
-            factory.floor[coord] = belt_cell(cell_x, cell_y, belt_type_to_belt_meta(belt_type));
+            log(format!("({}) first middle part of track", index));
+            // Track started on the edge but has at least one segment in the middle.
+            // Create a trash on the previous (edge) cell if that cell is empty.
+            if factory.floor[pcoord].kind == CellKind::Empty {
+              factory.floor[pcoord] = supply_cell(px, py, part_c('t'), 0, 0, 0);
+            }
+            still_starting_on_edge = false;
+          }
+          // This means this and all prior track parts were on the edge. Move to next part.
+          else {
+            log(format!("({}) non-first-but-still-edge part of track", index));
+          }
+        }
+        else if is_edge_not_corner(cell_x, cell_y) {
+          log(format!("({}) ending edge part of track", index));
+          if !already_ending_on_edge {
+            log(format!("({}) - first ending edge part of track, already_ending_on_edge = true", index));
+            // Note: the drag can only start inside the floor, so we don't have to worry about
+            //       the index here since we always drag in a straight line. Once the edge is
+            //       reached, we assume the line to end and we can put a trash Demand down.
+            if factory.floor[coord].kind == CellKind::Empty {
+              factory.floor[coord] = demand_cell(cell_x, cell_y, part_c('t'));
+            }
 
-            // Connect the end points to any existing neighboring cells if not already connected
-            if index == 0 || index == len - 1 {
-              // log(format!("    -- okay @{} got {:?} ;; {:?} {:?} {:?} {:?}", coord, belt_type, factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
-              // log(format!("  - connect_belt_to_existing_neighbor_belts(), before: {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
-              connect_belt_to_existing_neighbor_cells(factory, coord);
+            already_ending_on_edge = true;
+          }
+        }
+
+        log(format!("({}) head-on-edge? {} tail-on-edge? {}", index, still_starting_on_edge, already_ending_on_edge));
+
+        // If not at the start or end of the track...
+        if !still_starting_on_edge && !already_ending_on_edge {
+          // Create middle cell
+
+          // Staple the track on top of the existing layout. If the cell is not empty then either
+          // it's a belt which we'll try to connect to the previous/next part of the belt. Or it's
+          // another piece that we don't want to override anyways, and will also be connected.
+          if factory.floor[coord].kind == CellKind::Empty {
+            if is_middle(cell_x, cell_y) {
+              factory.floor[coord] = belt_cell(cell_x, cell_y, belt_type_to_belt_meta(belt_type));
+
+              // Connect the end points to any existing neighboring cells if not already connected
+              if index == 0 || index == len - 1 {
+                // log(format!("    -- okay @{} got {:?} ;; {:?} {:?} {:?} {:?}", coord, belt_type, factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
+                // log(format!("  - connect_belt_to_existing_neighbor_belts(), before: {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
+                connect_belt_to_existing_neighbor_cells(factory, coord);
+              }
             }
           }
         }
@@ -1353,17 +1398,13 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, factory: &
           // (First element has no inbound)
           cell_connect_if_possible(options, state, factory, pcoord, coord, (cell_x as i8) - (px as i8), (cell_y as i8) - (py as i8));
         }
-
       } else if mouse_state.last_down_button == 2 {
         // Delete the cell if it is a belt, and in that case any port to it
-        match factory.floor[coord].kind {
-          CellKind::Belt => {
-            // Delete this belt tile and update the neighbors accordingly
-            floor_delete_cell_at_partial(options, state, factory, coord);
-          }
-          _ => (), // Do not delete machines, suppliers, or demanders. No need to delete empty cells
+        // Do not delete machines, suppliers, or demanders. No need to delete empty cells
+        if factory.floor[coord].kind == CellKind::Belt {
+          // Delete this belt tile and update the neighbors accordingly
+          floor_delete_cell_at_partial(options, state, factory, coord);
         }
-
       } else {
         // Ignore whatever this is.
       }
@@ -1371,11 +1412,6 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, factory: &
       px = cell_x;
       py = cell_y;
       pcoord = coord;
-
-      if index > 0 && is_edge(cell_x, cell_y) {
-        // The line can cover multiple edge cells but we only care about the first one.
-        break;
-      }
     }
   }
 
@@ -1730,7 +1766,7 @@ fn paint_background_tiles(options: &Options, state: &State, context: &Rc<web_sys
       else { context.set_stroke_style(&"blue".into()); }
       let ox = WORLD_OFFSET_X + CELL_W * (cx as f64) + (CELL_W / 2.0 - 7.0);
       let oy = WORLD_OFFSET_Y + CELL_H * (cy as f64) + CELL_H / 2.0 + 3.0;
-      context.stroke_text(format!("{}", i).as_str(), ox, oy);
+      context.stroke_text(format!("{}", i).as_str(), ox, oy).expect("stroke_text");
     }
   }
 }

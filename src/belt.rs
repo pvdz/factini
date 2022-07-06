@@ -248,43 +248,35 @@ pub fn belt_new(meta: BeltMeta) -> Belt {
 fn tick_belt_take_from_belt(options: &mut Options, state: &mut State, factory: &mut Factory, curr_coord: usize, curr_dir: Direction, from_coord: usize, from_dir: Direction) -> bool {
   // Take from neighbor belt if and only if the part is heading this way and at at least 100%
 
-  // if from_coord == 195 {
-  //   println!("@{} is attempting to fetch from @195, part={:?}, part_to={:?}, progress={}, dir must match={:?}",
-  //     curr_coord,
-  //     factory.floor[from_coord].belt.part.kind,
-  //     factory.floor[from_coord].belt.part_to,
-  //     factory.ticks - factory.floor[from_coord].belt.part_at < factory.floor[from_coord].belt.speed,
-  //     from_dir
-  //   );
-  // }
+  // if curr_coord == 52 { log(format!("tick_belt_one_inbound_dir {:?}", curr_dir)); }
 
   if factory.floor[from_coord].belt.part.kind == PartKind::None {
-    // if from_coord == 195 {  println!("@{} not fetching from @195 because no part", curr_coord, ); }
-    // if to_coord == 42 {
-    //   println!("        - no part, bailing");
+    // if curr_coord == 52 {
+    //   log(format!("        - no part, bailing"));
     // }
     // Nothing to take here.
     return false;
   }
 
   if factory.floor[from_coord].belt.part_to != from_dir {
-    // if from_coord == 195 {  println!("@{} not fetching from @195 because dir not match", curr_coord, ); }
-    // if to_coord == 42 {
-    //   println!("        - part not going here, bailing");
+    // if curr_coord == 52 {
+    //   log(format!("        - part not going here, bailing"));
     // }
     // Part is not moving into the same direction as from which we are looking right now, bail.
     return false;
   }
 
   if factory.floor[from_coord].belt.part_progress < factory.floor[from_coord].belt.speed {
-    // if from_coord == 195 {  println!("@{} not fetching from @195 because not 100%", curr_coord, ); }
-
-    // if to_coord == 42 {
-    //   println!("        - part not at 100%, bailing, {} - {} = {} < {}", factory.ticks, factory.floor[from_coord].belt.part_at, factory.ticks - factory.floor[from_coord].belt.part_at, factory.floor[from_coord].belt.speed);
+    // if curr_coord == 52 {
+    //   log(format!("        - part not at 100%, bailing, {} < {}", factory.floor[from_coord].belt.part_progress, factory.floor[from_coord].belt.speed));
     // }
     // Did not complete traversing the cell yet
     return false;
   }
+
+  // if curr_coord == 52 {
+  //   log(format!("        - ok"));
+  // }
 
   // Okay, ready to move that part
   if options.print_moves || options.print_moves_belt { log(format!("({}) Moved {:?} from belt @{} to belt @{}", factory.ticks, factory.floor[from_coord].belt.part, from_coord, curr_coord)); }
@@ -356,6 +348,8 @@ fn tick_belt_one_outbound_dir(options: &mut Options, state: &mut State, factory:
 }
 
 fn tick_belt_one_inbound_dir(options: &mut Options, state: &mut State, factory: &mut Factory, curr_coord: usize, curr_dir: Direction, from_coord: usize, from_dir: Direction) -> bool {
+  // if curr_coord == 52 { log(format!("tick_belt_one_inbound_dir {:?} {:?}", curr_dir, factory.floor[from_coord].kind)); }
+
   match factory.floor[from_coord].kind {
     CellKind::Empty => {
       // panic!("empty cells should not be part of .ins vector")
@@ -366,9 +360,6 @@ fn tick_belt_one_inbound_dir(options: &mut Options, state: &mut State, factory: 
       return false;
     },
     CellKind::Belt => {
-      // if curr_coord == 42 {
-      //   println!("      - is belt");
-      // }
       return tick_belt_take_from_belt(options, state, factory, curr_coord, curr_dir, from_coord, from_dir);
     }
     CellKind::Machine => {
@@ -418,6 +409,9 @@ pub fn tick_belt(options: &mut Options, state: &mut State, factory: &mut Factory
 
   if factory.floor[curr_coord].belt.part.kind == PartKind::None {
     let inlen = factory.floor[curr_coord].ins.len();
+    // if curr_coord == 52 {
+    //   log(format!("ins: {:?}", factory.floor[curr_coord].ins));
+    // }
     for index in 0..inlen {
       let (curr_dir, _curr_coord, from_coord, from_dir ) = factory.floor[curr_coord].ins[index];
       assert_eq!(curr_coord, _curr_coord);
