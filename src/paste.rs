@@ -18,10 +18,8 @@ use super::state::*;
 use super::utils::*;
 
 
-pub fn paste(options: &mut Options, state: &mut State, factory: &mut Factory, cell_selection: &CellSelection) {
-  if state.mouse_mode_selecting && cell_selection.on && state.selected_area_copy.len() > 0 {
-    let selected_ox = cell_selection.x.min(cell_selection.x2) as usize;
-    let selected_oy = cell_selection.y.min(cell_selection.y2) as usize;
+pub fn paste(options: &mut Options, state: &mut State, factory: &mut Factory, selected_ox: usize, selected_oy: usize) {
+  if state.selected_area_copy.len() > 0 {
     let clipboard_w = state.selected_area_copy[0].len();
     let clipboard_h = state.selected_area_copy.len();
 

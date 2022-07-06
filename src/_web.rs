@@ -5,7 +5,6 @@
 // - import/export with clipboard
 // - input (string map) validation
 // - score card stuff
-// - stamp instead of paste button (paste on click)
 
 // This is required to export panic to the web
 use std::panic;
@@ -518,13 +517,14 @@ pub fn start() -> Result<(), JsValue> {
         if state.mouse_mode_erasing {
           // Don't paint anything or paint the invalid belt stub
           if bounds_check(mouse_state.cell_x, mouse_state.cell_y, 0.0, 0.0, FLOOR_CELLS_W as f64, FLOOR_CELLS_H as f64) {
-            // Do paint the current cell
+            // Rectangle around current cell (generic)
             context.set_stroke_style(&"red".into());
             context.stroke_rect(WORLD_OFFSET_X + mouse_state.cell_x * CELL_W, WORLD_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
           }
         }
         else if state.mouse_mode_selecting {
-          if mouse_state.is_down {
+          // When mouse is down and clipboard is empty; select the area to potentially copy. With clipboard, still show the ghost. Do not change the selection area.
+          if mouse_state.is_down && state.selected_area_copy.len() == 0 {
             let down_cell_x = ((mouse_state.last_down_world_x - WORLD_OFFSET_X) / CELL_W).floor();
             let down_cell_y = ((mouse_state.last_down_world_y - WORLD_OFFSET_Y) / CELL_H).floor();
             if down_cell_x >= 0.0 && down_cell_y >= 0.0 && is_floor(down_cell_x as usize, down_cell_y as usize) && mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && is_floor(mouse_state.cell_x as usize, mouse_state.cell_y as usize) {
@@ -534,8 +534,10 @@ pub fn start() -> Result<(), JsValue> {
               let now_cell_y = mouse_state.cell_y.floor();
               context.stroke_rect(WORLD_OFFSET_X + down_cell_x.min(now_cell_x) * CELL_W, WORLD_OFFSET_Y + down_cell_y.min(now_cell_y) * CELL_H, (1.0 + (down_cell_x - now_cell_x).abs()) * CELL_W, (1.0 + (down_cell_y - now_cell_y).abs()) * CELL_H);
             }
-          } else {
+          }
+          else {
             if cell_selection.on {
+              // There is a current selection so draw it.
               // Rectangle around current selection, if any
               context.set_stroke_style(&"blue".into());
               context.stroke_rect(WORLD_OFFSET_X + cell_selection.x * CELL_W, WORLD_OFFSET_Y + cell_selection.y * CELL_H, (1.0 + (cell_selection.x - cell_selection.x2).abs()) * CELL_W, (1.0 + (cell_selection.y - cell_selection.y2).abs()) * CELL_H);
@@ -545,10 +547,23 @@ pub fn start() -> Result<(), JsValue> {
                 let h = state.selected_area_copy.len();
                 context.set_stroke_style(&"green".into());
                 context.stroke_rect(WORLD_OFFSET_X + cell_selection.x * CELL_W, WORLD_OFFSET_Y + cell_selection.y * CELL_H, w as f64 * CELL_W, h as f64 * CELL_H);
+
+                let cell_x = mouse_state.cell_x;
+                let cell_y = mouse_state.cell_y;
+                for j in 0..state.selected_area_copy.len() {
+                  for i in 0..state.selected_area_copy[j].len() {
+                    let x = cell_x + (i as f64);
+                    let y = cell_y + (j as f64);
+                    if x >= 0.0 && y >= 0.0 && is_middle(x as usize, y as usize) {
+                      let bt = state.selected_area_copy[j][i].belt.meta.btype;
+                      paint_ghost_belt_of_type(x as usize, y as usize, bt, &context, &belt_tile_images);
+                    }
+                  }
+                }
               }
             }
             if bounds_check(mouse_state.cell_x, mouse_state.cell_y, 0.0, 0.0, FLOOR_CELLS_W as f64, FLOOR_CELLS_H as f64) {
-              // Rectangle around current cell
+              // Rectangle around current cell (generic)
               context.set_stroke_style(&"red".into());
               context.stroke_rect(WORLD_OFFSET_X + mouse_state.cell_x * CELL_W, WORLD_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
             }
@@ -583,7 +598,8 @@ pub fn start() -> Result<(), JsValue> {
               } else {
                 ( WORLD_OFFSET_X + top_left_machine_cell_x.round() * CELL_W, WORLD_OFFSET_Y + top_left_machine_cell_y.round() * CELL_H, true )
               }
-            } else {
+            }
+            else {
               // Corners
               context.fill_rect(WORLD_OFFSET_X, WORLD_OFFSET_Y, CELL_W, CELL_H);
               context.fill_rect(WORLD_OFFSET_X + WORLD_WIDTH - CELL_W, WORLD_OFFSET_Y, CELL_W, CELL_H);
@@ -733,7 +749,14 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
       let down_cell_y = ((mouse_state.last_down_world_y - WORLD_OFFSET_Y) / CELL_H).floor();
       if mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && is_floor(mouse_state.cell_x as usize, mouse_state.cell_y as usize) {
         log(format!("  was up on floor"));
-        if down_cell_x >= 0.0 && down_cell_y >= 0.0 && is_floor(down_cell_x as usize, down_cell_y as usize) {
+
+        // Moving while there's stuff on the clipboard? This mouse up is a paste / stamp.
+        if state.selected_area_copy.len() > 0 {
+          log(format!("    clipboard has data so we stamp it now"));
+          paste(options, state, factory, mouse_state.cell_x as usize, mouse_state.cell_y as usize);
+        }
+        // Dragging a selection?
+        else if down_cell_x >= 0.0 && down_cell_y >= 0.0 && is_floor(down_cell_x as usize, down_cell_y as usize) {
           log(format!("  was down in floor, too. ok!"));
           let now_cell_x = mouse_state.cell_x.floor();
           let now_cell_y = mouse_state.cell_y.floor();
@@ -899,25 +922,29 @@ fn handle_mouse_up_over_menu_buttons(cell_selection: &mut CellSelection, mouse_s
         2 => { // Copy
           log(format!("Copy selection"));
           if state.mouse_mode_selecting && cell_selection.on {
-            // clone each cell in the area verbatim
-            // Store this copy in... state
-            let mut area = vec!();
-            // Only copy belts. Machines are too hard to deal with. Edge stuff is too tricky.
-            let cox = cell_selection.x.min(cell_selection.x2) as usize;
-            let coy = cell_selection.y.min(cell_selection.y2) as usize;
-            for y in 0..1 + (cell_selection.y - cell_selection.y2).abs() as usize {
-              area.push(vec!());
-              for x in 0..1 + (cell_selection.x - cell_selection.x2).abs() as usize {
-                area[y].push(factory.floor[to_coord(cox + x, coy + y)].clone());
+            // If there's no clipboard, fill it now. Otherwise clear the clipboard.
+            if state.selected_area_copy.len() == 0 {
+              // clone each cell in the area verbatim
+              // Store this copy in... state
+              let mut area = vec!();
+              // Only copy belts. Machines are too hard to deal with. Edge stuff is too tricky.
+              let cox = cell_selection.x.min(cell_selection.x2) as usize;
+              let coy = cell_selection.y.min(cell_selection.y2) as usize;
+              for y in 0..1 + (cell_selection.y - cell_selection.y2).abs() as usize {
+                area.push(vec!());
+                for x in 0..1 + (cell_selection.x - cell_selection.x2).abs() as usize {
+                  area[y].push(factory.floor[to_coord(cox + x, coy + y)].clone());
+                }
               }
+              state.selected_area_copy = area;
             }
-
-            state.selected_area_copy = area;
+            else {
+              state.selected_area_copy = vec!();
+            }
           }
         }
-        3 => { // Paste
-          log(format!("Paste from clipboard"));
-          paste(options, state, factory, cell_selection);
+        3 => { // tbd
+          log(format!("(no button here)"));
         }
         4 => { // tbd
           log(format!("(no button here)"));
@@ -934,6 +961,7 @@ fn handle_mouse_up_over_menu_buttons(cell_selection: &mut CellSelection, mouse_s
       log(format!("clicked margin after button {}", button_index));
     }
   }
+  // Any of the speed bubbles?
   else if hit_check_speed_bubbles_any(options, state, mouse_state) {
     on_click_speed_bubbles(options, state, mouse_state);
   }
@@ -2167,8 +2195,8 @@ fn paint_ui_button(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state:
 fn paint_ui_buttons2(options: &mut Options, state: &mut State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   paint_ui_button2(context, mouse_state, 0.0, if state.mouse_mode_erasing { "erase" } else { "draw" }, state.mouse_mode_erasing);
   paint_ui_button2(context, mouse_state, 1.0, "select", state.mouse_mode_selecting);
-  paint_ui_button2(context, mouse_state, 2.0, "copy", false);
-  paint_ui_button2(context, mouse_state, 3.0, "paste", false);
+  paint_ui_button2(context, mouse_state, 2.0, if state.selected_area_copy.len() > 0{ "stamp" } else { "copy" },     state.selected_area_copy.len() > 0);
+  // paint_ui_button2(context, mouse_state, 3.0, "paste", false);
   // paint_ui_button2(context, mouse_state, 4.0, "nodir", false);
   // paint_ui_button2(context, mouse_state, 5.0, "togoal"); // fast forward to goal
   // paint_ui_button2(context, mouse_state, 6.0, "Panic");
