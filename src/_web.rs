@@ -24,7 +24,6 @@ use wasm_bindgen::prelude::*;
 
 use std::collections::VecDeque;
 use web_sys::{HtmlCanvasElement, HtmlImageElement};
-use crate::port;
 
 use super::belt::*;
 use super::cell::*;
@@ -142,61 +141,6 @@ extern {
 //   #[wasm_bindgen(js_namespace = console)]
 //   fn log(a: &str);
 // }
-
-#[derive(Debug)]
-struct CellSelection {
-  on: bool,
-  x: f64,
-  y: f64,
-  coord: usize,
-  area: bool,
-  x2: f64,
-  y2: f64,
-}
-
-#[derive(Debug)]
-struct MouseState {
-  canvas_x: f64,
-  canvas_y: f64,
-
-  world_x: f64,
-  world_y: f64,
-
-  cell_x: f64,
-  cell_y: f64,
-  cell_coord: usize,
-
-  cell_rel_x: f64,
-  cell_rel_y: f64,
-
-  is_down: bool,
-  is_dragging: bool,
-  is_drag_start: bool,
-
-  was_down: bool,
-  was_dragging: bool,
-  was_up: bool,
-
-  over_offer: bool,
-  dragging_offer: bool,
-  offer_index: usize, // Only relevant when over_offer = true
-
-  // https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/buttons
-  // bitwise field; 1=left, 2=right, 3=left|right, 4=middle, etc
-  // (8 and 16 supposedly browser back/forward button but ehhhh)
-  // On a phone/tablet this is not used of course
-  last_down_button: u16,
-
-  last_down_canvas_x: f64,
-  last_down_canvas_y: f64,
-  last_down_world_x: f64,
-  last_down_world_y: f64,
-
-  last_up_canvas_x: f64,
-  last_up_canvas_y: f64,
-  last_up_world_x: f64,
-  last_up_world_y: f64,
-}
 
 fn dnow() -> u64 {
   js_sys::Date::now() as u64
@@ -973,51 +917,7 @@ fn handle_mouse_up_over_menu_buttons(cell_selection: &mut CellSelection, mouse_s
         }
         3 => { // Paste
           log(format!("Paste from clipboard"));
-          if state.mouse_mode_selecting && cell_selection.on && state.selected_area_copy.len() > 0 {
-            let selected_ox = cell_selection.x.min(cell_selection.x2) as usize;
-            let selected_oy = cell_selection.y.min(cell_selection.y2) as usize;
-            let clipboard_w = state.selected_area_copy[0].len();
-            let clipboard_h = state.selected_area_copy.len();
-
-            for y in 0..clipboard_h {
-              for x in 0..clipboard_w {
-                let cx = selected_ox + x;
-                let cy = selected_oy + y;
-                let coord = to_coord(cx, cy);
-
-                paste_one_cell(options, state, factory, x, y, clipboard_w, clipboard_h, cx, cy, coord);
-              }
-            }
-
-            for y in 0..clipboard_h {
-              for x in 0..clipboard_w {
-                // Only consider edge and corner cells of the pasted area
-                // if x == 0 || x == clipboard_w -1 || y == 0 || y == clipboard_h -1 {
-                  let cx = selected_ox + x;
-                  let cy = selected_oy + y;
-                  if is_middle(cx, cy) {
-                    let coord = to_coord(cx, cy);
-                    log(format!("patching edge: {} {} -> {}", x, y, coord));
-                    log(format!("  fixing belt {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
-
-                    // Belt may be in an inconsistent state if it was connected to a machine, demand, or supply, since we don't copy those.
-                    // For that reason we have to do a sanity check on each cell and remove/update any incorrectly connected ports
-                    // This should only affect ports connecting to other cells of the paste but I suppose that overhead doesn't matter here.
-                    belt_fix_semi_connected_ports_partial(options, state, factory, coord);
-
-                    // At this point the ports and that of the neighbor should be fixed. Fix the meta.
-                    fix_belt_meta(factory, coord);
-                    // And fix the .ins and .outs of this and its neighbor
-                    belt_discover_ins_and_outs(factory, coord);
-                  } else {
-                    log(format!("Skipping {} {} because they are not in the middle of the floor", cx, cy));
-                  }
-                }
-              // }
-            }
-
-            factory.changed = true;
-          }
+          paste(options, state, factory, cell_selection);
         }
         4 => { // tbd
           log(format!("(no button here)"));

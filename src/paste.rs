@@ -18,6 +18,51 @@ use super::state::*;
 use super::utils::*;
 
 
+pub fn paste(options: &mut Options, state: &mut State, factory: &mut Factory, cell_selection: &CellSelection) {
+  if state.mouse_mode_selecting && cell_selection.on && state.selected_area_copy.len() > 0 {
+    let selected_ox = cell_selection.x.min(cell_selection.x2) as usize;
+    let selected_oy = cell_selection.y.min(cell_selection.y2) as usize;
+    let clipboard_w = state.selected_area_copy[0].len();
+    let clipboard_h = state.selected_area_copy.len();
+
+    for y in 0..clipboard_h {
+      for x in 0..clipboard_w {
+        let cx = selected_ox + x;
+        let cy = selected_oy + y;
+        let coord = to_coord(cx, cy);
+
+        paste_one_cell(options, state, factory, x, y, clipboard_w, clipboard_h, cx, cy, coord);
+      }
+    }
+
+    for y in 0..clipboard_h {
+      for x in 0..clipboard_w {
+        let cx = selected_ox + x;
+        let cy = selected_oy + y;
+        if is_middle(cx, cy) {
+          let coord = to_coord(cx, cy);
+          log(format!("patching edge: {} {} -> {}", x, y, coord));
+          log(format!("  fixing belt {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
+
+          // Belt may be in an inconsistent state if it was connected to a machine, demand, or supply, since we don't copy those.
+          // For that reason we have to do a sanity check on each cell and remove/update any incorrectly connected ports
+          // This should only affect ports connecting to other cells of the paste but I suppose that overhead doesn't matter here.
+          belt_fix_semi_connected_ports_partial(options, state, factory, coord);
+
+          // At this point the ports and that of the neighbor should be fixed. Fix the meta.
+          fix_belt_meta(factory, coord);
+          // And fix the .ins and .outs of this and its neighbor
+          belt_discover_ins_and_outs(factory, coord);
+        } else {
+          log(format!("Skipping {} {} because they are not in the middle of the floor", cx, cy));
+        }
+      }
+    }
+
+    factory.changed = true;
+  }
+}
+
 pub fn paste_one_cell(options: &mut Options, state: &mut State, factory: &mut Factory, x: usize, y: usize, w: usize, h: usize, cx: usize, cy: usize, coord: usize) {
   log(format!("- paste_one_cell({} {}) coord {} {} middle? {}", x, y, cx, cy, is_middle(cx, cy)));
 
