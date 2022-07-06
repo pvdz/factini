@@ -2,12 +2,10 @@
 // The main.rs will include this file when `#[cfg(target_arch = "wasm32")]`
 
 // - export all the things
-// - clean up cell editor
-// - score card stuff
-// - nodir button (mouse mode or all the things?)
 // - import/export with clipboard
-// - stamp instead of paste button (paste on click)
 // - input (string map) validation
+// - score card stuff
+// - stamp instead of paste button (paste on click)
 
 // This is required to export panic to the web
 use std::panic;
@@ -825,22 +823,14 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
     if mouse_state.is_dragging {
       // This is more a visual thing I think
     }
+    // Was the click inside the painted world?
+    // In that case we change/toggle the cell selection
+    else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, WORLD_OFFSET_X, WORLD_OFFSET_Y, WORLD_OFFSET_X + WORLD_WIDTH, WORLD_OFFSET_Y + WORLD_HEIGHT) {
+      on_up_inside_floor(options, state, factory, cell_selection, &mouse_state);
+    }
     else {
-      // Was the click inside the painted world?
-      // In that case we change/toggle the cell selection
-      if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, WORLD_OFFSET_X, WORLD_OFFSET_Y, WORLD_OFFSET_X + WORLD_WIDTH, WORLD_OFFSET_Y + WORLD_HEIGHT) {
-        on_up_inside_floor(options, state, factory, cell_selection, &mouse_state);
-      }
-      // Is the click inside the cell editor?
-      else if cell_selection.on && hit_check_cell_editor_any(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
-        // Is the mouse clicking on one of the focused grid segments?
-        if hit_check_cell_editor_grid(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
-          on_click_inside_cell_editor_grid(options, state, factory, &cell_selection, &mouse_state);
-        }
-      } else {
-        log(format!("({}) handle_mouse_up_over_menu_buttons from normal", factory.ticks));
-        handle_mouse_up_over_menu_buttons(cell_selection, mouse_state, options, state, factory);
-      }
+      log(format!("({}) handle_mouse_up_over_menu_buttons from normal", factory.ticks));
+      handle_mouse_up_over_menu_buttons(cell_selection, mouse_state, options, state, factory);
     }
 
     mouse_state.dragging_offer = false;
@@ -1502,44 +1492,6 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, factory: &mut
     }
   }
 }
-fn on_click_inside_cell_editor_grid(options: &mut Options, state: &mut State, factory: &mut Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
-  log(format!("TODO: on_click_inside_cell_editor_grid()"));
-
-  // Clicked inside the grid
-  // Determine which segment and then rotate that segment
-  let click_cell_x = ((mouse_state.last_up_world_x - UI_CELL_EDITOR_GRID_OX) / UI_SEGMENT_W).floor();
-  let click_cell_y = ((mouse_state.last_up_world_y - UI_CELL_EDITOR_GRID_OY) / UI_SEGMENT_H).floor();
-
-  log(format!("sxy: {} {}", click_cell_x, click_cell_y));
-
-  let seg = match (click_cell_x as i8, click_cell_y as i8) {
-    (1, 0) => Some(Direction::Up),
-    (2, 1) => Some(Direction::Right),
-    (1, 2) => Some(Direction::Down),
-    (0, 1) => Some(Direction::Left),
-    _ => None, // ignore center and corners
-  };
-
-  if seg != None {
-    // Cycle the port on this side
-    let old_port = match (click_cell_x as i8, click_cell_y as i8) {
-      (1, 0) => factory.floor[cell_selection.coord].port_u,
-      (2, 1) => factory.floor[cell_selection.coord].port_r,
-      (1, 2) => factory.floor[cell_selection.coord].port_d,
-      (0, 1) => factory.floor[cell_selection.coord].port_l,
-      _ => panic!("asserted to be valid at this point"),
-    };
-
-    let new_port = match old_port {
-      Port::Inbound => Port::Outbound,
-      Port::Outbound => Port::None,
-      Port::None => Port::Inbound,
-      Port::Unknown => Port::Unknown,
-    };
-
-    factory.floor[cell_selection.coord].port_u = new_port;
-  }
-}
 
 fn bounds_check(x: f64, y: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> bool {
   return x >= x1 && x < x2 && y >= y1 && y < y2;
@@ -1556,10 +1508,6 @@ fn hit_test_offers(factory: &Factory, mx: f64, my: f64) -> (bool, usize ) {
   } else {
     return ( false, 0 );
   };
-}
-fn hit_check_cell_editor_any(wx: f64, wy: f64) -> bool {
-  // log(format!("hit_check_cell_editor_any({}, {}) {} {} {} {} = {}", wx, wy, UI_CELL_EDITOR_OX, UI_CELL_EDITOR_OY, UI_CELL_EDITOR_OX + UI_CELL_EDITOR_W, UI_CELL_EDITOR_OY + UI_CELL_EDITOR_H, wx >= UI_CELL_EDITOR_OX && wy >= UI_CELL_EDITOR_OY && wx < UI_CELL_EDITOR_OX + UI_CELL_EDITOR_W && wy < UI_CELL_EDITOR_OY + UI_CELL_EDITOR_H));
-  return wx >= UI_CELL_EDITOR_OX && wy >= UI_CELL_EDITOR_OY && wx < UI_CELL_EDITOR_OX + UI_CELL_EDITOR_W && wy < UI_CELL_EDITOR_OY + UI_CELL_EDITOR_H;
 }
 fn hit_check_cell_editor_grid(wx: f64, wy: f64) -> bool {
   // log(format!("hit_check_cell_editor_grid({}, {}) {} {} {} {} = {}", wx, wy, UI_CELL_EDITOR_GRID_OX, UI_CELL_EDITOR_GRID_OY, UI_CELL_EDITOR_GRID_OX + UI_CELL_EDITOR_GRID_W, UI_CELL_EDITOR_GRID_OY + UI_CELL_EDITOR_GRID_H, wx >= UI_CELL_EDITOR_GRID_OX && wx < UI_CELL_EDITOR_GRID_OX + UI_CELL_EDITOR_GRID_W && wy >= UI_CELL_EDITOR_GRID_OY && wy < UI_CELL_EDITOR_GRID_OY + UI_CELL_EDITOR_GRID_H));
@@ -2049,15 +1997,6 @@ fn paint_cell_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &
 
   context.set_stroke_style(&"black".into());
   context.stroke();
-
-  if hit_check_cell_editor_grid(mouse_state.world_x, mouse_state.world_y) {
-    // Mouse is inside the grid editor
-    // Determine which segment and then paint it
-    let mouse_cell_editor_grid_x = ((mouse_state.world_x - UI_CELL_EDITOR_GRID_OX) / UI_SEGMENT_W).floor();
-    let mouse_cell_editor_grid_y = ((mouse_state.world_y - UI_CELL_EDITOR_GRID_OY) / UI_SEGMENT_H).floor();
-    context.set_stroke_style(&"red".into());
-    context.stroke_rect(ox + (mouse_cell_editor_grid_x * UI_SEGMENT_W), oy + (mouse_cell_editor_grid_y * UI_SEGMENT_H), UI_SEGMENT_W, UI_SEGMENT_H);
-  }
 
   context.set_fill_style(&"black".into());
   let type_name = match factory.floor[cell_selection.coord].kind {
