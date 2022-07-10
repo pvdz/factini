@@ -497,14 +497,14 @@ fn str_to_floor(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
 
             println!("Creating machine id={} with inputs({} {} {}) and output({})", c, in1, in2, in3, out);
 
-            let cell = machine_any_cell(x, y, 1, 1, MachineKind::Unknown, part_c(in1), if in2 == '-' { part_none() } else { part_c(in2) }, if in3 == '-' { part_none() } else { part_c(in3) }, part_c(out), speed, 1, 1);
+            let cell = machine_any_cell(c as char, x, y, 1, 1, MachineKind::Unknown, part_c(in1), if in2 == '-' { part_none() } else { part_c(in2) }, if in3 == '-' { part_none() } else { part_c(in3) }, part_c(out), speed, 1, 1);
             return Some(cell);
           }
 
           // This wasn't the target machine definition
           return None;
         })
-          .or(Some(machine_any_cell(x, y, 1, 1, MachineKind::Unknown, part_none(), part_none(), part_none(), part_none(), 888, 1, 1)))
+          .or(Some(machine_any_cell(c as char, x, y, 1, 1, MachineKind::Unknown, part_none(), part_none(), part_none(), part_none(), 888, 1, 1)))
           .unwrap(); // Always returns a some due to the .or()
 
         return cell;
@@ -633,15 +633,16 @@ pub fn auto_layout(options: &mut Options, state: &mut State, factory: &mut Facto
     match factory.floor[coord].kind {
       CellKind::Empty => {}
       CellKind::Belt => {
-        let up = get_cell_kind_at(factory, factory.floor[coord].coord_u);
-        let right = get_cell_kind_at(factory, factory.floor[coord].coord_r);
-        let down = get_cell_kind_at(factory, factory.floor[coord].coord_d);
-        let left = get_cell_kind_at(factory, factory.floor[coord].coord_l);
+        let up = if factory.floor[coord].port_u == Port::None { CellKind::Empty } else { get_cell_kind_at(factory, factory.floor[coord].coord_u) };
+        let right = if factory.floor[coord].port_r == Port::None { CellKind::Empty } else { get_cell_kind_at(factory, factory.floor[coord].coord_r) };
+        let down = if factory.floor[coord].port_d == Port::None { CellKind::Empty } else { get_cell_kind_at(factory, factory.floor[coord].coord_d) };
+        let left = if factory.floor[coord].port_l == Port::None { CellKind::Empty } else { get_cell_kind_at(factory, factory.floor[coord].coord_l) };
 
         factory.floor[coord].belt = belt_new(belt_auto_layout(up, right, down, left));
       }
       CellKind::Machine => {
         if factory.floor[coord].machine.kind == MachineKind::Unknown {
+          machines += 1; // offset 1
           let main_coord = coord;
           // This will be the main machine cell.
           // Any neighboring machine cells will be converted to be sub cells of this machine
@@ -691,7 +692,17 @@ pub fn auto_layout(options: &mut Options, state: &mut State, factory: &mut Facto
             biggest_area_width = max_width;
             biggest_area_height = max_height;
           }
-          log(format!("  - Final biggest area: {} at {} x {}, assigning machine id {}", biggest_area_size, biggest_area_width, biggest_area_height, machines));
+
+          let id =
+            if machines >= 36 {
+              (('A' as u8) + (machines - 36)) as char // A-Z
+            } else if machines > 9 {
+              (('a' as u8) + (machines - 10)) as char // a-z
+            } else {
+              (('0' as u8) + machines) as char // 1-9
+            };
+
+          log(format!("  - Final biggest area: {} at {} x {}, assigning machine number {}, with id `{}`", biggest_area_size, biggest_area_width, biggest_area_height, machines, id));
           log(format!("======"));
 
           // Now collect all cells in this grid and assign them to be the same machine
@@ -701,18 +712,18 @@ pub fn auto_layout(options: &mut Options, state: &mut State, factory: &mut Facto
               let ocoord = to_coord(x + dx, y + dy);
               factory.floor[ocoord].machine.kind = MachineKind::SubBuilding;
               factory.floor[ocoord].machine.main_coord = main_coord;
-              factory.floor[ocoord].machine.id = machines;
+
+              factory.floor[ocoord].machine.id = (('0' as u8) + machines) as char;
               factory.floor[ocoord].machine.coords.clear();
               factory.floor[main_coord].machine.coords.push(ocoord);
             }
           }
-          factory.floor[coord].machine.kind = MachineKind::Main;
-          factory.floor[coord].machine.cell_width = biggest_area_width;
-          factory.floor[coord].machine.cell_height = biggest_area_height;
-          factory.floor[coord].machine.coords.sort(); // Makes debugging easier
+          factory.floor[main_coord].machine.kind = MachineKind::Main;
+          factory.floor[main_coord].machine.cell_width = biggest_area_width;
+          factory.floor[main_coord].machine.cell_height = biggest_area_height;
+          factory.floor[main_coord].machine.coords.sort(); // Makes debugging easier
 
-          machines += 1;
-          log(format!("Machine {} @{} has these cells: {:?}", factory.floor[coord].machine.id, coord, factory.floor[coord].machine.coords));
+          log(format!("Machine {} @{} has these cells: {:?}", factory.floor[main_coord].machine.id, main_coord, factory.floor[main_coord].machine.coords));
         }
       }
       CellKind::Supply => {}

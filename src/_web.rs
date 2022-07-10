@@ -3,8 +3,8 @@
 
 // - import/export with clipboard
 // - small problem with tick_belt_take_from_belt when a belt crossing is next to a supply and another belt; it will ignore the other belt as input. because the belt will not let a part proceed to the next port unless it's free and the processing order will process the neighbor belt first and then the crossing so by the time it's free, the part will still be at 50% whereas the supply part is always ready. fix is probably to make supply parts take a tick to be ready, or whatever.
-// - why is the cell_width/height of a machine 1? fix the serialization after fixing this. (`+ 1`)
-// - export still has bugs. something about machines for sure.
+//  - affects machine speed so should be fixed
+// - investigate different machine speeds at different configs
 // - placing/removing/replacing machines causes bugs with connected belts
 // - undo/redo?
 
@@ -502,9 +502,6 @@ pub fn start() -> Result<(), JsValue> {
           factory.produced = 0;
           factory.trashed = 0;
           factory.supplied = 0;
-        } else {
-
-
         }
 
         // Paint the world (no input or world mutations after this point)
@@ -953,6 +950,38 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, factor
       if bounds_check(cx, cy, 1.0, 1.0, FLOOR_CELLS_W as f64 - (ocw as f64), FLOOR_CELLS_H as f64 - (och as f64)) {
         let ccoord = to_coord(cx as usize, cy as usize);
 
+        // Get all machines and then get the first unused ID. First we round up all the existing
+        // machine ids into a vector and then we iterate through the vector incrementally until
+        // an ID is not used. This is O(n^2) but realistically worst case O(63^2) and good luck.
+
+        let mut ids = vec!();
+        for coord in 0..FLOOR_CELLS_WH {
+          if factory.floor[coord].kind == CellKind::Machine && factory.floor[coord].machine.main_coord == coord {
+            ids.push(factory.floor[coord].machine.id);
+          }
+        }
+        // Now iterate through all valid IDs, that is: 0-9a-zA-Z. I guess bail if we exhaust that.
+        // TODO: gracefully handle too many machines
+        let mut found = '!';
+        // Note: machine ids offset at 1 (because m0 is just too confusing for comfort)
+        for id in 1..62 {
+          let c =
+            if id >= 36 {
+              (('A' as u8) + (id - 36)) as char // A-Z
+            } else if id > 9 {
+              (('a' as u8) + (id - 10)) as char // a-z
+            } else {
+              (('0' as u8) + id) as char // 1-9
+            };
+          if !ids.contains(&c) {
+            found = c;
+            break;
+          }
+        }
+        if found == '!' {
+          panic!("Unable to find a fresh ID. Either there are too many machines on the floor or there is a bug with reclaiming them. Or d: something else.");
+        }
+
         log(format!("Dropped a machine on the floor. Deploying... {} {} @{}", cx, cy, ccoord));
 
         // Fill the rest with sub machine cells
@@ -975,6 +1004,7 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, factor
             if i == 0 && j == 0 {
               // Top-left cell is the main_coord here
               factory.floor[coord] = machine_main_cell(
+                found,
                 x, y,
                 ocw, och,
                 part_c(factory.offers[mouse_state.offer_index].machine_input1),
@@ -985,7 +1015,7 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, factor
                 1, 1
               );
             } else {
-              factory.floor[coord] = machine_sub_cell(x, y, ccoord);
+              factory.floor[coord] = machine_sub_cell(found, x, y, ccoord);
             }
             factory.floor[ccoord].machine.coords.push(coord);
 
@@ -2128,7 +2158,7 @@ fn paint_machine_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory
   context.set_fill_style(&"lightgreen".into());
   context.fill_rect(UI_MACHINE_EDITOR_OX, UI_MACHINE_EDITOR_OY, UI_MACHINE_EDITOR_W, UI_MACHINE_EDITOR_H);
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("Machine main {} x {} ({})", main_x, main_y, main_coord).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("Machine main {} x {} ({}) ({}x{})", main_x, main_y, main_coord, factory.floor[main_coord].machine.cell_width, factory.floor[main_coord].machine.cell_height).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H).expect("something error fill_text");
   let mut in_coords = factory.floor[main_coord].ins.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
   in_coords.sort();
   in_coords.dedup();

@@ -197,7 +197,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
     }
   }
 
-  let mut machine_main_coords: [usize; 10] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  let mut machine_main_coords: [usize; 63] = [0; 63];
 
   // Expect as many cells as specified.
   for j in 0..height {
@@ -260,28 +260,55 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
       // under the center. Otherwise the kind is printed to the right of the center.
       let supply_demand_kind = if i == 0 || i == width-1 { h } else { f };
 
+      fn add_machine(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, x: usize, y: usize, cell_kind: char, machine_main_coords: &mut [usize; 63], port_u: char, port_r: char, port_d: char, port_l: char) {
+        // Auto layout will have to reconcile the individual machine parts into one machine
+        // Any modifiers as well as the input and output parameters of this machine are
+        // listed below the floor model. Expect them to be filled in later.
+        let mn = (cell_kind as u8 - ('0' as u8)) as usize;
+        let main_coord =
+          if machine_main_coords[mn] == 0 {
+            machine_main_coords[mn] = coord;
+            coord
+          } else {
+            machine_main_coords[mn]
+          };
+        let mut cell = machine_any_cell(cell_kind as char, x, y, 1, 1, MachineKind::Unknown, part_c(' '), part_c(' '), part_c(' '), part_c(' '), 1, 1, 1);
+        cell.port_u = match port_u as char { '^' => Port::Outbound, 'v' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port up indicators must be `^`, `v`, `?` or a space, this was `{}`", port_u)};
+        cell.port_r = match port_r as char { '>' => Port::Outbound, '<' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port right indicators must be `<`, `>`, `?` or a space, this was `{}`", port_u)};
+        cell.port_d = match port_d as char { 'v' => Port::Outbound, '^' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port down indicators must be `^`, `v`, `?` or a space, this was `{}`", port_u)};
+        cell.port_l = match port_l as char { '<' => Port::Outbound, '>' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port left indicators must be `<`, `>`, `?` or a space, this was `{}`", port_u)};
+        floor[coord] = cell;
+      }
+
       match cell_kind as char {
         's' => {
-          let ( port_u, port_r, port_d, port_l ) =
-            if j == 0 {
-              ( Port::None, Port::None, Port::Outbound, Port::None )
-            } else if i == width-1 {
-              ( Port::None, Port::Outbound, Port::None, Port::None )
-            } else if j == height-1 {
-              ( Port::Outbound, Port::None, Port::None, Port::None )
-            } else if i == 0 {
-              ( Port::None, Port::None, Port::None, Port::Outbound )
-            } else {
-              panic!("Error parsing floor cell: Encountered an `s` inside the floor; this should be a Supply, which is bound to the edge");
-            };
-          // The speed and cooldown of the supply have to be added below the floor so use placeholder values for now; TODO: wire that up
-          log(format!("Supply, gives `{}`", supply_demand_kind as char));
-          let cell = supply_cell(i, j, part_c(supply_demand_kind as char), 1, 1, 1);
-          floor[coord] = cell;
+          if is_middle(i, j) {
+            add_machine(&mut floor, coord, i, j, cell_kind, &mut machine_main_coords, port_u, port_r, port_d, port_l);
+          } else {
+            let ( port_u, port_r, port_d, port_l ) =
+              if j == 0 {
+                ( Port::None, Port::None, Port::Outbound, Port::None )
+              } else if i == width-1 {
+                ( Port::None, Port::Outbound, Port::None, Port::None )
+              } else if j == height-1 {
+                ( Port::Outbound, Port::None, Port::None, Port::None )
+              } else if i == 0 {
+                ( Port::None, Port::None, Port::None, Port::Outbound )
+              } else {
+                panic!("Error parsing floor cell: Encountered an `s` inside the floor; this should be a Supply, which is bound to the edge");
+              };
+            // The speed and cooldown of the supply have to be added below the floor so use placeholder values for now; TODO: wire that up
+            log(format!("Supply, gives `{}`", supply_demand_kind as char));
+            let cell = supply_cell(i, j, part_c(supply_demand_kind as char), 1, 1, 1);
+            floor[coord] = cell;
+          }
         },
 
         'd' => {
-          let ( port_u, port_r, port_d, port_l ) =
+          if is_middle(i, j) {
+            add_machine(&mut floor, coord, i, j, cell_kind, &mut machine_main_coords, port_u, port_r, port_d, port_l);
+          } else {
+            let ( port_u, port_r, port_d, port_l ) =
             if j == 0 {
               ( Port::None, Port::None, Port::Outbound, Port::None )
             } else if i == width-1 {
@@ -293,41 +320,11 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
             } else {
               panic!("Error parsing floor cell: Encountered an `d` inside the floor; this should be a Demand, which is bound to the edge");
             };
-          log(format!("Demand, takes `{}`", supply_demand_kind as char));
-          let cell = demand_cell(i, j, part_c(supply_demand_kind as char));
-          floor[coord] = cell;
+            log(format!("Demand, takes `{}`", supply_demand_kind as char));
+            let cell = demand_cell(i, j, part_c(supply_demand_kind as char));
+            floor[coord] = cell;
+          }
         },
-
-        // Machine is digits. This model is limited to 10 machines because 10 digits. shrug.
-        | '0'
-        | '1'
-        | '2'
-        | '3'
-        | '4'
-        | '5'
-        | '6'
-        | '7'
-        | '8'
-        | '9'
-        => {
-          // Auto layout will have to reconcile the individual machine parts into one machine
-          // Any modifiers as well as the input and output parameters of this machine are
-          // listed below the floor model. Expect them to be filled in later.
-          let mn = (cell_kind as u8 - ('0' as u8)) as usize;
-          let main_coord =
-            if machine_main_coords[mn] == 0 {
-              machine_main_coords[mn] = coord;
-              coord
-            } else {
-              machine_main_coords[mn]
-            };
-          let mut cell = machine_any_cell(i, j, 1, 1, MachineKind::Unknown, part_c(' '), part_c(' '), part_c(' '), part_c(' '), 1, 1, 1);
-          cell.port_u = match port_u as char { '^' => Port::Outbound, 'v' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port up indicators must be `^`, `v`, `?` or a space, this was `{}`", port_u)};
-          cell.port_r = match port_r as char { '>' => Port::Outbound, '<' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port right indicators must be `<`, `>`, `?` or a space, this was `{}`", port_u)};
-          cell.port_d = match port_d as char { 'v' => Port::Outbound, '^' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port down indicators must be `^`, `v`, `?` or a space, this was `{}`", port_u)};
-          cell.port_l = match port_l as char { '<' => Port::Outbound, '>' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port left indicators must be `<`, `>`, `?` or a space, this was `{}`", port_u)};
-          floor[coord] = cell;
-        }
 
         // Empty cells are spaces or dots
         | ' '
@@ -339,7 +336,15 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
         // Then there's a bunch of belt cells. These are either `b` or "table ascii art" chars
         // The actual char is not relevant here since we will auto-discover the meta of the cell
         // based on the port configuration, anyways.
-        | 'b'
+        '%' => { // Joker, unspecified belt. (b is used by machine id)
+          // Fix belt meta later in the auto layout step
+          let mut cell = belt_cell(i, j, BELT_UNKNOWN);
+          cell.port_u = Port::Unknown;
+          cell.port_r = Port::Unknown;
+          cell.port_d = Port::Unknown;
+          cell.port_l = Port::Unknown;
+          floor[coord] = cell;
+        }
         | '╸' // double lines have no one-arm glyph :rolls-eys: so we use thick line instead
         | '╹'
         | '╺'
@@ -365,7 +370,15 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
           floor[coord] = cell;
         }
 
-        _ => panic!("Error while parsing factory string: Encountered an unknown center cell char at {}x{}: `{}` ({})", i, j, cell_kind as char, cell_kind),
+        _ => {
+          if (cell_kind >= '1' && cell_kind <= '9') || (cell_kind >= 'a' && cell_kind <= 'z') || (cell_kind >= 'A' && cell_kind <= 'Z') {
+            // Machine id is a single char 1-9a-zA-Z
+            // Note: s and d are special cased between middle and edge cell above
+            add_machine(&mut floor, coord, i, j, cell_kind, &mut machine_main_coords, port_u, port_r, port_d, port_l);
+          } else {
+            panic!("Error while parsing factory string: Encountered an unknown center cell char at {}x{}: `{}` ({})", i, j, cell_kind as char, cell_kind)
+          }
+        },
       }
     }
   }
@@ -513,12 +526,12 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              if c < '0' || c > '9' { panic!("Unexpected input while parsing machine augment: first character after `s` must be a digit indicating which supply it targets, found `{}`", c); }
+              if !((c >= '1' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) { panic!("Unexpected input while parsing machine augment: first character after `m` must be 1-9a-zA-Z, indicating which supply it targets, found `{}`", c); }
               nth = (c as u8) - ('0' as u8);
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              if c != '=' { panic!("Unexpected input while parsing augment: first character after `s{}` must be the `=` sign, found `{}`", nth, c); }
+              if c != '=' { panic!("Unexpected input while parsing machine augment: first character after `m{}` must be the `=` sign, found `{}`", nth, c); }
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }

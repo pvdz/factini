@@ -26,7 +26,7 @@ pub struct Machine {
   pub coords: Vec<usize>, // First element is main coord. List of coords part of this machine
   pub cell_width: usize, // Number of cells this factory spans
   pub cell_height: usize,
-  pub id: usize,
+  pub id: char,
 
   // Required input for this machine. Can be none. Can require up to three things.
   // There should be no gap, meaning if there are two inputs, then 3 should always be the none part
@@ -58,7 +58,7 @@ pub const fn machine_none(main_coord: usize) -> Machine {
     coords: vec!(),
     cell_width: 0,
     cell_height: 0,
-    id: 999,
+    id: '!',
 
     input_1_want: part_none(),
     input_1_have: part_none(),
@@ -80,7 +80,7 @@ pub const fn machine_none(main_coord: usize) -> Machine {
   };
 }
 
-pub fn machine_new(kind: MachineKind, cell_width: usize, cell_height: usize, id: usize, main_coord: usize, input1: Part, input2: Part, input3: Part, output: Part, speed: u64) -> Machine {
+pub fn machine_new(kind: MachineKind, cell_width: usize, cell_height: usize, id: char, main_coord: usize, input1: Part, input2: Part, input3: Part, output: Part, speed: u64) -> Machine {
   return Machine {
     kind,
     main_coord,

@@ -75,15 +75,7 @@ fn serialize(options: &mut Options, state: &mut State, factory: &Factory, dump: 
       CellKind::Machine => {
         let greek_lo = "αβγδεζηθικλμνξοπρςτυφχψω";
         let greek_hi = "ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ";
-        let id = factory.floor[coord].machine.id;
-        // if id < 24 {
-        //   match greek_lo.char_indices().nth(id) {
-        //     None => '!',
-        //     Some((_, c)) => c,
-        //   }
-        // } else {
-        ('0' as usize + id) as u8 as char
-        // }
+        factory.floor[coord].machine.id
       },
       CellKind::Belt => {
         if !dump && factory.floor[coord].belt.part.kind != PartKind::None {
@@ -118,7 +110,6 @@ fn serialize(options: &mut Options, state: &mut State, factory: &Factory, dump: 
 
   return out.iter().collect();
 }
-
 fn serialize_cb(options: &mut Options, state: &mut State, factory: &Factory, cb: fn(&Cell) -> char) -> String {
   let mut out = vec!();
 
@@ -202,14 +193,12 @@ fn serialize_cb(options: &mut Options, state: &mut State, factory: &Factory, cb:
 
   return out.iter().collect();
 }
-
 pub fn print_floor_with_views(options: &mut Options, state: &mut State, factory: &Factory) {
   let lines = generate_floor_with_views(options, state, factory);
   for line in lines {
     log(format!("{}", line));
   }
 }
-
 pub fn generate_floor_with_views(options: &mut Options, state: &mut State, factory: &Factory) -> Vec<String>{
   let aa = serialize(options, state, factory, false);
   let mut a = aa.split('\n');
@@ -279,7 +268,6 @@ pub fn generate_floor_with_views(options: &mut Options, state: &mut State, facto
 
   return out;
 }
-
 pub fn print_floor_without_views(options: &mut Options, state: &mut State, factory: &Factory) {
   let lines = generate_floor_without_views(options, state, factory);
   for line in lines {
@@ -317,8 +305,6 @@ pub fn generate_floor_dump(options: &mut Options, state: &mut State, factory: &F
   return out;
 }
 
-
-
 pub fn serialize2(options: &mut Options, state: &mut State, factory: &Factory, dump: bool) -> String {
   // Create a string that we can parse again. This requires to be explicit about the port states.
   // While it would be super nice to have a condensed string, there's just too many variations.
@@ -353,15 +339,7 @@ pub fn serialize2(options: &mut Options, state: &mut State, factory: &Factory, d
       CellKind::Machine => {
         let greek_lo = "αβγδεζηθικλμνξοπρςτυφχψω";
         let greek_hi = "ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ";
-        let id = factory.floor[coord].machine.id;
-        // if id < 24 {
-        //   match greek_lo.char_indices().nth(id) {
-        //     None => '!',
-        //     Some((_, c)) => c,
-        //   }
-        // } else {
-        ('0' as usize + id + 1) as u8 as char
-        // }
+        factory.floor[coord].machine.id
       },
       CellKind::Belt => {
         if !dump && factory.floor[coord].belt.part.kind != PartKind::None {
@@ -396,15 +374,16 @@ pub fn serialize2(options: &mut Options, state: &mut State, factory: &Factory, d
     let main_coord = factory.floor[coord].machine.main_coord;
     let m_x = x - (main_coord % FLOOR_CELLS_W);
     let m_y = (coord / FLOOR_CELLS_W) - (main_coord / FLOOR_CELLS_W);
-    let m_w = factory.floor[coord].machine.cell_width + 2; // TODO: fix once machine size is fixed
-    let m_h = factory.floor[coord].machine.cell_height + 2; // TODO: fix once machine size is fixed
+    let m_w = factory.floor[main_coord].machine.cell_width;
+    let m_h = factory.floor[main_coord].machine.cell_height;
+    if is_m { log(format!("{}x{}", m_w, m_h)); }
     let m_dl = main_coord + FLOOR_CELLS_W * (m_h - 1);
     let m_dr = m_dl + m_w - 1;
 
     if is_m && coord == main_coord {
       machine_count += 1;
       cell_params.push('m');
-      cell_params.push((('0' as u8) + machine_count) as char);
+      cell_params.push(factory.floor[coord].machine.id); // This is the ID that shows up on the map as well
       cell_params.push(' ');
       cell_params.push('=');
       cell_params.push(' ');
