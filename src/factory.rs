@@ -3,6 +3,8 @@ use crate::port::Port;
 
 use super::belt::*;
 use super::cell::*;
+use super::cli_serialize::*;
+use super::cli_deserialize::*;
 use super::demand::*;
 use super::floor::*;
 use super::options::*;
@@ -46,6 +48,7 @@ pub fn create_factory(options: &mut Options, state: &mut State, floor_str: Strin
     trashed: 0,
   };
   auto_layout(options, state, &mut factory);
+  auto_ins_outs(options, state, &mut factory);
   let prio = create_prio_list(options, &mut factory.floor);
   factory.prio = prio;
   factory.changed = false;

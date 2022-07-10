@@ -1,4 +1,5 @@
 use std::borrow::Borrow;
+use std::collections::VecDeque;
 use std::convert::TryInto;
 
 use super::belt::*;
@@ -30,11 +31,12 @@ pub fn floor_empty() -> [Cell; FLOOR_CELLS_WH] {
     .unwrap();
 }
 
-pub fn floor_from_str(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
+pub fn floor_from_str1(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
   if str.len() == 0 {
     return ( floor_empty(), vec!() );
   }
 
+  // let ( floor, offers ) = str_to_floor(str);
   let ( floor, offers ) = str_to_floor(str);
   return ( floor, offers );
 }
@@ -97,6 +99,69 @@ fn str_to_floor(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
   // - supply that gives 'g' with default speed and delay
   // - machine that takes r g and b and generates an a, 3 cells wide by 2 cells high
 
+
+  // ┌─────────────────────────────────────────────────┐
+  // │.  .  .  .  .  .  .  .  .  .  .  .  .  .  .  sw .│
+  // │ ┌───────────────────────────────────────────v─┐ │
+  // │ │      ┌───────┐                            v │ │
+  // │s>>╗  . │       <<═<<═<<═<<═<<═<<═<<═<<╗  .  ║ │.│
+  // │w│ v    │       │                      ^     v │ │
+  // │ │ v    │       │                      ^     v │ │
+  // │.│ ║  . │   0   │ .  .  .  .  .  .  .  ║  .  ║ │.│
+  // │ │ v    │       │                      ^     v │ │
+  // │ │ v    │       │                      ^     v │ │
+  // │.│ ║  . │       >>═>>═>>═>>═>>╗  .  .  ╚<<═<<╣ │.│
+  // │ │ v    └^─────v┘             v              ^ │ │
+  // │ │ v     ^     v              v              ^ │ │
+  // │.│ ║  .  ║  .  ║  .  .  .  .  ╚>>╗  .  .  .  ║ │.│
+  // │ │ v     ^     v                 v           ^ │ │
+  // │ │ v     ^     v                 v           ^ │ │
+  // │.│ ║  .  ║  .  ╚>>═>>═>>╗  .  .  ║  .  .  .  ║ │.│
+  // │ │ v     ^              v        v           ^ │ │
+  // │ │ v     ^              v        v           ^ │ │
+  // │.│ ║  .  ║  .  .  .  .  ║  .  .  ║  .  .  .  ║ │.│
+  // │ │ v     ^              v        v           ^ │ │
+  // │ │ v     ^          ┌───v───┐    v           ^ │ │
+  // │.│ ╚>>═>>╣  .  .  . │       │ .  ║  .  .  .  ║ │.│
+  // │ │       ^          │       │    v           ^ │ │
+  // │ │       ^          │       │    v           ^ │ │
+  // │.│ .  .  ║  .  .  . │   1   │ .  ║  .  .  ╔>>╝ │.│
+  // │ │       ^          │       │    v        ^    │ │
+  // │ │       ^          │       │    v        ^    │ │
+  // │s>>═>>═>>╝  .  .  . │       │ .  ║  .  .  ║  . │.│
+  // │s│                  └───v───┘    v        ^    │ │
+  // │ │                      v        v        ^    │ │
+  // │.│ .  .  .  .  .  .  .  ║  .  .  ║  .  .  ╚<<═<<s│
+  // │ │                      v        v             │s│
+  // │ │                      v        v             │ │
+  // │.│ .  ╔<<═<<═<<═<<═<<═<<╣  .  .  ║  .  .  .  . │.│
+  // │ │    v                 v        v             │ │
+  // │ │    v                 v        v             │ │
+  // │.│ .  ║  .  .  .  .  .  ║  .  .  ╚>>═>>═>>═>>═>>d│
+  // │ │    v                 v                      │s│
+  // │ │    v                 v                      │ │
+  // │.│ .  ║  .  .  .  .  .  ║  .  .  .  .  .  .  . │.│
+  // │ │    v                 v                      │ │
+  // │ │    v                 v                      │ │
+  // │d<<═<<╝  .  .  ╔<<═<<═<<╝  .  .  .  .  .  .  . │.│
+  // │w│             v                               │ │
+  // │ │             v                               │ │
+  // │.│ .  .  .  .  ║  .  .  .  .  .  .  .  .  .  . │.│
+  // │ │             v                               │ │
+  // │ └─────────────v───────────────────────────────┘ │
+  // │.  .  .  .  .  dg .  .  .  .  .  .  .  .  .  .  .│
+  // └─────────────────────────────────────────────────┘
+  // m1 = w s   -> b
+  // m2 = b     -> g
+  // os = w s:10 c:5
+  // os = s s:10 c:5
+  // od = g
+  // om = s w   -> b s:0 d:3x2
+  // om = b     -> g s:10 d:1x1
+  // om = b     -> g s:0 d:3x3
+  // om = b     -> g s:0 d:4x4
+
+
   let mut len = 0;
   for c in str.bytes() {
     if (c as char) != '\n' {
@@ -118,8 +183,8 @@ fn str_to_floor(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
   let mut offers: Vec<Offer> = vec!();
   for line in lines[FLOOR_CELLS_H..lines.len()].iter().map(|s| s.bytes()).collect::<Vec<_>>().iter_mut() {
     if line.next().or(Some('-' as u8)).unwrap() as char == 'o' {
-      // os = x         Offer of a supply that gives x
-      // od = x         Offer of a demand that takes x
+      // os = x          Offer of a supply that gives x
+      // od = x          Offer of a demand that takes x
       // om = ab -> c    Offer of a machine that takes a and b and generates c
       // suppliers and machines can have a s: modifier, setting speed
       // suppliers can have a c: modifier, setting cooldown
@@ -562,6 +627,7 @@ fn str_to_floor(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
 }
 
 pub fn auto_layout(options: &mut Options, state: &mut State, factory: &mut Factory) {
+  log(format!("auto_layout()"));
   let mut machines = 0;
   for coord in 0..FLOOR_CELLS_WH {
     match factory.floor[coord].kind {
@@ -594,14 +660,16 @@ pub fn auto_layout(options: &mut Options, state: &mut State, factory: &mut Facto
           let mut biggest_area_width = 0;
           let mut biggest_area_height = 0;
 
+          log(format!("======"));
+          log(format!("- Discovering machine..."));
           // Find biggest machine rectangle area wise, with x,y in the top-left corner
           for n in y .. y + FLOOR_CELLS_H - y {
             max_height = n - y;
             for m in x .. x + max_width {
               let c = to_coord(m, n);
-              log(format!("- {}x{} {:?} {:?}", m, n, factory.floor[c].kind, factory.floor[c].machine.kind));
+              log(format!("  - {}x{}; is machine? {:?}; if so, what kind? {:?}", m, n, factory.floor[c].kind, factory.floor[c].machine.kind));
               if factory.floor[c].kind != CellKind::Machine || factory.floor[c].machine.kind != MachineKind::Unknown {
-                log(format!("  - end of machine row, max width {}, max height {}, first col? {}, area is {}, biggest is {}", max_width, max_height, m==x, max_width * max_height, biggest_area_size));
+                log(format!("    - end of machine row, max width {}, max height {}, first col? {}, area is {}, biggest is {}", max_width, max_height, m==x, max_width * max_height, biggest_area_size));
 
                 if max_width * max_height > biggest_area_size {
                   biggest_area_size = max_width * max_height;
@@ -617,13 +685,13 @@ pub fn auto_layout(options: &mut Options, state: &mut State, factory: &mut Facto
               break;
             }
           }
-          log(format!("  - last area: {} ({} by {})", max_width * max_height, max_width, max_height));
+          log(format!("  - Last area: {} ({} by {})", max_width * max_height, max_width, max_height));
           if max_width * max_height > biggest_area_size {
             biggest_area_size = max_width * max_height;
             biggest_area_width = max_width;
             biggest_area_height = max_height;
           }
-          log(format!("final biggest area: {} at {} x {}, assigning machine id {}", biggest_area_size, biggest_area_width, biggest_area_height, machines));
+          log(format!("  - Final biggest area: {} at {} x {}, assigning machine id {}", biggest_area_size, biggest_area_width, biggest_area_height, machines));
           log(format!("======"));
 
           // Now collect all cells in this grid and assign them to be the same machine
@@ -644,7 +712,7 @@ pub fn auto_layout(options: &mut Options, state: &mut State, factory: &mut Facto
           factory.floor[coord].machine.coords.sort(); // Makes debugging easier
 
           machines += 1;
-          println!("Machine {} @{} has these parts: {:?}", factory.floor[coord].machine.id, coord, factory.floor[coord].machine.coords);
+          log(format!("Machine {} @{} has these cells: {:?}", factory.floor[coord].machine.id, coord, factory.floor[coord].machine.coords));
         }
       }
       CellKind::Supply => {}

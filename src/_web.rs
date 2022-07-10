@@ -1,11 +1,10 @@
 // This file should only be included for `wasm-pack build --target web`
 // The main.rs will include this file when `#[cfg(target_arch = "wasm32")]`
 
-// - export all the things
 // - import/export with clipboard
-// - input (string map) validation
 // - score card stuff
-// - small problem with tick_belt_take_from_belt when a belt crossing is next to a supply and another belt; it will ignore the other belt as input.
+// - small problem with tick_belt_take_from_belt when a belt crossing is next to a supply and another belt; it will ignore the other belt as input. because the belt will not let a part proceed to the next port unless it's free and the processing order will process the neighbor belt first and then the crossing so by the time it's free, the part will still be at 50% whereas the supply part is always ready. fix is probably to make supply parts take a tick to be ready, or whatever.
+// - why is the cell_width/height of a machine 1? fix the serialization after fixing this. (`+ 1`)
 
 // This is required to export panic to the web
 use std::panic;
@@ -514,170 +513,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_belt_items(&context, &factory, &part_tile_sprite);
 
         paint_mouse_cursor(&context, &mouse_state);
-
-        if state.mouse_mode_erasing {
-          // Don't paint anything or paint the invalid belt stub
-          if bounds_check(mouse_state.cell_x, mouse_state.cell_y, 0.0, 0.0, FLOOR_CELLS_W as f64, FLOOR_CELLS_H as f64) {
-            // Rectangle around current cell (generic)
-            context.set_stroke_style(&"red".into());
-            context.stroke_rect(WORLD_OFFSET_X + mouse_state.cell_x * CELL_W, WORLD_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
-          }
-        }
-        else if state.mouse_mode_selecting {
-          // When mouse is down and clipboard is empty; select the area to potentially copy. With clipboard, still show the ghost. Do not change the selection area.
-          if mouse_state.is_down && state.selected_area_copy.len() == 0 {
-            let down_cell_x = ((mouse_state.last_down_world_x - WORLD_OFFSET_X) / CELL_W).floor();
-            let down_cell_y = ((mouse_state.last_down_world_y - WORLD_OFFSET_Y) / CELL_H).floor();
-            if down_cell_x >= 0.0 && down_cell_y >= 0.0 && is_floor(down_cell_x as usize, down_cell_y as usize) && mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && is_floor(mouse_state.cell_x as usize, mouse_state.cell_y as usize) {
-              // Draw dotted stroke rect around cells from mouse down cell to current cell
-              context.set_stroke_style(&"blue".into());
-              let now_cell_x = mouse_state.cell_x.floor();
-              let now_cell_y = mouse_state.cell_y.floor();
-              context.stroke_rect(WORLD_OFFSET_X + down_cell_x.min(now_cell_x) * CELL_W, WORLD_OFFSET_Y + down_cell_y.min(now_cell_y) * CELL_H, (1.0 + (down_cell_x - now_cell_x).abs()) * CELL_W, (1.0 + (down_cell_y - now_cell_y).abs()) * CELL_H);
-            }
-          }
-          else {
-            if cell_selection.on {
-              // There is a current selection so draw it.
-              // Rectangle around current selection, if any
-              context.set_stroke_style(&"blue".into());
-              context.stroke_rect(WORLD_OFFSET_X + cell_selection.x * CELL_W, WORLD_OFFSET_Y + cell_selection.y * CELL_H, (1.0 + (cell_selection.x - cell_selection.x2).abs()) * CELL_W, (1.0 + (cell_selection.y - cell_selection.y2).abs()) * CELL_H);
-              if state.selected_area_copy.len() > 0 {
-                // Draw a rectangle to indicate paste area. Always a rectangle of sorts.
-                let w = state.selected_area_copy[0].len(); // There must be at least one
-                let h = state.selected_area_copy.len();
-                context.set_stroke_style(&"green".into());
-                context.stroke_rect(WORLD_OFFSET_X + cell_selection.x * CELL_W, WORLD_OFFSET_Y + cell_selection.y * CELL_H, w as f64 * CELL_W, h as f64 * CELL_H);
-
-                let cell_x = mouse_state.cell_x;
-                let cell_y = mouse_state.cell_y;
-                for j in 0..state.selected_area_copy.len() {
-                  for i in 0..state.selected_area_copy[j].len() {
-                    let x = cell_x + (i as f64);
-                    let y = cell_y + (j as f64);
-                    if x >= 0.0 && y >= 0.0 && is_middle(x as usize, y as usize) {
-                      let bt = state.selected_area_copy[j][i].belt.meta.btype;
-                      paint_ghost_belt_of_type(x as usize, y as usize, bt, &context, &belt_tile_images);
-                    }
-                  }
-                }
-              }
-            }
-            if bounds_check(mouse_state.cell_x, mouse_state.cell_y, 0.0, 0.0, FLOOR_CELLS_W as f64, FLOOR_CELLS_H as f64) {
-              // Rectangle around current cell (generic)
-              context.set_stroke_style(&"red".into());
-              context.stroke_rect(WORLD_OFFSET_X + mouse_state.cell_x * CELL_W, WORLD_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
-            }
-          }
-        }
-        else if mouse_state.dragging_offer {
-          let offer = &factory.offers[mouse_state.offer_index];
-
-          // Paint drop zone over the edge cells
-          context.set_fill_style(&"#00004444".into());
-
-          // Face out illegal options
-          let ( paint_at_x, paint_at_y, legal ) =
-            if offer.kind == CellKind::Machine {
-              // All edges
-              context.fill_rect(WORLD_OFFSET_X, WORLD_OFFSET_Y, CELL_W, WORLD_HEIGHT - CELL_H);
-              context.fill_rect(WORLD_OFFSET_X + CELL_W, WORLD_OFFSET_Y, WORLD_WIDTH - CELL_W, CELL_H);
-              context.fill_rect(WORLD_OFFSET_X + WORLD_WIDTH - CELL_W, WORLD_OFFSET_Y + CELL_H, CELL_W, WORLD_HEIGHT - CELL_H);
-              context.fill_rect(WORLD_OFFSET_X, WORLD_OFFSET_Y + WORLD_HEIGHT - CELL_H, WORLD_WIDTH - CELL_W, CELL_H);
-
-              // Note that mouse cell x is not where the top-left most cell of the machine would be
-              let top_left_machine_cell_x = world_x_to_top_left_cell_x_while_dragging_offer(mouse_state.world_x, offer.cell_width);
-              let top_left_machine_cell_y = world_y_to_top_left_cell_y_while_dragging_offer(mouse_state.world_y, offer.cell_height);
-              // Make sure the entire machine fits, not just the center or topleft cell
-              if
-                !bounds_check(top_left_machine_cell_x, top_left_machine_cell_y, 1.0, 1.0, FLOOR_CELLS_W as f64 - (offer.cell_width as f64), FLOOR_CELLS_H as f64 - (offer.cell_height as f64))
-              {
-                // Do not snap if machine would cover the edge
-                let ox = mouse_state.world_x - ((offer.cell_width as f64) * (CELL_W as f64) / 2.0 );
-                let oy = mouse_state.world_y - ((offer.cell_height as f64) * (CELL_H as f64) / 2.0 );
-                ( ox, oy, false )
-              } else {
-                ( WORLD_OFFSET_X + top_left_machine_cell_x.round() * CELL_W, WORLD_OFFSET_Y + top_left_machine_cell_y.round() * CELL_H, true )
-              }
-            }
-            else {
-              // Corners
-              context.fill_rect(WORLD_OFFSET_X, WORLD_OFFSET_Y, CELL_W, CELL_H);
-              context.fill_rect(WORLD_OFFSET_X + WORLD_WIDTH - CELL_W, WORLD_OFFSET_Y, CELL_W, CELL_H);
-              context.fill_rect(WORLD_OFFSET_X, WORLD_OFFSET_Y + WORLD_HEIGHT - CELL_H, CELL_W, CELL_H);
-              context.fill_rect(WORLD_OFFSET_X + WORLD_WIDTH - CELL_W, WORLD_OFFSET_Y + WORLD_HEIGHT - CELL_H, CELL_W, CELL_H);
-              // Center
-              context.fill_rect(WORLD_OFFSET_X + CELL_W, WORLD_OFFSET_Y + CELL_H, WORLD_WIDTH - CELL_W * 2.0, WORLD_HEIGHT - CELL_H * 2.0);
-
-              // Snap if x or y is edge but not both or neither
-              if
-                (mouse_state.cell_x == 0.0 || mouse_state.cell_x == FLOOR_CELLS_W as f64 - 1.0)
-                  !=
-                (mouse_state.cell_y == 0.0 || mouse_state.cell_y == FLOOR_CELLS_H as f64 - 1.0)
-              {
-                ( WORLD_OFFSET_X + mouse_state.cell_x * CELL_W, WORLD_OFFSET_Y + mouse_state.cell_y * CELL_H, true )
-              } else {
-                ( mouse_state.world_x - ((CELL_W as f64) / 2.0), mouse_state.world_y - ((CELL_H as f64) / 2.0), false )
-              }
-            };
-
-          fn paint_illegal(context: &Rc<web_sys::CanvasRenderingContext2d>, x: f64, y: f64, w: f64, h: f64) {
-            // tbd. dont like this part but it gets the job done I guess.
-            context.set_stroke_style(&"red".into());
-            context.stroke_rect(x, y, w, h);
-            // context.set_line_width(3.0);
-            // context.set_line_cap("round");
-            let n = 11.0;
-            let ws = w / n;
-            let hs = h / n;
-            for i in 0..ws as u32 {
-              for j in 0..hs as u32 {
-                let fi = i as f64;
-                let fj = j as f64;
-
-                context.begin_path();
-                context.move_to(x, y + fj * n);
-                context.line_to(x + w, y + fj * n);
-                context.stroke();
-
-                context.begin_path();
-                context.move_to(x + fi * n, y);
-                context.line_to(x + fi * n, y + h);
-                context.stroke();
-              }
-            }
-          }
-
-          context.set_fill_style(&"black".into());
-          match offer.kind {
-            CellKind::Empty => panic!("no"),
-            CellKind::Belt => panic!("no"),
-            CellKind::Machine => {
-              context.set_fill_style(&COLOR_MACHINE_SEMI.into());
-              context.fill_rect(paint_at_x, paint_at_y, (offer.cell_width as f64) * CELL_W, (offer.cell_height as f64) * CELL_H);
-              if !legal { paint_illegal(&context, paint_at_x, paint_at_y, (offer.cell_width as f64) * CELL_W, (offer.cell_height as f64) * CELL_H); }
-              context.set_fill_style(&"black".into());
-              context.fill_text("M", paint_at_x + (offer.cell_width as f64) * CELL_W / 2.0 - 5.0, paint_at_y + (offer.cell_height as f64) * CELL_H / 2.0 + 2.0).expect("no error")
-            },
-            CellKind::Supply => {
-              context.set_fill_style(&COLOR_SUPPLY_SEMI.into());
-              context.fill_rect(paint_at_x, paint_at_y, CELL_W, CELL_H);
-              if !legal { paint_illegal(&context, paint_at_x, paint_at_y, CELL_W, CELL_H); }
-              context.set_fill_style(&"black".into());
-              context.fill_text("S", paint_at_x + CELL_W / 2.0 - 5.0, paint_at_y + CELL_H / 2.0 + 2.0).expect("no error")
-            },
-            CellKind::Demand => {
-              context.set_fill_style(&COLOR_DEMAND_SEMI.into());
-              context.fill_rect(paint_at_x, paint_at_y, CELL_W, CELL_H);
-              if !legal { paint_illegal(&context, paint_at_x, paint_at_y, CELL_W, CELL_H); }
-              context.set_fill_style(&"black".into());
-              context.fill_text("D", paint_at_x + CELL_W / 2.0 - 5.0, paint_at_y + CELL_H / 2.0 + 2.0).expect("no error")
-            },
-          }
-        }
-        else if mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && mouse_state.cell_x < FLOOR_CELLS_W as f64 && mouse_state.cell_y < FLOOR_CELLS_H as f64 {
-          paint_mouse_stuff_in_floor(&context, &factory, &cell_selection, &mouse_state, &belt_tile_images);
-        }
+        paint_mouse_action(&options, &state, &factory, &context, &belt_tile_images, &mouse_state, &cell_selection);
 
         paint_cell_editor(&context, &factory, &cell_selection, &mouse_state);
         paint_machine_editor(&context, &factory, &cell_selection, &mouse_state);
@@ -1879,16 +1715,189 @@ fn paint_mouse_cursor(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_sta
   context.ellipse(mouse_state.world_x, mouse_state.world_y, PART_W / 2.0, PART_H / 2.0, 3.14, 0.0, 6.28).expect("to paint a circle");
   context.fill();
 }
-fn paint_mouse_stuff_in_floor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState, belt_tile_images: &Vec<web_sys::HtmlImageElement>) {
-  if mouse_state.cell_x != cell_selection.x || mouse_state.cell_y != cell_selection.y {
+fn paint_mouse_action(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, belt_tile_images: &Vec<web_sys::HtmlImageElement>, mouse_state: &MouseState, cell_selection: &CellSelection) {
+  if state.mouse_mode_erasing {
+    paint_mouse_in_erasing_mode(options, state, factory, context, mouse_state);
+  }
+  else if state.mouse_mode_selecting {
+    paint_mouse_in_selection_mode(options, state, factory, context, belt_tile_images, mouse_state, cell_selection);
+  }
+  else if mouse_state.dragging_offer {
+    paint_mouse_while_dragging_offer(options, state, factory, context, mouse_state);
+  }
+  else if mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && mouse_state.cell_x < FLOOR_CELLS_W as f64 && mouse_state.cell_y < FLOOR_CELLS_H as f64 {
+    paint_mouse_cell_location_on_floor(&context, &factory, &cell_selection, &mouse_state, belt_tile_images);
+    if mouse_state.is_dragging {
+      if mouse_state.last_down_world_x - WORLD_OFFSET_X >= 0.0 && mouse_state.last_down_world_x - WORLD_OFFSET_X < WORLD_WIDTH && mouse_state.last_down_world_y - WORLD_OFFSET_Y >= 0.0 && mouse_state.last_down_world_y - WORLD_OFFSET_Y < WORLD_HEIGHT {
+        paint_belt_drag_preview(context, factory, cell_selection, mouse_state, belt_tile_images);
+      }
+    }
+  }
+}
+fn paint_mouse_in_erasing_mode(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  // Don't paint anything or paint the invalid belt stub
+  if bounds_check(mouse_state.cell_x, mouse_state.cell_y, 0.0, 0.0, FLOOR_CELLS_W as f64, FLOOR_CELLS_H as f64) {
+    // Rectangle around current cell (generic)
     context.set_stroke_style(&"red".into());
     context.stroke_rect(WORLD_OFFSET_X + mouse_state.cell_x * CELL_W, WORLD_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
   }
-
-  if mouse_state.is_dragging {
-    if mouse_state.last_down_world_x - WORLD_OFFSET_X >= 0.0 && mouse_state.last_down_world_x - WORLD_OFFSET_X < WORLD_WIDTH && mouse_state.last_down_world_y - WORLD_OFFSET_Y >= 0.0 && mouse_state.last_down_world_y - WORLD_OFFSET_Y < WORLD_HEIGHT {
-      paint_belt_drag_preview(context, factory, cell_selection, mouse_state, belt_tile_images);
+}
+fn paint_mouse_in_selection_mode(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, belt_tile_images: &Vec<web_sys::HtmlImageElement>, mouse_state: &MouseState, cell_selection: &CellSelection) {
+  // When mouse is down and clipboard is empty; select the area to potentially copy. With clipboard, still show the ghost. Do not change the selection area.
+  if mouse_state.is_down && state.selected_area_copy.len() == 0 {
+    let down_cell_x = ((mouse_state.last_down_world_x - WORLD_OFFSET_X) / CELL_W).floor();
+    let down_cell_y = ((mouse_state.last_down_world_y - WORLD_OFFSET_Y) / CELL_H).floor();
+    if down_cell_x >= 0.0 && down_cell_y >= 0.0 && is_floor(down_cell_x as usize, down_cell_y as usize) && mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && is_floor(mouse_state.cell_x as usize, mouse_state.cell_y as usize) {
+      // Draw dotted stroke rect around cells from mouse down cell to current cell
+      context.set_stroke_style(&"blue".into());
+      let now_cell_x = mouse_state.cell_x.floor();
+      let now_cell_y = mouse_state.cell_y.floor();
+      context.stroke_rect(WORLD_OFFSET_X + down_cell_x.min(now_cell_x) * CELL_W, WORLD_OFFSET_Y + down_cell_y.min(now_cell_y) * CELL_H, (1.0 + (down_cell_x - now_cell_x).abs()) * CELL_W, (1.0 + (down_cell_y - now_cell_y).abs()) * CELL_H);
     }
+  }
+  else {
+    if cell_selection.on {
+      // There is a current selection so draw it.
+      // Rectangle around current selection, if any
+      context.set_stroke_style(&"blue".into());
+      context.stroke_rect(WORLD_OFFSET_X + cell_selection.x * CELL_W, WORLD_OFFSET_Y + cell_selection.y * CELL_H, (1.0 + (cell_selection.x - cell_selection.x2).abs()) * CELL_W, (1.0 + (cell_selection.y - cell_selection.y2).abs()) * CELL_H);
+      if state.selected_area_copy.len() > 0 {
+        // Draw a rectangle to indicate paste area. Always a rectangle of sorts.
+        let w = state.selected_area_copy[0].len(); // There must be at least one
+        let h = state.selected_area_copy.len();
+        context.set_stroke_style(&"green".into());
+        context.stroke_rect(WORLD_OFFSET_X + cell_selection.x * CELL_W, WORLD_OFFSET_Y + cell_selection.y * CELL_H, w as f64 * CELL_W, h as f64 * CELL_H);
+
+        let cell_x = mouse_state.cell_x;
+        let cell_y = mouse_state.cell_y;
+        for j in 0..state.selected_area_copy.len() {
+          for i in 0..state.selected_area_copy[j].len() {
+            let x = cell_x + (i as f64);
+            let y = cell_y + (j as f64);
+            if x >= 0.0 && y >= 0.0 && is_middle(x as usize, y as usize) {
+              let bt = state.selected_area_copy[j][i].belt.meta.btype;
+              paint_ghost_belt_of_type(x as usize, y as usize, bt, &context, &belt_tile_images);
+            }
+          }
+        }
+      }
+    }
+    if bounds_check(mouse_state.cell_x, mouse_state.cell_y, 0.0, 0.0, FLOOR_CELLS_W as f64, FLOOR_CELLS_H as f64) {
+      // Rectangle around current cell (generic)
+      context.set_stroke_style(&"red".into());
+      context.stroke_rect(WORLD_OFFSET_X + mouse_state.cell_x * CELL_W, WORLD_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
+    }
+  }
+}
+fn paint_mouse_while_dragging_offer(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  let offer = &factory.offers[mouse_state.offer_index];
+
+  // Paint drop zone over the edge cells
+  context.set_fill_style(&"#00004444".into());
+
+  // Face out illegal options
+  let ( paint_at_x, paint_at_y, legal ) =
+    if offer.kind == CellKind::Machine {
+      // All edges
+      context.fill_rect(WORLD_OFFSET_X, WORLD_OFFSET_Y, CELL_W, WORLD_HEIGHT - CELL_H);
+      context.fill_rect(WORLD_OFFSET_X + CELL_W, WORLD_OFFSET_Y, WORLD_WIDTH - CELL_W, CELL_H);
+      context.fill_rect(WORLD_OFFSET_X + WORLD_WIDTH - CELL_W, WORLD_OFFSET_Y + CELL_H, CELL_W, WORLD_HEIGHT - CELL_H);
+      context.fill_rect(WORLD_OFFSET_X, WORLD_OFFSET_Y + WORLD_HEIGHT - CELL_H, WORLD_WIDTH - CELL_W, CELL_H);
+
+      // Note that mouse cell x is not where the top-left most cell of the machine would be
+      let top_left_machine_cell_x = world_x_to_top_left_cell_x_while_dragging_offer(mouse_state.world_x, offer.cell_width);
+      let top_left_machine_cell_y = world_y_to_top_left_cell_y_while_dragging_offer(mouse_state.world_y, offer.cell_height);
+      // Make sure the entire machine fits, not just the center or topleft cell
+      if
+      !bounds_check(top_left_machine_cell_x, top_left_machine_cell_y, 1.0, 1.0, FLOOR_CELLS_W as f64 - (offer.cell_width as f64), FLOOR_CELLS_H as f64 - (offer.cell_height as f64))
+      {
+        // Do not snap if machine would cover the edge
+        let ox = mouse_state.world_x - ((offer.cell_width as f64) * (CELL_W as f64) / 2.0 );
+        let oy = mouse_state.world_y - ((offer.cell_height as f64) * (CELL_H as f64) / 2.0 );
+        ( ox, oy, false )
+      } else {
+        ( WORLD_OFFSET_X + top_left_machine_cell_x.round() * CELL_W, WORLD_OFFSET_Y + top_left_machine_cell_y.round() * CELL_H, true )
+      }
+    }
+    else {
+      // Corners
+      context.fill_rect(WORLD_OFFSET_X, WORLD_OFFSET_Y, CELL_W, CELL_H);
+      context.fill_rect(WORLD_OFFSET_X + WORLD_WIDTH - CELL_W, WORLD_OFFSET_Y, CELL_W, CELL_H);
+      context.fill_rect(WORLD_OFFSET_X, WORLD_OFFSET_Y + WORLD_HEIGHT - CELL_H, CELL_W, CELL_H);
+      context.fill_rect(WORLD_OFFSET_X + WORLD_WIDTH - CELL_W, WORLD_OFFSET_Y + WORLD_HEIGHT - CELL_H, CELL_W, CELL_H);
+      // Center
+      context.fill_rect(WORLD_OFFSET_X + CELL_W, WORLD_OFFSET_Y + CELL_H, WORLD_WIDTH - CELL_W * 2.0, WORLD_HEIGHT - CELL_H * 2.0);
+
+      // Snap if x or y is edge but not both or neither
+      if
+      (mouse_state.cell_x == 0.0 || mouse_state.cell_x == FLOOR_CELLS_W as f64 - 1.0)
+        !=
+        (mouse_state.cell_y == 0.0 || mouse_state.cell_y == FLOOR_CELLS_H as f64 - 1.0)
+      {
+        ( WORLD_OFFSET_X + mouse_state.cell_x * CELL_W, WORLD_OFFSET_Y + mouse_state.cell_y * CELL_H, true )
+      } else {
+        ( mouse_state.world_x - ((CELL_W as f64) / 2.0), mouse_state.world_y - ((CELL_H as f64) / 2.0), false )
+      }
+    };
+
+  fn paint_illegal(context: &Rc<web_sys::CanvasRenderingContext2d>, x: f64, y: f64, w: f64, h: f64) {
+    // tbd. dont like this part but it gets the job done I guess.
+    context.set_stroke_style(&"red".into());
+    context.stroke_rect(x, y, w, h);
+    // context.set_line_width(3.0);
+    // context.set_line_cap("round");
+    let n = 11.0;
+    let ws = w / n;
+    let hs = h / n;
+    for i in 0..ws as u32 {
+      for j in 0..hs as u32 {
+        let fi = i as f64;
+        let fj = j as f64;
+
+        context.begin_path();
+        context.move_to(x, y + fj * n);
+        context.line_to(x + w, y + fj * n);
+        context.stroke();
+
+        context.begin_path();
+        context.move_to(x + fi * n, y);
+        context.line_to(x + fi * n, y + h);
+        context.stroke();
+      }
+    }
+  }
+
+  context.set_fill_style(&"black".into());
+  match offer.kind {
+    CellKind::Empty => panic!("no"),
+    CellKind::Belt => panic!("no"),
+    CellKind::Machine => {
+      context.set_fill_style(&COLOR_MACHINE_SEMI.into());
+      context.fill_rect(paint_at_x, paint_at_y, (offer.cell_width as f64) * CELL_W, (offer.cell_height as f64) * CELL_H);
+      if !legal { paint_illegal(&context, paint_at_x, paint_at_y, (offer.cell_width as f64) * CELL_W, (offer.cell_height as f64) * CELL_H); }
+      context.set_fill_style(&"black".into());
+      context.fill_text("M", paint_at_x + (offer.cell_width as f64) * CELL_W / 2.0 - 5.0, paint_at_y + (offer.cell_height as f64) * CELL_H / 2.0 + 2.0).expect("no error")
+    },
+    CellKind::Supply => {
+      context.set_fill_style(&COLOR_SUPPLY_SEMI.into());
+      context.fill_rect(paint_at_x, paint_at_y, CELL_W, CELL_H);
+      if !legal { paint_illegal(&context, paint_at_x, paint_at_y, CELL_W, CELL_H); }
+      context.set_fill_style(&"black".into());
+      context.fill_text("S", paint_at_x + CELL_W / 2.0 - 5.0, paint_at_y + CELL_H / 2.0 + 2.0).expect("no error")
+    },
+    CellKind::Demand => {
+      context.set_fill_style(&COLOR_DEMAND_SEMI.into());
+      context.fill_rect(paint_at_x, paint_at_y, CELL_W, CELL_H);
+      if !legal { paint_illegal(&context, paint_at_x, paint_at_y, CELL_W, CELL_H); }
+      context.set_fill_style(&"black".into());
+      context.fill_text("D", paint_at_x + CELL_W / 2.0 - 5.0, paint_at_y + CELL_H / 2.0 + 2.0).expect("no error")
+    },
+  }
+}
+fn paint_mouse_cell_location_on_floor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState, belt_tile_images: &Vec<web_sys::HtmlImageElement>) {
+  if mouse_state.cell_x != cell_selection.x || mouse_state.cell_y != cell_selection.y {
+    context.set_stroke_style(&"red".into());
+    context.stroke_rect(WORLD_OFFSET_X + mouse_state.cell_x * CELL_W, WORLD_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
   }
 }
 fn paint_belt_drag_preview(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState, belt_tile_images: &Vec<web_sys::HtmlImageElement>) {

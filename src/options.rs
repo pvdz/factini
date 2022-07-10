@@ -14,6 +14,7 @@ pub struct Options {
   pub print_factory_interval: u64,
   pub print_stats_interval: u64,
   pub trace_priority_step: bool,
+  pub trace_porting_step: bool,
   pub print_priority_tile_order: bool, // Print the prio index of a tile in the game (debug, web)
   pub print_initial_table: bool, // Print the CLI version of the floor after generating it initially?
 
@@ -42,6 +43,7 @@ pub fn create_options(speed_modifier: f64) -> Options {
     print_factory_interval: 5000,
     print_stats_interval: 100000,
     trace_priority_step: false,
+    trace_porting_step: false,
     print_priority_tile_order: false,
     print_initial_table: false,
     short_term_window: 10000,

@@ -145,6 +145,15 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
       println!("machine has a part but is unable to unload it...");
     }
   }
+  //
+  // if main_coord == 20 {
+  //   log(format!("machine @{}: {:?}>{:?} {:?}>{:?} {:?}>{:?}",
+  //     main_coord,
+  //     factory.floor[main_coord].machine.input_1_want.kind, factory.floor[main_coord].machine.input_1_have.kind,
+  //     factory.floor[main_coord].machine.input_2_want.kind, factory.floor[main_coord].machine.input_2_have.kind,
+  //     factory.floor[main_coord].machine.input_3_want.kind, factory.floor[main_coord].machine.input_3_have.kind,
+  //   ));
+  // }
 
   // It should only trash the input if it's actually still waiting for something so check that first
   if
@@ -223,32 +232,35 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
 }
 
 pub fn machine_discover_ins_and_outs(factory: &mut Factory, main_coord: usize) {
-  factory.floor[main_coord].ins.clear();
-  factory.floor[main_coord].outs.clear();
+  machine_discover_ins_and_outs_floor(&mut factory.floor, main_coord);
+}
+pub fn machine_discover_ins_and_outs_floor(floor: &mut [Cell; FLOOR_CELLS_WH], main_coord: usize) {
+  floor[main_coord].ins.clear();
+  floor[main_coord].outs.clear();
 
-  for index in 0..factory.floor[main_coord].machine.coords.len() {
-    let coord = factory.floor[main_coord].machine.coords[index];
-    match factory.floor[coord].port_u {
-      Port::Inbound => factory.floor[main_coord].ins.push(( Direction::Up, coord, to_coord_up(coord), Direction::Down )),
-      Port::Outbound => factory.floor[main_coord].outs.push(( Direction::Up, coord, to_coord_up(coord), Direction::Down )),
+  for index in 0..floor[main_coord].machine.coords.len() {
+    let coord = floor[main_coord].machine.coords[index];
+    match floor[coord].port_u {
+      Port::Inbound => floor[main_coord].ins.push(( Direction::Up, coord, to_coord_up(coord), Direction::Down )),
+      Port::Outbound => floor[main_coord].outs.push(( Direction::Up, coord, to_coord_up(coord), Direction::Down )),
       Port::None => {}
       Port::Unknown => {}
     };
-    match factory.floor[coord].port_r {
-      Port::Inbound => factory.floor[main_coord].ins.push(( Direction::Right, coord, to_coord_right(coord), Direction::Left )),
-      Port::Outbound => factory.floor[main_coord].outs.push(( Direction::Right, coord, to_coord_right(coord), Direction::Left )),
+    match floor[coord].port_r {
+      Port::Inbound => floor[main_coord].ins.push(( Direction::Right, coord, to_coord_right(coord), Direction::Left )),
+      Port::Outbound => floor[main_coord].outs.push(( Direction::Right, coord, to_coord_right(coord), Direction::Left )),
       Port::None => {}
       Port::Unknown => {}
     };
-    match factory.floor[coord].port_d {
-      Port::Inbound => factory.floor[main_coord].ins.push(( Direction::Down, coord, to_coord_down(coord), Direction::Up )),
-      Port::Outbound => factory.floor[main_coord].outs.push(( Direction::Down, coord, to_coord_down(coord), Direction::Up )),
+    match floor[coord].port_d {
+      Port::Inbound => floor[main_coord].ins.push(( Direction::Down, coord, to_coord_down(coord), Direction::Up )),
+      Port::Outbound => floor[main_coord].outs.push(( Direction::Down, coord, to_coord_down(coord), Direction::Up )),
       Port::None => {}
       Port::Unknown => {}
     };
-    match factory.floor[coord].port_l {
-      Port::Inbound => factory.floor[main_coord].ins.push(( Direction::Left, coord, to_coord_left(coord), Direction::Right )),
-      Port::Outbound => factory.floor[main_coord].outs.push(( Direction::Left, coord, to_coord_left(coord), Direction::Right )),
+    match floor[coord].port_l {
+      Port::Inbound => floor[main_coord].ins.push(( Direction::Left, coord, to_coord_left(coord), Direction::Right )),
+      Port::Outbound => floor[main_coord].outs.push(( Direction::Left, coord, to_coord_left(coord), Direction::Right )),
       Port::None => {}
       Port::Unknown => {}
     };

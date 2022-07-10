@@ -12,38 +12,44 @@ use super::state::*;
 use super::supply::*;
 use super::utils::*;
 
-fn auto_port_cell_self(factory: &mut Factory, coord: usize) -> (bool, bool) {
-  // Returns (stop_coord, changed_coord)
+fn auto_port_cell_belt(options: &Options, state: &State, factory: &mut Factory, coord: usize) -> (bool, bool) {
+  auto_port_cell_belt2(options, state, &mut factory.floor, coord)
+}
+pub fn auto_port_cell_belt2(options: &Options, state: &State, floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize) -> (bool, bool) {
+  // This only affects unknown ports (!), not auto .ins/.outs from blank
+  // Returns (whether there is more work to do after this, whether any unknown ports were changed)
 
   let mut ins = 0;
   let mut outs = 0;
   let mut uns = 0;
   // let mut ems = 0;
 
-  match factory.floor[coord].port_u {
+  match floor[coord].port_u {
     Port::Inbound => ins += 1,
     Port::Outbound => outs += 1,
     Port::Unknown => uns += 1,
     Port::None => (), // ems += 1,
   };
-  match factory.floor[coord].port_r {
+  match floor[coord].port_r {
     Port::Inbound => ins += 1,
     Port::Outbound => outs += 1,
     Port::Unknown => uns += 1,
     Port::None => (), // ems += 1,
   };
-  match factory.floor[coord].port_d {
+  match floor[coord].port_d {
     Port::Inbound => ins += 1,
     Port::Outbound => outs += 1,
     Port::Unknown => uns += 1,
     Port::None => (), // ems += 1,
   };
-  match factory.floor[coord].port_l {
+  match floor[coord].port_l {
     Port::Inbound => ins += 1,
     Port::Outbound => outs += 1,
     Port::Unknown => uns += 1,
     Port::None => (), // ems += 1,
   };
+
+  if options.trace_porting_step { log(format!("- auto_port_cell_belt({}) has {} unknown ports, {} in ports, and {} out ports", coord, uns, ins, outs)); }
 
   if uns == 0 {
     // No unknown ports. Nothing left to do.
@@ -53,22 +59,22 @@ fn auto_port_cell_self(factory: &mut Factory, coord: usize) -> (bool, bool) {
   if ins > 0 && outs == 0 && uns == 1 {
     // There is one unknown port and we already have at least one outbound port
     // so the unknown port must be inbound (or the config is broken)
-    if factory.floor[coord].port_u == Port::Unknown {
+    if floor[coord].port_u == Port::Unknown {
       // log(format!("- belt @{}; up port must be outbound", coord));
-      factory.floor[coord].port_u = Port::Outbound;
-      factory.floor[coord].outs.push(( Direction::Up, coord, factory.floor[coord].coord_u.unwrap(), Direction::Down ));
-    } else if factory.floor[coord].port_r == Port::Unknown {
+      floor[coord].port_u = Port::Outbound;
+      floor[coord].outs.push(( Direction::Up, coord, floor[coord].coord_u.unwrap(), Direction::Down ));
+    } else if floor[coord].port_r == Port::Unknown {
       // log(format!("- belt @{}; right port must be outbound", coord));
-      factory.floor[coord].port_r = Port::Outbound;
-      factory.floor[coord].outs.push(( Direction::Right, coord, factory.floor[coord].coord_r.unwrap(), Direction::Left ));
-    } else if factory.floor[coord].port_d == Port::Unknown {
+      floor[coord].port_r = Port::Outbound;
+      floor[coord].outs.push(( Direction::Right, coord, floor[coord].coord_r.unwrap(), Direction::Left ));
+    } else if floor[coord].port_d == Port::Unknown {
       // log(format!("- belt @{}; down port must be outbound", coord));
-      factory.floor[coord].port_d = Port::Outbound;
-      factory.floor[coord].outs.push(( Direction::Down, coord, factory.floor[coord].coord_d.unwrap(), Direction::Up ));
-    } else if factory.floor[coord].port_l == Port::Unknown {
+      floor[coord].port_d = Port::Outbound;
+      floor[coord].outs.push(( Direction::Down, coord, floor[coord].coord_d.unwrap(), Direction::Up ));
+    } else if floor[coord].port_l == Port::Unknown {
       // log(format!("- belt @{}; left port must be outbound", coord));
-      factory.floor[coord].port_l = Port::Outbound;
-      factory.floor[coord].outs.push(( Direction::Left, coord, factory.floor[coord].coord_l.unwrap(), Direction::Right ));
+      floor[coord].port_l = Port::Outbound;
+      floor[coord].outs.push(( Direction::Left, coord, floor[coord].coord_l.unwrap(), Direction::Right ));
     } else {
       panic!("should be an unknown port");
     }
@@ -79,22 +85,22 @@ fn auto_port_cell_self(factory: &mut Factory, coord: usize) -> (bool, bool) {
     // There is one unknown port and we already have at least one inbound port
     // so the unknown port must be outbound (or the config is broken)
 
-    if factory.floor[coord].port_u == Port::Unknown {
+    if floor[coord].port_u == Port::Unknown {
       // log(format!("- belt @{}; up port must be inbound", coord));
-      factory.floor[coord].port_u = Port::Inbound;
-      factory.floor[coord].ins.push(( Direction::Up, coord, factory.floor[coord].coord_u.unwrap(), Direction::Down ));
-    } else if factory.floor[coord].port_r == Port::Unknown {
+      floor[coord].port_u = Port::Inbound;
+      floor[coord].ins.push(( Direction::Up, coord, floor[coord].coord_u.unwrap(), Direction::Down ));
+    } else if floor[coord].port_r == Port::Unknown {
       // log(format!("- belt @{}; right port must be inbound", coord));
-      factory.floor[coord].port_r = Port::Inbound;
-      factory.floor[coord].ins.push(( Direction::Right, coord, factory.floor[coord].coord_r.unwrap(), Direction::Left ));
-    } else if factory.floor[coord].port_d == Port::Unknown {
+      floor[coord].port_r = Port::Inbound;
+      floor[coord].ins.push(( Direction::Right, coord, floor[coord].coord_r.unwrap(), Direction::Left ));
+    } else if floor[coord].port_d == Port::Unknown {
       // log(format!("- belt @{}; down port must be inbound", coord));
-      factory.floor[coord].port_d = Port::Inbound;
-      factory.floor[coord].ins.push(( Direction::Down, coord, factory.floor[coord].coord_d.unwrap(), Direction::Up ));
-    } else if factory.floor[coord].port_l == Port::Unknown {
+      floor[coord].port_d = Port::Inbound;
+      floor[coord].ins.push(( Direction::Down, coord, floor[coord].coord_d.unwrap(), Direction::Up ));
+    } else if floor[coord].port_l == Port::Unknown {
       // log(format!("- belt @{}; left port must be inbound", coord));
-      factory.floor[coord].port_l = Port::Inbound;
-      factory.floor[coord].ins.push(( Direction::Left, coord, factory.floor[coord].coord_l.unwrap(), Direction::Right ));
+      floor[coord].port_l = Port::Inbound;
+      floor[coord].ins.push(( Direction::Left, coord, floor[coord].coord_l.unwrap(), Direction::Right ));
     } else {
       panic!("should be an unknown port");
     }
@@ -104,6 +110,53 @@ fn auto_port_cell_self(factory: &mut Factory, coord: usize) -> (bool, bool) {
   }
 
   return (false, false);
+}
+pub fn auto_ins_outs(options: &mut Options, state: &mut State, factory: &mut Factory) {
+  auto_ins_outs_floor(&mut factory.floor);
+}
+pub fn auto_ins_outs_floor(floor: &mut [Cell; FLOOR_CELLS_WH]) {
+  // Clear .ins and .outs and discover them for the entire floor.
+  // Only checks own ports, not if they're actually connected.
+
+  log(format!("auto_ins_outs_floor()"));
+
+  for coord in 0..FLOOR_CELLS_WH {
+    floor[coord].ins.clear();
+    floor[coord].outs.clear();
+
+    if floor[coord].kind == CellKind::Machine {
+      // Only discover ins and outs for the main coord. They're ignored for the others, I think.
+      if coord == floor[coord].machine.main_coord {
+        machine_discover_ins_and_outs_floor(floor, coord);
+        log(format!("Machine after .ins/.outs discovery: {:?} {:?}", floor[coord].ins, floor[coord].outs))
+      }
+    } else {
+      match floor[coord].port_u {
+        Port::Inbound => floor[coord].ins.push( ( Direction::Up, coord, to_coord_up(coord), Direction::Down ) ),
+        Port::Outbound => floor[coord].outs.push( ( Direction::Up, coord, to_coord_up(coord), Direction::Down ) ),
+        Port::Unknown => (),
+        Port::None => (),
+      };
+      match floor[coord].port_r {
+        Port::Inbound => floor[coord].ins.push( ( Direction::Right, coord, to_coord_right(coord), Direction::Left ) ),
+        Port::Outbound => floor[coord].outs.push( ( Direction::Right, coord, to_coord_right(coord), Direction::Left ) ),
+        Port::Unknown => (),
+        Port::None => (),
+      };
+      match floor[coord].port_d {
+        Port::Inbound => floor[coord].ins.push( ( Direction::Down, coord, to_coord_down(coord), Direction::Up ) ),
+        Port::Outbound => floor[coord].outs.push( ( Direction::Down, coord, to_coord_down(coord), Direction::Up ) ),
+        Port::Unknown => (),
+        Port::None => (),
+      };
+      match floor[coord].port_l {
+        Port::Inbound => floor[coord].ins.push( ( Direction::Left, coord, to_coord_left(coord), Direction::Right ) ),
+        Port::Outbound => floor[coord].outs.push( ( Direction::Left, coord, to_coord_left(coord), Direction::Right ) ),
+        Port::Unknown => (),
+        Port::None => (),
+      };
+    }
+  }
 }
 fn auto_port_belt_u(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize) -> bool {
   if factory.floor[coord].port_u != Port::Unknown {
@@ -280,12 +333,12 @@ fn auto_port_machine_u(options: &mut Options, state: &mut State, factory: &mut F
 
   match port {
     Port::Inbound => {
-      if options.trace_priority_step { log(format!("  - machine @{} up port is inbound", coord)); }
+      if options.trace_porting_step { log(format!("  - machine @{} up port is inbound", coord)); }
       factory.floor[coord].port_u = Port::Inbound;
       factory.floor[factory.floor[coord].machine.main_coord].ins.push(( Direction::Up, coord, factory.floor[coord].coord_u.unwrap(), Direction::Down ));
     }
     Port::Outbound => {
-      if options.trace_priority_step { log(format!("  - machine @{} up port is outbound", coord)); }
+      if options.trace_porting_step { log(format!("  - machine @{} up port is outbound", coord)); }
       factory.floor[coord].port_u = Port::Outbound;
       factory.floor[factory.floor[coord].machine.main_coord].outs.push(( Direction::Up, coord, factory.floor[coord].coord_u.unwrap(), Direction::Down ));
     }
@@ -325,12 +378,12 @@ fn auto_port_machine_r(options: &mut Options, state: &mut State, factory: &mut F
 
   match port {
     Port::Inbound => {
-      if options.trace_priority_step { log(format!("  - machine @{} right port is inbound", coord)); }
+      if options.trace_porting_step { log(format!("  - machine @{} right port is inbound", coord)); }
       factory.floor[coord].port_r = Port::Inbound;
       factory.floor[factory.floor[coord].machine.main_coord].ins.push(( Direction::Right, coord, factory.floor[coord].coord_r.unwrap(), Direction::Left ));
     }
     Port::Outbound => {
-      if options.trace_priority_step { log(format!("  - machine @{} right port is outbound", coord)); }
+      if options.trace_porting_step { log(format!("  - machine @{} right port is outbound", coord)); }
       factory.floor[coord].port_r = Port::Outbound;
       factory.floor[factory.floor[coord].machine.main_coord].outs.push(( Direction::Right, coord, factory.floor[coord].coord_r.unwrap(), Direction::Left ));
     }
@@ -370,12 +423,12 @@ fn auto_port_machine_d(options: &mut Options, state: &mut State, factory: &mut F
 
   match port {
     Port::Inbound => {
-      if options.trace_priority_step { log(format!("  - machine @{}; down port is inbound", coord)); }
+      if options.trace_porting_step { log(format!("  - machine @{}; down port is inbound", coord)); }
       factory.floor[coord].port_d = Port::Inbound;
       factory.floor[factory.floor[coord].machine.main_coord].ins.push(( Direction::Down, coord, factory.floor[coord].coord_d.unwrap(), Direction::Up ));
     }
     Port::Outbound => {
-      if options.trace_priority_step { log(format!("  - machine @{}; down port is outbound", coord)); }
+      if options.trace_porting_step { log(format!("  - machine @{}; down port is outbound", coord)); }
       factory.floor[coord].port_d = Port::Outbound;
       factory.floor[factory.floor[coord].machine.main_coord].outs.push(( Direction::Down, coord, factory.floor[coord].coord_d.unwrap(), Direction::Up ));
     }
@@ -415,12 +468,12 @@ fn auto_port_machine_l(options: &mut Options, state: &mut State, factory: &mut F
 
   match port {
     Port::Inbound => {
-      if options.trace_priority_step { log(format!("  - machine @{} left port is inbound", coord)); }
+      if options.trace_porting_step { log(format!("  - machine @{} left port is inbound", coord)); }
       factory.floor[coord].port_l = Port::Inbound;
       factory.floor[factory.floor[coord].machine.main_coord].ins.push(( Direction::Left, coord, factory.floor[coord].coord_l.unwrap(), Direction::Right ));
     }
     Port::Outbound => {
-      if options.trace_priority_step { log(format!("  - machine @{} left port is outbound", coord)); }
+      if options.trace_porting_step { log(format!("  - machine @{} left port is outbound", coord)); }
       factory.floor[coord].port_l = Port::Outbound;
       factory.floor[factory.floor[coord].machine.main_coord].outs.push(( Direction::Left, coord, factory.floor[coord].coord_l.unwrap(), Direction::Right ));
     }
@@ -437,7 +490,7 @@ fn auto_port_machine_neighbors(options: &mut Options, state: &mut State, factory
   assert_eq!(factory.floor[coord].kind, CellKind::Machine);
   assert_eq!(factory.floor[coord].machine.kind, MachineKind::Main);
 
-  if options.trace_priority_step { log(format!("- auto_port_machine_neighbors({}, {}): {:?}", coord, attempt, factory.floor[coord].machine.coords)); }
+  if options.trace_porting_step { log(format!("- auto_port_machine_neighbors({}, {}): {:?}", coord, attempt, factory.floor[coord].machine.coords)); }
   
   let mut changed = false;
   // for cur_coord in floor[coord].machine.coords {
@@ -460,7 +513,12 @@ fn port_to_counts(port: Port) -> (u16, u16, u16) {
   }
 }
 fn auto_port_discover_machine_ports(factory: &mut Factory, coord: usize, attempt: u32) -> (u16, u16, u16) {
-  assert_eq!(factory.floor[coord].machine.kind, MachineKind::Main);
+  return auto_port_discover_machine_ports_floor(&mut factory.floor, coord, attempt);
+}
+fn auto_port_discover_machine_ports_floor(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, attempt: u32) -> (u16, u16, u16) {
+  assert_eq!(floor[coord].kind, CellKind::Machine);
+  assert!(floor[coord].machine.kind == MachineKind::Main || floor[coord].machine.kind == MachineKind::Unknown, "either this is a known machine and the Main should be used or it is an Unknown machine and the top left cell should be given");
+  assert_eq!(floor[coord].machine.main_coord, coord);
 
   // Given the main machine cell, count the number of inbound, outbound, and undefined ports for all
   // machine cells that are part of the same machine.
@@ -470,18 +528,20 @@ fn auto_port_discover_machine_ports(factory: &mut Factory, coord: usize, attempt
   let mut uns = 0;
 
   // for cur_coord in floor[coord].machine.coords {
-  for i in 0..factory.floor[coord].machine.coords.len() {
-    let cur_coord= factory.floor[coord].machine.coords[i];
+  for i in 0..floor[coord].machine.coords.len() {
+    let cur_coord= floor[coord].machine.coords[i];
 
-    let (u1, u2, u3) = port_to_counts(factory.floor[cur_coord].port_u);
-    let (r1, r2, r3) = port_to_counts(factory.floor[cur_coord].port_r);
-    let (d1, d2, d3) = port_to_counts(factory.floor[cur_coord].port_d);
-    let (l1, l2, l3) = port_to_counts(factory.floor[cur_coord].port_l);
+    let (u1, u2, u3) = port_to_counts(floor[cur_coord].port_u);
+    let (r1, r2, r3) = port_to_counts(floor[cur_coord].port_r);
+    let (d1, d2, d3) = port_to_counts(floor[cur_coord].port_d);
+    let (l1, l2, l3) = port_to_counts(floor[cur_coord].port_l);
 
     ins += u1 + r1 + d1 + l1;
     ous += u2 + r2 + d2 + l2;
     uns += u3 + r3 + d3 + l3;
   }
+
+  // log(format!("auto_port_discover_machine_ports_floor({}) -> ins: {:?} outs: {:?}", coord, ins, ous));
 
   return ( ins, ous, uns );
 }
@@ -494,7 +554,7 @@ fn auto_port_convert_machine_unknown_to(options: &mut Options, state: &mut State
     let sub_machine_coord = factory.floor[coord].machine.coords[i]; // Is this cheaper than the alt?
 
     if factory.floor[sub_machine_coord].port_u == Port::Unknown {
-      if options.trace_priority_step { log(format!("  - machine @{}; up port is {:?}", sub_machine_coord, new_port)); }
+      if options.trace_porting_step { log(format!("  - machine @{}; up port is {:?}", sub_machine_coord, new_port)); }
       factory.floor[sub_machine_coord].port_u = new_port;
       factory.changed = true;
       if new_port == Port::Inbound {
@@ -506,7 +566,7 @@ fn auto_port_convert_machine_unknown_to(options: &mut Options, state: &mut State
     }
 
     if factory.floor[sub_machine_coord].port_r == Port::Unknown {
-      if options.trace_priority_step { log(format!("  - machine @{}; right port is {:?}", sub_machine_coord, new_port)); }
+      if options.trace_porting_step { log(format!("  - machine @{}; right port is {:?}", sub_machine_coord, new_port)); }
       factory.floor[sub_machine_coord].port_r = new_port;
       factory.changed = true;
       if new_port == Port::Inbound {
@@ -518,7 +578,7 @@ fn auto_port_convert_machine_unknown_to(options: &mut Options, state: &mut State
     }
 
     if factory.floor[sub_machine_coord].port_d == Port::Unknown {
-      if options.trace_priority_step { log(format!("  - machine @{}; down port is {:?}", sub_machine_coord, new_port)); }
+      if options.trace_porting_step { log(format!("  - machine @{}; down port is {:?}", sub_machine_coord, new_port)); }
       factory.floor[sub_machine_coord].port_d = new_port;
       factory.changed = true;
       if new_port == Port::Inbound {
@@ -530,7 +590,7 @@ fn auto_port_convert_machine_unknown_to(options: &mut Options, state: &mut State
     }
 
     if factory.floor[sub_machine_coord].port_l == Port::Unknown {
-      if options.trace_priority_step { log(format!("  - machine @{}; left port is {:?}", sub_machine_coord, new_port)); }
+      if options.trace_porting_step { log(format!("  - machine @{}; left port is {:?}", sub_machine_coord, new_port)); }
       factory.floor[sub_machine_coord].port_l = new_port;
       factory.changed = true;
       if new_port == Port::Inbound {
@@ -546,6 +606,7 @@ fn auto_port_convert_machine_unknown_to(options: &mut Options, state: &mut State
 }
 
 pub fn keep_auto_porting(options: &mut Options, state: &mut State, factory: &mut Factory) {
+  if options.trace_porting_step { log(format!("keep_auto_porting()")); }
   // Start at demands, mark connected belts
   // From connected belts, mark any other connected belt if it is connected to only one unmarked
   // belt. If it is connected to a machine or belt with no unmarked neighbors, then it is looping.
@@ -561,7 +622,7 @@ pub fn keep_auto_porting(options: &mut Options, state: &mut State, factory: &mut
 }
 pub fn auto_port(options: &mut Options, state: &mut State, factory: &mut Factory, attempt: u32) -> bool {
   assert!(attempt > 0, "attempt must be non-zero because it gets deducted");
-  if options.trace_priority_step { log(format!("auto_port({})", attempt)); }
+  if options.trace_porting_step { log(format!("auto_port({})", attempt)); }
   let mut changed = false;
   for coord in 0..FLOOR_CELLS_WH {
     match factory.floor[coord].kind {
@@ -570,7 +631,7 @@ pub fn auto_port(options: &mut Options, state: &mut State, factory: &mut Factory
 
       }
       CellKind::Belt => {
-        let (next, changed_now) = auto_port_cell_self(factory, coord);
+        let (next, changed_now) = auto_port_cell_belt(options, state, factory, coord);
         if changed_now { changed = true; }
         if next { continue; }
 
