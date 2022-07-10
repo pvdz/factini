@@ -10,12 +10,10 @@
   Error.stackTraceLimit = Infinity;
   console.log('(html) start');
   import('../pkg/factini.js').then(x => {
-    console.log('x:', x);
-    console.log(x.start);
+    console.log('(html) loaded, starting Factini now');
     x.default();
-    x.start();
   }, (e) => console.error(e));
-  console.log('(html) started');
+  console.log('(html) after import');
 </script>
 </body>
 </html>

@@ -5,8 +5,11 @@
 // - small problem with tick_belt_take_from_belt when a belt crossing is next to a supply and another belt; it will ignore the other belt as input. because the belt will not let a part proceed to the next port unless it's free and the processing order will process the neighbor belt first and then the crossing so by the time it's free, the part will still be at 50% whereas the supply part is always ready. fix is probably to make supply parts take a tick to be ready, or whatever.
 //  - affects machine speed so should be fixed
 // - investigate different machine speeds at different configs
+//  - throughput problem. part has to wait at 50% for next part to clear, causing delays. if there's enough outputs there's always room and no such delay. if supply-to-machine is one belt there's also no queueing so it's faster
 // - placing/removing/replacing machines causes bugs with connected belts
+//   - replace factory with factory, seems existing belts aren't properly re-attached? at least not outputs
 // - undo/redo?
+// - paint edge differently?
 
 // This is required to export panic to the web
 use std::panic;
@@ -2339,7 +2342,7 @@ fn paint_top_bars(options: &Options, state: &State, factory: &Factory, context: 
     if factory.curr_day_progress >= 1.0 {
       context.fill_text(format!("Sunset at {}%", (factory.curr_target_progress * 100.0) as u64).as_str(), UI_PROGRESS_BAR_OX + 200.0, UI_PROGRESS_BAR_OY + 22.0); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
     } else {
-      context.fill_text(format!("Completed at {}%", (factory.curr_day_progress * 100.0) as u64).as_str(), UI_PROGRESS_BAR_OX + 180.0, UI_PROGRESS_BAR_OY + 22.0); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
+      context.fill_text(format!("Completed at {}% of a day", (factory.curr_day_progress * 100.0) as u64).as_str(), UI_PROGRESS_BAR_OX + 120.0, UI_PROGRESS_BAR_OY + 22.0); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
     }
   }
   context.set_font(&"12px monospace");
