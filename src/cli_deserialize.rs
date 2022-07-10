@@ -668,6 +668,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
                     }
                   }
 
+                  log(format!("- Creating Supply Offer that gives `{}`", gives));
                   offers.push(Offer {
                     kind: CellKind::Supply,
                     cell_width: 0,
@@ -696,6 +697,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
                   if c < 'a' && c > 'z' { panic!("Unexpected input while parsing demand augment kind: input characters must be a-z, found `{}`", c); }
                   takes = c;
 
+                  log(format!("- Creating Demand Offer that wants `{}`", takes));
                   offers.push(Offer {
                     kind: CellKind::Demand,
                     cell_width: 0,

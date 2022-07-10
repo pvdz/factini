@@ -2,9 +2,11 @@
 // The main.rs will include this file when `#[cfg(target_arch = "wasm32")]`
 
 // - import/export with clipboard
-// - score card stuff
 // - small problem with tick_belt_take_from_belt when a belt crossing is next to a supply and another belt; it will ignore the other belt as input. because the belt will not let a part proceed to the next port unless it's free and the processing order will process the neighbor belt first and then the crossing so by the time it's free, the part will still be at 50% whereas the supply part is always ready. fix is probably to make supply parts take a tick to be ready, or whatever.
 // - why is the cell_width/height of a machine 1? fix the serialization after fixing this. (`+ 1`)
+// - export still has bugs. something about machines for sure.
+// - placing/removing/replacing machines causes bugs with connected belts
+// - undo/redo?
 
 // This is required to export panic to the web
 use std::panic;
@@ -44,14 +46,14 @@ use super::utils::*;
 
 // These are the actual pixels we can paint to
 const CANVAS_WIDTH: f64 = 1000.0;
-const CANVAS_HEIGHT: f64 = 710.0;
+const CANVAS_HEIGHT: f64 = 810.0;
 // Need this for mouse2world coord conversion
 const CANVAS_CSS_WIDTH: f64 = 1000.0;
-const CANVAS_CSS_HEIGHT: f64 = 710.0;
+const CANVAS_CSS_HEIGHT: f64 = 810.0;
 
 // World size in world pixels (as painted on the canvas)
 const WORLD_OFFSET_X: f64 = 20.0;
-const WORLD_OFFSET_Y: f64 = 50.0;
+const WORLD_OFFSET_Y: f64 = 150.0;
 const WORLD_WIDTH: f64 = FLOOR_CELLS_W as f64 * CELL_W;
 const WORLD_HEIGHT: f64 = FLOOR_CELLS_H as f64 * CELL_H;
 
@@ -64,6 +66,15 @@ const SEGMENT_H: f64 = 5.0;
 // Size of parts on a belt
 const PART_W: f64 = 20.0;
 const PART_H: f64 = 20.0;
+
+const UI_DAY_BAR_OX: f64 = WORLD_OFFSET_X + 35.0;
+const UI_DAY_BAR_OY: f64 = 65.0;
+const UI_DAY_BAR_W: f64 = WORLD_WIDTH - 70.0;
+const UI_DAY_BAR_H: f64 = 30.0;
+const UI_PROGRESS_BAR_OX: f64 = WORLD_OFFSET_X + 35.0;
+const UI_PROGRESS_BAR_OY: f64 = 100.0;
+const UI_PROGRESS_BAR_W: f64 = WORLD_WIDTH - 70.0;
+const UI_PROGRESS_BAR_H: f64 = 30.0;
 
 // UI = the right side boxes where stats and interface is painted
 const UI_OX: f64 = 750.0;
@@ -480,12 +491,20 @@ pub fn start() -> Result<(), JsValue> {
           log(format!("Updated prio list: {:?}", prio));
           factory.prio = prio;
 
+          factory.modified_at = factory.ticks;
+          if factory.last_day_start == 0 {
+            factory.last_day_start = factory.ticks;
+            factory.finished_at = 0;
+            factory.finished_with = 0;
+          }
           factory.changed = false;
-          factory.first_out_at = 0;
           factory.accepted = 0;
           factory.produced = 0;
           factory.trashed = 0;
           factory.supplied = 0;
+        } else {
+
+
         }
 
         // Paint the world (no input or world mutations after this point)
@@ -503,6 +522,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_green_debug(&options, &state, &context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
 
         paint_top_stats(&context, &mut factory);
+        paint_top_bars(&options, &state, &mut factory, &context, &mouse_state);
         paint_ui_offers(&context, &mut factory, &mouse_state);
         paint_ui_buttons(&mut options, &mut state, &context, &mouse_state);
         paint_ui_buttons2(&mut options, &mut state, &context, &mouse_state);
@@ -629,6 +649,9 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
     else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, WORLD_OFFSET_X, WORLD_OFFSET_Y, WORLD_OFFSET_X + WORLD_WIDTH, WORLD_OFFSET_Y + WORLD_HEIGHT) {
       on_up_inside_floor(options, state, factory, cell_selection, &mouse_state);
     }
+    else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_DAY_BAR_OX, UI_DAY_BAR_OY, UI_DAY_BAR_OX + UI_DAY_BAR_W, UI_DAY_BAR_OY + UI_DAY_BAR_H) {
+      on_up_day_bar(options, state, factory, &mouse_state);
+    }
     else {
       log(format!("({}) handle_mouse_up_over_menu_buttons from normal", factory.ticks));
       handle_mouse_up_over_menu_buttons(cell_selection, mouse_state, options, state, factory);
@@ -673,27 +696,7 @@ fn handle_mouse_up_over_menu_buttons(cell_selection: &mut CellSelection, mouse_s
         }
         2 => { // Unpart
           log(format!("Removing all part data from the factory"));
-          for coord in 0..factory.floor.len() {
-            let (x, y) = to_xy(coord);
-            match factory.floor[coord].kind {
-              CellKind::Belt => {
-                belt_receive_part(factory, coord, Direction::Up, part_none());
-              },
-              CellKind::Empty => (),
-              CellKind::Demand => (),
-              CellKind::Supply => {
-                factory.floor[coord].supply.part_at = 0;
-                factory.floor[coord].supply.last_part_out_at = 0;
-              },
-              CellKind::Machine => {
-                factory.floor[coord].machine.input_1_have = part_none();
-                factory.floor[coord].machine.input_2_have = part_none();
-                factory.floor[coord].machine.input_3_have = part_none();
-                factory.floor[coord].machine.start_at = 0;
-              },
-            }
-          }
-          factory.changed = true;
+          unpart(options, state, factory);
         }
         3 => { // Undir
           log(format!("Applying undir..."));
@@ -800,6 +803,29 @@ fn handle_mouse_up_over_menu_buttons(cell_selection: &mut CellSelection, mouse_s
     on_click_speed_bubbles(options, state, mouse_state);
   }
 }
+fn unpart(options: &mut Options, state: &mut State, factory: &mut Factory) {
+  for coord in 0..factory.floor.len() {
+    let (x, y) = to_xy(coord);
+    match factory.floor[coord].kind {
+      CellKind::Belt => {
+        belt_receive_part(factory, coord, Direction::Up, part_none());
+      },
+      CellKind::Empty => (),
+      CellKind::Demand => (),
+      CellKind::Supply => {
+        factory.floor[coord].supply.part_at = 0;
+        factory.floor[coord].supply.last_part_out_at = 0;
+      },
+      CellKind::Machine => {
+        factory.floor[coord].machine.input_1_have = part_none();
+        factory.floor[coord].machine.input_2_have = part_none();
+        factory.floor[coord].machine.input_3_have = part_none();
+        factory.floor[coord].machine.start_at = 0;
+      },
+    }
+  }
+  factory.changed = true;
+}
 fn update_mouse_state(factory: &mut Factory, mouse_state: &mut MouseState, mouse_x: f64, mouse_y: f64, last_mouse_down_x: f64, last_mouse_down_y: f64, last_mouse_down_button: u16, last_mouse_up_x: f64, last_mouse_up_y: f64) {
   // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -886,6 +912,21 @@ fn on_up_inside_floor(options: &mut Options, state: &mut State, factory: &mut Fa
   } else {
     on_click_inside_floor(options, state, factory, cell_selection, mouse_state);
   }
+}
+fn on_up_day_bar(options: &mut Options, state: &mut State, factory: &mut Factory, mouse_state: &MouseState) {
+  if !bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, UI_DAY_BAR_OX, UI_DAY_BAR_OY, UI_DAY_BAR_OX + UI_DAY_BAR_W, UI_DAY_BAR_OY + UI_DAY_BAR_H) {
+    // Dragged onto this button but did not start on this button so ignore the up.
+    return;
+  }
+
+  log(format!("Resetting day... any time now!"));
+
+  unpart(options, state, factory);
+  factory_reset_stats(options, state, factory);
+  factory.last_day_start = factory.ticks;
+  factory.modified_at = 0;
+  factory.finished_at = 0;
+  factory.finished_with = 0;
 }
 fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, factory: &mut Factory, mouse_state: &MouseState) {
   log(format!("on_drag_offer_into_floor()"));
@@ -998,8 +1039,8 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, factor
           log(format!("Remove old edge cell..."));
           floor_delete_cell_at_partial(options, state, factory, last_mouse_up_cell_coord);
         }
-        log(format!("Add new demand cell..."));
-        factory.floor[last_mouse_up_cell_coord] = demand_cell(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_c(factory.offers[mouse_state.offer_index].supply_icon));
+        log(format!("Add new demand cell... wants `{}`", factory.offers[mouse_state.offer_index].demand_icon));
+        factory.floor[last_mouse_up_cell_coord] = demand_cell(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_c(factory.offers[mouse_state.offer_index].demand_icon));
         connect_to_neighbor_dead_end_belts(options, state, factory, last_mouse_up_cell_coord);
         factory.changed = true;
       } else {
@@ -2195,11 +2236,83 @@ fn paint_demand_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory:
 fn paint_top_stats(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory) {
   context.set_fill_style(&"black".into());
   context.fill_text(format!("Ticks: {}, Supplied: {}, Produced: {}, Received: {}, Trashed: {}", factory.ticks, factory.supplied, factory.produced, factory.accepted, factory.trashed).as_str(), 20.0, 20.0).expect("to paint");
-  if factory.first_out_at == 0 {
-    context.fill_text(format!("Waiting for first part to reach a Demand...").as_str(), 20.0, 40.0).expect("to paint");
+  context.fill_text(format!("Current time: {}, day start: {}, modified at: {}", factory.ticks, factory.last_day_start, factory.modified_at).as_str(), 20.0, 40.0).expect("to paint");
+}
+fn paint_top_bars(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  let hovering = !mouse_state.is_down && !mouse_state.was_up && bounds_check(mouse_state.world_x, mouse_state.world_y, UI_DAY_BAR_OX, UI_DAY_BAR_OY, UI_DAY_BAR_OX + UI_DAY_BAR_W, UI_DAY_BAR_OY + UI_DAY_BAR_H);
+  let invalid = factory.finished_at == 0 && factory.modified_at > factory.last_day_start && factory.modified_at < factory.last_day_start + ONE_MS * 1000 * 60 * 60;
+  let day_ticks = ONE_MS * 1000 * 60; // one day a minute (arbitrary)
+
+  if hovering {
+    context.set_fill_style(&"white".into()); // 100% background
   } else {
-    context.fill_text(format!("Current time: {}, goal: {}, best: {}", factory.ticks - factory.first_out_at, 10000, 9999).as_str(), 20.0, 40.0).expect("to paint");
+    context.set_fill_style(&"grey".into()); // 100% background
   }
+  context.fill_rect(UI_DAY_BAR_OX, UI_DAY_BAR_OY, UI_DAY_BAR_W, UI_DAY_BAR_H);
+  context.set_fill_style(&"lightgreen".into()); // progress green
+  context.fill_rect(UI_DAY_BAR_OX, UI_DAY_BAR_OY, UI_DAY_BAR_W * factory.curr_day_progress.min(1.0), UI_DAY_BAR_H);
+
+  if hovering {
+    context.set_stroke_style(&"red".into());
+  } else {
+    context.set_stroke_style(&"black".into());
+  }
+  context.stroke_rect(UI_DAY_BAR_OX, UI_DAY_BAR_OY, UI_DAY_BAR_W, UI_DAY_BAR_H);
+
+  if invalid {
+    context.set_font(&"18px monospace");
+    context.set_fill_style(&"black".into());
+    context.fill_text("Change detected! Click to restart day", UI_DAY_BAR_OX + 37.0, UI_DAY_BAR_OY + 22.0); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
+  }
+  else if factory.finished_at > 0 {
+    context.set_font(&"18px monospace");
+    context.set_fill_style(&"black".into());
+    context.fill_text("Click to restart day", UI_DAY_BAR_OX + 150.0, UI_DAY_BAR_OY + 22.0); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
+  }
+
+  context.set_font(&"30px monospace");
+  context.set_fill_style(&"black".into());
+  context.fill_text("🌄", UI_DAY_BAR_OX - 35.0, UI_DAY_BAR_OY + 26.0);
+  context.fill_text("🎑", UI_DAY_BAR_OX + UI_DAY_BAR_W + 5.0, UI_DAY_BAR_OY + 26.0);
+
+  // Progress is a combination of requirements. If there are two kinds of parts with requirements
+  // then they both add 50% to the progress individually. We have to fetch all requirements and
+  // look them up in the result array. Terrible big-oh performance but with single digit "n" :p
+
+  context.set_fill_style(&"grey".into());
+  context.fill_rect(UI_PROGRESS_BAR_OX, UI_PROGRESS_BAR_OY, UI_PROGRESS_BAR_W, UI_PROGRESS_BAR_H);
+  context.set_fill_style(&"lightgreen".into());
+  context.fill_rect(UI_PROGRESS_BAR_OX, UI_PROGRESS_BAR_OY, UI_PROGRESS_BAR_W * factory.curr_target_progress, UI_PROGRESS_BAR_H);
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(UI_PROGRESS_BAR_OX, UI_PROGRESS_BAR_OY, UI_PROGRESS_BAR_W, UI_PROGRESS_BAR_H);
+
+  context.set_fill_style(&"black".into());
+  if factory.curr_day_progress >= 1.0 && factory.curr_target_progress < 1.0 {
+    context.set_font(&"40px monospace");
+    context.fill_text("☒", UI_PROGRESS_BAR_OX - 32.0, UI_PROGRESS_BAR_OY + 26.0);
+  } else if factory.curr_target_progress >= 1.0 {
+    context.set_font(&"40px monospace");
+    context.fill_text("☑", UI_PROGRESS_BAR_OX - 32.0, UI_PROGRESS_BAR_OY + 26.0);
+  } else {
+    context.set_font(&"18px monospace");
+    context.fill_text(format!("{}%", (factory.curr_target_progress * 100.0).round()).as_str(), UI_PROGRESS_BAR_OX - 36.0, UI_PROGRESS_BAR_OY + 23.0);
+  }
+  context.set_font(&"30px monospace");
+  if invalid {
+    context.fill_text("❌", UI_PROGRESS_BAR_OX + UI_PROGRESS_BAR_W + 5.0, UI_PROGRESS_BAR_OY + 26.0);
+  } else {
+    context.fill_text("🏁", WORLD_OFFSET_X + WORLD_WIDTH - 30.0, 126.0);
+  }
+  if factory.finished_at > 0 {
+    context.set_font(&"18px monospace");
+    context.set_fill_style(&"black".into());
+    if factory.curr_day_progress >= 1.0 {
+      context.fill_text(format!("Sunset at {}%", (factory.curr_target_progress * 100.0) as u64).as_str(), UI_PROGRESS_BAR_OX + 200.0, UI_PROGRESS_BAR_OY + 22.0); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
+    } else {
+      context.fill_text(format!("Completed at {}%", (factory.curr_day_progress * 100.0) as u64).as_str(), UI_PROGRESS_BAR_OX + 180.0, UI_PROGRESS_BAR_OY + 22.0); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
+    }
+  }
+  context.set_font(&"12px monospace");
 }
 fn paint_ui_offers(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState) {
   let (is_down_on_offer, down_inside_offer_index) =
