@@ -100,7 +100,7 @@ pub struct Belt {
 }
 
 pub fn belt_auto_layout(up: CellKind, right: CellKind, down: CellKind, left: CellKind) -> BeltMeta {
-  log(format!("belt_auto_layout({:?}, {:?}, {:?}, {:?})", up, right, down, left));
+  // log(format!("belt_auto_layout({:?}, {:?}, {:?}, {:?})", up, right, down, left));
   return match
     (up,             right,          down,           left)
   {

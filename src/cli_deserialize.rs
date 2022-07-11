@@ -249,7 +249,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
       let h = line3.next().or(Some('#')).unwrap();
       let _i = line3.next().or(Some('#')).unwrap();
 
-      log(format!("{}x{}:\n   {} {} {}\n   {} {} {}\n   {} {} {}", i, j, _a, b, _c, d, e, f, _g, h, _i));
+      // log(format!("{}x{}:\n   {} {} {}\n   {} {} {}\n   {} {} {}", i, j, _a, b, _c, d, e, f, _g, h, _i));
 
       let cell_kind = e;
       let port_u = b;

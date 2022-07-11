@@ -128,7 +128,7 @@ pub fn auto_ins_outs_floor(floor: &mut [Cell; FLOOR_CELLS_WH]) {
       // Only discover ins and outs for the main coord. They're ignored for the others, I think.
       if coord == floor[coord].machine.main_coord {
         machine_discover_ins_and_outs_floor(floor, coord);
-        log(format!("Machine after .ins/.outs discovery: {:?} {:?}", floor[coord].ins, floor[coord].outs))
+        // log(format!("Machine after .ins/.outs discovery: {:?} {:?}", floor[coord].ins, floor[coord].outs))
       }
     } else {
       match floor[coord].port_u {

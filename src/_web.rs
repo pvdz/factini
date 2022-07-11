@@ -10,6 +10,7 @@
 //   - replace factory with factory, seems existing belts aren't properly re-attached? at least not outputs
 // - undo/redo?
 // - paint edge differently?
+// - why does the machine in my current example ignore a branch to the right? are machine outputs cycled properly?
 
 // This is required to export panic to the web
 use std::panic;
@@ -564,6 +565,16 @@ fn world_y_to_top_left_cell_y_while_dragging_offer(world_y: f64, offer_height: u
 }
 
 fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, factory: &mut Factory) {
+  if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_DAY_BAR_OX, UI_DAY_BAR_OY, UI_DAY_BAR_OX + UI_DAY_BAR_W, UI_DAY_BAR_OY + UI_DAY_BAR_H) {
+    if mouse_state.was_up {
+      if bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, UI_DAY_BAR_OX, UI_DAY_BAR_OY, UI_DAY_BAR_OX + UI_DAY_BAR_W, UI_DAY_BAR_OY + UI_DAY_BAR_H) {
+        on_up_day_bar(options, state, factory, &mouse_state);
+        mouse_state.dragging_offer = false;
+        return;
+      }
+    }
+  }
+
   if mouse_state.is_drag_start {
     // Do this one before the erasing/selecting. It may cancel those states even if active.
     let ( over_offer, offer_index ) = hit_test_offers(factory, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
@@ -648,9 +659,6 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
     // In that case we change/toggle the cell selection
     else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, WORLD_OFFSET_X, WORLD_OFFSET_Y, WORLD_OFFSET_X + WORLD_WIDTH, WORLD_OFFSET_Y + WORLD_HEIGHT) {
       on_up_inside_floor(options, state, factory, cell_selection, &mouse_state);
-    }
-    else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_DAY_BAR_OX, UI_DAY_BAR_OY, UI_DAY_BAR_OX + UI_DAY_BAR_W, UI_DAY_BAR_OY + UI_DAY_BAR_H) {
-      on_up_day_bar(options, state, factory, &mouse_state);
     }
     else {
       log(format!("({}) handle_mouse_up_over_menu_buttons from normal", factory.ticks));
