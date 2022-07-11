@@ -10,7 +10,6 @@
 //   - replace factory with factory, seems existing belts aren't properly re-attached? at least not outputs
 // - undo/redo?
 // - paint edge differently?
-// - why does the machine in my current example ignore a branch to the right? are machine outputs cycled properly?
 
 // This is required to export panic to the web
 use std::panic;

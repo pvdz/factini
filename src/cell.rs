@@ -279,14 +279,7 @@ pub fn back_of_the_line(ins_or_outs: &mut Vec<(Direction, usize, usize, Directio
   let len = ins_or_outs.len();
   assert!(len > 0, "if this function was called then there should at least be one port in this list...");
 
-  if len == 4 {
-    // I'm not sure if this is a realistic case but you could have a part on a cell and then change
-    // its last port to be inbound, causing all ports to be inbound. I think we can prevent that
-    // case but oh well. Just noop it. Not going to care, not going to crash.
-    return;
-  }
-
-  // There's three simple cases left to deal with: 1, 2, or 3 elements. For machines there's 4+
+  // There's three simple cases to deal with: 1, 2, or 3 elements. For machines there's 4+
 
   if len == 1 {
     // Noop. The list can't change.
@@ -319,7 +312,7 @@ pub fn back_of_the_line(ins_or_outs: &mut Vec<(Direction, usize, usize, Directio
   // above set of cases still catch the majority of machines as well.
 
   for i in index..len-1 {
-    ins_or_outs.swap(index, index+1);
+    ins_or_outs.swap(i, i+1);
   }
 }
 
