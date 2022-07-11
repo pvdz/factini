@@ -6,10 +6,10 @@
 //  - affects machine speed so should be fixed
 // - investigate different machine speeds at different configs
 //  - throughput problem. part has to wait at 50% for next part to clear, causing delays. if there's enough outputs there's always room and no such delay. if supply-to-machine is one belt there's also no queueing so it's faster
-// - placing/removing/replacing machines causes bugs with connected belts
-//   - replace factory with factory, seems existing belts aren't properly re-attached? at least not outputs
-// - undo/redo?
+// - undo/redo? could store export snapshots after each change. Not sure if that's super expensive.
 // - paint edge differently?
+// - save/load snapshots of the factory
+// - machine offer speed is ignored
 
 // This is required to export panic to the web
 use std::panic;
@@ -486,7 +486,7 @@ pub fn start() -> Result<(), JsValue> {
         handle_input(&mut cell_selection, &mut mouse_state, &mut options, &mut state, &mut factory);
 
         if factory.changed {
-          log(format!("Auto porting after modification"));
+          log(format!("Auto porting after modification. options.trace_porting_step = {}", options.trace_porting_step));
           keep_auto_porting(&mut options, &mut state, &mut factory);
 
           // Recreate cell traversal order

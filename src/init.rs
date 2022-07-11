@@ -206,7 +206,7 @@ pub fn init() -> ( Options, State, Factory ) {
     om = s w   -> b s:0 d:3x2\n\
     om = b     -> g s:10 d:1x1\n\
     om = b     -> g s:0 d:3x3\n\
-    om = b     -> g s:0 d:4x4\n\
+    om = b     -> g s:10000 d:4x4\n\
   ";
   let map = "\
     d=17x17\n\
@@ -219,18 +219,18 @@ pub fn init() -> ( Options, State, Factory ) {
     │ │    ^  ^  ^                                  │ │\n\
     │.│ .  ║  ║  ║  .  .  .  .  .  .  .  .  .  .  . │.│\n\
     │ │    ^  ^  ^                                  │ │\n\
-    │ │   ┌^──^──^┐                                 │ │\n\
-    │s>>═>>1  1  1>>═>>═>>═>>═>>═>>═>>═>>═>>═>>═>>═>>d│\n\
-    │w│   │       │                                 │t│\n\
-    │ │   │       │                                 │ │\n\
-    │s>>═>>1  1  1>>═>>═>>═>>═>>═>>═>>═>>═>>═>>═>>═>>d│\n\
-    │s│   └v──v──v┘                                 │t│\n\
-    │ │    v  v  v                                  │ │\n\
-    │.│ .  ║  ║  ║  .  .  .  .  .  .  .  .  .  .  . │.│\n\
-    │ │    v  v  v                                  │ │\n\
-    │ │    v  v  v                                  │ │\n\
-    │.│ ╔<<╝  ║  ║  .  .  .  .  .  .  .  .  .  .  . │.│\n\
-    │ │ v     v  v                                  │ │\n\
+    │ │   ┌^──^──^┐         ┌──────────┐            │ │\n\
+    │s>>═>>1  1  1>>═>>═>>═>>2  2  2  2>>═>>═>>═>>═>>d│\n\
+    │w│   │       │         │          │            │t│\n\
+    │ │   │       │         │          │            │ │\n\
+    │s>>═>>1  1  1>>═>>═>>═>>2  2  2  2>>═>>═>>═>>═>>d│\n\
+    │s│   └v──v──v┘         │          │            │t│\n\
+    │ │    v  v  v          │          │            │ │\n\
+    │.│ .  ║  ║  ║  .  .  . │2  2  2  2│ .  .  .  . │.│\n\
+    │ │    v  v  v          │          │            │ │\n\
+    │ │    v  v  v          │          │            │ │\n\
+    │.│ ╔<<╝  ║  ║  .  .  . │2  2  2  2│ .  .  .  . │.│\n\
+    │ │ v     v  v          └──────────┘            │ │\n\
     │ │ v     v  v                                  │ │\n\
     │d<<╝  ╔<<╝  ║  .  .  .  .  .  .  .  .  .  .  . │.│\n\
     │t│    v     ^                                  │ │\n\
@@ -266,6 +266,7 @@ pub fn init() -> ( Options, State, Factory ) {
     d3 = t\n\
     s1 = w s:0 c:1\n\
     m1 = s w   -> b s:0\n\
+    m2 = b     -> g s:5000\n\
     d4 = t\n\
     s2 = s s:0 c:1\n\
     d5 = t\n\
@@ -278,7 +279,7 @@ pub fn init() -> ( Options, State, Factory ) {
     om = s w   -> b s:0 d:3x2\n\
     om = b     -> g s:10 d:1x1\n\
     om = b     -> g s:0 d:3x3\n\
-    om = b     -> g s:0 d:4x4\n\
+    om = b     -> g s:5000 d:4x4\n\
   ";
 
   let mut factory = create_factory(&mut options, &mut state, map.to_string());
