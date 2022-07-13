@@ -1051,6 +1051,17 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, factor
     CellKind::Supply => {
       if is_edge_not_corner(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize) {
         log(format!("Dropped a supply on an edge cell that is not corner. Deploying... {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize));
+        let bools = ( last_mouse_up_cell_x == 0.0, last_mouse_up_cell_y == 0.0, last_mouse_up_cell_x as usize == FLOOR_CELLS_W - 1, last_mouse_up_cell_y as usize == FLOOR_CELLS_H - 1 );
+        log(format!("wtf {} {:?} bools: {:?}", to_coord_right(last_mouse_up_cell_coord), factory.floor[to_coord_right(last_mouse_up_cell_coord)].port_l, bools));
+        let prev_port = match bools {
+          // On the top you need to look one cell down to the up port
+          ( false, true, false, false ) => factory.floor[to_coord_down(last_mouse_up_cell_coord)].port_u,
+          ( false, false, true, false ) => factory.floor[to_coord_left(last_mouse_up_cell_coord)].port_r,
+          ( false, false, false, true ) => factory.floor[to_coord_up(last_mouse_up_cell_coord)].port_d,
+          ( true, false, false, false ) => factory.floor[to_coord_right(last_mouse_up_cell_coord)].port_l,
+          _ => panic!("Should be one side"),
+        };
+        log(format!("- Was neighbor connected to this cell? {:?}", prev_port));
         // If there's already something on this cell then we need to remove it first
         if factory.floor[last_mouse_up_cell_coord].kind != CellKind::Empty {
           // Must be supply or demand
@@ -1062,12 +1073,43 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, factor
         log(format!("Add new supply cell..."));
         factory.floor[last_mouse_up_cell_coord] = supply_cell(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_c(factory.offers[mouse_state.offer_index].supply_icon), factory.offers[mouse_state.offer_index].speed, factory.offers[mouse_state.offer_index].cooldown, 1);
         connect_to_neighbor_dead_end_belts(options, state, factory, last_mouse_up_cell_coord);
-        match ( last_mouse_up_cell_x == 0.0, last_mouse_up_cell_y == 0.0, last_mouse_up_cell_x as usize == FLOOR_CELLS_W - 1, last_mouse_up_cell_y as usize == FLOOR_CELLS_H - 1 ) {
-          ( false, false, false, true ) => factory.floor[last_mouse_up_cell_coord].port_u = Port::Outbound,
-          ( true, false, false, false ) => factory.floor[last_mouse_up_cell_coord].port_r = Port::Outbound,
+        match bools {
           ( false, true, false, false ) => factory.floor[last_mouse_up_cell_coord].port_d = Port::Outbound,
           ( false, false, true, false ) => factory.floor[last_mouse_up_cell_coord].port_l = Port::Outbound,
+          ( false, false, false, true ) => factory.floor[last_mouse_up_cell_coord].port_u = Port::Outbound,
+          ( true, false, false, false ) => factory.floor[last_mouse_up_cell_coord].port_r = Port::Outbound,
           _ => panic!("Should be one side"),
+        }
+        if prev_port != Port::None {
+          log(format!("- Neighbor was connected so restoring that now..."));
+          // Port was connected before so connect it now.
+          match bools {
+            ( false, true, false, false ) => {
+              let ocoord = to_coord_down(last_mouse_up_cell_coord);
+              factory.floor[ocoord].port_u = Port::Inbound;
+              fix_belt_meta(factory, ocoord);
+              belt_discover_ins_and_outs(factory, ocoord);
+            },
+            ( false, false, true, false ) => {
+              let ocoord = to_coord_left(last_mouse_up_cell_coord);
+              factory.floor[ocoord].port_r = Port::Inbound;
+              fix_belt_meta(factory, ocoord);
+              belt_discover_ins_and_outs(factory, ocoord);
+            },
+            ( false, false, false, true ) => {
+              let ocoord = to_coord_up(last_mouse_up_cell_coord);
+              factory.floor[ocoord].port_d = Port::Inbound;
+              fix_belt_meta(factory, ocoord);
+              belt_discover_ins_and_outs(factory, ocoord);
+            },
+            ( true, false, false, false ) => {
+              let ocoord = to_coord_right(last_mouse_up_cell_coord);
+              factory.floor[ocoord].port_l = Port::Inbound;
+              fix_belt_meta(factory, ocoord);
+              belt_discover_ins_and_outs(factory, ocoord);
+            },
+            _ => panic!("Should be one side"),
+          }
         }
         factory.changed = true;
       } else {
@@ -1077,6 +1119,14 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, factor
     CellKind::Demand => {
       if is_edge_not_corner(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize) {
         log(format!("Dropped a demand on an edge cell that is not corner. Deploying..."));
+        let prev_port = match ( last_mouse_up_cell_x == 0.0, last_mouse_up_cell_y == 0.0, last_mouse_up_cell_x as usize == FLOOR_CELLS_W - 1, last_mouse_up_cell_y as usize == FLOOR_CELLS_H - 1 ) {
+          ( false, true, false, false ) => factory.floor[to_coord_down(last_mouse_up_cell_coord)].port_u,
+          ( false, false, true, false ) => factory.floor[to_coord_left(last_mouse_up_cell_coord)].port_r,
+          ( false, false, false, true ) => factory.floor[to_coord_up(last_mouse_up_cell_coord)].port_d,
+          ( true, false, false, false ) => factory.floor[to_coord_right(last_mouse_up_cell_coord)].port_l,
+          _ => panic!("Should be one side"),
+        };
+        log(format!("- Was neighbor connected to this cell? {:?}", prev_port));
         // If there's already something on this cell then we need to remove it first
         if factory.floor[last_mouse_up_cell_coord].kind != CellKind::Empty {
           // Must be supply or demand
@@ -1089,11 +1139,41 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, factor
         factory.floor[last_mouse_up_cell_coord] = demand_cell(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_c(factory.offers[mouse_state.offer_index].demand_icon));
         connect_to_neighbor_dead_end_belts(options, state, factory, last_mouse_up_cell_coord);
         match ( last_mouse_up_cell_x == 0.0, last_mouse_up_cell_y == 0.0, last_mouse_up_cell_x as usize == FLOOR_CELLS_W - 1, last_mouse_up_cell_y as usize == FLOOR_CELLS_H - 1 ) {
-          ( false, false, false, true ) => factory.floor[last_mouse_up_cell_coord].port_u = Port::Inbound,
-          ( true, false, false, false ) => factory.floor[last_mouse_up_cell_coord].port_r = Port::Inbound,
           ( false, true, false, false ) => factory.floor[last_mouse_up_cell_coord].port_d = Port::Inbound,
           ( false, false, true, false ) => factory.floor[last_mouse_up_cell_coord].port_l = Port::Inbound,
+          ( false, false, false, true ) => factory.floor[last_mouse_up_cell_coord].port_u = Port::Inbound,
+          ( true, false, false, false ) => factory.floor[last_mouse_up_cell_coord].port_r = Port::Inbound,
           _ => panic!("Should be one side"),
+        }
+        if prev_port != Port::None {
+          log(format!("- Neighbor was connected so restoring that now..."));
+          match ( last_mouse_up_cell_x == 0.0, last_mouse_up_cell_y == 0.0, last_mouse_up_cell_x as usize == FLOOR_CELLS_W - 1, last_mouse_up_cell_y as usize == FLOOR_CELLS_H - 1 ) {
+            ( false, true, false, false ) => {
+              let ocoord = to_coord_down(last_mouse_up_cell_coord);
+              factory.floor[ocoord].port_u = Port::Outbound;
+              fix_belt_meta(factory, ocoord);
+              belt_discover_ins_and_outs(factory, ocoord);
+            },
+            ( false, false, true, false ) => {
+              let ocoord = to_coord_left(last_mouse_up_cell_coord);
+              factory.floor[ocoord].port_r = Port::Outbound;
+              fix_belt_meta(factory, ocoord);
+              belt_discover_ins_and_outs(factory, ocoord);
+            },
+            ( false, false, false, true ) => {
+              let ocoord = to_coord_up(last_mouse_up_cell_coord);
+              factory.floor[ocoord].port_d = Port::Outbound;
+              fix_belt_meta(factory, ocoord);
+              belt_discover_ins_and_outs(factory, ocoord);
+            },
+            ( true, false, false, false ) => {
+              let ocoord = to_coord_right(last_mouse_up_cell_coord);
+              factory.floor[ocoord].port_l = Port::Outbound;
+              fix_belt_meta(factory, ocoord);
+              belt_discover_ins_and_outs(factory, ocoord);
+            },
+            _ => panic!("Should be one side"),
+          }
         }
         factory.changed = true;
       } else {

@@ -298,10 +298,14 @@ pub fn back_of_the_line(ins_or_outs: &mut Vec<(Direction, usize, usize, Directio
   if len == 3 {
     // Now the case depends on the index.
     // If index is 0 then swap twice. If index is 1 then swap once. Otherwise do not swap at all.
-    if index <= 1 {
+    // (If index is zero then the needle is at the front and we move it to the middle position
+    // first. If the index is one then the needle starts in the middle so don't swap 0 and 1. Then
+    // swap the middle with the back in either case. Now in any case, 0, 1, or 2, the needle should
+    // be at the back.)
+    if index == 0 {
       ins_or_outs.swap(0, 1);
     }
-    if index == 0 {
+    if index <= 1 {
       ins_or_outs.swap(1, 2);
     }
     return;
@@ -816,15 +820,28 @@ pub fn cell_connect_if_possible(options: &mut Options, state: &mut State, factor
   // Only rediscover for belts and machines
   log(format!("  - rediscover .ins and .outs..."));
   if from_kind == CellKind::Belt {
-    belt_discover_ins_and_outs(factory, coord_from);
+    belt_discover_ins_and_outs(factory, get_main_coord(factory, coord_from));
   } else if from_kind == CellKind::Machine {
-    machine_discover_ins_and_outs(factory, coord_from);
+    machine_discover_ins_and_outs(factory, get_main_coord(factory, coord_from));
   }
   if to_kind == CellKind::Belt {
-    belt_discover_ins_and_outs(factory, coord_to);
+    belt_discover_ins_and_outs(factory, get_main_coord(factory, coord_to));
   } else if to_kind == CellKind::Machine {
-    machine_discover_ins_and_outs(factory, coord_to);
+    machine_discover_ins_and_outs(factory, get_main_coord(factory, coord_to));
   }
+
+  log(format!("    - .ins[@{}]: {:?}", coord_from, factory.floor[get_main_coord(factory, coord_from)].ins.iter().map(|(dir, c, _, _)| ( dir, c ) ).collect::<Vec<(&Direction, &usize)>>()));
+  log(format!("    - .outs[@{}]: {:?}", coord_from, factory.floor[get_main_coord(factory, coord_from)].outs.iter().map(|(dir, c, _, _)| ( dir, c ) ).collect::<Vec<(&Direction, &usize)>>()));
+  log(format!("    - .ins[@{}]: {:?}", coord_to, factory.floor[get_main_coord(factory, coord_to)].ins.iter().map(|(dir, c, _, _)| ( dir, c ) ).collect::<Vec<(&Direction, &usize)>>()));
+  log(format!("    - .outs[@{}]: {:?}", coord_to, factory.floor[get_main_coord(factory, coord_to)].outs.iter().map(|(dir, c, _, _)| ( dir, c ) ).collect::<Vec<(&Direction, &usize)>>()));
+}
+
+fn get_main_coord(factory: &Factory, coord: usize) -> usize {
+  // Given the coord, return it if the cell is not a machine, or return the machine main_coord.
+  if factory.floor[coord].kind == CellKind::Machine {
+    return factory.floor[coord].machine.main_coord;
+  }
+  return coord;
 }
 
 pub fn get_cell_kind_at(factory: &mut Factory, coord: Option<usize>) -> CellKind {

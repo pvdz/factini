@@ -235,6 +235,9 @@ pub fn machine_discover_ins_and_outs(factory: &mut Factory, main_coord: usize) {
   machine_discover_ins_and_outs_floor(&mut factory.floor, main_coord);
 }
 pub fn machine_discover_ins_and_outs_floor(floor: &mut [Cell; FLOOR_CELLS_WH], main_coord: usize) {
+  assert_eq!(floor[main_coord].kind, CellKind::Machine, "cell should be a machine");
+  assert_eq!(floor[main_coord].machine.main_coord, main_coord, "func should receive the main coord since thats where the ins and outs are collected");
+
   floor[main_coord].ins.clear();
   floor[main_coord].outs.clear();
 
