@@ -713,6 +713,7 @@ pub fn cell_connect_if_possible(options: &mut Options, state: &mut State, factor
 
   let from_kind = factory.floor[coord_from].kind;
   let to_kind = factory.floor[coord_to].kind;
+  log(format!("  - to: {:?}, from: {:?}", to_kind, from_kind));
 
   // Doing a match is going to complicate the code a lot so it'll just be if-elses to apply the rules
 
@@ -737,7 +738,8 @@ pub fn cell_connect_if_possible(options: &mut Options, state: &mut State, factor
       }
       _ => panic!("already asserted the range of x and y"),
     }
-  } else if from_kind == CellKind::Demand || to_kind == CellKind::Demand {
+  }
+  else if from_kind == CellKind::Demand || to_kind == CellKind::Demand {
     match ( dx, dy ) {
       ( 0 , -1 ) => {
         if from_kind != CellKind::Demand { cell_set_port_u_to(factory, coord_from, Port::Outbound, coord_to); }
@@ -757,7 +759,8 @@ pub fn cell_connect_if_possible(options: &mut Options, state: &mut State, factor
       }
       _ => panic!("already asserted the range of x and y"),
     }
-  } else if to_kind == CellKind::Empty || from_kind == CellKind::Empty {
+  }
+  else if to_kind == CellKind::Empty || from_kind == CellKind::Empty {
     // Ignore :shrug:
     log(format!("connecting to empty? nope"));
     match ( dx, dy ) {
@@ -779,11 +782,13 @@ pub fn cell_connect_if_possible(options: &mut Options, state: &mut State, factor
       }
       _ => panic!("already asserted the range of x and y"),
     }
-  } else if to_kind == CellKind::Machine && from_kind == CellKind::Machine {
+  }
+  else if to_kind == CellKind::Machine && from_kind == CellKind::Machine {
     // Don't connect inter-machine parts. Do not connect different machines either. Just don't.
   } else {
     assert!(to_kind == CellKind::Belt || to_kind == CellKind::Machine);
     assert!(from_kind == CellKind::Belt || from_kind == CellKind::Machine);
+    assert!(!((from_kind == CellKind::Machine) && (to_kind == CellKind::Machine)));
 
     // Regardless of whether it's belt2belt or belt2machine, set the port the same way
 
@@ -808,6 +813,18 @@ pub fn cell_connect_if_possible(options: &mut Options, state: &mut State, factor
     }
   }
 
+  // Only rediscover for belts and machines
+  log(format!("  - rediscover .ins and .outs..."));
+  if from_kind == CellKind::Belt {
+    belt_discover_ins_and_outs(factory, coord_from);
+  } else if from_kind == CellKind::Machine {
+    machine_discover_ins_and_outs(factory, coord_from);
+  }
+  if to_kind == CellKind::Belt {
+    belt_discover_ins_and_outs(factory, coord_to);
+  } else if to_kind == CellKind::Machine {
+    machine_discover_ins_and_outs(factory, coord_to);
+  }
 }
 
 pub fn get_cell_kind_at(factory: &mut Factory, coord: Option<usize>) -> CellKind {

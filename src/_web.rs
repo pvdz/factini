@@ -1383,6 +1383,11 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, factory: &mut
       cell_selection.x = last_mouse_up_cell_x;
       cell_selection.y = last_mouse_up_cell_y;
       cell_selection.coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
+      log(format!("Cell: {:?}", factory.floor[cell_selection.coord]));
+      log(format!("- Belt: {:?}", factory.floor[cell_selection.coord].belt));
+      log(format!("- Machine: {:?}", factory.floor[cell_selection.coord].machine));
+      log(format!("- Supply: {:?}", factory.floor[cell_selection.coord].supply));
+      log(format!("- Demand: {:?}", factory.floor[cell_selection.coord].demand));
     }
   }
 }
