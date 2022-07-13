@@ -9,7 +9,6 @@
 // - undo/redo? could store export snapshots after each change. Not sure if that's super expensive.
 // - paint edge differently?
 // - save/load snapshots of the factory
-// - machine offer speed is ignored
 
 // This is required to export panic to the web
 use std::panic;
@@ -1061,8 +1060,15 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, factor
           floor_delete_cell_at_partial(options, state, factory, last_mouse_up_cell_coord);
         }
         log(format!("Add new supply cell..."));
-        factory.floor[last_mouse_up_cell_coord] = supply_cell(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_c(factory.offers[mouse_state.offer_index].supply_icon), 1, 1, 1);
+        factory.floor[last_mouse_up_cell_coord] = supply_cell(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_c(factory.offers[mouse_state.offer_index].supply_icon), factory.offers[mouse_state.offer_index].speed, factory.offers[mouse_state.offer_index].cooldown, 1);
         connect_to_neighbor_dead_end_belts(options, state, factory, last_mouse_up_cell_coord);
+        match ( last_mouse_up_cell_x == 0.0, last_mouse_up_cell_y == 0.0, last_mouse_up_cell_x as usize == FLOOR_CELLS_W - 1, last_mouse_up_cell_y as usize == FLOOR_CELLS_H - 1 ) {
+          ( false, false, false, true ) => factory.floor[last_mouse_up_cell_coord].port_u = Port::Outbound,
+          ( true, false, false, false ) => factory.floor[last_mouse_up_cell_coord].port_r = Port::Outbound,
+          ( false, true, false, false ) => factory.floor[last_mouse_up_cell_coord].port_d = Port::Outbound,
+          ( false, false, true, false ) => factory.floor[last_mouse_up_cell_coord].port_l = Port::Outbound,
+          _ => panic!("Should be one side"),
+        }
         factory.changed = true;
       } else {
         log(format!("Dropped a supply on the floor or a corner. Ignoring. {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize));
@@ -1082,6 +1088,13 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, factor
         log(format!("Add new demand cell... wants `{}`", factory.offers[mouse_state.offer_index].demand_icon));
         factory.floor[last_mouse_up_cell_coord] = demand_cell(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_c(factory.offers[mouse_state.offer_index].demand_icon));
         connect_to_neighbor_dead_end_belts(options, state, factory, last_mouse_up_cell_coord);
+        match ( last_mouse_up_cell_x == 0.0, last_mouse_up_cell_y == 0.0, last_mouse_up_cell_x as usize == FLOOR_CELLS_W - 1, last_mouse_up_cell_y as usize == FLOOR_CELLS_H - 1 ) {
+          ( false, false, false, true ) => factory.floor[last_mouse_up_cell_coord].port_u = Port::Inbound,
+          ( true, false, false, false ) => factory.floor[last_mouse_up_cell_coord].port_r = Port::Inbound,
+          ( false, true, false, false ) => factory.floor[last_mouse_up_cell_coord].port_d = Port::Inbound,
+          ( false, false, true, false ) => factory.floor[last_mouse_up_cell_coord].port_l = Port::Inbound,
+          _ => panic!("Should be one side"),
+        }
         factory.changed = true;
       } else {
         log(format!("Dropped a demand on the floor or a corner. Ignoring. {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize));
