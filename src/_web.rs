@@ -9,6 +9,9 @@
 // - undo/redo? could store export snapshots after each change. Not sure if that's super expensive.
 // - paint edge differently?
 // - save/load snapshots of the factory
+// - putting machine down next to two dead end belts will only connect one?
+// - does snaking bother me when a belt should move all at once or not at all? should we change the algo? probably not that hard to move all connected cells between intersections/entry/exit points at once. if one moves, all move, etc.
+// - first/last part of belt preview while dragging should be fixed, or be hardcoded dead ends
 
 // This is required to export panic to the web
 use std::panic;
@@ -267,6 +270,9 @@ pub fn start() -> Result<(), JsValue> {
   let img_machine2: web_sys::HtmlImageElement = load_tile("./img/machine2.png")?;
   let img_machine3: web_sys::HtmlImageElement = load_tile("./img/machine3.png")?;
   let img_machine4: web_sys::HtmlImageElement = load_tile("./img/machine4.png")?;
+  let img_machine_1_1: web_sys::HtmlImageElement = load_tile("./img/machine_1_1.png")?;
+  let img_machine_2_1: web_sys::HtmlImageElement = load_tile("./img/machine_2_1.png")?;
+  let img_machine_3_2: web_sys::HtmlImageElement = load_tile("./img/machine_3_2.png")?;
 
   // Tbh this whole Rc approach is copied from the original template. It works so why not, :shrug:
   let mouse_x = Rc::new(Cell::new(0.0));
@@ -527,7 +533,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_ui_buttons2(&mut options, &mut state, &context, &mouse_state);
 
         // TODO: wait for tiles to be loaded because first few frames won't paint anything while the tiles are loading...
-        paint_background_tiles(&options, &state, &context, &factory, &belt_tile_images, &img_machine4);
+        paint_background_tiles(&options, &state, &context, &factory, &belt_tile_images, &img_machine4, &img_machine_1_1, &img_machine_2_1, &img_machine_3_2);
         paint_ports(&context, &factory);
         paint_belt_items(&context, &factory, &part_tile_sprite);
 
@@ -811,24 +817,7 @@ fn handle_mouse_up_over_menu_buttons(cell_selection: &mut CellSelection, mouse_s
 }
 fn unpart(options: &mut Options, state: &mut State, factory: &mut Factory) {
   for coord in 0..factory.floor.len() {
-    let (x, y) = to_xy(coord);
-    match factory.floor[coord].kind {
-      CellKind::Belt => {
-        belt_receive_part(factory, coord, Direction::Up, part_none());
-      },
-      CellKind::Empty => (),
-      CellKind::Demand => (),
-      CellKind::Supply => {
-        factory.floor[coord].supply.part_at = 0;
-        factory.floor[coord].supply.last_part_out_at = 0;
-      },
-      CellKind::Machine => {
-        factory.floor[coord].machine.input_1_have = part_none();
-        factory.floor[coord].machine.input_2_have = part_none();
-        factory.floor[coord].machine.input_3_have = part_none();
-        factory.floor[coord].machine.start_at = 0;
-      },
-    }
+    clear_part_from_cell(options, state, factory, coord);
   }
   factory.changed = true;
 }
@@ -1261,7 +1250,7 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, factory: &
         if factory.floor[coord1].kind == CellKind::Empty {
           if is_edge_not_corner(cell_x1, cell_y1) {
             // Cell is empty so place a trash supplier here as a placeholder
-            factory.floor[coord1] = supply_cell(cell_x1, cell_y1, part_c('t'), 0, 0, 0);
+            factory.floor[coord1] = supply_cell(cell_x1, cell_y1, part_c('t'), 2000, 0, 0);
           }
           else if is_middle(cell_x1, cell_y1) {
             factory.floor[coord1] = belt_cell(cell_x1, cell_y1, belt_type_to_belt_meta(belt_type1));
@@ -1357,7 +1346,7 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, factory: &
             // Track started on the edge but has at least one segment in the middle.
             // Create a trash on the previous (edge) cell if that cell is empty.
             if factory.floor[pcoord].kind == CellKind::Empty {
-              factory.floor[pcoord] = supply_cell(px, py, part_c('t'), 0, 0, 0);
+              factory.floor[pcoord] = supply_cell(px, py, part_c('t'), 2000, 0, 0);
             }
             still_starting_on_edge = false;
           }
@@ -1729,7 +1718,17 @@ fn paint_world_cli(context: &Rc<web_sys::CanvasRenderingContext2d>, options: &mu
     context.fill_text(format!("{}", lines[n]).as_str(), 50.0, (n as f64) * 24.0 + 50.0).expect("something lower error fill_text");
   }
 }
-fn paint_background_tiles(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, belt_tile_images: &Vec<web_sys::HtmlImageElement>, img_machine2: &web_sys::HtmlImageElement) {
+fn paint_background_tiles(
+  options: &Options,
+  state: &State,
+  context: &Rc<web_sys::CanvasRenderingContext2d>,
+  factory: &Factory,
+  belt_tile_images: &Vec<web_sys::HtmlImageElement>,
+  img_machine2: &web_sys::HtmlImageElement,
+  img_machine_1_1: &web_sys::HtmlImageElement,
+  img_machine_2_1: &web_sys::HtmlImageElement,
+  img_machine_3_2: &web_sys::HtmlImageElement,
+) {
   // Paint background cell tiles
   for coord in 0..FLOOR_CELLS_WH {
     let (cx, cy) = to_xy(coord);
@@ -1749,7 +1748,17 @@ fn paint_background_tiles(options: &Options, state: &State, context: &Rc<web_sys
         // For machines, paint the top-left cell only but make the painted area cover the whole machine
         // TODO: each machine size should have a unique, customized, sprite
         if factory.floor[coord].machine.main_coord == coord {
-          context.draw_image_with_html_image_element_and_dw_and_dh(img_machine2, ox, oy, factory.floor[coord].machine.cell_width as f64 * CELL_W, factory.floor[coord].machine.cell_height as f64 * CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+          let machine_img = match ( factory.floor[coord].machine.cell_width, factory.floor[coord].machine.cell_height ) {
+            ( 1, 1 ) => img_machine_1_1,
+            ( 2, 2 ) => img_machine_1_1,
+            ( 3, 3 ) => img_machine_1_1,
+            ( 4, 4 ) => img_machine_1_1,
+            ( 2, 1 ) => img_machine_2_1,
+            ( 4, 2 ) => img_machine_2_1,
+            ( 3, 2 ) => img_machine_3_2,
+            _ => img_machine2,
+          };
+          context.draw_image_with_html_image_element_and_dw_and_dh(machine_img, ox, oy, factory.floor[coord].machine.cell_width as f64 * CELL_W, factory.floor[coord].machine.cell_height as f64 * CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
         }
       },
       CellKind::Supply => {
@@ -2327,7 +2336,7 @@ fn paint_supply_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory:
   context.fill_text(format!("Gives: {}", factory.floor[coord].supply.gives.icon).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 4.0).expect("something error fill_text");
   context.fill_text(format!("Speed: {}", factory.floor[coord].supply.speed).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 5.0).expect("something error fill_text");
   context.fill_text(format!("Cooldown: {: >3}% {}", (((factory.ticks - factory.floor[coord].supply.last_part_out_at) as f64 / factory.floor[coord].supply.cooldown.max(1) as f64).min(1.0) * 100.0) as u8, factory.floor[coord].supply.cooldown).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 6.0).expect("something error fill_text");
-  context.fill_text(format!("Progress: {: >3}% ({})", (((factory.ticks - factory.floor[coord].supply.part_at) as f64 / factory.floor[coord].supply.speed.max(1) as f64).min(1.0) * 100.0) as u8, factory.floor[coord].supply.part_at).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 7.0).expect("something error fill_text");
+  context.fill_text(format!("Progress: {: >3}% (tbd: {})", (((factory.ticks - factory.floor[coord].supply.part_progress) as f64 / factory.floor[coord].supply.speed.max(1) as f64).min(1.0) * 100.0) as u8, factory.floor[coord].supply.part_tbd).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 7.0).expect("something error fill_text");
   context.fill_text(format!("Supplied: {: >4}", factory.floor[coord].supply.supplied).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 8.0).expect("something error fill_text");
 }
 fn paint_demand_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {

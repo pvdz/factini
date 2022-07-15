@@ -874,7 +874,9 @@ pub fn clear_part_from_cell(options: &mut Options, state: &mut State, factory: &
     }
     CellKind::Supply => {
       // Clear the supplied part (reset timer? prolly doesn't matter)
-      factory.floor[coord].supply.part_at = 0;
+      factory.floor[coord].supply.part_created_at = 0;
+      factory.floor[coord].supply.part_tbd = true;
+      factory.floor[coord].supply.part_progress = 0;
     }
   }
 }

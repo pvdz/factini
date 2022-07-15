@@ -300,12 +300,22 @@ fn tick_belt_take_from_supply(options: &mut Options, state: &mut State, factory:
   // Check if the belt is empty
   // Check if the supply has a part ready to move out
   // If so, move it to this belt
-  if factory.floor[belt_coord].belt.part.kind == PartKind::None {
-    if factory.floor[supply_coord].supply.part_at > 0 && factory.ticks - factory.floor[supply_coord].supply.part_at >= factory.floor[supply_coord].supply.speed {
-      if options.print_moves || options.print_moves_supply { log(format!("({}) Supply {:?} from @{} to belt @{}", factory.ticks, factory.floor[supply_coord].supply.gives.kind, supply_coord, belt_coord)); }
-      belt_receive_part(factory, belt_coord, factory.floor[supply_coord].supply.neighbor_incoming_dir, factory.floor[supply_coord].supply.gives.clone());
-      supply_clear_part(factory, supply_coord);
-      return true;
+  assert_eq!(factory.floor[belt_coord].belt.part.kind, PartKind::None, "belt is empty or this should not be called");
+
+  if factory.floor[supply_coord].supply.part_created_at > 0 {
+    if factory.floor[supply_coord].supply.part_tbd {
+      if (factory.floor[supply_coord].supply.part_progress as f64) / (factory.floor[supply_coord].supply.speed.max(1) as f64) >= 0.5 {
+        factory.floor[supply_coord].supply.part_tbd = false;
+        return true;
+      }
+    }
+    else {
+      if factory.floor[supply_coord].supply.part_progress >= factory.floor[supply_coord].supply.speed {
+        if options.print_moves || options.print_moves_supply { log(format!("({}) Supply {:?} from @{} to belt @{}", factory.ticks, factory.floor[supply_coord].supply.gives.kind, supply_coord, belt_coord)); }
+        belt_receive_part(factory, belt_coord, factory.floor[supply_coord].supply.neighbor_incoming_dir, factory.floor[supply_coord].supply.gives.clone());
+        supply_clear_part(factory, supply_coord);
+        return true;
+      }
     }
   }
 
@@ -332,12 +342,12 @@ fn tick_belt_give_to_demand(options: &mut Options, state: &mut State, factory: &
 fn tick_belt_one_outbound_dir(options: &mut Options, state: &mut State, factory: &mut Factory, curr_coord: usize, curr_dir_towards_neighbor: Direction, to_coord: usize, to_dir_coming_from_curr: Direction) -> bool {
   match factory.floor[to_coord].kind {
     CellKind::Empty => {
-      if !state.test {
-        // panic!("empty cells should not be part of .outs vector")
-        log(format!("TODO: empty cells should not be part of .outs vector"));
-        state.test = true;
-      }
-      return false;
+      // if !state.test {
+        panic!("empty cells should not be part of .outs vector")
+        // log(format!("TODO: empty cells should not be part of .outs vector"));
+        // state.test = true;
+      // }
+      // return false;
     },
     CellKind::Belt => {
       // noop
@@ -392,37 +402,29 @@ pub fn tick_belt(options: &mut Options, state: &mut State, factory: &mut Factory
   // Demanders and suppliers only have one option but should let the belts do the choosing since
   // they may still need to switch their options.
 
-  // if from_coord == 42 {
-  //   println!("okay ins: {} outs: {} offset {} {}", factory.floor[from_coord].ins.len(), factory.floor[from_coord].outs.len(), factory.floor[from_coord].inrot, factory.floor[from_coord].outrot);
-  // }
-
   if !factory.floor[curr_coord].belt.part_to_tbd || (factory.floor[curr_coord].belt.part_progress as f64) / (factory.floor[curr_coord].belt.speed as f64) < 0.5 {
     // Either the part knows where to go to or it has not yet reached the center.
     // Move the progress forward.
-    factory.floor[curr_coord].belt.part_progress += 1;
+    factory.floor[curr_coord].belt.part_progress = (factory.floor[curr_coord].belt.part_progress + 1).min(factory.floor[curr_coord].belt.speed);
   }
 
+  // Try to find a Demand to take a part if one is ready.
   if factory.floor[curr_coord].belt.part.kind != PartKind::None {
-    // - Try to find a Demand to take the part
-    // - Other neighbor cells are not handled here (machines and belts take from here, supplies dont take at all)
     let outlen = factory.floor[curr_coord].outs.len();
     for index in 0..outlen {
-      // Not rotating index because the current part is governed by the part_at value anyways, which is action already rotated.
-      // let rotated_index = ((index as u64 + factory.floor[curr_coord].outrot) % (outlen as u64)) as usize;
-
+      // Note: not rotating outs here because that already happened when assigning this part_to
       let (curr_dir, _curr_coord, to_coord, to_dir) = factory.floor[curr_coord].outs[index];
       assert_eq!(curr_coord, _curr_coord, "cell .outs cur__coord must match position in factory");
+      // The next call will only give to Demand cells, the rest is noops and asserts.
       if tick_belt_one_outbound_dir(options, state, factory, curr_coord, curr_dir, to_coord, to_dir) {
         break;
       }
     }
   }
 
+  // Try to take a part from a neighbor belt or supply (but not machine)
   if factory.floor[curr_coord].belt.part.kind == PartKind::None {
     let inlen = factory.floor[curr_coord].ins.len();
-    // if curr_coord == 52 {
-    //   log(format!("ins: {:?}", factory.floor[curr_coord].ins));
-    // }
     for index in 0..inlen {
       let (curr_dir, _curr_coord, from_coord, from_dir ) = factory.floor[curr_coord].ins[index];
       assert_eq!(curr_coord, _curr_coord);

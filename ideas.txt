@@ -1,4 +1,126 @@
 - cells with bonus multipliers
 - machine / belt priority or algorithm configuration (by user)
 - bridges and tunnels
+- immovable pillars
 - GA
+- generate random factories
+- start with factory, let it end day, yell at not completing the objectives
+- finishing a level in a certain time gives you a new path? new challenge? or when doing it with a certain secret pattern? hidden tracks/recipes to match? a-la lonely mountains.
+- machine modifiers? epic, legendary
+  - does it produce different kinds, like how crafting in rimworld works. not sure what the build quality would give you. maybe a qualification requirement? "deliver at least x of quality at least y" and better machines + upgrades or whatever give you higher odds?
+- can start with smaller levels by only showing a small segment of it (would require differently handling the edges though) or by explicitly closing it off and only allowing demanders/suppliers on one or two edges initially.
+- could make the machines compose like "minecraft", requiring recipes to craft anything. potentially with pre-requirements or whatever. the base requirements could be given per level so you'd be restricted in what you can build. but after discovering new resources you may revisit an earlier level and implement a new recipe...
+  - how do I model this?
+  - start with one component and construct something recognizable from it, probably wooden logs into table
+    - /-----\
+    - | | | |
+    - |-|-|-|
+    - |W|W|W|  -> Table
+    - |-|-|-|
+    - |W| |W|
+    - \-----/
+  - certain machines can only create certain items. the would should allow you to craft at least one more thing so the player gets a sense of discovery
+    - /-----\
+    - |W| | |
+    - |-|-|-|
+    - |W|W|W|  -> Chair
+    - |-|-|-|
+    - |W| |W|
+    - \-----/
+  - or more
+    - /-----\
+    - | | | |
+    - |-|-|-|
+    - |W| |W|  -> Bucket / Trash can
+    - |-|-|-|
+    - |W|W|W|
+    - \-----/
+  - or more
+    - /-----\
+    - | | | |
+    - |-|-|-|
+    - | | | |  -> Shelf?
+    - |-|-|-|
+    - |W|W|W|
+    - \-----/
+  - machine type limits what kind of item can be constructed?
+  - anything that's a miss will generate trash
+    - players will have to run the machine to discover the result
+  - levels can have secret deliverable goals "oooh, turns out there's this store that actually needed y, good thing you created a bunch of them!"
+  - start with a 3x3 machine and you can unlock, I guess, any rectangle between 1x1 up to 5x5 (1x1, 1x2, 2x1, 2x2, 1x3, 2x3, 3x3, 3x2, 3x1, 4x1, 4x2, 4x3, 4x4, 3x4, 2x4, 1x4, 5x1, 5x2, 5x3, 5x4, 5x5, 4x5, 3x5, 2x5, 1x5) => 25 machines to unlock
+    - each variation is able to build different recipes
+    - machine size unlocks are permanent and apply retroactively
+    - different paths to unlocking different machines, some are dependant on others but there should be some pathing freedom
+    - you'll need them all to build the final thing (a super store?)
+      - in the first level? with a base ingredient? or maybe you can unlock secret ingredients in previous levels somehow?
+    - clicking on machine opens bubbles for ingredients
+      - maybe the more ingredients you get the more groups of bubbles you end up getting? if you exceed a certain number then sub categories start appearing etc?
+    - how do we create new machines?
+      - the dragndrop from floor is reserved for belting.
+      - create machine size in sidebar editor before draggin?
+      - maybe big/small controls for x and y and then drag the machine etc?
+      - each unique dimension their own unique image, of course
+
+
+
+Belt me!
+Factini
+Minifactori
+
+
+
+- what can we build as genre/theme?
+  - roguelike items
+  - weapons
+  - furniture, ikea e-kai (too risky?). belt me.
+  - existing franchise (nope)
+  - your own machines? own tech tree, sort of in free form?
+    - create new steps of machines depending on the end goal
+      - end goal: couch; needs cushions, frame, cover, feet, manual, construction material
+        - cushions; needs filling, cover materials, zipper, needles and thread, paint
+          - zipper; needs plastic, cutter
+          - paint; needs tin can, oil, whatever materials paint consists of, a stick to stir with (or machine)
+          - cover; needs leather, knife/cutter
+        - frame; needs wood, nails, screws
+        - cover; needs leather, knife/cutter
+        - feet; needs metal, rubber, screws
+        - manual; needs paper, printer, ink
+        - construction material; needs hammer, screwdriver, nails, screws, bolts, wooden pegs, whatever
+    - ^ some of that stuff can be reused when creating other furniture
+      - can use funny names like ikea does
+      - can use instructions like ikea
+    - ^ how granular would you want to go?
+    - what would be the end goal of the game tho? build your living room?
+      - after every day you get a few options of things to build to fill store demands.
+      - filling one store demand means not filling another. balancing act of who to pick? what is the risk reward?
+    - you can do something like "a store in <Random name> is in need of <x> supplies and will reward you with <unlock>" and some unlocks are not immediately available but you can always go back?
+      - will require a revamp of the offer mechanism because we'll need an actual catalogue of things
+
+
+
+  - vehicles
+  - robots
+  - dolls / toys
+  - food
+  - art?
+  - random garble
+  -
+
+
+
+- after each completion offer a game changing reward (?). allow for a "pure" mode.
+  - some ideas for upgrades;
+    - wildcard supply (supplies parts that are all the things)
+    - wildcard demand (accepts anything without trashing)
+    - machine booster (build next to machine to boost speed)
+    - belt booster (build next to belt and all connected belts are faster?)
+    - lower requirements, like dont start counting day until first part is in
+    - teleporter (one building-pair that teleports the part)
+    - merger (building that reduces switcher-delay on an intersection)
+    - drone (picks up parts and moves them to machines)
+    - trash buffer (part trashing counts less against your score)
+    - positional bonus (certain builds next to each other work faster?)
+    - machine size modifier (future offers are one x or y smaller than they otherwise would be)
+    - suppliers have no output delay (like they were before implementing the 50% concept)
+
+
