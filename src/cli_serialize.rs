@@ -386,12 +386,16 @@ pub fn serialize2(options: &mut Options, state: &mut State, factory: &Factory, d
       cell_params.push(factory.floor[coord].machine.id); // This is the ID that shows up on the map as well
       cell_params.push(' ');
       cell_params.push('=');
-      cell_params.push(' ');
-      cell_params.push(factory.floor[coord].machine.input_1_want.icon);
-      cell_params.push(' ');
-      cell_params.push(factory.floor[coord].machine.input_2_want.icon);
-      cell_params.push(' ');
-      cell_params.push(factory.floor[coord].machine.input_3_want.icon);
+      for i in 0..factory.floor[coord].machine.wants.len() {
+        cell_params.push(' ');
+        let icon =
+            if factory.floor[coord].machine.wants[i].kind == PartKind::None {
+            '.' // Explicitly an empty spot since those are relevant
+          } else {
+            factory.floor[coord].machine.wants[i].icon
+          };
+        cell_params.push(icon);
+      }
       cell_params.push(' ');
       cell_params.push('-');
       cell_params.push('>');
@@ -594,12 +598,16 @@ fn serialize_offer(offer: &Offer) -> Vec<char> {
   s.push(' ');
   match offer.kind {
     CellKind::Machine => {
-      s.push(offer.machine_input1);
-      s.push(' ');
-      s.push(offer.machine_input2);
-      s.push(' ');
-      s.push(offer.machine_input3);
-      s.push(' ');
+      for i in 0..offer.wants.len() {
+        let icon =
+            if offer.wants[i].kind == PartKind::None {
+              '.' // Explicitly an empty spot since those are relevant
+            } else {
+              offer.wants[i].icon
+            };
+        s.push(icon);
+        s.push(' ');
+      }
       s.push('-');
       s.push('>');
       s.push(' ');

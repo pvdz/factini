@@ -13,6 +13,7 @@ pub mod belt;
 pub mod cell;
 pub mod cli_serialize;
 pub mod cli_deserialize;
+pub mod craft;
 pub mod demand;
 pub mod direction;
 pub mod factory;
@@ -36,6 +37,8 @@ pub mod _web;
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
   println!("cli start");
+
+  // std::env::set_var("RUST_BACKTRACE", "1");
 
   // Static state configuration (can still be changed by user)
   let mut options = options::create_options(1.0);

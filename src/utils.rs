@@ -13,3 +13,7 @@ pub fn log(s: String) {
   #[cfg(target_arch = "wasm32")]
   web_sys::console::log_2(&"(rust)".into(), &s.into());
 }
+
+pub fn get_time_now() -> u64{
+  return js_sys::Date::now() as u64;
+}

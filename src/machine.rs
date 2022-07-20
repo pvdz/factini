@@ -28,15 +28,10 @@ pub struct Machine {
   pub cell_height: usize,
   pub id: char,
 
-  // Required input for this machine. Can be none. Can require up to three things.
-  // There should be no gap, meaning if there are two inputs, then 3 should always be the none part
-  // An input that is empty but reserved can not unblock another segment
-  pub input_1_want: Part,
-  pub input_1_have: Part,
-  pub input_2_want: Part,
-  pub input_2_have: Part,
-  pub input_3_want: Part,
-  pub input_3_have: Part,
+  // Required input for this machine. Can be none. Can require up to one element per cell that the
+  // machine occupies (arbitrary limit). Unused input slots are set to none.
+  pub wants: Vec<Part>,
+  pub haves: Vec<Part>,
 
   pub output_want: Part,
   pub start_at: u64,
@@ -60,12 +55,8 @@ pub const fn machine_none(main_coord: usize) -> Machine {
     cell_height: 0,
     id: '!',
 
-    input_1_want: part_none(),
-    input_1_have: part_none(),
-    input_2_want: part_none(),
-    input_2_have: part_none(),
-    input_3_want: part_none(),
-    input_3_have: part_none(),
+    wants: vec!(),
+    haves: vec!(),
 
     start_at: 0,
 
@@ -80,7 +71,23 @@ pub const fn machine_none(main_coord: usize) -> Machine {
   };
 }
 
-pub fn machine_new(kind: MachineKind, cell_width: usize, cell_height: usize, id: char, main_coord: usize, input1: Part, input2: Part, input3: Part, output: Part, speed: u64) -> Machine {
+pub fn machine_new(kind: MachineKind, cell_width: usize, cell_height: usize, id: char, main_coord: usize, in_wants: Vec<Part>, output: Part, speed: u64) -> Machine {
+  // Note: this is also called for each machine sub cell once
+  let mut wants = in_wants.clone();
+  let mut haves = vec!();
+
+  let cw = cell_width * cell_height;
+  for i in 0..cw {
+    if wants.len() < cw {
+      wants.push(part_none());
+    }
+    haves.push(part_none());
+  }
+
+  let output = wants_discover_output(&wants, cell_width, cell_height);
+
+  assert_eq!(wants.len(), haves.len(), "machines should start with same len wants as haves");
+
   return Machine {
     kind,
     main_coord,
@@ -89,12 +96,8 @@ pub fn machine_new(kind: MachineKind, cell_width: usize, cell_height: usize, id:
     cell_height,
     id,
 
-    input_1_want: input1,
-    input_1_have: part_none(),
-    input_2_want: input2,
-    input_2_have: part_none(),
-    input_3_want: input3,
-    input_3_have: part_none(),
+    wants,
+    haves,
 
     start_at: 0,
 
@@ -130,7 +133,9 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
       if let Some(to_coord) = to_coord {
         if factory.floor[to_coord].kind == CellKind::Belt && factory.floor[to_coord].belt.part.kind == PartKind::None {
           // The neighbor is a belt that is empty
-          if options.print_moves || options.print_moves_machine { log(format!("({}) Machine @{} (sub @{}) finished part {:?}! Moving to belt @{}", factory.ticks, main_coord, sub_coord, factory.floor[main_coord].machine.output_want.kind, to_coord)); }
+          if options.print_moves || options.print_moves_machine {
+            log(format!("({}) Machine @{} (sub @{}) finished part {:?}! Moving to belt @{}", factory.ticks, main_coord, sub_coord, factory.floor[main_coord].machine.output_want.kind, to_coord));
+          }
 
           belt_receive_part(factory, to_coord, to_dir, factory.floor[main_coord].machine.output_want.clone());
           factory.floor[main_coord].machine.start_at = 0;
@@ -145,22 +150,20 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
       println!("machine has a part but is unable to unload it...");
     }
   }
-  //
-  // if main_coord == 20 {
-  //   log(format!("machine @{}: {:?}>{:?} {:?}>{:?} {:?}>{:?}",
-  //     main_coord,
-  //     factory.floor[main_coord].machine.input_1_want.kind, factory.floor[main_coord].machine.input_1_have.kind,
-  //     factory.floor[main_coord].machine.input_2_want.kind, factory.floor[main_coord].machine.input_2_have.kind,
-  //     factory.floor[main_coord].machine.input_3_want.kind, factory.floor[main_coord].machine.input_3_have.kind,
-  //   ));
-  // }
+
+  let mut waiting_for_input = false;
+  for i in 0..factory.floor[main_coord].machine.haves.len() {
+    // If a certain input does not exist, it will be none.
+    // If a certain input is none, then have should always be none too and it will auto-satisfy
+    // Otherwise, it will satisfy if the have is not none, but rather the part that is wanted.
+    if factory.floor[main_coord].machine.wants[i].kind != factory.floor[main_coord].machine.haves[i].kind {
+      waiting_for_input = true;
+      break;
+    }
+  }
 
   // It should only trash the input if it's actually still waiting for something so check that first
-  if
-    factory.floor[main_coord].machine.input_1_want.kind != factory.floor[main_coord].machine.input_1_have.kind ||
-    factory.floor[main_coord].machine.input_2_want.kind != factory.floor[main_coord].machine.input_2_have.kind ||
-    factory.floor[main_coord].machine.input_3_want.kind != factory.floor[main_coord].machine.input_3_have.kind
-  {
+  if waiting_for_input {
     // Find the input connected to a belt with matching part as any of the inputs that await one
     for index in 0..factory.floor[main_coord].ins.len() {
       let (sub_dir, sub_coord, _main_neighbor_coord, main_neighbor_in_dir) = factory.floor[main_coord].ins[index];
@@ -177,35 +180,31 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
           // Verify that there is a part, the part is at 100% progress, and that the part is determined to go towards the machine
           let belt_part = factory.floor[from_coord].belt.part.kind;
           if belt_part != PartKind::None && !factory.floor[from_coord].belt.part_to_tbd && factory.floor[from_coord].belt.part_to == main_neighbor_in_dir && factory.floor[from_coord].belt.part_progress >= factory.floor[from_coord].belt.speed {
-            // Check whether it fits in any input slot. If so, put it there. Otherwise trash it unless all slots are full (only trash input parts while actually waiting for more input).
-            if belt_part == factory.floor[main_coord].machine.input_1_want.kind && belt_part != factory.floor[main_coord].machine.input_1_have.kind && factory.floor[main_coord].machine.input_1_have.kind == PartKind::None {
-              if options.print_moves || options.print_moves_machine {
-                log(format!("({}) Machine @{} (sub @{}) accepting part {:?} as input1 from belt @{}, had {:?}", factory.ticks, main_coord, sub_coord, belt_part, from_coord, factory.floor[main_coord].machine.input_1_have));
+
+            // Check whether it fits in any input slot. If so, put it there. Otherwise trash it unless
+            // all slots are full (only trash input parts while actually waiting for more input).
+
+            assert_eq!(factory.floor[main_coord].machine.wants.len(), factory.floor[main_coord].machine.haves.len(), "machines should start with same len wants as haves");
+            let mut trash = true;
+            for i in 0..factory.floor[main_coord].machine.wants.len() {
+              let want = factory.floor[main_coord].machine.wants[i].kind;
+              let have = factory.floor[main_coord].machine.haves[i].kind;
+              if belt_part == factory.floor[main_coord].machine.wants[i].kind && belt_part != have && have == PartKind::None {
+                if options.print_moves || options.print_moves_machine {
+                  log(format!("({}) Machine @{} (sub @{}) accepting part {:?} as input {} from belt @{}, had {:?}", factory.ticks, main_coord, sub_coord, belt_part, i, from_coord, have));
+                }
+                factory.floor[main_coord].machine.haves[i] = factory.floor[from_coord].belt.part.clone();
+                belt_receive_part(factory, from_coord, incoming_dir, part_none());
+                trash = false;
+                break;
               }
-              factory.floor[main_coord].machine.input_1_have = factory.floor[from_coord].belt.part.clone();
-              belt_receive_part(factory, from_coord, incoming_dir, part_none());
-            } else if belt_part == factory.floor[main_coord].machine.input_2_want.kind && belt_part != factory.floor[main_coord].machine.input_2_have.kind && factory.floor[main_coord].machine.input_2_have.kind == PartKind::None {
-              if options.print_moves || options.print_moves_machine {
-                log(format!("({}) Machine @{} (sub @{}) accepting part {:?} as input2 from belt @{}, had {:?}", factory.ticks, main_coord, sub_coord, belt_part, from_coord, factory.floor[main_coord].machine.input_2_have));
-              }
-              factory.floor[main_coord].machine.input_2_have = factory.floor[from_coord].belt.part.clone();
-              belt_receive_part(factory, from_coord, incoming_dir, part_none());
-            } else if belt_part == factory.floor[main_coord].machine.input_3_want.kind && belt_part != factory.floor[main_coord].machine.input_3_have.kind && factory.floor[main_coord].machine.input_3_have.kind == PartKind::None {
-              if options.print_moves || options.print_moves_machine {
-                log(format!("({}) Machine @{} (sub @{}) accepting part {:?} as input3 from belt @{}, had {:?}", factory.ticks, main_coord, sub_coord, belt_part, from_coord, factory.floor[main_coord].machine.input_3_have));
-              }
-              factory.floor[main_coord].machine.input_3_have = factory.floor[from_coord].belt.part.clone();
-              belt_receive_part(factory, from_coord, incoming_dir, part_none());
-            } else {
+            }
+
+            if trash {
               // Trash it? TODO: machine with multiple inputs should perhaps only trash if none of the inputs were acceptable?
-              if options.print_moves || options.print_moves_machine { log(format!("({}) Machine @{} (sub @{}) trashing part {:?} from belt @{}; wants: {:?} {:?} {:?}, has: {:?} {:?} {:?}", factory.ticks, main_coord, sub_coord, belt_part, from_coord,
-                factory.floor[main_coord].machine.input_1_want.kind,
-                factory.floor[main_coord].machine.input_2_want.kind,
-                factory.floor[main_coord].machine.input_3_want.kind,
-                factory.floor[main_coord].machine.input_1_have.kind,
-                factory.floor[main_coord].machine.input_2_have.kind,
-                factory.floor[main_coord].machine.input_3_have.kind,
-              )); }
+              if options.print_moves || options.print_moves_machine {
+                log(format!("({}) Machine @{} (sub @{}) trashing part {:?} from belt @{}", factory.ticks, main_coord, sub_coord, belt_part, from_coord));
+              }
               belt_receive_part(factory, from_coord, incoming_dir, part_none());
               factory.floor[main_coord].machine.trashed += 1;
             }
@@ -216,16 +215,23 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
   }
 
   if factory.floor[main_coord].machine.start_at == 0 {
-    if
-      factory.floor[main_coord].machine.input_1_want.kind == factory.floor[main_coord].machine.input_1_have.kind &&
-      factory.floor[main_coord].machine.input_2_want.kind == factory.floor[main_coord].machine.input_2_have.kind &&
-      factory.floor[main_coord].machine.input_3_want.kind == factory.floor[main_coord].machine.input_3_have.kind
-    {
+    let mut ready = true;
+    for i in 0..factory.floor[main_coord].machine.haves.len() {
+      // If a certain input does not exist, it will be none.
+      // If a certain input is none, then have should always be none too and it will auto-satisfy
+      // Otherwise, it will satisfy if the have is not none, but rather the part that is wanted.
+      if factory.floor[main_coord].machine.wants[i].kind != factory.floor[main_coord].machine.haves[i].kind {
+        ready = false;
+        break;
+      }
+    }
+
+    if ready {
       // Ready to produce a new part
       if options.print_moves || options.print_moves_machine { log(format!("({}) Machine @{} started to create new part", factory.ticks, main_coord)); }
-      factory.floor[main_coord].machine.input_1_have = part_none();
-      factory.floor[main_coord].machine.input_2_have = part_none();
-      factory.floor[main_coord].machine.input_3_have = part_none();
+      for i in 0..factory.floor[main_coord].machine.haves.len() {
+        factory.floor[main_coord].machine.haves[i] = part_none();
+      }
       factory.floor[main_coord].machine.start_at = factory.ticks;
     }
   }
@@ -267,5 +273,107 @@ pub fn machine_discover_ins_and_outs_floor(floor: &mut [Cell; FLOOR_CELLS_WH], m
       Port::None => {}
       Port::Unknown => {}
     };
+  }
+}
+
+pub fn machine_change_want(options: &mut Options, state: &mut State, factory: &mut Factory, main_coord: usize, index: usize, part: Part) {
+  factory.floor[main_coord].machine.wants[index] = part;
+
+  let new_out = machine_discover_output(options, state, factory, main_coord);
+  factory.floor[main_coord].machine.output_want = new_out;
+}
+
+pub fn machine_discover_output(options: &Options, state: &State, factory: &Factory, main_coord: usize) -> Part {
+  // Given a set of wants, determine what the output should be
+  // Things to consider;
+  // - input pattern
+  // - factory type
+  // - unlock tree
+  // - level limitations / specials (?)
+
+  // 1x1, 1x2, 1x3, 1x4, 1x5
+  // 2x1, 2x2, 2x3, 2x4, 2x5
+  // 3x1, 3x4, 3x3, 3x4, 3x5
+  // 4x1, 4x4, 4x3, 4x4, 4x5
+  // 5x1, 5x4, 5x3, 5x4, 5x5
+
+  // Probably only a subset of these? with expansion options
+
+  let w = factory.floor[main_coord].machine.cell_width;
+  let h = factory.floor[main_coord].machine.cell_height;
+
+  match ( w , h ) {
+    ( 1, 3 ) => machine_discover_output_1_3(options, state, factory, main_coord),
+    ( 3, 3 ) => machine_discover_output_3_3(options, state, factory, main_coord),
+    _ => {
+      log(format!("machine_discover_output(): machine dimensions not supported; {} x {}", w, h));
+      part_c('t')
+    },
+  }
+}
+pub fn wants_discover_output(wants: &Vec<Part>, width: usize, height: usize) -> Part {
+  match ( width , height ) {
+    ( 1, 3 ) => machine_wants_to_output_1_3(wants),
+    ( 3, 3 ) => machine_wants_to_output_3_3(wants),
+    _ => {
+      log(format!("wants_discover_output(): machine dimensions not supported; {} x {}", width , height));
+      part_c('t')
+    },
+  }
+}
+fn machine_discover_output_1_3(options: &Options, state: &State, factory: &Factory, main_coord: usize) -> Part {
+  assert!(factory.floor[main_coord].machine.wants.len() == 3, "1x3 factory has 3 cells so should have 3 wants");
+  return machine_wants_to_output_1_3(&factory.floor[main_coord].machine.wants);
+}
+fn machine_wants_to_output_1_3(wants: &Vec<Part>) -> Part {
+  match (
+    wants[0].icon, wants[1].icon, wants[2].icon,
+  ) {
+    (
+      ' ',
+      ' ',
+      ' ',
+    ) => part_c('t'),
+    (
+      's',
+      'w',
+      'w',
+    ) => part_c('b'),
+    (
+      'b',
+      'b',
+      'b',
+    ) => part_c('g'),
+
+    _ => part_c('t'),
+  }
+}
+fn machine_discover_output_3_3(options: &Options, state: &State, factory: &Factory, main_coord: usize) -> Part {
+  assert!(factory.floor[main_coord].machine.wants.len() == 9, "3x3 factory has 9 cells so should have 9 wants");
+  return machine_wants_to_output_1_3(&factory.floor[main_coord].machine.wants);
+}
+fn machine_wants_to_output_3_3(wants: &Vec<Part>) -> Part {
+  match (
+    wants[0].icon, wants[1].icon, wants[2].icon,
+    wants[3].icon, wants[4].icon, wants[5].icon,
+    wants[6].icon, wants[7].icon, wants[8].icon,
+  ) {
+    (
+      ' ', ' ', ' ',
+      ' ', ' ', ' ',
+      ' ', ' ', ' ',
+    ) => part_c('t'),
+    (
+      ' ', ' ', ' ',
+      'w', 'w', 'w',
+      'w', ' ', 'w',
+    ) => part_c('T'),
+    (
+      'w', ' ', ' ',
+      'w', 'w', 'w',
+      'w', ' ', 'w',
+    ) => part_c('C'),
+
+    _ => part_c('t'),
   }
 }

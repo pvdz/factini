@@ -99,15 +99,15 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
   // │ └─────────────v───────────────────────────────┘ │
   // │.  .  .  .  .  dg .  .  .  .  .  .  .  .  .  .  .│
   // └─────────────────────────────────────────────────┘
-  // m1 = w s   -> b
-  // m2 = b     -> g
+  // m1 = w . . . s   -> b
+  // m2 = b           -> g
   // os = w s:10 c:5
   // os = s s:10 c:5
   // od = g
-  // om = s w   -> b s:0 d:3x2
-  // om = b     -> g s:10 d:1x1
-  // om = b     -> g s:0 d:3x3
-  // om = b     -> g s:0 d:4x4
+  // om = s . . w   -> b s:0  d:3x2
+  // om = b         -> g s:10 d:1x1
+  // om = b         -> g s:0  d:3x3
+  // om = b         -> g s:0  d:4x4
 
   log(format!("str_to_floor2:\n{}", str));
 
@@ -272,7 +272,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
           } else {
             machine_main_coords[mn]
           };
-        let mut cell = machine_any_cell(cell_kind as char, x, y, 1, 1, MachineKind::Unknown, part_c(' '), part_c(' '), part_c(' '), part_c(' '), 1, 1, 1);
+        let mut cell = machine_any_cell(cell_kind as char, x, y, 1, 1, MachineKind::Unknown, vec!(), part_c(' '), 1, 1, 1);
         cell.port_u = match port_u as char { '^' => Port::Outbound, 'v' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port up indicators must be `^`, `v`, `?` or a space, this was `{}`", port_u)};
         cell.port_r = match port_r as char { '>' => Port::Outbound, '<' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port right indicators must be `<`, `>`, `?` or a space, this was `{}`", port_u)};
         cell.port_d = match port_d as char { 'v' => Port::Outbound, '^' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port down indicators must be `^`, `v`, `?` or a space, this was `{}`", port_u)};
@@ -515,13 +515,13 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
               }
             },
             'm' => {
-              // m<n> = <i>[i][i] -> <o> [s:<d+>]
-              // m1 = abc -> d s:100
+              // m<n> = <i>{0..w*h} -> <o> [s:<d+>]
+              // m1 = a..b.c -> d s:100
+              // Note: zero inputs are allowed. Dots are assumed to be "none". Parts will flow
+              // in serial into the machine crafting pattern (left-right, top-bottom)
               let mut nth = 0;
               let mut speed = 1;
-              let mut input1 = 't';
-              let mut input2 = 't';
-              let mut input3 = 't';
+              let mut wants: Vec<Part> = vec!();
               let mut output = 't';
 
               let mut c = line.next().or(Some('#')).unwrap();
@@ -535,27 +535,13 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              if c < 'a' && c > 'z' { panic!("Unexpected input while parsing machine augment input1: input characters must be a-z, found `{}`", c); }
-              input1 = c;
+              while c != '#' && c != '-' {
+                if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '.') { panic!("Unexpected input while parsing machine input: input characters must be a-zA-Z or dot, found `{}`", c); }
+                // Convert the dot back to an empty part.
+                wants.push(part_c(if c == '.' { ' ' } else { c }));
 
-              let mut c = line.next().or(Some('#')).unwrap();
-              while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              if c == '#' || c == '-' {
-                input2 = ' ';
-                input3 = ' ';
-              } else {
-                if c < 'a' && c > 'z' { panic!("Unexpected input while parsing machine augment input2: input characters must be a-z, found `{}`", c); }
-                input2 = c;
                 c = line.next().or(Some('#')).unwrap();
                 while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                if c == '#' || c == '-' {
-                  input3 = ' ';
-                } else {
-                  if c < 'a' && c > 'z' { panic!("Unexpected input while parsing machine augment input3: input characters must be a-z, found `{}`", c); }
-                  input3 = c;
-                  c = line.next().or(Some('#')).unwrap();
-                  while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                }
               }
 
               if c != '-' { panic!("Unexpected input while parsing machine augment: after input must follow an `->` arrow and then the output, found `{}`", c); }
@@ -566,7 +552,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              if c < 'a' && c > 'z' { panic!("Unexpected input while parsing machine augment output: output characters must be a-z, found `{}`", c); }
+              if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '.') { panic!("Unexpected input while parsing machine output: input characters must be a-zA-Z or dot, found `{}`", c); }
               output = c;
 
               loop {
@@ -600,14 +586,15 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
 
               let main_coord = machine_main_coords[nth as usize];
               if main_coord > 0 {
-                log(format!("Updating machine {} @{} with inputs {} {} {} and output {} at speed {}", nth, main_coord, input1, input2, input3, output, speed));
-                floor[main_coord].machine.input_1_want = part_c(input1);
-                floor[main_coord].machine.input_2_want = part_c(input2);
-                floor[main_coord].machine.input_3_want = part_c(input3);
+                let want_icons = wants.iter().map(|Part { icon, .. }| icon).collect::<Vec<&char>>();
+                log(format!("Updating machine {} @{} with inputs {:?} and output {} at speed {}", nth, main_coord, want_icons, output, speed));
+
+                // Note: auto discovery will have to make sure that wants.len and haves.len are equal and at least >= w*h
+                floor[main_coord].machine.wants = wants;
                 floor[main_coord].machine.output_want = part_c(output);
                 floor[main_coord].machine.speed = speed;
               } else {
-                log(format!("Machine {} was defined as having inputs {} {} {} and output {} at speed {} but its main_coord was not found", nth, input1, input2, input3, output, speed));
+                log(format!("Machine {} was defined as having inputs {:?} and output {} at speed {} but its main_coord was not found", nth, wants, output, speed));
               }
             },
             'o' => {
@@ -688,9 +675,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
                     cell_height: 0,
                     supply_icon: gives,
                     demand_icon: ' ',
-                    machine_input1: ' ',
-                    machine_input2: ' ',
-                    machine_input3: ' ',
+                    wants: vec!(),
                     machine_output: ' ',
                     speed,
                     cooldown
@@ -717,9 +702,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
                     cell_height: 0,
                     supply_icon: ' ',
                     demand_icon: takes,
-                    machine_input1: ' ',
-                    machine_input2: ' ',
-                    machine_input3: ' ',
+                    wants: vec!(),
                     machine_output: ' ',
                     speed: 1,
                     cooldown: 1,
@@ -729,9 +712,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
                   // om = <i>[i][i] -> <o> [s:<d+>]
                   // om = abc -> d s:100
                   let mut speed = 1;
-                  let mut input1 = 't';
-                  let mut input2 = 't';
-                  let mut input3 = 't';
+                  let mut wants = vec!();
                   let mut output = 't';
                   let mut width = 1;
                   let mut height = 1;
@@ -742,27 +723,13 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
 
                   let mut c = line.next().or(Some('#')).unwrap();
                   while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                  if c < 'a' && c > 'z' { panic!("Unexpected input while parsing machine offer input1: input characters must be a-z, found `{}`", c); }
-                  input1 = c;
+                  while c != '#' && c != '-' {
+                    if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '.') { panic!("Unexpected input while parsing machine augment input2: input characters must be a-z, found `{}`", c); }
+                    // Convert the dot back to an empty part.
+                    wants.push(part_c(if c == '.' { ' ' } else { c }));
 
-                  let mut c = line.next().or(Some('#')).unwrap();
-                  while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                  if c == '#' || c == '-' {
-                    input2 = ' ';
-                    input3 = ' ';
-                  } else {
-                    if c < 'a' && c > 'z' { panic!("Unexpected input while parsing machine offer input2: input characters must be a-z, found `{}`", c); }
-                    input2 = c;
                     c = line.next().or(Some('#')).unwrap();
                     while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                    if c == '#' || c == '-' {
-                      input3 = ' ';
-                    } else {
-                      if c < 'a' && c > 'z' { panic!("Unexpected input while parsing machine offer input3: input characters must be a-z, found `{}`", c); }
-                      input3 = c;
-                      c = line.next().or(Some('#')).unwrap();
-                      while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                    }
                   }
 
                   if c != '-' { panic!("Unexpected input while parsing machine offer: after input must follow an `->` arrow and then the output, found `{}`", c); }
@@ -855,16 +822,23 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
                     }
                   }
 
+                  let cw = (width * height) as usize;
+                  for i in 0..cw {
+                    if wants.len() < cw {
+                      wants.push(part_none());
+                    }
+                  }
+
+                  let output = wants_discover_output(&wants, width as usize, height as usize);
+
                   offers.push(Offer {
                     kind: CellKind::Machine,
                     cell_width: width as usize,
                     cell_height: height as usize,
                     supply_icon: ' ',
                     demand_icon: ' ',
-                    machine_input1: input1,
-                    machine_input2: input2,
-                    machine_input3: input3,
-                    machine_output: output,
+                    wants,
+                    machine_output: output.icon,
                     speed,
                     cooldown: 0
                   });

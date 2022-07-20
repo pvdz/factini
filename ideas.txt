@@ -60,8 +60,25 @@
       - create machine size in sidebar editor before draggin?
       - maybe big/small controls for x and y and then drag the machine etc?
       - each unique dimension their own unique image, of course
-
-
+  - basic resources
+    - chemicals (?)
+    - water
+      - water + chemicals -> water paint
+    - wood
+      - wood + water -> paper
+    - oil
+      - oil + chemicals -> oil paint
+    - feathers
+    - leather
+    - metal (any?)
+    - coal
+    - sand
+      - sand+coal -> glass
+    - paint (?)
+  - new base resources can be unlocked by generating the furniture required for sad resource extractor facilities -> unlock tree
+  - demands take anything.
+  - there's an idea of a factory that is then part of another factory, like recursion. and the efficiency of that factory is reflected in the outer machine etc. choices matter.
+    - this could be your unlock tree implicitly?
 
 Belt me!
 Factini

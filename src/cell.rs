@@ -144,7 +144,7 @@ pub fn belt_cell(x: usize, y: usize, meta: BeltMeta) -> Cell {
   };
 }
 
-pub fn machine_any_cell(id: char, x: usize, y: usize, cell_width: usize, cell_height: usize, kind: MachineKind, input1: Part, input2: Part, input3: Part, output: Part, speed: u64, machine_production_price: i32, machine_trash_price: i32) -> Cell {
+pub fn machine_any_cell(id: char, x: usize, y: usize, cell_width: usize, cell_height: usize, kind: MachineKind, wants: Vec<Part>, output: Part, speed: u64, machine_production_price: i32, machine_trash_price: i32) -> Cell {
   assert!(x > 0 && y > 0 && x < FLOOR_CELLS_W - 1 && y < FLOOR_CELLS_H - 1);
 
   let coord = x + y * FLOOR_CELLS_W;
@@ -181,13 +181,13 @@ pub fn machine_any_cell(id: char, x: usize, y: usize, cell_width: usize, cell_he
     marked: false,
 
     belt: belt_none(),
-    machine: machine_new(kind, cell_width, cell_height, id, coord, input1, input2, input3, output, speed),
+    machine: machine_new(kind, cell_width, cell_height, id, coord, wants, output, speed),
     demand: demand_none(),
     supply: supply_none(),
   };
 }
 
-pub fn machine_main_cell(id: char, x: usize, y: usize, cell_width: usize, cell_height: usize, input1: Part, input2: Part, input3: Part, output: Part, speed: u64, machine_production_price: i32, machine_trash_price: i32) -> Cell {
+pub fn machine_main_cell(id: char, x: usize, y: usize, cell_width: usize, cell_height: usize, wants: Vec<Part>, output: Part, speed: u64, machine_production_price: i32, machine_trash_price: i32) -> Cell {
   assert!(x > 0 && y > 0 && x < FLOOR_CELLS_W - 1 && y < FLOOR_CELLS_H - 1);
 
   let coord = x + y * FLOOR_CELLS_W;
@@ -224,7 +224,7 @@ pub fn machine_main_cell(id: char, x: usize, y: usize, cell_width: usize, cell_h
     marked: false,
 
     belt: belt_none(),
-    machine: machine_new(MachineKind::Main, cell_width, cell_height, id, coord, input1, input2, input3, output, speed),
+    machine: machine_new(MachineKind::Main, cell_width, cell_height, id, coord, wants, output, speed),
     demand: demand_none(),
     supply: supply_none(),
   };
@@ -267,7 +267,7 @@ pub fn machine_sub_cell(id: char, x: usize, y: usize, main_coord: usize) -> Cell
     marked: false,
 
     belt: belt_none(),
-    machine: machine_new(MachineKind::SubBuilding, 777, 888, id, main_coord, part_none(), part_none(), part_none(), part_none(), 666),
+    machine: machine_new(MachineKind::SubBuilding, 0, 0, id, main_coord, vec!(), part_none(), 666),
     demand: demand_none(),
     supply: supply_none(),
   };
@@ -862,9 +862,9 @@ pub fn clear_part_from_cell(options: &mut Options, state: &mut State, factory: &
     }
     CellKind::Machine => {
       // clear inputs on main machine cell. Output doesn't exist but we could reset the timer.
-      factory.floor[factory.floor[coord].machine.main_coord].machine.input_1_have = part_none();
-      factory.floor[factory.floor[coord].machine.main_coord].machine.input_2_have = part_none();
-      factory.floor[factory.floor[coord].machine.main_coord].machine.input_3_have = part_none();
+      for i in 0..factory.floor[factory.floor[coord].machine.main_coord].machine.haves.len() {
+        factory.floor[factory.floor[coord].machine.main_coord].machine.haves[i] = part_none();
+      }
       // Basically resets the "part is ready to move", since the part never actually exists
       // inside the machine. We could only clear it if it is indeed 100%+ but who cares.
       factory.floor[factory.floor[coord].machine.main_coord].machine.start_at = 0;
