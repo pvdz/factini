@@ -144,21 +144,26 @@ pub fn factory_collect_stats(options: &mut Options, state: &mut State, factory: 
       }
       CellKind::Belt => {} // Ignore
       CellKind::Demand => {
-
-        let mut found = false;
-        for n in 0..received.len() {
-          if received[n].0 == factory.floor[coord].demand.part.icon {
-            received[n].1 += factory.floor[coord].demand.received;
-            found = true;
-            break;
+        for i in 0..factory.floor[coord].demand.received.len() {
+          accepted += factory.floor[coord].demand.received[i].1;
+          let mut is_old = true;
+          for n in 0..received.len() {
+            if received[n].0 == factory.floor[coord].demand.received[i].0 {
+              received[n].1 += factory.floor[coord].demand.received[i].1;
+              is_old = false;
+              break;
+            }
           }
-        }
-        if !found {
-          received.push( ( factory.floor[coord].demand.part.icon, factory.floor[coord].demand.received ) );
-        }
+          if is_old {
+            received.push(
+              (
+                factory.floor[coord].demand.received[i].0,
+                factory.floor[coord].demand.received[i].1
+              )
+            );
+          }
 
-        accepted += factory.floor[coord].demand.received;
-        trashed += factory.floor[coord].demand.trashed;
+        }
       }
     }
   }
@@ -183,8 +188,7 @@ pub fn factory_reset_stats(options: &mut Options, state: &mut State, factory: &m
       }
       CellKind::Belt => {} // Ignore
       CellKind::Demand => {
-        factory.floor[coord].demand.received = 0;
-        factory.floor[coord].demand.trashed = 0;
+        factory.floor[coord].demand.received = vec!();
       }
     }
   }

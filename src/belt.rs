@@ -329,7 +329,7 @@ fn tick_belt_give_to_demand(options: &mut Options, state: &mut State, factory: &
   if factory.floor[belt_coord].belt.part.kind != PartKind::None {
     if factory.floor[belt_coord].belt.part_to == belt_dir_towards_demand {
       if factory.floor[belt_coord].belt.part_at > 0 && factory.floor[belt_coord].belt.part_progress >= factory.floor[belt_coord].belt.speed {
-        if options.print_moves || options.print_moves_demand { log(format!("({}) Demand takes {:?} at @{} from belt @{}. belt.part_at={:?}, belt_dir={:?}", factory.ticks, factory.floor[demand_coord].demand.part.kind, demand_coord, belt_coord, factory.floor[belt_coord].belt.part_to, belt_dir_towards_demand)); }
+        if options.print_moves || options.print_moves_demand { log(format!("({}) Demand takes {:?} at @{} from belt @{}. belt.part_at={:?}, belt_dir={:?}", factory.ticks, factory.floor[belt_coord].belt.part.kind, demand_coord, belt_coord, factory.floor[belt_coord].belt.part_to, belt_dir_towards_demand)); }
         demand_receive_part(options, state, factory, demand_coord, belt_coord);
         belt_receive_part(factory, belt_coord, Direction::Up, part_none());
         return true;

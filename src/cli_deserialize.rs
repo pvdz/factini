@@ -256,9 +256,6 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
       let port_r = f;
       let port_d = h;
       let port_l = d;
-      // Suppliers and demanders are at the edge. When they are left or right, the kind is printed
-      // under the center. Otherwise the kind is printed to the right of the center.
-      let supply_demand_kind = if i == 0 || i == width-1 { h } else { f };
 
       fn add_machine(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, x: usize, y: usize, cell_kind: char, machine_main_coords: &mut [usize; 63], port_u: char, port_r: char, port_d: char, port_l: char) {
         // Auto layout will have to reconcile the individual machine parts into one machine
@@ -298,8 +295,8 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
                 panic!("Error parsing floor cell: Encountered an `s` inside the floor; this should be a Supply, which is bound to the edge");
               };
             // The speed and cooldown of the supply have to be added below the floor so use placeholder values for now; TODO: wire that up
-            log(format!("Supply, gives `{}`", supply_demand_kind as char));
-            let cell = supply_cell(i, j, part_c(supply_demand_kind as char), 1, 1, 1);
+            log(format!("Supply"));
+            let cell = supply_cell(i, j, part_c('t'), 1, 1, 1);
             floor[coord] = cell;
           }
         },
@@ -320,8 +317,8 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
             } else {
               panic!("Error parsing floor cell: Encountered an `d` inside the floor; this should be a Demand, which is bound to the edge");
             };
-            log(format!("Demand, takes `{}`", supply_demand_kind as char));
-            let cell = demand_cell(i, j, part_c(supply_demand_kind as char));
+            log(format!("Demand"));
+            let cell = demand_cell(i, j);
             floor[coord] = cell;
           }
         },
@@ -482,8 +479,9 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
               }
             },
             'd' => {
-              // d<n> = <p>
-              // d1 = w
+              // (There are no parameters or augments to a demand, rn)
+              // d<n>
+              // d1
               let mut nth = 0;
               let mut takes = 't';
 
@@ -491,28 +489,6 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
               if c < '0' || c > '9' { panic!("Unexpected input while parsing demand augment: first character after `s` must be a digit indicating which supply it targets, found `{}`", c); }
               nth = (c as u8) - ('0' as u8);
-
-              let mut c = line.next().or(Some('#')).unwrap();
-              while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              if c != '=' { panic!("Unexpected input while parsing demand augment: first character after `s{}` must be the `=` sign, found `{}`", nth, c); }
-
-              let mut c = line.next().or(Some('#')).unwrap();
-              while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              if c < 'a' && c > 'z' { panic!("Unexpected input while parsing supply augment kind: input characters must be a-z, found `{}`", c); }
-              takes = c;
-
-              let mut n = 1;
-              // Find the nth supply. Not super optimal but at this scale no real issue.
-              for coord in 0..FLOOR_CELLS_WH {
-                if floor[coord].kind == CellKind::Demand {
-                  if n == nth {
-                    log(format!("Updating demand {} @{} with part {}", nth, coord, takes));
-                    floor[coord].demand.part = part_c(takes);
-                    break;
-                  }
-                  n += 1;
-                }
-              }
             },
             'm' => {
               // m<n> = <i>{0..w*h} -> <o> [s:<d+>]
@@ -674,7 +650,6 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
                     cell_width: 0,
                     cell_height: 0,
                     supply_icon: gives,
-                    demand_icon: ' ',
                     wants: vec!(),
                     machine_output: ' ',
                     speed,
@@ -682,26 +657,25 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
                   });
                 },
                 'd' => {
-                  // od = <p>
-                  // od = w
-                  let mut takes = 't';
+                  // No arguments.
+                  // od
+                  // let mut takes = 't';
 
-                  let mut c = line.next().or(Some('#')).unwrap();
-                  while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                  if c != '=' { panic!("Unexpected input while parsing offer demand augment: first character after `od` must be the `=` sign, found `{}`", c); }
+                  // let mut c = line.next().or(Some('#')).unwrap();
+                  // while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+                  // if c != '=' { panic!("Unexpected input while parsing offer demand augment: first character after `od` must be the `=` sign, found `{}`", c); }
+                  //
+                  // let mut c = line.next().or(Some('#')).unwrap();
+                  // while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+                  // if c < 'a' && c > 'z' { panic!("Unexpected input while parsing demand augment kind: input characters must be a-z, found `{}`", c); }
+                  // takes = c;
 
-                  let mut c = line.next().or(Some('#')).unwrap();
-                  while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                  if c < 'a' && c > 'z' { panic!("Unexpected input while parsing demand augment kind: input characters must be a-z, found `{}`", c); }
-                  takes = c;
-
-                  log(format!("- Creating Demand Offer that wants `{}`", takes));
+                  log(format!("- Creating Demand Offer"));
                   offers.push(Offer {
                     kind: CellKind::Demand,
                     cell_width: 0,
                     cell_height: 0,
                     supply_icon: ' ',
-                    demand_icon: takes,
                     wants: vec!(),
                     machine_output: ' ',
                     speed: 1,
@@ -836,7 +810,6 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
                     cell_width: width as usize,
                     cell_height: height as usize,
                     supply_icon: ' ',
-                    demand_icon: ' ',
                     wants,
                     machine_output: output.icon,
                     speed,

@@ -363,7 +363,7 @@ pub fn supply_cell(x: usize, y: usize, part: Part, speed: u64, cooldown: u64, pr
   };
 }
 
-pub fn demand_cell(x: usize, y: usize, part: Part) -> Cell {
+pub fn demand_cell(x: usize, y: usize) -> Cell {
   let coord = x + y * FLOOR_CELLS_W;
 
   let coord_u = if y == 0 { None } else { Some(to_coord_up(coord)) };
@@ -401,7 +401,7 @@ pub fn demand_cell(x: usize, y: usize, part: Part) -> Cell {
 
     belt: belt_none(),
     machine: machine_none(coord),
-    demand: demand_new(part, neighbor_coord, incoming_dir, neighbor_outgoing_dir),
+    demand: demand_new(neighbor_coord, incoming_dir, neighbor_outgoing_dir),
     supply: supply_none(),
   };
 }

@@ -15,9 +15,7 @@
 // - a part that reaches 100% of a cell but can't be moved to the side should not block the next part from entering the cell until all ports are taken like that. the part can sit in the port and a belt can only take parts if it has an available port.
 // - when importing, the machine output is ignored so we should remove it from the template
 
-
 // volgende stap is
-// - het plaatsen van machines veranderen naar de nieuwe manier somehow
 // - tonen van alle craft buttons bepalen. 9x9=81 items in total? of nog dieper?
 //   - alleen tonen wat de machine al ontvangen heeft?
 //   - alles tonen?
@@ -1263,8 +1261,8 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, factor
           log(format!("Remove old edge cell..."));
           floor_delete_cell_at_partial(options, state, factory, last_mouse_up_cell_coord);
         }
-        log(format!("Add new demand cell... wants `{}`", factory.offers[mouse_state.offer_index].demand_icon));
-        factory.floor[last_mouse_up_cell_coord] = demand_cell(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_c(factory.offers[mouse_state.offer_index].demand_icon));
+        log(format!("Add new demand cell..."));
+        factory.floor[last_mouse_up_cell_coord] = demand_cell(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
         connect_to_neighbor_dead_end_belts(options, state, factory, last_mouse_up_cell_coord);
         match ( last_mouse_up_cell_x == 0.0, last_mouse_up_cell_y == 0.0, last_mouse_up_cell_x as usize == FLOOR_CELLS_W - 1, last_mouse_up_cell_y as usize == FLOOR_CELLS_H - 1 ) {
           ( false, true, false, false ) => factory.floor[last_mouse_up_cell_coord].port_d = Port::Inbound,
@@ -1397,8 +1395,8 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, factory: &
         }
         if factory.floor[coord2].kind == CellKind::Empty {
           if is_edge_not_corner(cell_x2, cell_y2) {
-            // Cell is empty so place a trash demander here as a placeholder
-            factory.floor[coord2] = demand_cell(cell_x2, cell_y2, part_c('t'));
+            // Cell is empty so place a demander here
+            factory.floor[coord2] = demand_cell(cell_x2, cell_y2);
           }
           else if is_middle(cell_x2, cell_y2) {
             factory.floor[coord2] = belt_cell(cell_x2, cell_y2, belt_type_to_belt_meta(belt_type2));
@@ -1502,7 +1500,7 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, factory: &
             //       the index here since we always drag in a straight line. Once the edge is
             //       reached, we assume the line to end and we can put a trash Demand down.
             if factory.floor[coord].kind == CellKind::Empty {
-              factory.floor[coord] = demand_cell(cell_x, cell_y, part_c('t'));
+              factory.floor[coord] = demand_cell(cell_x, cell_y);
             }
 
             already_ending_on_edge = true;
@@ -2089,7 +2087,7 @@ fn paint_background_tiles(
         context.fill_rect( ox, oy, CELL_W, CELL_H);
         if !options.print_priority_tile_order {
           context.set_fill_style(&"black".into());
-          context.fill_text(format!(">{}<", factory.floor[coord].demand.part.icon).as_str(), ox + 8.0, oy + 21.0).expect("something lower error fill_text");
+          context.fill_text(format!("D").as_str(), ox + 8.0, oy + 21.0).expect("something lower error fill_text");
         }
       }
     }
@@ -2847,9 +2845,9 @@ fn paint_demand_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory:
   out_coords.sort();
   out_coords.dedup();
   context.fill_text(format!("Outs: {:?}", out_coords).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 3.0).expect("something error fill_text");
-  context.fill_text(format!("Wants: {}", factory.floor[coord].demand.part.icon).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 4.0).expect("something error fill_text");
-  context.fill_text(format!("Received: {: >4}", factory.floor[coord].demand.received).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 5.0).expect("something error fill_text");
-  context.fill_text(format!("Trashed: {: >4}", factory.floor[coord].demand.trashed).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 6.0).expect("something error fill_text");
+  // context.fill_text(format!("Wants: {}", factory.floor[coord].demand.part.icon).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 4.0).expect("something error fill_text");
+  context.fill_text(format!("Received: {:?}", factory.floor[coord].demand.received).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 5.0).expect("something error fill_text");
+  // context.fill_text(format!("Trashed: {: >4}", factory.floor[coord].demand.trashed).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 6.0).expect("something error fill_text");
 }
 fn paint_top_stats(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory) {
   context.set_fill_style(&"black".into());
@@ -3075,7 +3073,7 @@ fn paint_ui_offer_supply(context: &Rc<web_sys::CanvasRenderingContext2d>, factor
       context.fill_text(format!("Cool: {}", offer.cooldown).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 4.0 * UI_FONT_H).expect("something error fill_text");
     }
     CellKind::Demand => {
-      context.fill_text(format!("Takes: {}", offer.demand_icon).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 2.0 * UI_FONT_H).expect("something error fill_text");
+      // context.fill_text(format!("Takes: {}", offer.demand_icon).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 2.0 * UI_FONT_H).expect("something error fill_text");
     }
     CellKind::Machine => {
       context.fill_text(format!("Size: {} x {}", offer.cell_width, offer.cell_height).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 2.0 * UI_FONT_H).expect("something error fill_text");

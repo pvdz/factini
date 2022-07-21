@@ -441,10 +441,6 @@ pub fn serialize2(options: &mut Options, state: &mut State, factory: &Factory, d
       demand_count += 1;
       cell_params.push('d');
       cell_params.push((('0' as u8) + demand_count) as char);
-      cell_params.push(' ');
-      cell_params.push('=');
-      cell_params.push(' ');
-      cell_params.push(factory.floor[coord].demand.part.icon);
       cell_params.push('\\');
       cell_params.push('n');
       cell_params.push('\\');
@@ -509,8 +505,8 @@ pub fn serialize2(options: &mut Options, state: &mut State, factory: &Factory, d
         if x == FLOOR_CELLS_W - 1 { '│' }
         else if coord > 0 && coord != FLOOR_CELLS_W-1 && coord != FLOOR_CELLS_WH-FLOOR_CELLS_W && x == 0 { '│' }
         else if is_m && m_x == m_w - 1 { '│' }
-        else if (y == 0 || y == FLOOR_CELLS_H - 1) && factory.floor[coord].kind == CellKind::Supply { factory.floor[coord].supply.gives.icon }
-        else if (y == 0 || y == FLOOR_CELLS_H - 1) && factory.floor[coord].kind == CellKind::Demand { factory.floor[coord].demand.part.icon }
+        // else if (y == 0 || y == FLOOR_CELLS_H - 1) && factory.floor[coord].kind == CellKind::Supply { factory.floor[coord].supply.gives.icon }
+        // else if (y == 0 || y == FLOOR_CELLS_H - 1) && factory.floor[coord].kind == CellKind::Demand { factory.floor[coord].demand.part.icon }
         else { ' ' },
       Port::Unknown => '?',
     });
@@ -532,8 +528,8 @@ pub fn serialize2(options: &mut Options, state: &mut State, factory: &Factory, d
       Port::None =>
         if coord > 0 && coord < FLOOR_CELLS_W-1 { '─' }
         else if coord >= FLOOR_CELLS_WH - FLOOR_CELLS_W { '─' }
-        else if (x == 0 || x == FLOOR_CELLS_W - 1) && factory.floor[coord].kind == CellKind::Supply { factory.floor[coord].supply.gives.icon }
-        else if (x == 0 || x == FLOOR_CELLS_W - 1) && factory.floor[coord].kind == CellKind::Demand { factory.floor[coord].demand.part.icon }
+        // else if (x == 0 || x == FLOOR_CELLS_W - 1) && factory.floor[coord].kind == CellKind::Supply { factory.floor[coord].supply.gives.icon }
+        // else if (x == 0 || x == FLOOR_CELLS_W - 1) && factory.floor[coord].kind == CellKind::Demand { factory.floor[coord].demand.part.icon }
         else if is_m && coord >= m_dl { '─' }
         else { ' ' },
       Port::Unknown => '?', // panic?
@@ -649,7 +645,7 @@ fn serialize_offer(offer: &Offer) -> Vec<char> {
       }
     }
     CellKind::Demand => {
-      s.push(offer.demand_icon);
+      s.push(' ');
     }
     _ => panic!("offers are machines, suppliers, or demanders"),
   }

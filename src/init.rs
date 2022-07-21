@@ -126,13 +126,12 @@ pub fn init() -> ( Options, State, Factory ) {
     s3 = w s:0 c:100\n\
     m3 = b b b -> g s:500\n\
     s4 = s s:0 c:100\n\
-    d1 = g\n\
-    d2 = g\n\
-    d3 = g\n\
+    d1\n\
+    d2\n\
+    d3\n\
     os = w s:2000 c:100\n\
     os = s s:2000 c:100\n\
-    od = g\n\
-    od = b\n\
+    od\n\
     om = s . . w . . . . . . . . . . . . . . . . . . . . . -> t s:2000 d:5x5\n\
     om = s w w -> b s:500 d:1x3\n\
     om = g g g -> b s:500 d:1x3\n\
