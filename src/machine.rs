@@ -327,7 +327,9 @@ fn machine_discover_output_1_3(options: &Options, state: &State, factory: &Facto
 }
 fn machine_wants_to_output_1_3(wants: &Vec<Part>) -> Part {
   match (
-    wants[0].icon, wants[1].icon, wants[2].icon,
+    wants[0].icon,
+    wants[1].icon,
+    wants[2].icon,
   ) {
     (
       ' ',
@@ -341,8 +343,8 @@ fn machine_wants_to_output_1_3(wants: &Vec<Part>) -> Part {
     ) => part_c('b'),
     (
       'b',
-      'b',
-      'b',
+      'G',
+      'G',
     ) => part_c('g'),
 
     _ => part_c('t'),

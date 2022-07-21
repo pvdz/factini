@@ -568,7 +568,7 @@ pub fn start() -> Result<(), JsValue> {
 
         paint_top_stats(&context, &mut factory);
         paint_top_bars(&options, &state, &mut factory, &context, &mouse_state);
-        paint_ui_offers(&context, &mut factory, &mouse_state);
+        paint_ui_offers(&context, &part_tile_sprite, &mut factory, &mouse_state);
         paint_ui_buttons(&mut options, &mut state, &context, &mouse_state);
         paint_ui_buttons2(&mut options, &mut state, &context, &mouse_state);
 
@@ -2930,13 +2930,13 @@ fn paint_top_bars(options: &Options, state: &State, factory: &Factory, context: 
   }
   context.set_font(&"12px monospace");
 }
-fn paint_ui_offers(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState) {
+fn paint_ui_offers(context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_sprite: &HtmlImageElement, factory: &Factory, mouse_state: &MouseState) {
   let (is_down_on_offer, down_inside_offer_index) =
     if mouse_state.is_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight offers
     else { ( true, mouse_state.offer_index ) };
 
   for index in 0..factory.offers.len() {
-    paint_ui_offer_supply(&context, factory, index, is_down_on_offer && index == down_inside_offer_index);
+    paint_ui_offer_supply(&context, part_tile_sprite, factory, index, is_down_on_offer && index == down_inside_offer_index);
   }
 }
 fn paint_ui_buttons(options: &mut Options, state: &mut State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
@@ -3037,7 +3037,7 @@ fn paint_ui_speed_bubble(options: &Options, state: &State, context: &Rc<web_sys:
   context.set_fill_style(&"black".into());
   context.fill_text(text, cx - 4.0, cy + 4.0).expect("to paint");
 }
-fn paint_ui_offer_supply(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, index: usize, hovering: bool) {
+fn paint_ui_offer_supply(context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_sprite: &HtmlImageElement, factory: &Factory, index: usize, hovering: bool) {
   let offer = &factory.offers[index];
 
   let offer_height = UI_OFFERS_H + 10.0;
@@ -3068,6 +3068,10 @@ fn paint_ui_offer_supply(context: &Rc<web_sys::CanvasRenderingContext2d>, factor
   context.stroke_text(format!("{:?}", offer.kind).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 1.0 * UI_FONT_H).expect("something error stroke_text");
   match offer.kind {
     CellKind::Supply => {
+      let x = UI_OFFERS_OX + (UI_OFFERS_W / 2.0) - (CELL_W / 2.0);
+      let y = UI_OFFERS_OY + (index as f64) * offer_height + (UI_OFFERS_H / 2.0) - (CELL_H / 2.0);
+      paint_segment_part(&context, part_tile_sprite, part_c(offer.supply_icon), x, y, CELL_W, CELL_H);
+
       context.fill_text(format!("Gives: {}", offer.supply_icon).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 2.0 * UI_FONT_H).expect("something error fill_text");
       context.fill_text(format!("Speed: {}", offer.speed).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 3.0 * UI_FONT_H).expect("something error fill_text");
       context.fill_text(format!("Cool: {}", offer.cooldown).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 4.0 * UI_FONT_H).expect("something error fill_text");
@@ -3089,31 +3093,29 @@ fn paint_segment_part(context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile
   let spw = 16.0;
   let sph = 16.0;
   let (spx, spy) = match segment_part.kind {
-    PartKind::WoodenStick => {
-      // This is a club? Piece of wood I guess? From which wands are formed.
-      (0.0, 11.0)
-      // (10.0, 11.0) // Test image
-      // context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(context, part_tile_sprite, dx, dy, dw, dh, 0.0, 11.0, segx, segy, sw, sh).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
-    },
-    PartKind::Sapphire => {
-      // This is a sapphire
-      (1.0, 3.0)
-      // context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(context, part_tile_sprite, dx, dy, dw, dh, 3.0, 1.0, segx, segy, sw, sh).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
-    },
     PartKind::BlueWand => {
       // This is the slightly bigger blue wand
       (2.0, 11.0)
-      // context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(context, part_tile_sprite, dx, dy, dw, dh, 2.0, 11.0, segx, segy, sw, sh).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+    },
+    PartKind::GoldDust => {
+      // Kinda like gold dust?
+      (8.0, 3.0)
     },
     PartKind::GoldenBlueWand => {
       // This is the golden blue wand
       (4.0, 11.0)
-      // context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(context, part_tile_sprite, dx, dy, dw, dh, 4.0, 11.0, segx, segy, sw, sh).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+    },
+    PartKind::Sapphire => {
+      // This is a sapphire
+      (1.0, 3.0)
     },
     PartKind::Trash => {
       // This is something that looks like a grey rock
       (11.0, 10.0)
-      // context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(context, part_tile_sprite, dx, dy, dw, dh, 4.0, 11.0, segx, segy, sw, sh).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+    },
+    PartKind::WoodenStick => {
+      // This is a club? Piece of wood I guess? From which wands are formed.
+      (0.0, 11.0)
     },
     PartKind::None => {
       // Ignore, this belt segment or machine input is empty
