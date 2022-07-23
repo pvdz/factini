@@ -14,11 +14,11 @@
 // - first/last part of belt preview while dragging should be fixed, or be hardcoded dead ends
 // - a part that reaches 100% of a cell but can't be moved to the side should not block the next part from entering the cell until all ports are taken like that. the part can sit in the port and a belt can only take parts if it has an available port.
 // - when importing, the machine output is ignored so we should remove it from the template
-
-// volgende stap is
-// - tonen van alle craft buttons bepalen. 9x9=81 items in total? of nog dieper?
-//   - alleen tonen wat de machine al ontvangen heeft?
-//   - alles tonen?
+// - closing a factory when the close button is over the bottom menu, doesn't work. same for side menu, I guess
+// - suppliers should get craft menus with resource-only
+// - machines should show the last n received items. new items should replace the oldest items in place. the same item may appear in difference places on the dial, but are less jumpy. maybe?
+// - draw icon on suppliers
+// - seems machines are not properly reconfiguring their output when the input recipe changes?
 
 // This is required to export panic to the web
 use std::panic;
@@ -3092,36 +3092,10 @@ fn paint_ui_offer_supply(context: &Rc<web_sys::CanvasRenderingContext2d>, part_t
 fn paint_segment_part(context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_sprite: &HtmlImageElement, segment_part: Part, dx: f64, dy: f64, dw: f64, dh: f64) -> bool {
   let spw = 16.0;
   let sph = 16.0;
-  let (spx, spy) = match segment_part.kind {
-    PartKind::BlueWand => {
-      // This is the slightly bigger blue wand
-      (2.0, 11.0)
-    },
-    PartKind::GoldDust => {
-      // Kinda like gold dust?
-      (8.0, 3.0)
-    },
-    PartKind::GoldenBlueWand => {
-      // This is the golden blue wand
-      (4.0, 11.0)
-    },
-    PartKind::Sapphire => {
-      // This is a sapphire
-      (1.0, 3.0)
-    },
-    PartKind::Trash => {
-      // This is something that looks like a grey rock
-      (11.0, 10.0)
-    },
-    PartKind::WoodenStick => {
-      // This is a club? Piece of wood I guess? From which wands are formed.
-      (0.0, 11.0)
-    },
-    PartKind::None => {
-      // Ignore, this belt segment or machine input is empty
-      return false;
-    },
-  };
+  let (spx, spy) = part_to_sprite_coord(segment_part.kind);
+  if spx == 0.123 && spy == 0.123 {
+    return false;
+  }
 
   context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
     &part_tile_sprite,

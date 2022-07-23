@@ -563,11 +563,12 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
               let main_coord = machine_main_coords[nth as usize];
               if main_coord > 0 {
                 let want_icons = wants.iter().map(|Part { icon, .. }| icon).collect::<Vec<&char>>();
-                log(format!("Updating machine {} @{} with inputs {:?} and output {} at speed {}", nth, main_coord, want_icons, output, speed));
+                let out2 = machine_wants_to_output_3_3(&wants);
+                log(format!("Updating machine {} @{} with inputs {:?} and output {:?} at speed {}", nth, main_coord, want_icons, out2, speed));
 
                 // Note: auto discovery will have to make sure that wants.len and haves.len are equal and at least >= w*h
                 floor[main_coord].machine.wants = wants;
-                floor[main_coord].machine.output_want = part_c(output);
+                floor[main_coord].machine.output_want = out2; // part_c(output);
                 floor[main_coord].machine.speed = speed;
               } else {
                 log(format!("Machine {} was defined as having inputs {:?} and output {} at speed {} but its main_coord was not found", nth, wants, output, speed));

@@ -35,7 +35,6 @@ pub struct Machine {
 
   pub output_want: Part,
   pub start_at: u64,
-  // pub output_have: Part, // Will sit at factory for as long as there is no out with space
 
   // Speed at which the machine produces output once all inputs are received
   pub speed: u64,
@@ -44,6 +43,8 @@ pub struct Machine {
   pub produced: u64,
   pub trash_price: i32, // Price you pay when a machine has to discard an invalid part
   pub trashed: u64,
+
+  pub last_received: Vec<Part>, // The last 9 unique parts that this factory received. The craft menu will show the "last 9 - <level resource count>" parts that a machine received.
 }
 
 pub const fn machine_none(main_coord: usize) -> Machine {
@@ -61,13 +62,14 @@ pub const fn machine_none(main_coord: usize) -> Machine {
     start_at: 0,
 
     output_want: part_none(),
-    // output_have: part_none(),
 
     speed: 0,
     production_price: 0,
     produced: 0,
     trash_price: 0,
     trashed: 0,
+
+    last_received: vec!(),
   };
 }
 
@@ -102,13 +104,14 @@ pub fn machine_new(kind: MachineKind, cell_width: usize, cell_height: usize, id:
     start_at: 0,
 
     output_want: output,
-    // output_have: part_none(),
 
     speed,
     production_price: 0,
     produced: 0,
     trash_price: 0,
     trashed: 0,
+
+    last_received: vec!(),
   };
 }
 
@@ -343,8 +346,8 @@ fn machine_wants_to_output_1_3(wants: &Vec<Part>) -> Part {
     ) => part_c('b'),
     (
       'b',
-      'G',
-      'G',
+      'd',
+      'd',
     ) => part_c('g'),
 
     _ => part_c('t'),
@@ -354,7 +357,7 @@ fn machine_discover_output_3_3(options: &Options, state: &State, factory: &Facto
   assert!(factory.floor[main_coord].machine.wants.len() == 9, "3x3 factory has 9 cells so should have 9 wants");
   return machine_wants_to_output_1_3(&factory.floor[main_coord].machine.wants);
 }
-fn machine_wants_to_output_3_3(wants: &Vec<Part>) -> Part {
+pub fn machine_wants_to_output_3_3(wants: &Vec<Part>) -> Part {
   match (
     wants[0].icon, wants[1].icon, wants[2].icon,
     wants[3].icon, wants[4].icon, wants[5].icon,
@@ -375,7 +378,50 @@ fn machine_wants_to_output_3_3(wants: &Vec<Part>) -> Part {
       'w', 'w', 'w',
       'w', ' ', 'w',
     ) => part_c('C'),
+    (
+      ' ', 'r', ' ',
+      ' ', 'e', ' ',
+      ' ', 'r', ' ',
+    ) => part_c('W'),
+    (
+      'i', 'p', 'p',
+      'i', 'p', 'p',
+      'i', 'p', 'p',
+    ) => part_c('D'),
+    (
+      ' ', 'W', ' ',
+      'W', 'D', 'W',
+      ' ', 'W', ' ',
+    ) => part_c('C'),
+    (
+      ' ', ' ', ' ',
+      'n', 'n', 'n',
+      'n', 'n', 'n',
+    ) => part_c('Q'),
+    (
+      ' ', 'Q', ' ',
+      'k', 'k', 'k',
+      'k', 'k', 'k',
+    ) => part_c('l'),
+    (
+      ' ', ' ', ' ',
+      'W', 'l', 'W',
+      ' ', ' ', ' ',
+    ) => part_c('o'),
+    (
+      ' ', ' ', ' ',
+      'C', 'o', ' ',
+      ' ', ' ', ' ',
+    ) => part_c('K'),
 
     _ => part_c('t'),
   }
 }
+
+// h e -> W
+// i p -> D
+// D W -> C
+// n -> Q
+// k Q -> l
+// W l -> o
+// C o -> K

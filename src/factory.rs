@@ -61,7 +61,7 @@ pub fn create_factory(options: &mut Options, state: &mut State, floor_str: Strin
     curr_target_progress: 0.0,
     finished_at: 0,
     finished_with: 0,
-    target_production: vec!(('g', 100)),
+    target_production: vec!(('K', 10)),
     actual_production: vec!(),
     supplied: 0,
     produced: 0,

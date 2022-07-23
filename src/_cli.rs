@@ -98,7 +98,6 @@ pub fn cli_main(options: &mut Options, state: &mut State) {
     if (factory.ticks % options.print_factory_interval) == 0 {
       println!("{:200}", ' ');
       println!("factory @ {} {:200}", factory.ticks, ' ');
-      // println!("machine TL {:?} {:?} {:?} -> {:?}", factory.floor[8].machine.input_1_have.kind, factory.floor[8].machine.input_2_have.kind, factory.floor[8].machine.input_3_have.kind, factory.floor[8].machine.output_have.kind);
       if factory.ticks % 10000 == 0 {
         print_floor_with_views(options, state, &mut factory);
       } else {
