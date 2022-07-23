@@ -44,7 +44,12 @@ pub struct Machine {
   pub trash_price: i32, // Price you pay when a machine has to discard an invalid part
   pub trashed: u64,
 
-  pub last_received: Vec<Part>, // The last 9 unique parts that this factory received. The craft menu will show the "last 9 - <level resource count>" parts that a machine received.
+  // The last 9 unique parts that this factory received, and the tick when this was _added_ to
+  // this list last time. The craft menu will show the last 9 parts that a machine received.
+  // Some effort is taken to attempt to keep the elements in place as much as possible.
+  // The idea is that we remember the last 9 received parts and when we receive another one
+  // that is not in this list, we replace the entry with the oldest timestamp with the new one.
+  pub last_received: Vec< ( Part, u64 ) >,
 }
 
 pub const fn machine_none(main_coord: usize) -> Machine {
@@ -196,7 +201,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
                 if options.print_moves || options.print_moves_machine {
                   log(format!("({}) Machine @{} (sub @{}) accepting part {:?} as input {} from belt @{}, had {:?}", factory.ticks, main_coord, sub_coord, belt_part, i, from_coord, have));
                 }
-                factory.floor[main_coord].machine.haves[i] = factory.floor[from_coord].belt.part.clone();
+                machine_receive_part(factory, main_coord, i, factory.floor[from_coord].belt.part.clone());
                 belt_receive_part(factory, from_coord, incoming_dir, part_none());
                 trash = false;
                 break;
@@ -208,6 +213,8 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
               if options.print_moves || options.print_moves_machine {
                 log(format!("({}) Machine @{} (sub @{}) trashing part {:?} from belt @{}", factory.ticks, main_coord, sub_coord, belt_part, from_coord));
               }
+              let part = factory.floor[from_coord].belt.part.clone();
+              machine_update_oldest_list(factory, main_coord, &part);
               belt_receive_part(factory, from_coord, incoming_dir, part_none());
               factory.floor[main_coord].machine.trashed += 1;
             }
@@ -237,6 +244,34 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
       }
       factory.floor[main_coord].machine.start_at = factory.ticks;
     }
+  }
+}
+
+fn machine_receive_part(factory: &mut Factory, main_coord: usize, have_index: usize, part: Part) {
+  machine_update_oldest_list(factory, main_coord, &part);
+
+  factory.floor[main_coord].machine.haves[have_index] = part;
+}
+fn machine_update_oldest_list(factory: &mut Factory, main_coord: usize, part: &Part) {
+  // Update the last_received, if necessary
+  let mut oldest_index = 0;
+  let mut oldest_ticks = factory.ticks;
+  let len = factory.floor[main_coord].machine.last_received.len();
+  for i in 0..len {
+    if part.kind == factory.floor[main_coord].machine.last_received[i].0.kind {
+      // This part was already in the recent list so stop this step
+      return;
+    }
+    if oldest_ticks >= factory.floor[main_coord].machine.last_received[i].1 {
+      oldest_index = i;
+      oldest_ticks = factory.floor[main_coord].machine.last_received[i].1;
+    }
+  }
+
+  if len < 9 {
+    factory.floor[main_coord].machine.last_received.push( ( part.clone(), factory.ticks ) );
+  } else {
+    factory.floor[main_coord].machine.last_received[oldest_index] = ( part.clone(), factory.ticks );
   }
 }
 

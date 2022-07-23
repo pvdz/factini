@@ -16,7 +16,6 @@
 // - when importing, the machine output is ignored so we should remove it from the template
 // - closing a factory when the close button is over the bottom menu, doesn't work. same for side menu, I guess
 // - suppliers should get craft menus with resource-only
-// - machines should show the last n received items. new items should replace the oldest items in place. the same item may appear in difference places on the dial, but are less jumpy. maybe?
 // - draw icon on suppliers
 // - seems machines are not properly reconfiguring their output when the input recipe changes?
 
@@ -133,7 +132,7 @@ const UI_CELL_EDITOR_PART_OY: f64 = UI_CELL_EDITOR_GRID_OY + (2.0 * UI_FONT_H);
 const UI_MACHINE_EDITOR_OX: f64 = UI_OX;
 const UI_MACHINE_EDITOR_OY: f64 = UI_CELL_EDITOR_OY + UI_CELL_EDITOR_H + UI_LINE_H;
 const UI_MACHINE_EDITOR_W: f64 = UI_CELL_EDITOR_W;
-const UI_MACHINE_EDITOR_H: f64 = 150.0;
+const UI_MACHINE_EDITOR_H: f64 = 200.0;
 
 // Temp placeholder
 const COLOR_SUPPLY: &str = "pink";
@@ -576,7 +575,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_background_tiles(&options, &state, &context, &factory, &belt_tile_images, &img_machine4, &img_machine_1_1, &img_machine_2_1, &img_machine_3_2);
         paint_ports(&context, &factory);
         paint_belt_items(&context, &factory, &part_tile_sprite);
-        paint_machine_selection(&options, &state, &context, &part_tile_sprite, &factory, &cell_selection, &mouse_state);
+        paint_machine_selection_and_craft(&options, &state, &context, &part_tile_sprite, &factory, &cell_selection, &mouse_state);
 
         paint_mouse_cursor(&context, &mouse_state);
         paint_mouse_action(&options, &state, &factory, &context, &part_tile_sprite, &belt_tile_images, &mouse_state, &cell_selection);
@@ -1575,68 +1574,6 @@ fn on_click_inside_machine_selection_circle(options: &mut Options, state: &mut S
       log(format!("Clicked inside selection craft menu but not on an interactable; ignoring"));
     }
   }
-
-  //
-  // let coord = cell_selection.coord;
-  // assert!(factory.floor[coord].kind == CellKind::Machine, "should be checked earlier");
-  //
-  // // Each cell consolidates much of its information into the main coord, the top-left cell
-  // let main_coord = factory.floor[coord].machine.main_coord;
-  // let ( main_x, main_y ) = to_xy(main_coord);
-  //
-  // let machine_wx = WORLD_OFFSET_X + (main_x as f64) * CELL_W;
-  // let machine_wy = WORLD_OFFSET_Y + (main_y as f64) * CELL_H;
-  //
-  // // We'll draw a semi-transparent circle over the factory with a radius big enough to fit
-  // // input-type bubbles equally distributed in the ring around the factory. Those should be
-  // // interactable so their position must be fully predictable.
-  // // Perhaps they should be squares to make hitboxes easier, but that's tbd.
-  //
-  // // Find the center of the machine because .arc() requires the center x,y
-  // let machine_cw = factory.floor[main_coord].machine.cell_width as f64;
-  // let machine_ch = factory.floor[main_coord].machine.cell_height as f64;
-  // let machine_ww = machine_cw * CELL_W;
-  // let machine_wh = machine_ch * CELL_H;
-  // let ( center_wx, center_wy, cr ) = get_machine_selection_circle_params(factory, main_coord);
-  //
-  // if mwx >= machine_wx && mwx < machine_wx + machine_ww && mwy >= machine_wy && mwy < machine_wy + machine_wh {
-  //   // Clicked inside machine. Determine cell and delete it.
-  //   log(format!("Clicked on a cell of the actual machine. Now determine the input cell and clear it. (TODO)"));
-  //   return;
-  // }
-  //
-  // // Minimal distance of painting interactbles is the distance from the center to the furthest
-  // // angle (any machine corner) plus a small buffer. a^2+b^2=c^2
-  // // This radius determines the distance from the center of the circle to the _center_ of the cell.
-  // let minr = ((center_wx - machine_wx).powf(2.0) + (center_wy - machine_wy).powf(2.0)).powf(0.5) + 40.0;
-  //
-  // // The back/close button should always be under the machine, centered. Same size (one cell).
-  // let close_wx = center_wx - CELL_W / 2.0;
-  // let close_wy = center_wy + minr - CELL_H / 2.0;
-  // if bounds_check(mwx, mwy, close_wx, close_wy, close_wx + CELL_W, close_wy + CELL_H) {
-  //   log(format!("Clicked the back/close button. (TODO)"));
-  //   return;
-  // }
-  //
-  // let len = state.available_resources.len() - 1; // Better never be empty...
-  // for i in 0..10 {
-  //   let angle: f64 = ((((5.0 - (len as f64 / 2.0).ceil()) + (0.5 * ((len % 2) as f64))) + i as f64) * 0.1) * std::f64::consts::TAU;
-  //
-  //   // TODO: could pre-compute these coords per factory and read the coords from a vec
-  //   let btn_c_wx = angle.sin() * minr;
-  //   let btn_c_wy = angle.cos() * minr;
-  //   let wx = center_wx + btn_c_wx - CELL_W / 2.0;
-  //   let wy = center_wy + btn_c_wy - CELL_H / 2.0;
-  //
-  //   if bounds_check(mwx, mwy, wx, wy, wx + CELL_W, wy + CELL_H) {
-  //     log(format!("Clicked resource box {}. (TODO)", i));
-  //     return;
-  //   }
-  //
-  //   if i >= len { break; }
-  // }
-  //
-  // log(format!("Clicked inside machine circle but did not hit any interactables"));
 }
 fn hit_test_get_craft_interactable_machine_at(options: &mut Options, state: &mut State, factory: &mut Factory, cell_selection: &mut CellSelection, mwx: f64, mwy: f64) -> ( CraftInteractable, f64, f64, f64, f64, char, u8 ) {
   // Figure out whether any of the interactables were clicked
@@ -1672,7 +1609,7 @@ fn hit_test_get_craft_interactable_machine_at(options: &mut Options, state: &mut
   // Minimal distance of painting interactbles is the distance from the center to the furthest
   // angle (any machine corner) plus a small buffer. a^2+b^2=c^2
   // This radius determines the distance from the center of the circle to the _center_ of the cell.
-  let minr = ((center_wx - machine_wx).powf(2.0) + (center_wy - machine_wy).powf(2.0)).powf(0.5) + 40.0;
+  let minr = ((center_wx - machine_wx).powf(2.0) + (center_wy - machine_wy).powf(2.0)).powf(0.5) + 30.0;
 
   // The back/close button should always be under the machine, centered. Same size (one cell).
   let close_wx = center_wx - CELL_W / 2.0;
@@ -1682,9 +1619,11 @@ fn hit_test_get_craft_interactable_machine_at(options: &mut Options, state: &mut
     return ( CraftInteractable::BackClose, close_wx, close_wy, CELL_W, CELL_H, '#', 99 );
   }
 
-  let len = state.available_resources.len() - 1; // Better never be empty...
-  for i in 0..10 {
-    let angle: f64 = ((((5.0 - (len as f64 / 2.0).ceil()) + (0.5 * ((len % 2) as f64))) + i as f64) * 0.1) * std::f64::consts::TAU;
+  // let len = state.available_resources.len() - 1; // Better never be empty...
+  let len = factory.floor[main_coord].machine.last_received.len();
+  if len == 0 {
+    // Only showing a trash icon. Consider len=1 for all intentions and purposes.
+    let angle: f64 = 4.5 * 0.1 * std::f64::consts::TAU;
 
     // TODO: could pre-compute these coords per factory and read the coords from a vec
     let btn_c_wx = angle.sin() * minr;
@@ -1694,10 +1633,24 @@ fn hit_test_get_craft_interactable_machine_at(options: &mut Options, state: &mut
 
     if bounds_check(mwx, mwy, wx, wy, wx + CELL_W, wy + CELL_H) {
       // log(format!("Clicked resource box {}. (TODO)", i));
-      return ( CraftInteractable::Resource, btn_c_wx, btn_c_wy, CELL_W, CELL_H, state.available_resources[i], i as u8 );
+      return ( CraftInteractable::Resource, btn_c_wx, btn_c_wy, CELL_W, CELL_H, 't', 0 );
     }
+  } else {
+    let angle_step = ((5.5 - (len as f64 / 2.0).ceil()) + (0.5 * ((len % 2) as f64)));
+    for i in 0..len {
+      let angle: f64 = (angle_step + i as f64) * 0.1 * std::f64::consts::TAU;
 
-    if i >= len { break; }
+      // TODO: could pre-compute these coords per factory and read the coords from a vec
+      let btn_c_wx = angle.sin() * minr;
+      let btn_c_wy = angle.cos() * minr;
+      let wx = center_wx + btn_c_wx - CELL_W / 2.0;
+      let wy = center_wy + btn_c_wy - CELL_H / 2.0;
+
+      if bounds_check(mwx, mwy, wx, wy, wx + CELL_W, wy + CELL_H) {
+        // log(format!("Clicked resource box {}. (TODO)", i));
+        return ( CraftInteractable::Resource, btn_c_wx, btn_c_wy, CELL_W, CELL_H, factory.floor[main_coord].machine.last_received[i].0.icon, i as u8 );
+      }
+    }
   }
 
   // log(format!("Clicked inside machine circle but did not hit any interactables"));
@@ -2208,7 +2161,7 @@ fn paint_belt_items(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &F
     }
   }
 }
-fn paint_machine_selection(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_sprite: &web_sys::HtmlImageElement, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
+fn paint_machine_selection_and_craft(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_sprite: &web_sys::HtmlImageElement, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
   if !cell_selection.on {
     // No cell selected.
     // log(format!("No cell selected"));
@@ -2290,7 +2243,7 @@ fn paint_machine_selection(options: &Options, state: &State, context: &Rc<web_sy
   // Minimal distance of painting interactbles is the distance from the center to the furthest
   // angle (any machine corner) plus a small buffer. a^2+b^2=c^2
   // This radius determines the distance from the center of the circle to the _center_ of the cell.
-  let minr = ((center_wx - main_wx).powf(2.0) + (center_wy - main_wy).powf(2.0)).powf(0.5) + 40.0;
+  let minr = ((center_wx - main_wx).powf(2.0) + (center_wy - main_wy).powf(2.0)).powf(0.5) + 30.0;
 
   fn btn(context: &Rc<web_sys::CanvasRenderingContext2d>, wx: f64, wy: f64, text: char, is_over: bool) {
     if is_over {
@@ -2325,20 +2278,35 @@ fn paint_machine_selection(options: &Options, state: &State, context: &Rc<web_sy
   let close_wy = center_wy + minr - CELL_H / 2.0;
   btn(context, close_wx, close_wy, '↩', mouse_state.craft_over_ci == CraftInteractable::BackClose);
 
-  let len = state.available_resources.len() - 1; // Better never be empty...
-  for i in 0..10 {
-    let angle1: f64 = ((((5.0 - (len as f64 / 2.0).ceil()) + (0.5 * ((len % 2) as f64))) + i as f64) * 0.1) * std::f64::consts::TAU;
+  // let len = state.available_resources.len() - 1; // Better never be empty...
+  let len = factory.floor[main_coord].machine.last_received.len();
+
+  if len == 0 {
+    // Print a trash input
+    let angle: f64 = 5.0 * 0.1 * std::f64::consts::TAU;
 
     // TODO: could pre-compute these coords per factory and read the coords from a vec
-    let btn_c_wx = angle1.sin() * minr;
-    let btn_c_wy = angle1.cos() * minr;
+    let btn_c_wx = angle.sin() * minr;
+    let btn_c_wy = angle.cos() * minr;
     let wx = center_wx + btn_c_wx - CELL_W / 2.0;
     let wy = center_wy + btn_c_wy - CELL_H / 2.0;
 
     // When hovering over the index, the _c is set to the char of the digit of that index
-    btn_img(context, part_tile_sprite, wx, wy, state.available_resources[i], mouse_state.craft_over_ci_index == (i as u8));
+    btn_img(context, part_tile_sprite, wx, wy, 't', mouse_state.craft_over_ci_index == 0);
+  } else {
+    let angle_step = ((5.5 - (len as f64 / 2.0).ceil()) + (0.5 * ((len % 2) as f64)));
+    for i in 0..len {
+      let angle: f64 = (angle_step + i as f64) * 0.1 * std::f64::consts::TAU;
 
-    if i >= len { break; }
+      // TODO: could pre-compute these coords per factory and read the coords from a vec
+      let btn_c_wx = angle.sin() * minr;
+      let btn_c_wy = angle.cos() * minr;
+      let wx = center_wx + btn_c_wx - CELL_W / 2.0;
+      let wy = center_wy + btn_c_wy - CELL_H / 2.0;
+
+      // When hovering over the index, the _c is set to the char of the digit of that index
+      btn_img(context, part_tile_sprite, wx, wy, factory.floor[main_coord].machine.last_received[i].0.icon, mouse_state.craft_over_ci_index == (i as u8));
+    }
   }
 }
 fn paint_mouse_cursor(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
@@ -2760,10 +2728,12 @@ fn paint_machine_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory
   context.fill_text(format!("Wants: {}", wants).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 4.0).expect("something error fill_text");
   let haves = factory.floor[main_coord].machine.haves.iter().map(|Part { icon, .. }| if icon == &' ' { '.' } else { *icon }).collect::<String>();
   context.fill_text(format!("Haves: {}", haves).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 5.0).expect("something error fill_text");
-  context.fill_text(format!("Speed: {}   Gens: {}", factory.floor[main_coord].machine.speed, factory.floor[main_coord].machine.output_want.icon).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 6.0).expect("something error fill_text");
-  context.fill_text(format!("Progress: {: >3}% ({})", (((factory.ticks - factory.floor[main_coord].machine.start_at) as f64 / factory.floor[main_coord].machine.speed as f64).min(1.0) * 100.0) as u8, factory.floor[main_coord].machine.start_at).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 7.0).expect("something error fill_text");
-  context.fill_text(format!("Produced: {: >4}", factory.floor[main_coord].machine.produced).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 8.0).expect("something error fill_text");
-  context.fill_text(format!("Trashed: {: >4}", factory.floor[main_coord].machine.trashed).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 9.0).expect("something error fill_text");
+  let seen = factory.floor[main_coord].machine.last_received.iter().map(|( Part { icon, .. }, ts)| icon).collect::<String>();
+  context.fill_text(format!("Seen: {}", seen).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 6.0).expect("something error fill_text");
+  context.fill_text(format!("Speed: {}   Gens: {}", factory.floor[main_coord].machine.speed, factory.floor[main_coord].machine.output_want.icon).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 7.0).expect("something error fill_text");
+  context.fill_text(format!("Progress: {: >3}% ({})", (((factory.ticks - factory.floor[main_coord].machine.start_at) as f64 / factory.floor[main_coord].machine.speed as f64).min(1.0) * 100.0) as u8, factory.floor[main_coord].machine.start_at).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 8.0).expect("something error fill_text");
+  context.fill_text(format!("Produced: {: >4}", factory.floor[main_coord].machine.produced).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 9.0).expect("something error fill_text");
+  context.fill_text(format!("Trashed: {: >4}", factory.floor[main_coord].machine.trashed).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 10.0).expect("something error fill_text");
 }
 fn paint_supply_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
   if !cell_selection.on {
