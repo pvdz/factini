@@ -43,12 +43,6 @@ pub struct Factory {
 
 pub fn create_factory(options: &mut Options, state: &mut State, floor_str: String) -> Factory {
   let ( floor, offers ) = floor_from_str(floor_str);
-  let len = offers.len();
-  for i in 0..len {
-    if offers[i].kind == CellKind::Supply {
-      state.available_resources.push(offers[i].supply_icon);
-    }
-  }
   let mut factory = Factory {
     ticks: 0,
     floor,

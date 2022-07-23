@@ -26,7 +26,6 @@ pub fn init() -> ( Options, State, Factory ) {
     mouse_mode_erasing: false,
     mouse_mode_selecting: false,
     selected_area_copy: vec!(),
-    available_resources: vec!(),
     test: false,
   };
 

@@ -1619,7 +1619,6 @@ fn hit_test_get_craft_interactable_machine_at(options: &mut Options, state: &mut
     return ( CraftInteractable::BackClose, close_wx, close_wy, CELL_W, CELL_H, '#', 99 );
   }
 
-  // let len = state.available_resources.len() - 1; // Better never be empty...
   let len = factory.floor[main_coord].machine.last_received.len();
   if len == 0 {
     // Only showing a trash icon. Consider len=1 for all intentions and purposes.
@@ -2278,7 +2277,6 @@ fn paint_machine_selection_and_craft(options: &Options, state: &State, context: 
   let close_wy = center_wy + minr - CELL_H / 2.0;
   btn(context, close_wx, close_wy, '↩', mouse_state.craft_over_ci == CraftInteractable::BackClose);
 
-  // let len = state.available_resources.len() - 1; // Better never be empty...
   let len = factory.floor[main_coord].machine.last_received.len();
 
   if len == 0 {
