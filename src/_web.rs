@@ -17,7 +17,6 @@
 // - closing a factory when the close button is over the bottom menu, doesn't work. same for side menu, I guess
 // - suppliers should get craft menus with resource-only
 // - draw icon on suppliers
-// - seems machines are not properly reconfiguring their output when the input recipe changes?
 
 // This is required to export panic to the web
 use std::panic;

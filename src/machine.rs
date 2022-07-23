@@ -318,6 +318,7 @@ pub fn machine_change_want(options: &mut Options, state: &mut State, factory: &m
   factory.floor[main_coord].machine.wants[index] = part;
 
   let new_out = machine_discover_output(options, state, factory, main_coord);
+  log(format!("machine_change_want() -> {:?}", new_out));
   factory.floor[main_coord].machine.output_want = new_out;
 }
 
@@ -339,6 +340,8 @@ pub fn machine_discover_output(options: &Options, state: &State, factory: &Facto
 
   let w = factory.floor[main_coord].machine.cell_width;
   let h = factory.floor[main_coord].machine.cell_height;
+
+  log(format!("machine_discover_output({}) {}_{}", main_coord, w, h));
 
   match ( w , h ) {
     ( 1, 3 ) => machine_discover_output_1_3(options, state, factory, main_coord),
@@ -390,7 +393,7 @@ fn machine_wants_to_output_1_3(wants: &Vec<Part>) -> Part {
 }
 fn machine_discover_output_3_3(options: &Options, state: &State, factory: &Factory, main_coord: usize) -> Part {
   assert!(factory.floor[main_coord].machine.wants.len() == 9, "3x3 factory has 9 cells so should have 9 wants");
-  return machine_wants_to_output_1_3(&factory.floor[main_coord].machine.wants);
+  return machine_wants_to_output_3_3(&factory.floor[main_coord].machine.wants);
 }
 pub fn machine_wants_to_output_3_3(wants: &Vec<Part>) -> Part {
   match (
