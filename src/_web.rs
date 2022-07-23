@@ -16,7 +16,6 @@
 // - when importing, the machine output is ignored so we should remove it from the template
 // - closing a factory when the close button is over the bottom menu, doesn't work. same for side menu, I guess
 // - suppliers should get craft menus with resource-only
-// - draw icon on suppliers
 
 // This is required to export panic to the web
 use std::panic;
@@ -571,7 +570,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_ui_buttons2(&mut options, &mut state, &context, &mouse_state);
 
         // TODO: wait for tiles to be loaded because first few frames won't paint anything while the tiles are loading...
-        paint_background_tiles(&options, &state, &context, &factory, &belt_tile_images, &img_machine4, &img_machine_1_1, &img_machine_2_1, &img_machine_3_2);
+        paint_background_tiles(&options, &state, &context, &part_tile_sprite, &factory, &belt_tile_images, &img_machine4, &img_machine_1_1, &img_machine_2_1, &img_machine_3_2);
         paint_ports(&context, &factory);
         paint_belt_items(&context, &factory, &part_tile_sprite);
         paint_machine_selection_and_craft(&options, &state, &context, &part_tile_sprite, &factory, &cell_selection, &mouse_state);
@@ -1984,6 +1983,7 @@ fn paint_background_tiles(
   options: &Options,
   state: &State,
   context: &Rc<web_sys::CanvasRenderingContext2d>,
+  part_tile_sprite: &web_sys::HtmlImageElement,
   factory: &Factory,
   belt_tile_images: &Vec<web_sys::HtmlImageElement>,
   img_machine2: &web_sys::HtmlImageElement,
@@ -2027,10 +2027,7 @@ fn paint_background_tiles(
         // TODO: paint supply image
         context.set_fill_style(&COLOR_SUPPLY.into());
         context.fill_rect( ox, oy, CELL_W, CELL_H);
-        if !options.print_priority_tile_order {
-          context.set_fill_style(&"black".into());
-          context.fill_text(format!("<{}>", factory.floor[coord].supply.gives.icon).as_str(), ox + 6.0, oy + 21.0).expect("something lower error fill_text");
-        }
+        paint_segment_part(&context, part_tile_sprite, part_c(factory.floor[coord].supply.gives.icon), ox, oy, CELL_W, CELL_H);
       }
       CellKind::Demand => {
         // TODO: paint demand image
