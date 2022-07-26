@@ -54,3 +54,12 @@ pub fn port_count(factory: &Factory, coord: usize) -> u8 {
     if factory.floor[coord].port_d != Port::None { 1 } else { 0 } +
     if factory.floor[coord].port_l != Port::None { 1 } else { 0 };
 }
+
+pub fn port_to_char(port: Port) -> char {
+  return match port {
+    Port::Inbound => { 'i' },
+    Port::Outbound => { 'o' },
+    Port::Unknown => { '?' },
+    Port::None => { '-' },
+  };
+}

@@ -15,7 +15,8 @@
 // - a part that reaches 100% of a cell but can't be moved to the side should not block the next part from entering the cell until all ports are taken like that. the part can sit in the port and a belt can only take parts if it has an available port.
 // - when importing, the machine output is ignored so we should remove it from the template
 // - closing a factory when the close button is over the bottom menu, doesn't work. same for side menu, I guess
-// - suppliers should get craft menus with resource-only
+// - suppliers should get craft menus with resource-only. how do we determine what "root" resources are?
+// - make sun move across the day bar? in a sort of rainbow path?
 
 // This is required to export panic to the web
 use std::panic;
@@ -55,82 +56,118 @@ use super::state::*;
 use super::utils::*;
 
 // These are the actual pixels we can paint to
-const CANVAS_WIDTH: f64 = 1000.0;
-const CANVAS_HEIGHT: f64 = 810.0;
-// Need this for mouse2world coord conversion
-const CANVAS_CSS_WIDTH: f64 = 1000.0;
-const CANVAS_CSS_HEIGHT: f64 = 810.0;
+const CANVAS_WIDTH: f64 = 1200.0;
+const CANVAS_HEIGHT: f64 = 1210.0;
 
-// World size in world pixels (as painted on the canvas)
-const WORLD_OFFSET_X: f64 = 20.0;
-const WORLD_OFFSET_Y: f64 = 150.0;
-const WORLD_WIDTH: f64 = FLOOR_CELLS_W as f64 * CELL_W;
-const WORLD_HEIGHT: f64 = FLOOR_CELLS_H as f64 * CELL_H;
+// Need this for mouse2world coord conversion. Rest of the coords/sizes are in world (canvas) pixels.
+const CANVAS_CSS_WIDTH: f64 = 1200.0;
+const CANVAS_CSS_HEIGHT: f64 = 1210.0;
 
-// Size of a cell (world pixels)
+const GRID_SPACING: f64 = 5.0; // Spacing of grid blocks from edge and between grid blocks
+
+// Size of a cell
 const CELL_W: f64 = 35.0;
 const CELL_H: f64 = 35.0;
-// 3x3 segments in a cell
-const SEGMENT_W: f64 = 5.0;
-const SEGMENT_H: f64 = 5.0;
+
 // Size of parts on a belt
 const PART_W: f64 = 20.0;
 const PART_H: f64 = 20.0;
 
-const UI_DAY_BAR_OX: f64 = WORLD_OFFSET_X + 35.0;
-const UI_DAY_BAR_OY: f64 = 65.0;
-const UI_DAY_BAR_W: f64 = WORLD_WIDTH - 70.0;
-const UI_DAY_BAR_H: f64 = 30.0;
-const UI_PROGRESS_BAR_OX: f64 = WORLD_OFFSET_X + 35.0;
-const UI_PROGRESS_BAR_OY: f64 = 100.0;
-const UI_PROGRESS_BAR_W: f64 = WORLD_WIDTH - 70.0;
-const UI_PROGRESS_BAR_H: f64 = 30.0;
+// Size of the floor determines dimensions of all other grid items and depends on cell size and cell count.
+const FLOOR_WIDTH: f64 = FLOOR_CELLS_W as f64 * CELL_W;
+const FLOOR_HEIGHT: f64 = FLOOR_CELLS_H as f64 * CELL_H;
+const GRID_TOP_HEIGHT: f64 = 150.0;
+const GRID_RIGHT_WIDTH: f64 = 400.0;
+const GRID_BOTTOM_HEIGHT: f64 = 150.0;
+const GRID_BOTTOM_DEBUG_HEIGHT: f64 = 400.0;
+const GRID_LEFT_WIDTH: f64 = 200.0;
 
-// UI = the right side boxes where stats and interface is painted
-const UI_OX: f64 = 750.0;
-const UI_OY: f64 = 10.0;
-const UI_W: f64 = 230.0;
-const UI_LINE_H: f64 = 25.0;
-const UI_FONT_H: f64 = 16.0;
-const UI_ML: f64 = 6.0;
-const UI_SEGMENT_W: f64 = 40.0;
-const UI_SEGMENT_H: f64 = 40.0;
-const UI_DEBUG_LINES: f64 = 8.0;
+// The UI is a 3x3 grid of sections. The center section is the main part of the game, "the Floor"
+// Define the coordinates of each "tab" (whatever the terminology ought to be) that defines the grid
+const GRID_X0: f64 = GRID_SPACING;
+const GRID_X1: f64 = GRID_X0 + GRID_LEFT_WIDTH + GRID_SPACING; // floor starts here
+const GRID_X2: f64 = GRID_X1 + FLOOR_WIDTH + GRID_SPACING;
+const GRID_X3: f64 = GRID_X2 + GRID_RIGHT_WIDTH + GRID_SPACING;
+const GRID_Y0: f64 = GRID_SPACING;
+const GRID_Y1: f64 = GRID_X0 + GRID_TOP_HEIGHT + GRID_SPACING; // floor starts here
+const GRID_Y2: f64 = GRID_Y1 + FLOOR_HEIGHT + GRID_SPACING;
+const GRID_Y3: f64 = GRID_Y2 + GRID_BOTTOM_HEIGHT + GRID_SPACING; // debug offset
+const GRID_Y4: f64 = GRID_Y3 + GRID_BOTTOM_DEBUG_HEIGHT + GRID_SPACING;
 
-const UI_OFFERS_OX: f64 = UI_OX - 100.0 - 10.0;
-const UI_OFFERS_OY: f64 = UI_OY;
-const UI_OFFERS_W: f64 = 100.0;
-const UI_OFFERS_H: f64 = 90.0;
-const UI_OFFERS_H_PLUS_MARGIN: f64 = UI_OFFERS_H + 10.0;
+// The Floor is the main game area
+const UI_FLOOR_OFFSET_X: f64 = GRID_X1;
+const UI_FLOOR_OFFSET_Y: f64 = GRID_Y1;
+const UI_FLOOR_WIDTH: f64 = FLOOR_WIDTH;
+const UI_FLOOR_HEIGHT: f64 = FLOOR_HEIGHT;
 
-const UI_BUTTON_COUNT: f64 = 7.0; // Update after adding new button
-const UI_BUTTONS_OX: f64 = WORLD_OFFSET_X;
-const UI_BUTTONS_OY: f64 = CANVAS_HEIGHT - 50.0;
-const UI_BUTTONS_OY2: f64 = CANVAS_HEIGHT - 25.0;
-const UI_BUTTON_W: f64 = 50.0;
-const UI_BUTTON_H: f64 = 20.0;
-const UI_BUTTON_SPACING: f64 = 10.0;
-const UI_SPEED_BUBBLE_OX: f64 = UI_BUTTONS_OX + UI_BUTTON_COUNT * (UI_BUTTON_W + UI_BUTTON_SPACING + 1.0);
-const UI_SPEED_BUBBLE_OY: f64 = UI_BUTTONS_OY + 4.0;
-const UI_SPEED_BUBBLE_RADIUS: f64 = 13.0;
+// Achievements on the left
+const UI_ACHIEVEMENT_OFFSET_X: f64 = GRID_X0;
+const UI_ACHIEVEMENT_OFFSET_Y: f64 = GRID_Y1;
+const UI_ACHIEVEMENT_WIDTH: f64 = GRID_LEFT_WIDTH;
+const UI_ACHIEVEMENT_HEIGHT: f64 = FLOOR_HEIGHT; // TODO: include footer space? or ..
 
-const UI_CELL_EDITOR_OX: f64 = UI_OX;
-const UI_CELL_EDITOR_OY: f64 = UI_OY + (UI_LINE_H * (UI_DEBUG_LINES + 2.0));
-const UI_CELL_EDITOR_W: f64 = UI_W;
-const UI_CELL_EDITOR_H: f64 = UI_LINE_H * 7.0;
+// Top menu has the Day progress bar (and whatever). Starts next to achievement menu and goes above the Floor.
+const UI_TOP_OFFSET_X: f64 = GRID_X1;
+const UI_TOP_OFFSET_Y: f64 = GRID_Y0;
+const UI_TOP_WIDTH: f64 = FLOOR_WIDTH;
+const UI_TOP_HEIGHT: f64 = GRID_TOP_HEIGHT;
 
-const UI_CELL_EDITOR_GRID_OX: f64 = UI_OX + 10.0;
-const UI_CELL_EDITOR_GRID_OY: f64 = UI_OY + ((UI_DEBUG_LINES + 3.0) * UI_LINE_H) + UI_FONT_H;
-const UI_CELL_EDITOR_GRID_W: f64 = 3.0 * UI_SEGMENT_W;
-const UI_CELL_EDITOR_GRID_H: f64 = 3.0 * UI_SEGMENT_H;
+const UI_DAY_BAR_ICON_WIDTH: f64 = 30.0;
+const UI_DAY_BAR_OFFSET_X: f64 = UI_TOP_OFFSET_X;
+const UI_DAY_BAR_OFFSET_Y: f64 = UI_TOP_OFFSET_Y + 60.0;
+const UI_DAY_PROGRESS_OFFSET_X: f64 = UI_DAY_BAR_OFFSET_X + UI_DAY_BAR_ICON_WIDTH + 5.0;
+const UI_DAY_PROGRESS_OFFSET_Y: f64 = UI_DAY_BAR_OFFSET_Y;
+const UI_DAY_PROGRESS_WIDTH: f64 = UI_TOP_WIDTH - (UI_DAY_BAR_ICON_WIDTH + 5.0 + 5.0 + UI_DAY_BAR_ICON_WIDTH);
+const UI_DAY_PROGRESS_HEIGHT: f64 = 30.0;
 
-const UI_CELL_EDITOR_PART_OX: f64 = UI_CELL_EDITOR_GRID_OX + (3.0 * UI_SEGMENT_W) + 10.0;
-const UI_CELL_EDITOR_PART_OY: f64 = UI_CELL_EDITOR_GRID_OY + (2.0 * UI_FONT_H);
+const UI_BOTTOM_OFFSET_X: f64 = GRID_X1;
+const UI_BOTTOM_OFFSET_Y: f64 = GRID_Y2;
+const UI_BOTTOM_WIDTH: f64 = FLOOR_WIDTH;
+const UI_BOTTOM_HEIGHT: f64 = GRID_BOTTOM_HEIGHT;
 
-const UI_MACHINE_EDITOR_OX: f64 = UI_OX;
-const UI_MACHINE_EDITOR_OY: f64 = UI_CELL_EDITOR_OY + UI_CELL_EDITOR_H + UI_LINE_H;
-const UI_MACHINE_EDITOR_W: f64 = UI_CELL_EDITOR_W;
-const UI_MACHINE_EDITOR_H: f64 = 200.0;
+const UI_RIGHT_OFFSET_X: f64 = GRID_X2;
+const UI_RIGHT_OFFSET_Y: f64 = GRID_Y0; // Start at top
+const UI_RIGHT_WIDTH: f64 = GRID_RIGHT_WIDTH;
+const UI_RIGHT_HEIGHT: f64 = GRID_TOP_HEIGHT + GRID_SPACING + FLOOR_HEIGHT + GRID_SPACING + GRID_BOTTOM_HEIGHT; // Most of the viewport height
+
+const UI_DEBUG_OFFSET_X: f64 = GRID_X0;
+const UI_DEBUG_OFFSET_Y: f64 = GRID_Y3;
+const UI_DEBUG_WIDTH: f64 = GRID_LEFT_WIDTH + GRID_SPACING + FLOOR_WIDTH + GRID_SPACING + GRID_RIGHT_WIDTH;
+const UI_DEBUG_HEIGHT: f64 = GRID_BOTTOM_DEBUG_HEIGHT;
+// The app stats
+const UI_DEBUG_APP_OFFSET_X: f64 = GRID_X2;
+const UI_DEBUG_APP_OFFSET_Y: f64 = GRID_Y3;
+const UI_DEBUG_APP_WIDTH: f64 = 250.0;
+const UI_DEBUG_APP_LINE_H: f64 = 25.0;
+const UI_DEBUG_APP_FONT_H: f64 = 16.0;
+const UI_DEBUG_APP_SPACING: f64 = 6.0;
+const UI_DEBUG_LINES: f64 = 8.0; // Update after adding more lines
+// Selected cell/machine details
+const UI_DEBUG_CELL_OFFSET_X: f64 = UI_DEBUG_OFFSET_X;
+const UI_DEBUG_CELL_OFFSET_Y: f64 = UI_DEBUG_OFFSET_Y;
+const UI_DEBUG_CELL_WIDTH: f64 = 300.0;
+const UI_DEBUG_CELL_HEIGHT: f64 = 250.0;
+const UI_DEBUG_CELL_MARGIN: f64 = 5.0;
+const UI_DEBUG_CELL_FONT_HEIGHT: f64 = 16.0; // at 12px + bottom spacing
+
+const UI_OFFERS_OFFSET_X: f64 = GRID_X2;
+const UI_OFFERS_OFFSET_Y: f64 = GRID_Y0;
+const UI_OFFERS_WIDTH: f64 = 100.0;
+const UI_OFFERS_HEIGHT: f64 = 90.0;
+const UI_OFFERS_HEIGHT_PLUS_MARGIN: f64 = UI_OFFERS_HEIGHT + 10.0;
+
+const UI_SPEED_BUBBLE_OFFSET_X: f64 = GRID_X1 + 5.0;
+const UI_SPEED_BUBBLE_OFFSET_Y: f64 = GRID_Y2 + 5.0;
+const UI_SPEED_BUBBLE_RADIUS: f64 = 20.0; // half the diameter...
+const UI_SPEED_BUBBLE_SPACING: f64 = 15.0;
+
+const UI_MENU_BUTTONS_COUNT_WIDTH: f64 = 7.0; // Update after adding new button
+const UI_MENU_BUTTONS_OFFSET_X: f64 = GRID_X1 + 2.0;
+const UI_MENU_BUTTONS_OFFSET_Y: f64 = GRID_Y2 + 55.0;
+const UI_MENU_BUTTONS_OFFSET_Y2: f64 = GRID_Y2 + 85.0;
+const UI_MENU_BUTTONS_WIDTH: f64 = 50.0;
+const UI_MENU_BUTTONS_HEIGHT: f64 = 20.0;
+const UI_MENU_BUTTONS_SPACING: f64 = 10.0;
 
 // Temp placeholder
 const COLOR_SUPPLY: &str = "pink";
@@ -559,9 +596,7 @@ pub fn start() -> Result<(), JsValue> {
         context.fill_rect(0.0, 0.0, CANVAS_WIDTH as f64, CANVAS_HEIGHT as f64);
 
         context.set_stroke_style(&"#aaa".into());
-        context.stroke_rect(WORLD_OFFSET_X, WORLD_OFFSET_Y, FLOOR_CELLS_W as f64 * CELL_W, FLOOR_CELLS_H as f64 * CELL_H);
-
-        paint_green_debug(&options, &state, &context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
+        context.stroke_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, FLOOR_CELLS_W as f64 * CELL_W, FLOOR_CELLS_H as f64 * CELL_H);
 
         paint_top_stats(&context, &mut factory);
         paint_top_bars(&options, &state, &mut factory, &context, &mouse_state);
@@ -578,10 +613,21 @@ pub fn start() -> Result<(), JsValue> {
         paint_mouse_cursor(&context, &mouse_state);
         paint_mouse_action(&options, &state, &factory, &context, &part_tile_sprite, &belt_tile_images, &mouse_state, &cell_selection);
 
-        paint_cell_editor(&context, &factory, &cell_selection, &mouse_state);
-        paint_machine_editor(&context, &factory, &cell_selection, &mouse_state);
-        paint_supply_editor(&context, &factory, &cell_selection, &mouse_state);
-        paint_demand_editor(&context, &factory, &cell_selection, &mouse_state);
+        paint_debug_app(&options, &state, &context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
+        paint_debug_belt(&context, &factory, &cell_selection, &mouse_state);
+        paint_debug_machine(&context, &factory, &cell_selection, &mouse_state);
+        paint_debug_supply(&context, &factory, &cell_selection, &mouse_state);
+        paint_debug_demand(&context, &factory, &cell_selection, &mouse_state);
+
+        context.set_stroke_style(&"white".into());
+        context.stroke_rect(GRID_X0, GRID_Y0, GRID_LEFT_WIDTH, GRID_TOP_HEIGHT);
+        context.stroke_rect(GRID_X1, GRID_Y0, FLOOR_WIDTH, GRID_TOP_HEIGHT);
+        context.stroke_rect(GRID_X2, GRID_Y0, GRID_RIGHT_WIDTH, GRID_TOP_HEIGHT + GRID_SPACING + FLOOR_HEIGHT + GRID_SPACING + GRID_BOTTOM_HEIGHT);
+        context.stroke_rect(GRID_X0, GRID_Y1, GRID_LEFT_WIDTH, FLOOR_HEIGHT);
+        context.stroke_rect(GRID_X1, GRID_Y1, FLOOR_WIDTH, FLOOR_HEIGHT);
+        context.stroke_rect(GRID_X0, GRID_Y2, GRID_LEFT_WIDTH, GRID_BOTTOM_HEIGHT);
+        context.stroke_rect(GRID_X1, GRID_Y2, FLOOR_WIDTH, GRID_BOTTOM_HEIGHT);
+        context.stroke_rect(GRID_X0, GRID_Y3, GRID_LEFT_WIDTH + GRID_SPACING + FLOOR_WIDTH + GRID_SPACING + GRID_RIGHT_WIDTH, GRID_BOTTOM_DEBUG_HEIGHT);
       }
 
       // Schedule next frame
@@ -597,19 +643,19 @@ pub fn start() -> Result<(), JsValue> {
 fn world_x_to_top_left_cell_x_while_dragging_offer(world_x: f64, offer_width: usize) -> f64 {
   // Abstracted this to make sure the preview and actual action use the same computation
   let compx = if offer_width % 2 == 1 { 0.0 } else { 0.5 };
-  let ox = ((world_x + -WORLD_OFFSET_X).floor() / CELL_W + compx).floor() - (offer_width / 2) as f64;
+  let ox = ((world_x + -UI_FLOOR_OFFSET_X).floor() / CELL_W + compx).floor() - (offer_width / 2) as f64;
   return ox;
 }
 fn world_y_to_top_left_cell_y_while_dragging_offer(world_y: f64, offer_height: usize) -> f64 {
   let compy = if offer_height % 2 == 1 { 0.0 } else { 0.5 };
-  let oy = ((world_y + -WORLD_OFFSET_Y).floor() / CELL_H + compy).floor() - (offer_height / 2) as f64;
+  let oy = ((world_y + -UI_FLOOR_OFFSET_Y).floor() / CELL_H + compy).floor() - (offer_height / 2) as f64;
   return oy;
 }
 
 fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, factory: &mut Factory) {
-  if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_DAY_BAR_OX, UI_DAY_BAR_OY, UI_DAY_BAR_OX + UI_DAY_BAR_W, UI_DAY_BAR_OY + UI_DAY_BAR_H) {
+  if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_OFFSET_Y + UI_DAY_PROGRESS_HEIGHT) {
     if mouse_state.was_up {
-      if bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, UI_DAY_BAR_OX, UI_DAY_BAR_OY, UI_DAY_BAR_OX + UI_DAY_BAR_W, UI_DAY_BAR_OY + UI_DAY_BAR_H) {
+      if bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_OFFSET_Y + UI_DAY_PROGRESS_HEIGHT) {
         on_up_day_bar(options, state, factory, &mouse_state);
         mouse_state.dragging_offer = false;
         return;
@@ -636,7 +682,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
 
   if state.mouse_mode_erasing {
     if mouse_state.is_down {
-      if bounds_check(mouse_state.world_x, mouse_state.world_y, WORLD_OFFSET_X, WORLD_OFFSET_Y, WORLD_OFFSET_X + WORLD_WIDTH, WORLD_OFFSET_Y + WORLD_HEIGHT) {
+      if bounds_check(mouse_state.world_x, mouse_state.world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
         // On the floor. Delete anything.
         let coord = mouse_state.cell_coord;
         if factory.floor[coord].kind != CellKind::Empty {
@@ -656,8 +702,8 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
   if state.mouse_mode_selecting {
     if mouse_state.was_up {
       log(format!("mouse up with selection mode enabled..."));
-      let down_cell_x = ((mouse_state.last_down_world_x - WORLD_OFFSET_X) / CELL_W).floor();
-      let down_cell_y = ((mouse_state.last_down_world_y - WORLD_OFFSET_Y) / CELL_H).floor();
+      let down_cell_x = ((mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor();
+      let down_cell_y = ((mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor();
       if mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && is_floor(mouse_state.cell_x as usize, mouse_state.cell_y as usize) {
         log(format!("  was up on floor"));
 
@@ -693,7 +739,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
     if mouse_state.craft_down_any {
       log(format!("Started dragging from craft popup (after erase/selection check"));
     }
-    else if bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, WORLD_OFFSET_X, WORLD_OFFSET_Y, WORLD_OFFSET_X + WORLD_WIDTH, WORLD_OFFSET_Y + WORLD_HEIGHT) {
+    else if bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
       // Drag start on floor. Do nothing here.
       // This is computed on the fly and state is already recorded through other means.
       log(format!("Started dragging from floor"));
@@ -707,7 +753,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
     }
     // Was the click inside the painted world?
     // In that case we change/toggle the cell selection
-    else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, WORLD_OFFSET_X, WORLD_OFFSET_Y, WORLD_OFFSET_X + WORLD_WIDTH, WORLD_OFFSET_Y + WORLD_HEIGHT) {
+    else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
       on_up_inside_floor(options, state, factory, cell_selection, &mouse_state);
     }
     else {
@@ -720,9 +766,9 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
 }
 fn handle_mouse_up_over_menu_buttons(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, factory: &mut Factory) {
   // Was one of the buttons below the floor clicked?
-  if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_BUTTONS_OX, UI_BUTTONS_OY, UI_BUTTONS_OX + UI_BUTTON_COUNT * (UI_BUTTON_W + UI_BUTTON_SPACING), UI_BUTTONS_OY + UI_BUTTON_H) {
-    let button_index = (mouse_state.last_up_world_x - UI_BUTTONS_OX) / (UI_BUTTON_W + UI_BUTTON_SPACING);
-    if button_index % 1.0 < (UI_BUTTON_W / (UI_BUTTON_W + UI_BUTTON_SPACING)) {
+  if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_MENU_BUTTONS_OFFSET_X, UI_MENU_BUTTONS_OFFSET_Y, UI_MENU_BUTTONS_OFFSET_X + UI_MENU_BUTTONS_COUNT_WIDTH * (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING), UI_MENU_BUTTONS_OFFSET_Y + UI_MENU_BUTTONS_HEIGHT) {
+    let button_index = (mouse_state.last_up_world_x - UI_MENU_BUTTONS_OFFSET_X) / (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING);
+    if button_index % 1.0 < (UI_MENU_BUTTONS_WIDTH / (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING)) {
       log(format!("clicked inside button {}", button_index));
       match button_index.floor() as u8 {
         0 => { // Empty
@@ -792,10 +838,10 @@ fn handle_mouse_up_over_menu_buttons(cell_selection: &mut CellSelection, mouse_s
     }
   }
   // Second row of buttons?
-  else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_BUTTONS_OX, UI_BUTTONS_OY2, UI_BUTTONS_OX + UI_BUTTON_COUNT * (UI_BUTTON_W + UI_BUTTON_SPACING), UI_BUTTONS_OY2 + UI_BUTTON_H) {
+  else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_MENU_BUTTONS_OFFSET_X, UI_MENU_BUTTONS_OFFSET_Y2, UI_MENU_BUTTONS_OFFSET_X + UI_MENU_BUTTONS_COUNT_WIDTH * (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING), UI_MENU_BUTTONS_OFFSET_Y2 + UI_MENU_BUTTONS_HEIGHT) {
     log(format!("Second row of buttons"));
-    let button_index = (mouse_state.last_up_world_x - UI_BUTTONS_OX) / (UI_BUTTON_W + UI_BUTTON_SPACING);
-    if button_index % 1.0 < (UI_BUTTON_W / (UI_BUTTON_W + UI_BUTTON_SPACING)) {
+    let button_index = (mouse_state.last_up_world_x - UI_MENU_BUTTONS_OFFSET_X) / (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING);
+    if button_index % 1.0 < (UI_MENU_BUTTONS_WIDTH / (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING)) {
       log(format!("({}) clicked inside button {}", factory.ticks, button_index));
       match button_index.floor() as u8 {
         0 => { // Draw / Erase
@@ -894,11 +940,11 @@ fn update_mouse_state(options: &mut Options, state: &mut State, factory: &mut Fa
   mouse_state.canvas_y = mouse_y;
   mouse_state.world_x = mouse_x / CANVAS_CSS_WIDTH * CANVAS_WIDTH;
   mouse_state.world_y = mouse_y / CANVAS_CSS_HEIGHT * CANVAS_HEIGHT;
-  mouse_state.cell_x = ((mouse_x - WORLD_OFFSET_X) / CELL_W).floor();
-  mouse_state.cell_y = ((mouse_y - WORLD_OFFSET_Y) / CELL_H).floor();
+  mouse_state.cell_x = ((mouse_x - UI_FLOOR_OFFSET_X) / CELL_W).floor();
+  mouse_state.cell_y = ((mouse_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor();
   mouse_state.cell_coord = to_coord(mouse_state.cell_x as usize, mouse_state.cell_y as usize);
-  mouse_state.cell_rel_x = ((mouse_x - WORLD_OFFSET_X) / CELL_W) - mouse_state.cell_x;
-  mouse_state.cell_rel_y = ((mouse_y - WORLD_OFFSET_Y) / CELL_H) - mouse_state.cell_y;
+  mouse_state.cell_rel_x = ((mouse_x - UI_FLOOR_OFFSET_X) / CELL_W) - mouse_state.cell_x;
+  mouse_state.cell_rel_y = ((mouse_y - UI_FLOOR_OFFSET_Y) / CELL_H) - mouse_state.cell_y;
 
   let is_machine_selected = cell_selection.on && factory.floor[cell_selection.coord].kind == CellKind::Machine;
 
@@ -1034,7 +1080,7 @@ fn on_up_inside_floor(options: &mut Options, state: &mut State, factory: &mut Fa
       on_drag_end_offer_over_floor(options, state, factory, mouse_state);
     }
     // Drag ended on the floor, did drag start on the floor?
-    else if bounds_check(mouse_state.last_down_world_x - WORLD_OFFSET_X, mouse_state.last_down_world_y - WORLD_OFFSET_Y, 0.0,  0.0,WORLD_WIDTH, WORLD_HEIGHT) {
+    else if bounds_check(mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X, mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y, 0.0,  0.0, FLOOR_WIDTH, FLOOR_HEIGHT) {
       // Is the mouse currently on the floor?
       on_drag_end_inside_floor(options, state, factory, cell_selection, mouse_state);
     } else {
@@ -1047,7 +1093,7 @@ fn on_up_inside_floor(options: &mut Options, state: &mut State, factory: &mut Fa
   }
 }
 fn on_up_day_bar(options: &mut Options, state: &mut State, factory: &mut Factory, mouse_state: &MouseState) {
-  if !bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, UI_DAY_BAR_OX, UI_DAY_BAR_OY, UI_DAY_BAR_OX + UI_DAY_BAR_W, UI_DAY_BAR_OY + UI_DAY_BAR_H) {
+  if !bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_OFFSET_Y + UI_DAY_PROGRESS_HEIGHT) {
     // Dragged onto this button but did not start on this button so ignore the up.
     return;
   }
@@ -1064,11 +1110,11 @@ fn on_up_day_bar(options: &mut Options, state: &mut State, factory: &mut Factory
 fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, factory: &mut Factory, mouse_state: &MouseState) {
   log(format!("on_drag_offer_into_floor()"));
 
-  let last_mouse_up_cell_x = ((mouse_state.last_up_world_x - WORLD_OFFSET_X) / CELL_W).floor();
-  let last_mouse_up_cell_y = ((mouse_state.last_up_world_y - WORLD_OFFSET_Y) / CELL_H).floor();
+  let last_mouse_up_cell_x = ((mouse_state.last_up_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor();
+  let last_mouse_up_cell_y = ((mouse_state.last_up_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor();
   let last_mouse_up_cell_coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
-  let last_mouse_up_inside_cell_x = ((mouse_state.last_up_world_x - WORLD_OFFSET_X) / CELL_W) - last_mouse_up_cell_x;
-  let last_mouse_up_inside_cell_y = ((mouse_state.last_up_world_y - WORLD_OFFSET_Y) / CELL_H) - last_mouse_up_cell_y;
+  let last_mouse_up_inside_cell_x = ((mouse_state.last_up_world_x - UI_FLOOR_OFFSET_X) / CELL_W) - last_mouse_up_cell_x;
+  let last_mouse_up_inside_cell_y = ((mouse_state.last_up_world_y - UI_FLOOR_OFFSET_Y) / CELL_H) - last_mouse_up_cell_y;
 
   let offer = &factory.offers[mouse_state.offer_index];
 
@@ -1313,8 +1359,8 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, factory: &
   // Finalize pathing, regenerate floor
   let track = ray_trace_dragged_line(
     factory,
-    ((mouse_state.last_down_world_x - WORLD_OFFSET_X) / CELL_W).floor(),
-    ((mouse_state.last_down_world_y - WORLD_OFFSET_Y) / CELL_H).floor(),
+    ((mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor(),
+    ((mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor(),
     mouse_state.cell_x.floor(),
     mouse_state.cell_y.floor(),
     false
@@ -1583,8 +1629,8 @@ fn hit_test_get_craft_interactable_machine_at(options: &mut Options, state: &mut
   let main_coord = factory.floor[coord].machine.main_coord;
   let (main_cx, main_cy) = to_xy(main_coord);
 
-  let machine_wx = WORLD_OFFSET_X + (main_cx as f64) * CELL_W;
-  let machine_wy = WORLD_OFFSET_Y + (main_cy as f64) * CELL_H;
+  let machine_wx = UI_FLOOR_OFFSET_X + (main_cx as f64) * CELL_W;
+  let machine_wy = UI_FLOOR_OFFSET_Y + (main_cy as f64) * CELL_H;
 
   let machine_cw = factory.floor[main_coord].machine.cell_width as f64;
   let machine_ch = factory.floor[main_coord].machine.cell_height as f64;
@@ -1633,7 +1679,7 @@ fn hit_test_get_craft_interactable_machine_at(options: &mut Options, state: &mut
       return ( CraftInteractable::Resource, btn_c_wx, btn_c_wy, CELL_W, CELL_H, 't', 0 );
     }
   } else {
-    let angle_step = ((5.5 - (len as f64 / 2.0).ceil()) + (0.5 * ((len % 2) as f64)));
+    let angle_step = 5.5 - (len as f64 / 2.0).ceil() + (0.5 * ((len % 2) as f64));
     for i in 0..len {
       let angle: f64 = (angle_step + i as f64) * 0.1 * std::f64::consts::TAU;
 
@@ -1655,8 +1701,8 @@ fn hit_test_get_craft_interactable_machine_at(options: &mut Options, state: &mut
 }
 fn on_click_inside_floor(options: &mut Options, state: &mut State, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
   log(format!("on_click_inside_floor()"));
-  let last_mouse_up_cell_x = ((mouse_state.last_up_world_x - WORLD_OFFSET_X) / CELL_W).floor();
-  let last_mouse_up_cell_y = ((mouse_state.last_up_world_y - WORLD_OFFSET_Y) / CELL_H).floor();
+  let last_mouse_up_cell_x = ((mouse_state.last_up_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor();
+  let last_mouse_up_cell_y = ((mouse_state.last_up_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor();
 
   if mouse_state.last_down_button == 2 {
     // Clear the cell if that makes sense for it. Delete a belt with one or zero ports.
@@ -1712,10 +1758,10 @@ fn hit_test_machine_circle(factory: &Factory, any_machine_coord: usize, mwx: f64
   return hit_test_circle(mwx, mwy, center_wx, center_wy, cr);
 }
 fn hit_test_offers(factory: &Factory, mx: f64, my: f64) -> (bool, usize ) {
-  if bounds_check(mx, my, UI_OFFERS_OX, UI_OFFERS_OY, UI_OFFERS_OX + UI_OFFERS_W, UI_OFFERS_OY + UI_OFFERS_H_PLUS_MARGIN * (factory.offers.len() as f64)) {
-    let inside_offer_and_margin_index = ((my - UI_OFFERS_OY) / UI_OFFERS_H_PLUS_MARGIN).floor();
-    let offer_heights_away_from_top_of_offer = inside_offer_and_margin_index - (UI_OFFERS_OY + inside_offer_and_margin_index * UI_OFFERS_H_PLUS_MARGIN) ;
-    if offer_heights_away_from_top_of_offer < UI_OFFERS_H {
+  if bounds_check(mx, my, UI_OFFERS_OFFSET_X, UI_OFFERS_OFFSET_Y, UI_OFFERS_OFFSET_X + UI_OFFERS_WIDTH, UI_OFFERS_OFFSET_Y + UI_OFFERS_HEIGHT_PLUS_MARGIN * (factory.offers.len() as f64)) {
+    let inside_offer_and_margin_index = ((my - UI_OFFERS_OFFSET_Y) / UI_OFFERS_HEIGHT_PLUS_MARGIN).floor();
+    let offer_heights_away_from_top_of_offer = inside_offer_and_margin_index - (UI_OFFERS_OFFSET_Y + inside_offer_and_margin_index * UI_OFFERS_HEIGHT_PLUS_MARGIN) ;
+    if offer_heights_away_from_top_of_offer < UI_OFFERS_HEIGHT {
       return ( true, inside_offer_and_margin_index as usize );
     } else {
       return ( false, 0 );
@@ -1723,10 +1769,6 @@ fn hit_test_offers(factory: &Factory, mx: f64, my: f64) -> (bool, usize ) {
   } else {
     return ( false, 0 );
   };
-}
-fn hit_check_cell_editor_grid(wx: f64, wy: f64) -> bool {
-  // log(format!("hit_check_cell_editor_grid({}, {}) {} {} {} {} = {}", wx, wy, UI_CELL_EDITOR_GRID_OX, UI_CELL_EDITOR_GRID_OY, UI_CELL_EDITOR_GRID_OX + UI_CELL_EDITOR_GRID_W, UI_CELL_EDITOR_GRID_OY + UI_CELL_EDITOR_GRID_H, wx >= UI_CELL_EDITOR_GRID_OX && wx < UI_CELL_EDITOR_GRID_OX + UI_CELL_EDITOR_GRID_W && wy >= UI_CELL_EDITOR_GRID_OY && wy < UI_CELL_EDITOR_GRID_OY + UI_CELL_EDITOR_GRID_H));
-  return wx >= UI_CELL_EDITOR_GRID_OX && wx < UI_CELL_EDITOR_GRID_OX + UI_CELL_EDITOR_GRID_W && wy >= UI_CELL_EDITOR_GRID_OY && wy < UI_CELL_EDITOR_GRID_OY + UI_CELL_EDITOR_GRID_H;
 }
 fn ray_trace_dragged_line(factory: &Factory, x0: f64, y0: f64, x1: f64, y1: f64, for_preview: bool) -> Vec<((usize, usize), BeltType, Direction, Direction)> {
   // We raytracing
@@ -1840,24 +1882,29 @@ fn get_cells_from_a_to_b(x0: f64, y0: f64, x1: f64, y1: f64) -> Vec<(usize, usiz
   return covered;
 }
 fn hit_check_speed_bubbles_any(options: &mut Options, state: &mut State, mouse_state: &MouseState) -> bool {
-  let ox = UI_SPEED_BUBBLE_OX + 10.0 - UI_SPEED_BUBBLE_RADIUS;
-  let oy = UI_SPEED_BUBBLE_OY + 5.0 - UI_SPEED_BUBBLE_RADIUS;
-  let bubble_box_width = 40.0;
-
-  return bounds_check(mouse_state.world_x, mouse_state.world_y, ox, oy, ox + 5.0 * bubble_box_width, oy + 2.0 * UI_SPEED_BUBBLE_RADIUS);
+  // Was the area with speed bubble buttons hit anywhere at all?
+  let diameter = 2.0 * UI_SPEED_BUBBLE_RADIUS;
+  // TODO: change to proper circle point check?
+  return bounds_check(
+    mouse_state.world_x, mouse_state.world_y,
+    UI_SPEED_BUBBLE_OFFSET_X,
+    UI_SPEED_BUBBLE_OFFSET_Y,
+    UI_SPEED_BUBBLE_OFFSET_X + 5.0 * diameter + 4.0 * UI_SPEED_BUBBLE_SPACING,
+    UI_SPEED_BUBBLE_OFFSET_Y + diameter
+  );
 }
 fn on_click_speed_bubbles(options: &mut Options, state: &mut State, mouse_state: &MouseState) {
   log(format!("on_click_speed_bubbles()"));
 
-  if hit_check_speed_bubble(options, state, mouse_state, 0, "-") {
+  if hit_check_speed_bubble_x(options, state, mouse_state, 0, "-") {
     let m = options.speed_modifier;
     options.speed_modifier = options.speed_modifier.min(0.5) * 0.5;
     log(format!("pressed time minus, from {} to {}", m, options.speed_modifier));
-  } else if hit_check_speed_bubble(options, state, mouse_state, 1, "½") {
+  } else if hit_check_speed_bubble_x(options, state, mouse_state, 1, "½") {
     let m = options.speed_modifier;
     options.speed_modifier = 0.5;
     log(format!("pressed time half, from {} to {}", m, options.speed_modifier));
-  } else if hit_check_speed_bubble(options, state, mouse_state, 2, "⏭") {
+  } else if hit_check_speed_bubble_x(options, state, mouse_state, 2, "⏭") {
     let m = options.speed_modifier;
     if m == 1.0 {
       options.speed_modifier = 0.0;
@@ -1867,23 +1914,27 @@ fn on_click_speed_bubbles(options: &mut Options, state: &mut State, mouse_state:
       state.paused = false;
     }
     log(format!("pressed time one, from {} to {}", m, options.speed_modifier));
-  } else if hit_check_speed_bubble(options, state, mouse_state, 3, "2") {
+  } else if hit_check_speed_bubble_x(options, state, mouse_state, 3, "2") {
     let m = options.speed_modifier;
     options.speed_modifier = 2.0;
     log(format!("pressed time two, from {} to {}", m, options.speed_modifier));
-  } else if hit_check_speed_bubble(options, state, mouse_state, 4, "+") {
+  } else if hit_check_speed_bubble_x(options, state, mouse_state, 4, "+") {
     let m = options.speed_modifier;
     options.speed_modifier = options.speed_modifier.max(2.0) * 1.5;
     log(format!("pressed time plus, from {} to {}", m, options.speed_modifier));
   }
 }
-fn hit_check_speed_bubble(options: &Options, state: &State, mouse_state: &MouseState, index: usize, text: &str) -> bool {
-  let bubble_box_width = 40.0;
-  let cx = UI_SPEED_BUBBLE_OX + 10.0 + bubble_box_width * (index as f64);
-  let cy = UI_SPEED_BUBBLE_OY + 5.0;
-  let cr = UI_SPEED_BUBBLE_RADIUS;
+fn hit_check_speed_bubble_x(options: &Options, state: &State, mouse_state: &MouseState, index: usize, text: &str) -> bool {
+  let diameter = 2.0 * UI_SPEED_BUBBLE_RADIUS;
+  let ox = UI_SPEED_BUBBLE_OFFSET_X + (index as f64) * (diameter + UI_SPEED_BUBBLE_SPACING);
 
-  return bounds_check(mouse_state.world_x, mouse_state.world_y, cx - cr, cy - cr, cx + cr, cy + cr);
+  return bounds_check(
+    mouse_state.world_x, mouse_state.world_y,
+    ox,
+    UI_SPEED_BUBBLE_OFFSET_Y,
+    ox + diameter,
+    UI_SPEED_BUBBLE_OFFSET_Y + diameter
+  );
 }
 fn get_machine_selection_circle_params(factory: &Factory, main_coord: usize) -> ( f64, f64, f64 ) {
   // Find the center of the machine because .arc() requires the center x,y
@@ -1892,56 +1943,56 @@ fn get_machine_selection_circle_params(factory: &Factory, main_coord: usize) -> 
   let machine_height = factory.floor[main_coord].machine.cell_height as f64;
   let center_cell_x = main_x as f64 + machine_width / 2.0;
   let center_cell_y = main_y as f64 + machine_height / 2.0;
-  let center_wx = WORLD_OFFSET_X + center_cell_x * CELL_W;
-  let center_wy = WORLD_OFFSET_Y + center_cell_y * CELL_H;
+  let center_wx = UI_FLOOR_OFFSET_X + center_cell_x * CELL_W;
+  let center_wy = UI_FLOOR_OFFSET_Y + center_cell_y * CELL_H;
   // Radius should be enough to fit half the biggest axis + margin + diagonal of resource bubble + border
   let cr = (machine_width as f64 * (CELL_W as f64)).max(machine_height as f64 * (CELL_H as f64)) * 0.5 + 10.0 + CELL_W.max(CELL_H) * 2.0 + 5.0;
   // let cr = 5.0;
   return ( center_wx, center_wy, cr );
 }
 
-fn paint_green_debug(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, fps: &VecDeque<f64>, now: f64, since_prev: f64, ticks_todo: u64, estimated_fps: f64, rounded_fps: u64, factory: &Factory, mouse_state: &MouseState) {
+fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, fps: &VecDeque<f64>, now: f64, since_prev: f64, ticks_todo: u64, estimated_fps: f64, rounded_fps: u64, factory: &Factory, mouse_state: &MouseState) {
 
   let mut ui_lines = 0.0;
 
   context.set_fill_style(&"lightgreen".into());
-  context.fill_rect(UI_OX, UI_OY + (UI_LINE_H * ui_lines), UI_W, UI_LINE_H);
+  context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
   context.set_fill_style(&"grey".into());
-  context.fill_text(format!("fps: {}", fps.len()).as_str(), UI_OX + UI_ML, UI_OY + (ui_lines * UI_LINE_H) + UI_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("fps: {}", fps.len()).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"lightgreen".into());
-  context.fill_rect(UI_OX, UI_OY + (UI_LINE_H * ui_lines), UI_W, UI_LINE_H);
+  context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
   context.set_fill_style(&"grey".into());
-  context.fill_text(format!("App time  : {}", (now / 1000.0).floor()).as_str(), UI_OX + UI_ML, UI_OY + (ui_lines * UI_LINE_H) + UI_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("App time  : {}", (now / 1000.0).floor()).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"lightgreen".into());
-  context.fill_rect(UI_OX, UI_OY + (UI_LINE_H * ui_lines), UI_W, UI_LINE_H);
+  context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
   context.set_fill_style(&"grey".into());
-  context.fill_text(format!("Since prev: {} (@{})", since_prev.floor(), estimated_fps).as_str(), UI_OX + UI_ML, UI_OY + (ui_lines * UI_LINE_H) + UI_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("Since prev: {} (@{})", since_prev.floor(), estimated_fps).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"lightgreen".into());
-  context.fill_rect(UI_OX, UI_OY + (UI_LINE_H * ui_lines), UI_W, UI_LINE_H);
+  context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
   context.set_fill_style(&"grey".into());
-  context.fill_text(format!("Ticks todo: {} (r? {})", ticks_todo, rounded_fps).as_str(), UI_OX + UI_ML, UI_OY + (ui_lines * UI_LINE_H) + UI_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("Ticks todo: {} (r? {})", ticks_todo, rounded_fps).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"lightgreen".into());
-  context.fill_rect(UI_OX, UI_OY + (UI_LINE_H * ui_lines), UI_W, UI_LINE_H);
+  context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
   context.set_fill_style(&"grey".into());
-  context.fill_text(format!("Speed: {}", options.speed_modifier).as_str(), UI_OX + UI_ML, UI_OY + (ui_lines * UI_LINE_H) + UI_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("Speed: {}", options.speed_modifier).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"lightgreen".into());
-  context.fill_rect(UI_OX, UI_OY + (UI_LINE_H * ui_lines), UI_W, UI_LINE_H);
+  context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
   context.set_fill_style(&"grey".into());
   // context.fill_text(format!("$ / 10s    : {}", factory.stats.3).as_str(), UI_OX + UI_ML, UI_OY + (ui_lines * UI_LINE_H) + UI_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"lightgreen".into());
-  context.fill_rect(UI_OX, UI_OY + (UI_LINE_H * ui_lines), UI_W, UI_LINE_H);
+  context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
   context.set_fill_style(&"grey".into());
   context.fill_text(
     format!(
@@ -1949,20 +2000,20 @@ fn paint_green_debug(options: &Options, state: &State, context: &Rc<web_sys::Can
       mouse_state.world_x, mouse_state.world_y,
       if mouse_state.is_dragging { "drag" } else if mouse_state.is_down { "down" } else { "up" },
       mouse_state.last_down_button,
-    ).as_str(), UI_OX + UI_ML, UI_OY + (ui_lines * UI_LINE_H) + UI_FONT_H
+    ).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H
   ).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"lightgreen".into());
-  context.fill_rect(UI_OX, UI_OY + (UI_LINE_H * ui_lines), UI_W, UI_LINE_H);
+  context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
   context.set_fill_style(&"grey".into());
-  context.fill_text(format!("mouse world: {} x {}", mouse_state.cell_x, mouse_state.cell_y).as_str(), UI_OX + UI_ML, UI_OY + (ui_lines * UI_LINE_H) + UI_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("mouse world: {} x {}", mouse_state.cell_x, mouse_state.cell_y).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"lightgreen".into());
-  context.fill_rect(UI_OX, UI_OY + (UI_LINE_H * ui_lines), UI_W, UI_LINE_H);
+  context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
   context.set_fill_style(&"grey".into());
-  context.fill_text(format!("mouse cell : {:.2} x {:.2}", mouse_state.cell_rel_x, mouse_state.cell_rel_y).as_str(), UI_OX + UI_ML, UI_OY + (ui_lines * UI_LINE_H) + UI_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("mouse cell : {:.2} x {:.2}", mouse_state.cell_rel_x, mouse_state.cell_rel_y).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   assert_eq!(ui_lines, UI_DEBUG_LINES, "keep these in sync for simplicity");
 }
@@ -1995,8 +2046,8 @@ fn paint_background_tiles(
   for coord in 0..FLOOR_CELLS_WH {
     let (cx, cy) = to_xy(coord);
 
-    let ox = WORLD_OFFSET_X + CELL_W * (cx as f64);
-    let oy = WORLD_OFFSET_Y + CELL_H * (cy as f64);
+    let ox = UI_FLOOR_OFFSET_X + CELL_W * (cx as f64);
+    let oy = UI_FLOOR_OFFSET_Y + CELL_H * (cy as f64);
 
     // This is cheating since we defer the loading stuff to the browser. Sue me.
     match factory.floor[coord].kind {
@@ -2047,8 +2098,8 @@ fn paint_background_tiles(
       let (cx, cy) = to_xy(coord);
       if factory.floor[coord].kind == CellKind::Belt { context.set_stroke_style(&"white".into()); }
       else { context.set_stroke_style(&"blue".into()); }
-      let ox = WORLD_OFFSET_X + CELL_W * (cx as f64) + (CELL_W / 2.0 - 7.0);
-      let oy = WORLD_OFFSET_Y + CELL_H * (cy as f64) + CELL_H / 2.0 + 3.0;
+      let ox = UI_FLOOR_OFFSET_X + CELL_W * (cx as f64) + (CELL_W / 2.0 - 7.0);
+      let oy = UI_FLOOR_OFFSET_Y + CELL_H * (cy as f64) + CELL_H / 2.0 + 3.0;
       context.stroke_text(format!("{}", i).as_str(), ox, oy).expect("stroke_text");
     }
   }
@@ -2067,15 +2118,15 @@ fn paint_ports(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factor
       // Otherwise we're just gonna paint each port twice
 
       if factory.floor[coord].port_r == Port::Inbound {
-        context.stroke_text("🡄", WORLD_OFFSET_X + (x as f64) * CELL_W + CELL_W + font_centering_delta_x, WORLD_OFFSET_Y + (y as f64) * CELL_H + CELL_H / 2.0 + font_centering_delta_y).expect("to paint");
+        context.stroke_text("🡄", UI_FLOOR_OFFSET_X + (x as f64) * CELL_W + CELL_W + font_centering_delta_x, UI_FLOOR_OFFSET_Y + (y as f64) * CELL_H + CELL_H / 2.0 + font_centering_delta_y).expect("to paint");
       } else if factory.floor[coord].port_r == Port::Outbound {
-        context.stroke_text("🡆", WORLD_OFFSET_X + (x as f64) * CELL_W + CELL_W + font_centering_delta_x, WORLD_OFFSET_Y + (y as f64) * CELL_H + CELL_H / 2.0 + font_centering_delta_y).expect("to paint");
+        context.stroke_text("🡆", UI_FLOOR_OFFSET_X + (x as f64) * CELL_W + CELL_W + font_centering_delta_x, UI_FLOOR_OFFSET_Y + (y as f64) * CELL_H + CELL_H / 2.0 + font_centering_delta_y).expect("to paint");
       }
 
       if factory.floor[coord].port_d == Port::Inbound {
-        context.stroke_text("🡅", WORLD_OFFSET_X + (x as f64) * CELL_W + CELL_W / 2.0 + font_centering_delta_x, WORLD_OFFSET_Y + (y as f64) * CELL_H + CELL_H + font_centering_delta_y).expect("to paint");
+        context.stroke_text("🡅", UI_FLOOR_OFFSET_X + (x as f64) * CELL_W + CELL_W / 2.0 + font_centering_delta_x, UI_FLOOR_OFFSET_Y + (y as f64) * CELL_H + CELL_H + font_centering_delta_y).expect("to paint");
       } else if factory.floor[coord].port_d == Port::Outbound {
-        context.stroke_text("🡇", WORLD_OFFSET_X + (x as f64) * CELL_W + CELL_W / 2.0 + font_centering_delta_x, WORLD_OFFSET_Y + (y as f64) * CELL_H + CELL_H + font_centering_delta_y).expect("to paint");
+        context.stroke_text("🡇", UI_FLOOR_OFFSET_X + (x as f64) * CELL_W + CELL_W / 2.0 + font_centering_delta_x, UI_FLOOR_OFFSET_Y + (y as f64) * CELL_H + CELL_H + font_centering_delta_y).expect("to paint");
       }
     }
   }
@@ -2095,8 +2146,8 @@ fn paint_belt_items(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &F
         // Start with the coordinate to paint the icon such that it ends up centered 
         // in the target cell.
         // Then increase or decrease one axis depending on the progress the part made.
-        let sx = WORLD_OFFSET_X + CELL_W * (cx as f64) + -(PART_W * 0.5);
-        let sy = WORLD_OFFSET_Y + CELL_H * (cy as f64) + -(PART_H * 0.5);
+        let sx = UI_FLOOR_OFFSET_X + CELL_W * (cx as f64) + -(PART_W * 0.5);
+        let sy = UI_FLOOR_OFFSET_Y + CELL_H * (cy as f64) + -(PART_H * 0.5);
 
         let (px, py) =
           match if first_half { cell.belt.part_from } else { cell.belt.part_to } {
@@ -2130,22 +2181,6 @@ fn paint_belt_items(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &F
         }
       },
       CellKind::Machine => {
-        // TODO: paint machine somehow
-        // 
-        // match cell.machine {
-        //   Machine::None => panic!("Machine cells should not be Machine::None"),
-        //   | Machine::Composer
-        //   | Machine::Smasher => {
-        //     // Paint the inputs (1, 2, or 3) and output
-        //     paint_segment_part(&context, &part_tile_sprite, cell.machine_input_1_want.clone(), 16.0, 16.0, WORLD_OFFSET_X + CELL_W * (cx as f64) + (0.0 * SEGMENT_W) + 4.0, WORLD_OFFSET_Y + CELL_H * (cy as f64) + (0.0 * SEGMENT_H) + 4.0, PART_W, PART_H);
-        //     paint_segment_part(&context, &part_tile_sprite, cell.machine_input_2_want.clone(), 16.0, 16.0, WORLD_OFFSET_X + CELL_W * (cx as f64) + (1.0 * SEGMENT_W) + 4.0, WORLD_OFFSET_Y + CELL_H * (cy as f64) + (0.0 * SEGMENT_H) + 4.0, PART_W, PART_H);
-        //     paint_segment_part(&context, &part_tile_sprite, cell.machine_input_3_want.clone(), 16.0, 16.0, WORLD_OFFSET_X + CELL_W * (cx as f64) + (2.0 * SEGMENT_W) + 4.0, WORLD_OFFSET_Y + CELL_H * (cy as f64) + (0.0 * SEGMENT_H) + 4.0, PART_W, PART_H);
-        //     paint_segment_part(&context, &part_tile_sprite, cell.machine_input_1_have.clone(), 16.0, 16.0, WORLD_OFFSET_X + CELL_W * (cx as f64) + (0.0 * SEGMENT_W) + 4.0, WORLD_OFFSET_Y + CELL_H * (cy as f64) + (1.0 * SEGMENT_H) + 4.0, PART_W, PART_H);
-        //     paint_segment_part(&context, &part_tile_sprite, cell.machine_input_2_have.clone(), 16.0, 16.0, WORLD_OFFSET_X + CELL_W * (cx as f64) + (1.0 * SEGMENT_W) + 4.0, WORLD_OFFSET_Y + CELL_H * (cy as f64) + (1.0 * SEGMENT_H) + 4.0, PART_W, PART_H);
-        //     paint_segment_part(&context, &part_tile_sprite, cell.machine_input_3_have.clone(), 16.0, 16.0, WORLD_OFFSET_X + CELL_W * (cx as f64) + (2.0 * SEGMENT_W) + 4.0, WORLD_OFFSET_Y + CELL_H * (cy as f64) + (1.0 * SEGMENT_H) + 4.0, PART_W, PART_H);
-        //     paint_segment_part(&context, &part_tile_sprite, cell.machine_output_want.clone(), 16.0, 16.0, WORLD_OFFSET_X + CELL_W * (cx as f64) + (1.0 * SEGMENT_W) + 4.0, WORLD_OFFSET_Y + CELL_H * (cy as f64) + (2.0 * SEGMENT_H) + 4.0, PART_W, PART_H);
-        //   },
-        // }
       },
       CellKind::Supply => {
         // TODO: paint outbound supply part
@@ -2174,8 +2209,8 @@ fn paint_machine_selection_and_craft(options: &Options, state: &State, context: 
   let main_coord = factory.floor[coord].machine.main_coord;
   let ( main_x, main_y ) = to_xy(main_coord);
 
-  let main_wx = WORLD_OFFSET_X + (main_x as f64) * CELL_W;
-  let main_wy = WORLD_OFFSET_Y + (main_y as f64) * CELL_H;
+  let main_wx = UI_FLOOR_OFFSET_X + (main_x as f64) * CELL_W;
+  let main_wy = UI_FLOOR_OFFSET_Y + (main_y as f64) * CELL_H;
 
   // We'll draw a semi-transparent circle over the factory with a radius big enough to fit
   // input-type bubbles equally distributed in the ring around the factory. Those should be
@@ -2288,7 +2323,7 @@ fn paint_machine_selection_and_craft(options: &Options, state: &State, context: 
     // When hovering over the index, the _c is set to the char of the digit of that index
     btn_img(context, part_tile_sprite, wx, wy, 't', mouse_state.craft_over_ci_index == 0);
   } else {
-    let angle_step = ((5.5 - (len as f64 / 2.0).ceil()) + (0.5 * ((len % 2) as f64)));
+    let angle_step = 5.5 - (len as f64 / 2.0).ceil() + (0.5 * ((len % 2) as f64));
     for i in 0..len {
       let angle: f64 = (angle_step + i as f64) * 0.1 * std::f64::consts::TAU;
 
@@ -2330,7 +2365,7 @@ fn paint_mouse_action(options: &Options, state: &State, factory: &Factory, conte
       if mouse_state.craft_down_any {
         // This drag stated in a craft popup so do not show a track preview; we're not doing that.
       }
-      else if mouse_state.last_down_world_x - WORLD_OFFSET_X >= 0.0 && mouse_state.last_down_world_x - WORLD_OFFSET_X < WORLD_WIDTH && mouse_state.last_down_world_y - WORLD_OFFSET_Y >= 0.0 && mouse_state.last_down_world_y - WORLD_OFFSET_Y < WORLD_HEIGHT {
+      else if mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X >= 0.0 && mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X < FLOOR_WIDTH && mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y >= 0.0 && mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y < FLOOR_HEIGHT {
         paint_belt_drag_preview(context, factory, cell_selection, mouse_state, belt_tile_images);
       }
     }
@@ -2359,20 +2394,20 @@ fn paint_mouse_in_erasing_mode(options: &Options, state: &State, factory: &Facto
   if bounds_check(mouse_state.cell_x, mouse_state.cell_y, 0.0, 0.0, FLOOR_CELLS_W as f64, FLOOR_CELLS_H as f64) {
     // Rectangle around current cell (generic)
     context.set_stroke_style(&"red".into());
-    context.stroke_rect(WORLD_OFFSET_X + mouse_state.cell_x * CELL_W, WORLD_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
+    context.stroke_rect(UI_FLOOR_OFFSET_X + mouse_state.cell_x * CELL_W, UI_FLOOR_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
   }
 }
 fn paint_mouse_in_selection_mode(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, belt_tile_images: &Vec<web_sys::HtmlImageElement>, mouse_state: &MouseState, cell_selection: &CellSelection) {
   // When mouse is down and clipboard is empty; select the area to potentially copy. With clipboard, still show the ghost. Do not change the selection area.
   if mouse_state.is_down && state.selected_area_copy.len() == 0 {
-    let down_cell_x = ((mouse_state.last_down_world_x - WORLD_OFFSET_X) / CELL_W).floor();
-    let down_cell_y = ((mouse_state.last_down_world_y - WORLD_OFFSET_Y) / CELL_H).floor();
+    let down_cell_x = ((mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor();
+    let down_cell_y = ((mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor();
     if down_cell_x >= 0.0 && down_cell_y >= 0.0 && is_floor(down_cell_x as usize, down_cell_y as usize) && mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && is_floor(mouse_state.cell_x as usize, mouse_state.cell_y as usize) {
       // Draw dotted stroke rect around cells from mouse down cell to current cell
       context.set_stroke_style(&"blue".into());
       let now_cell_x = mouse_state.cell_x.floor();
       let now_cell_y = mouse_state.cell_y.floor();
-      context.stroke_rect(WORLD_OFFSET_X + down_cell_x.min(now_cell_x) * CELL_W, WORLD_OFFSET_Y + down_cell_y.min(now_cell_y) * CELL_H, (1.0 + (down_cell_x - now_cell_x).abs()) * CELL_W, (1.0 + (down_cell_y - now_cell_y).abs()) * CELL_H);
+      context.stroke_rect(UI_FLOOR_OFFSET_X + down_cell_x.min(now_cell_x) * CELL_W, UI_FLOOR_OFFSET_Y + down_cell_y.min(now_cell_y) * CELL_H, (1.0 + (down_cell_x - now_cell_x).abs()) * CELL_W, (1.0 + (down_cell_y - now_cell_y).abs()) * CELL_H);
     }
   }
   else {
@@ -2380,13 +2415,13 @@ fn paint_mouse_in_selection_mode(options: &Options, state: &State, factory: &Fac
       // There is a current selection so draw it.
       // Rectangle around current selection, if any
       context.set_stroke_style(&"blue".into());
-      context.stroke_rect(WORLD_OFFSET_X + cell_selection.x * CELL_W, WORLD_OFFSET_Y + cell_selection.y * CELL_H, (1.0 + (cell_selection.x - cell_selection.x2).abs()) * CELL_W, (1.0 + (cell_selection.y - cell_selection.y2).abs()) * CELL_H);
+      context.stroke_rect(UI_FLOOR_OFFSET_X + cell_selection.x * CELL_W, UI_FLOOR_OFFSET_Y + cell_selection.y * CELL_H, (1.0 + (cell_selection.x - cell_selection.x2).abs()) * CELL_W, (1.0 + (cell_selection.y - cell_selection.y2).abs()) * CELL_H);
       if state.selected_area_copy.len() > 0 {
         // Draw a rectangle to indicate paste area. Always a rectangle of sorts.
         let w = state.selected_area_copy[0].len(); // There must be at least one
         let h = state.selected_area_copy.len();
         context.set_stroke_style(&"green".into());
-        context.stroke_rect(WORLD_OFFSET_X + cell_selection.x * CELL_W, WORLD_OFFSET_Y + cell_selection.y * CELL_H, w as f64 * CELL_W, h as f64 * CELL_H);
+        context.stroke_rect(UI_FLOOR_OFFSET_X + cell_selection.x * CELL_W, UI_FLOOR_OFFSET_Y + cell_selection.y * CELL_H, w as f64 * CELL_W, h as f64 * CELL_H);
 
         let cell_x = mouse_state.cell_x;
         let cell_y = mouse_state.cell_y;
@@ -2405,7 +2440,7 @@ fn paint_mouse_in_selection_mode(options: &Options, state: &State, factory: &Fac
     if bounds_check(mouse_state.cell_x, mouse_state.cell_y, 0.0, 0.0, FLOOR_CELLS_W as f64, FLOOR_CELLS_H as f64) {
       // Rectangle around current cell (generic)
       context.set_stroke_style(&"red".into());
-      context.stroke_rect(WORLD_OFFSET_X + mouse_state.cell_x * CELL_W, WORLD_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
+      context.stroke_rect(UI_FLOOR_OFFSET_X + mouse_state.cell_x * CELL_W, UI_FLOOR_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
     }
   }
 }
@@ -2419,10 +2454,10 @@ fn paint_mouse_while_dragging_offer(options: &Options, state: &State, factory: &
   let ( paint_at_x, paint_at_y, legal ) =
     if offer.kind == CellKind::Machine {
       // All edges
-      context.fill_rect(WORLD_OFFSET_X, WORLD_OFFSET_Y, CELL_W, WORLD_HEIGHT - CELL_H);
-      context.fill_rect(WORLD_OFFSET_X + CELL_W, WORLD_OFFSET_Y, WORLD_WIDTH - CELL_W, CELL_H);
-      context.fill_rect(WORLD_OFFSET_X + WORLD_WIDTH - CELL_W, WORLD_OFFSET_Y + CELL_H, CELL_W, WORLD_HEIGHT - CELL_H);
-      context.fill_rect(WORLD_OFFSET_X, WORLD_OFFSET_Y + WORLD_HEIGHT - CELL_H, WORLD_WIDTH - CELL_W, CELL_H);
+      context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, CELL_W, FLOOR_HEIGHT - CELL_H);
+      context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y, FLOOR_WIDTH - CELL_W, CELL_H);
+      context.fill_rect(UI_FLOOR_OFFSET_X + FLOOR_WIDTH - CELL_W, UI_FLOOR_OFFSET_Y + CELL_H, CELL_W, FLOOR_HEIGHT - CELL_H);
+      context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT - CELL_H, FLOOR_WIDTH - CELL_W, CELL_H);
 
       // Note that mouse cell x is not where the top-left most cell of the machine would be
       let top_left_machine_cell_x = world_x_to_top_left_cell_x_while_dragging_offer(mouse_state.world_x, offer.cell_width);
@@ -2436,17 +2471,17 @@ fn paint_mouse_while_dragging_offer(options: &Options, state: &State, factory: &
         let oy = mouse_state.world_y - ((offer.cell_height as f64) * (CELL_H as f64) / 2.0 );
         ( ox, oy, false )
       } else {
-        ( WORLD_OFFSET_X + top_left_machine_cell_x.round() * CELL_W, WORLD_OFFSET_Y + top_left_machine_cell_y.round() * CELL_H, true )
+        ( UI_FLOOR_OFFSET_X + top_left_machine_cell_x.round() * CELL_W, UI_FLOOR_OFFSET_Y + top_left_machine_cell_y.round() * CELL_H, true )
       }
     }
     else {
       // Corners
-      context.fill_rect(WORLD_OFFSET_X, WORLD_OFFSET_Y, CELL_W, CELL_H);
-      context.fill_rect(WORLD_OFFSET_X + WORLD_WIDTH - CELL_W, WORLD_OFFSET_Y, CELL_W, CELL_H);
-      context.fill_rect(WORLD_OFFSET_X, WORLD_OFFSET_Y + WORLD_HEIGHT - CELL_H, CELL_W, CELL_H);
-      context.fill_rect(WORLD_OFFSET_X + WORLD_WIDTH - CELL_W, WORLD_OFFSET_Y + WORLD_HEIGHT - CELL_H, CELL_W, CELL_H);
+      context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, CELL_W, CELL_H);
+      context.fill_rect(UI_FLOOR_OFFSET_X + FLOOR_WIDTH - CELL_W, UI_FLOOR_OFFSET_Y, CELL_W, CELL_H);
+      context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT - CELL_H, CELL_W, CELL_H);
+      context.fill_rect(UI_FLOOR_OFFSET_X + FLOOR_WIDTH - CELL_W, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT - CELL_H, CELL_W, CELL_H);
       // Center
-      context.fill_rect(WORLD_OFFSET_X + CELL_W, WORLD_OFFSET_Y + CELL_H, WORLD_WIDTH - CELL_W * 2.0, WORLD_HEIGHT - CELL_H * 2.0);
+      context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y + CELL_H, FLOOR_WIDTH - CELL_W * 2.0, FLOOR_HEIGHT - CELL_H * 2.0);
 
       // Snap if x or y is edge but not both or neither
       if
@@ -2454,7 +2489,7 @@ fn paint_mouse_while_dragging_offer(options: &Options, state: &State, factory: &
         !=
         (mouse_state.cell_y == 0.0 || mouse_state.cell_y == FLOOR_CELLS_H as f64 - 1.0)
       {
-        ( WORLD_OFFSET_X + mouse_state.cell_x * CELL_W, WORLD_OFFSET_Y + mouse_state.cell_y * CELL_H, true )
+        ( UI_FLOOR_OFFSET_X + mouse_state.cell_x * CELL_W, UI_FLOOR_OFFSET_Y + mouse_state.cell_y * CELL_H, true )
       } else {
         ( mouse_state.world_x - ((CELL_W as f64) / 2.0), mouse_state.world_y - ((CELL_H as f64) / 2.0), false )
       }
@@ -2517,14 +2552,14 @@ fn paint_mouse_while_dragging_offer(options: &Options, state: &State, factory: &
 fn paint_mouse_cell_location_on_floor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState, belt_tile_images: &Vec<web_sys::HtmlImageElement>) {
   if mouse_state.cell_x != cell_selection.x || mouse_state.cell_y != cell_selection.y {
     context.set_stroke_style(&"red".into());
-    context.stroke_rect(WORLD_OFFSET_X + mouse_state.cell_x * CELL_W, WORLD_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
+    context.stroke_rect(UI_FLOOR_OFFSET_X + mouse_state.cell_x * CELL_W, UI_FLOOR_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
   }
 }
 fn paint_belt_drag_preview(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState, belt_tile_images: &Vec<web_sys::HtmlImageElement>) {
   let track = ray_trace_dragged_line(
     factory,
-    ((mouse_state.last_down_world_x - WORLD_OFFSET_X) / CELL_W).floor(),
-    ((mouse_state.last_down_world_y - WORLD_OFFSET_Y) / CELL_H).floor(),
+    ((mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor(),
+    ((mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor(),
     mouse_state.cell_x.floor(),
     mouse_state.cell_y.floor(),
     true, // if we dont then the preview will show only broken belt cells
@@ -2533,7 +2568,7 @@ fn paint_belt_drag_preview(context: &Rc<web_sys::CanvasRenderingContext2d>, fact
   for index in 0..track.len() {
     let ((cell_x, cell_y), bt, in_port_dir, out_port_dir) = track[index];
     context.set_fill_style(&"#00770044".into());
-    context.fill_rect(WORLD_OFFSET_X + cell_x as f64 * CELL_W, WORLD_OFFSET_Y + cell_y as f64 * CELL_H, CELL_W, CELL_H);
+    context.fill_rect(UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H, CELL_W, CELL_H);
     paint_ghost_belt_of_type(cell_x, cell_y, if mouse_state.last_down_button == 2 { BeltType::INVALID } else { bt }, &context, &belt_tile_images);
   }
 }
@@ -2541,161 +2576,105 @@ fn paint_ghost_belt_of_type(cell_x: usize, cell_y: usize, belt_type: BeltType, c
   let img: &HtmlImageElement = &belt_tile_images[belt_type as usize];
 
   context.set_global_alpha(0.5);
-  context.draw_image_with_html_image_element_and_dw_and_dh(&img, WORLD_OFFSET_X + cell_x as f64 * CELL_W + 5.0, WORLD_OFFSET_Y + cell_y as f64 * CELL_H + 5.0, CELL_W - 10.0, CELL_H - 10.0).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+  context.draw_image_with_html_image_element_and_dw_and_dh(&img, UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + 5.0, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + 5.0, CELL_W - 10.0, CELL_H - 10.0).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
   context.set_global_alpha(1.0);
 }
-fn paint_cell_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
+// TODO: rename "and selected cell"
+fn paint_debug_belt(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
   if !cell_selection.on {
-    // // Clear cell editor
-    // context.set_fill_style(&"white".into());
-    // context.fill_rect(UI_CELL_EDITOR_OX, UI_CELL_EDITOR_OY, UI_CELL_EDITOR_W, UI_CELL_EDITOR_H);
     return;
   }
 
-  if factory.floor[cell_selection.coord].kind != CellKind::Machine {
-    // Mark the currently selected cell. Except not for machines because the craft popup will deal with that.
-    context.set_stroke_style(&"blue".into());
-    context.stroke_rect(WORLD_OFFSET_X + cell_selection.x * CELL_W, WORLD_OFFSET_Y + cell_selection.y * CELL_H, CELL_W, CELL_H);
+  let coord = cell_selection.coord;
+  if factory.floor[coord].kind != CellKind::Belt {
+    return;
   }
 
-  // Paint cell editor
+  // Draw the following bits of info about this belt:
+  // - coord
+  // - port details
+  // - ins / outs
+  // - part details
+  // - (neighbor decision stuff?)
+
+  // Each cell consolidates much of its information into the main coord, usually the top-left cell
+  let x = cell_selection.x;
+  let y = cell_selection.y;
+
+  // Mark the currently selected cell
+  context.set_stroke_style(&"cyan".into());
+  context.stroke_rect(UI_FLOOR_OFFSET_X + x as f64 * CELL_W, UI_FLOOR_OFFSET_Y + y as f64 * CELL_H, CELL_W, CELL_H);
+
+
   context.set_fill_style(&"lightgreen".into());
-  context.fill_rect(UI_CELL_EDITOR_OX, UI_CELL_EDITOR_OY, UI_CELL_EDITOR_W, UI_CELL_EDITOR_H);
-  context.set_fill_style(&"black".into());
-  context.fill_text(format!("Cell {} x {} ({})", cell_selection.x, cell_selection.y, cell_selection.coord).as_str(), UI_OX + UI_ML + 10.0, UI_OY + ((UI_DEBUG_LINES + 2.0) * UI_LINE_H) + UI_FONT_H).expect("something error fill_text");
-
-  let ox = UI_CELL_EDITOR_GRID_OX;
-  let oy = UI_CELL_EDITOR_GRID_OY;
-  let ow = UI_CELL_EDITOR_GRID_W;
-  let oh = UI_CELL_EDITOR_GRID_H;
-
-  // Paint cell segment grid
-  context.begin_path();
-
-  context.move_to(ox, oy);
-  context.line_to(ox + ow, oy);
-  context.move_to(ox,      oy + UI_SEGMENT_H);
-  context.line_to(ox + ow, oy + UI_SEGMENT_H);
-  context.move_to(ox,      oy + UI_SEGMENT_H + UI_SEGMENT_H);
-  context.line_to(ox + ow, oy + UI_SEGMENT_H + UI_SEGMENT_H);
-  context.move_to(ox,      oy + UI_SEGMENT_H + UI_SEGMENT_H + UI_SEGMENT_H);
-  context.line_to(ox + ow, oy + UI_SEGMENT_H + UI_SEGMENT_H + UI_SEGMENT_H);
-
-  context.move_to(ox, oy);
-  context.line_to(ox,                                              oy + oh);
-  context.move_to(ox + UI_SEGMENT_W, oy);
-  context.line_to(ox + UI_SEGMENT_W,                               oy + oh);
-  context.move_to(ox + UI_SEGMENT_W + UI_SEGMENT_W, oy);
-  context.line_to(ox + UI_SEGMENT_W + UI_SEGMENT_W,                oy + oh);
-  context.move_to(ox + UI_SEGMENT_W + UI_SEGMENT_W + UI_SEGMENT_W, oy);
-  context.line_to(ox + UI_SEGMENT_W + UI_SEGMENT_W + UI_SEGMENT_W, oy + oh);
-
+  context.fill_rect(UI_DEBUG_CELL_OFFSET_X, UI_DEBUG_CELL_OFFSET_Y, UI_DEBUG_CELL_WIDTH, UI_DEBUG_CELL_HEIGHT);
   context.set_stroke_style(&"black".into());
-  context.stroke();
+  context.stroke_rect(UI_DEBUG_CELL_OFFSET_X, UI_DEBUG_CELL_OFFSET_Y, UI_DEBUG_CELL_WIDTH, UI_DEBUG_CELL_HEIGHT);
+
 
   context.set_fill_style(&"black".into());
-  let type_name = match factory.floor[cell_selection.coord].kind {
-    CellKind::Empty => "Empty",
-    CellKind::Belt => "Belt",
-    CellKind::Machine => "Machine",
-    CellKind::Supply => "Supply",
-    CellKind::Demand => "Demand",
-  };
-  context.fill_text(type_name, UI_OX + UI_ML + 10.0, UI_OY + ((UI_DEBUG_LINES + 2.0) * UI_LINE_H) + 2.0 * UI_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("Belt cell: {} x {} (@{})", x, y, coord).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (1.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Ports: {}", cell_ports_to_str(&factory.floor[coord])).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (2.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("ins:  {}", ins_outs_to_str(&factory.floor[coord].ins)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (3.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
+  context.fill_text(format!("outs: {}", ins_outs_to_str(&factory.floor[coord].outs)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (4.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
 
-  // Paint ports
-  context.set_fill_style(&"black".into());
-  match factory.floor[cell_selection.coord].port_u {
-    Port::Inbound => {
-      context.fill_text("in", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (0.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-    },
-    Port::Outbound => {
-      context.fill_text("out", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (0.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-    },
-    Port::None => {},
-    Port::Unknown => {
-      context.fill_text("???", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (0.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-    },
-  }
+  // let mut in_coords = factory.floor[coord].ins.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
+  // in_coords.sort();
+  // in_coords.dedup();
+  // context.fill_text(format!("Ins : {:?}", in_coords).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (2.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  // let mut out_coords = factory.floor[coord].outs.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
+  // out_coords.sort();
+  // out_coords.dedup();
+  // context.fill_text(format!("Outs: {:?}", out_coords).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (3.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  // context.fill_text(format!("Received: {:?}", factory.floor[coord].demand.received).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (4.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  //
 
-  match factory.floor[cell_selection.coord].port_r {
-    Port::Inbound => {
-      context.fill_text("in", ox + (2.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-    },
-    Port::Outbound => {
-      context.fill_text("out", ox + (2.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-    },
-    Port::None => {},
-    Port::Unknown => {
-      context.fill_text("???", ox + (2.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-    },
-  }
-
-  match factory.floor[cell_selection.coord].port_d {
-    Port::Inbound => {
-      context.fill_text("in", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (2.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-    },
-    Port::Outbound => {
-      context.fill_text("out", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (2.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-    },
-    Port::None => {},
-    Port::Unknown => {
-      context.fill_text("???", ox + (1.0 * UI_SEGMENT_W) + 2.0, oy + (2.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-    },
-  }
-
-  match factory.floor[cell_selection.coord].port_l {
-    Port::Inbound => {
-      context.fill_text("in", ox + (0.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-    },
-    Port::Outbound => {
-      context.fill_text("out", ox + (0.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-    },
-    Port::None => {},
-    Port::Unknown => {
-      context.fill_text("???", ox + (0.0 * UI_SEGMENT_W) + 2.0, oy + (1.0 * UI_SEGMENT_H) + UI_FONT_H).expect("to paint port");
-    },
-  }
-
-  // // Paint in/out rotation index
-  // let mut in_coords = factory.floor[cell_selection.coord].ins.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
-  context.fill_text(format!("ins:  {}", ins_outs_to_str(&factory.floor[cell_selection.coord].ins)).as_str(), UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_OY + 3.0 * UI_FONT_H).expect("to text");
-  context.fill_text(format!("outs: {}", ins_outs_to_str(&factory.floor[cell_selection.coord].outs)).as_str(), UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_OY + 4.0 * UI_FONT_H).expect("to text");
-
-  if factory.floor[cell_selection.coord].kind == CellKind::Belt && factory.floor[cell_selection.coord].belt.part.kind != PartKind::None{
+  if factory.floor[coord].belt.part.kind != PartKind::None{
     // Paint current part details
-    let progress = ((factory.floor[cell_selection.coord].belt.part_progress as f64) / (factory.floor[cell_selection.coord].belt.speed as f64) * 100.0).round();
+    let progress = ((factory.floor[coord].belt.part_progress as f64) / (factory.floor[coord].belt.speed as f64) * 100.0).round();
     let to =
-      if factory.floor[cell_selection.coord].belt.part_to_tbd {
+      if factory.floor[coord].belt.part_to_tbd {
         "TBD"
       } else {
-        match factory.floor[cell_selection.coord].belt.part_to {
+        match factory.floor[coord].belt.part_to {
           Direction::Up => "up",
           Direction::Right => "right",
           Direction::Down => "down",
           Direction::Left => "left",
         }
       };
-    context.fill_text("part", UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_PART_OY + 3.0 * UI_FONT_H).expect("to paint port");
-    context.fill_text(format!("{} %", progress).as_str(), UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_PART_OY + 4.0 * UI_FONT_H).expect("to paint port");
-    context.fill_text(format!("to: {}", to).as_str(), UI_CELL_EDITOR_PART_OX + 4.0, UI_CELL_EDITOR_PART_OY + 5.0 * UI_FONT_H).expect("to paint port");
+    context.fill_text(format!("part: {} %, to: {}", progress, to).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (5.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to paint port");
+  } else {
+    context.fill_text(format!("part: none").as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (5.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to paint port");
   }
+
+  // TODO: could print neighbor progress decision stuff
 }
-fn paint_machine_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
+// TODO: rename "and selected cell"
+fn paint_debug_machine(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
   if !cell_selection.on {
-    // // No cell selected. Clear machine editor
-    // context.set_fill_style(&"white".into());
-    // context.fill_rect(UI_MACHINE_EDITOR_OX, UI_MACHINE_EDITOR_OY, UI_MACHINE_EDITOR_W, UI_MACHINE_EDITOR_H);
     return;
   }
 
   let coord = cell_selection.coord;
   if factory.floor[coord].kind != CellKind::Machine {
-    // // Not selected a machine. Clear machine area.
-    // context.set_fill_style(&"white".into());
-    // context.fill_rect(UI_MACHINE_EDITOR_OX, UI_MACHINE_EDITOR_OY, UI_MACHINE_EDITOR_W, UI_MACHINE_EDITOR_H);
     return;
   }
+  let x = cell_selection.x;
+  let y = cell_selection.y;
+
+  // Draw the following bits of info about this cell and the machine it belongs to:
+  // - coord of cell and machine
+  // - port details of this cell
+  // - ins / outs of this machine
+  // - part details of machine
+  // - wants and haves of machine
+  // - seen of machine
+  // - speed of machine
+  // - progress of machine
+  // - produced stats of machine
+  // - trashed stats of machine
+
 
   // Each cell consolidates much of its information into the main coord, usually the top-left cell
   let main_coord = factory.floor[coord].machine.main_coord;
@@ -2703,47 +2682,60 @@ fn paint_machine_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory
 
   // Mark the currently selected machine main_coord
   context.set_stroke_style(&"cyan".into());
-  context.stroke_rect(WORLD_OFFSET_X + main_x as f64 * CELL_W, WORLD_OFFSET_Y + main_y as f64 * CELL_H, CELL_W * factory.floor[main_coord].machine.cell_width as f64, CELL_H * factory.floor[main_coord].machine.cell_height as f64);
+  context.stroke_rect(UI_FLOOR_OFFSET_X + main_x as f64 * CELL_W, UI_FLOOR_OFFSET_Y + main_y as f64 * CELL_H, CELL_W * factory.floor[main_coord].machine.cell_width as f64, CELL_H * factory.floor[main_coord].machine.cell_height as f64);
 
-  // Paint cell editor
   context.set_fill_style(&"lightgreen".into());
-  context.fill_rect(UI_MACHINE_EDITOR_OX, UI_MACHINE_EDITOR_OY, UI_MACHINE_EDITOR_W, UI_MACHINE_EDITOR_H);
+  context.fill_rect(UI_DEBUG_CELL_OFFSET_X, UI_DEBUG_CELL_OFFSET_Y, UI_DEBUG_CELL_WIDTH, UI_DEBUG_CELL_HEIGHT);
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(UI_DEBUG_CELL_OFFSET_X, UI_DEBUG_CELL_OFFSET_Y, UI_DEBUG_CELL_WIDTH, UI_DEBUG_CELL_HEIGHT);
+
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("Machine main {} x {} ({}) ({}x{})", main_x, main_y, main_coord, factory.floor[main_coord].machine.cell_width, factory.floor[main_coord].machine.cell_height).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H).expect("something error fill_text");
+  // Sub details:
+  context.fill_text(format!("Machine cell: {} x {} (@{})", x, y, coord).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (1.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Ports: {}", cell_ports_to_str(&factory.floor[coord])).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (2.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  // Main details
+  context.fill_text(format!("Machine main: {} x {} (@{})", main_x, main_y, main_coord).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (4.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Dimensions: {} x {}", factory.floor[main_coord].machine.cell_width, factory.floor[main_coord].machine.cell_height).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (5.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
   let mut in_coords = factory.floor[main_coord].ins.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
   in_coords.sort();
   in_coords.dedup();
-  context.fill_text(format!("Ins : {:?}", in_coords).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 2.0).expect("something error fill_text");
+  context.fill_text(format!("Ins : {:?}", in_coords).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (6.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
   let mut out_coords = factory.floor[main_coord].outs.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
   out_coords.sort();
   out_coords.dedup();
-  context.fill_text(format!("Outs: {:?}", out_coords).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 3.0).expect("something error fill_text");
-  let wants = factory.floor[main_coord].machine.wants.iter().map(|Part { icon, .. }| if icon == &' ' { '.' } else { *icon }).collect::<String>();
-  context.fill_text(format!("Wants: {}", wants).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 4.0).expect("something error fill_text");
-  let haves = factory.floor[main_coord].machine.haves.iter().map(|Part { icon, .. }| if icon == &' ' { '.' } else { *icon }).collect::<String>();
-  context.fill_text(format!("Haves: {}", haves).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 5.0).expect("something error fill_text");
+  context.fill_text(format!("Outs: {:?}", out_coords).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (7.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
   let seen = factory.floor[main_coord].machine.last_received.iter().map(|( Part { icon, .. }, ts)| icon).collect::<String>();
-  context.fill_text(format!("Seen: {}", seen).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 6.0).expect("something error fill_text");
-  context.fill_text(format!("Speed: {}   Gens: {}", factory.floor[main_coord].machine.speed, factory.floor[main_coord].machine.output_want.icon).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 7.0).expect("something error fill_text");
-  context.fill_text(format!("Progress: {: >3}% ({})", (((factory.ticks - factory.floor[main_coord].machine.start_at) as f64 / factory.floor[main_coord].machine.speed as f64).min(1.0) * 100.0) as u8, factory.floor[main_coord].machine.start_at).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 8.0).expect("something error fill_text");
-  context.fill_text(format!("Produced: {: >4}", factory.floor[main_coord].machine.produced).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 9.0).expect("something error fill_text");
-  context.fill_text(format!("Trashed: {: >4}", factory.floor[main_coord].machine.trashed).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 10.0).expect("something error fill_text");
+  context.fill_text(format!("Parts seen: {}", seen).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (8.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  let wants = factory.floor[main_coord].machine.wants.iter().map(|Part { icon, .. }| if icon == &' ' { '.' } else { *icon }).collect::<String>();
+  context.fill_text(format!("Wants: {}", wants).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (9.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  let haves = factory.floor[main_coord].machine.haves.iter().map(|Part { icon, .. }| if icon == &' ' { '.' } else { *icon }).collect::<String>();
+  context.fill_text(format!("Haves: {}", haves).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (10.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Generates: {}", factory.floor[main_coord].machine.output_want.icon).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (11.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Speed: {}", factory.floor[main_coord].machine.speed).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (12.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Progress: {: >3}% ({})", (((factory.ticks - factory.floor[main_coord].machine.start_at) as f64 / factory.floor[main_coord].machine.speed as f64).min(1.0) * 100.0) as u8, factory.floor[main_coord].machine.start_at).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (13.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Produced: {: >4}", factory.floor[main_coord].machine.produced).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (14.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Trashed: {: >4}", factory.floor[main_coord].machine.trashed).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (15.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
 }
-fn paint_supply_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
+// TODO: rename "and selected cell"
+fn paint_debug_supply(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
   if !cell_selection.on {
-    // // No cell selected. Clear machine editor
-    // context.set_fill_style(&"white".into());
-    // context.fill_rect(UI_MACHINE_EDITOR_OX, UI_MACHINE_EDITOR_OY, UI_MACHINE_EDITOR_W, UI_MACHINE_EDITOR_H);
     return;
   }
 
   let coord = cell_selection.coord;
   if factory.floor[coord].kind != CellKind::Supply {
-    // // Not selected a machine. Clear machine area.
-    // context.set_fill_style(&"white".into());
-    // context.fill_rect(UI_MACHINE_EDITOR_OX, UI_MACHINE_EDITOR_OY, UI_MACHINE_EDITOR_W, UI_MACHINE_EDITOR_H);
     return;
   }
+
+  // Draw the following bits of info about this supplier:
+  // - coord
+  // - port details
+  // - ins / outs
+  // - part details
+  // - last out
+  // - parts generated
+  // - speed
+  // - cooldown
 
   // Each cell consolidates much of its information into the main coord, usually the top-left cell
   let x = cell_selection.x;
@@ -2751,42 +2743,40 @@ fn paint_supply_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory:
 
   // Mark the currently selected machine main_coord
   context.set_stroke_style(&"cyan".into());
-  context.stroke_rect(WORLD_OFFSET_X + x as f64 * CELL_W, WORLD_OFFSET_Y + y as f64 * CELL_H, CELL_W, CELL_H);
+  context.stroke_rect(UI_FLOOR_OFFSET_X + x as f64 * CELL_W, UI_FLOOR_OFFSET_Y + y as f64 * CELL_H, CELL_W, CELL_H);
 
-  // Paint cell editor
   context.set_fill_style(&"lightgreen".into());
-  context.fill_rect(UI_MACHINE_EDITOR_OX, UI_MACHINE_EDITOR_OY, UI_MACHINE_EDITOR_W, UI_MACHINE_EDITOR_H);
+  context.fill_rect(UI_DEBUG_CELL_OFFSET_X, UI_DEBUG_CELL_OFFSET_Y, UI_DEBUG_CELL_WIDTH, UI_DEBUG_CELL_HEIGHT);
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(UI_DEBUG_CELL_OFFSET_X, UI_DEBUG_CELL_OFFSET_Y, UI_DEBUG_CELL_WIDTH, UI_DEBUG_CELL_HEIGHT);
+
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("Supply {} x {} ({})", x, y, coord).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H).expect("something error fill_text");
-  let mut in_coords = factory.floor[coord].ins.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
-  in_coords.sort();
-  in_coords.dedup();
-  context.fill_text(format!("Ins : {:?}", in_coords).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 2.0).expect("something error fill_text");
-  let mut out_coords = factory.floor[coord].outs.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
-  out_coords.sort();
-  out_coords.dedup();
-  context.fill_text(format!("Outs: {:?}", out_coords).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 3.0).expect("something error fill_text");
-  context.fill_text(format!("Gives: {}", factory.floor[coord].supply.gives.icon).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 4.0).expect("something error fill_text");
-  context.fill_text(format!("Speed: {}", factory.floor[coord].supply.speed).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 5.0).expect("something error fill_text");
-  context.fill_text(format!("Cooldown: {: >3}% {}", (((factory.ticks - factory.floor[coord].supply.last_part_out_at) as f64 / factory.floor[coord].supply.cooldown.max(1) as f64).min(1.0) * 100.0) as u8, factory.floor[coord].supply.cooldown).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 6.0).expect("something error fill_text");
-  context.fill_text(format!("Progress: {: >3}% (tbd: {})", (((factory.ticks - factory.floor[coord].supply.part_progress) as f64 / factory.floor[coord].supply.speed.max(1) as f64).min(1.0) * 100.0) as u8, factory.floor[coord].supply.part_tbd).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 7.0).expect("something error fill_text");
-  context.fill_text(format!("Supplied: {: >4}", factory.floor[coord].supply.supplied).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 8.0).expect("something error fill_text");
+  context.fill_text(format!("Supply cell: {} x {} (@{})", x, y, coord).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (1.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Ports: {}", cell_ports_to_str(&factory.floor[coord])).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (2.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("ins:  {}", ins_outs_to_str(&factory.floor[coord].ins)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (3.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
+  context.fill_text(format!("outs: {}", ins_outs_to_str(&factory.floor[coord].outs)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (4.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
+  context.fill_text(format!("Gives: {}", factory.floor[coord].supply.gives.icon).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (5.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Speed: {}", factory.floor[coord].supply.speed).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (6.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Cooldown: {: >3}% {}", (((factory.ticks - factory.floor[coord].supply.last_part_out_at) as f64 / factory.floor[coord].supply.cooldown.max(1) as f64).min(1.0) * 100.0) as u8, factory.floor[coord].supply.cooldown).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (7.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Progress: {: >3}% (tbd: {})", (((factory.ticks - factory.floor[coord].supply.part_progress) as f64 / factory.floor[coord].supply.speed.max(1) as f64).min(1.0) * 100.0) as u8, factory.floor[coord].supply.part_tbd).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (8.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Supplied: {: >4}", factory.floor[coord].supply.supplied).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (9.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
 }
-fn paint_demand_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
+// TODO: rename "and selected cell"
+fn paint_debug_demand(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
   if !cell_selection.on {
-    // // No cell selected. Clear machine editor
-    // context.set_fill_style(&"white".into());
-    // context.fill_rect(UI_MACHINE_EDITOR_OX, UI_MACHINE_EDITOR_OY, UI_MACHINE_EDITOR_W, UI_MACHINE_EDITOR_H);
     return;
   }
 
   let coord = cell_selection.coord;
   if factory.floor[coord].kind != CellKind::Demand {
-    // // Not selected a machine. Clear machine area.
-    // context.set_fill_style(&"white".into());
-    // context.fill_rect(UI_MACHINE_EDITOR_OX, UI_MACHINE_EDITOR_OY, UI_MACHINE_EDITOR_W, UI_MACHINE_EDITOR_H);
     return;
   }
+
+  // Draw the following bits of info about this belt:
+  // - coord
+  // - port details
+  // - ins / outs
+  // - received details
 
   // Each cell consolidates much of its information into the main coord, usually the top-left cell
   let x = cell_selection.x;
@@ -2794,24 +2784,19 @@ fn paint_demand_editor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory:
 
   // Mark the currently selected machine main_coord
   context.set_stroke_style(&"cyan".into());
-  context.stroke_rect(WORLD_OFFSET_X + x as f64 * CELL_W, WORLD_OFFSET_Y + y as f64 * CELL_H, CELL_W, CELL_H);
+  context.stroke_rect(UI_FLOOR_OFFSET_X + x as f64 * CELL_W, UI_FLOOR_OFFSET_Y + y as f64 * CELL_H, CELL_W, CELL_H);
 
-  // Paint cell editor
   context.set_fill_style(&"lightgreen".into());
-  context.fill_rect(UI_MACHINE_EDITOR_OX, UI_MACHINE_EDITOR_OY, UI_MACHINE_EDITOR_W, UI_MACHINE_EDITOR_H);
+  context.fill_rect(UI_DEBUG_CELL_OFFSET_X, UI_DEBUG_CELL_OFFSET_Y, UI_DEBUG_CELL_WIDTH, UI_DEBUG_CELL_HEIGHT);
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(UI_DEBUG_CELL_OFFSET_X, UI_DEBUG_CELL_OFFSET_Y, UI_DEBUG_CELL_WIDTH, UI_DEBUG_CELL_HEIGHT);
+
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("Demand {} x {} ({})", x, y, coord).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H).expect("something error fill_text");
-  let mut in_coords = factory.floor[coord].ins.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
-  in_coords.sort();
-  in_coords.dedup();
-  context.fill_text(format!("Ins : {:?}", in_coords).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 2.0).expect("something error fill_text");
-  let mut out_coords = factory.floor[coord].outs.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
-  out_coords.sort();
-  out_coords.dedup();
-  context.fill_text(format!("Outs: {:?}", out_coords).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 3.0).expect("something error fill_text");
-  // context.fill_text(format!("Wants: {}", factory.floor[coord].demand.part.icon).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 4.0).expect("something error fill_text");
-  context.fill_text(format!("Received: {:?}", factory.floor[coord].demand.received).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 5.0).expect("something error fill_text");
-  // context.fill_text(format!("Trashed: {: >4}", factory.floor[coord].demand.trashed).as_str(), UI_MACHINE_EDITOR_OX + UI_ML, UI_MACHINE_EDITOR_OY + UI_FONT_H * 6.0).expect("something error fill_text");
+  context.fill_text(format!("Demand cell: {} x {} (@{})", x, y, coord).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (1.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Ports: {}", cell_ports_to_str(&factory.floor[coord])).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (2.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("ins:  {}", ins_outs_to_str(&factory.floor[coord].ins)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (3.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
+  context.fill_text(format!("outs: {}", ins_outs_to_str(&factory.floor[coord].outs)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (4.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
+  context.fill_text(format!("Received: {:?}", factory.floor[coord].demand.received).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (5.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
 }
 fn paint_top_stats(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory) {
   context.set_fill_style(&"black".into());
@@ -2819,7 +2804,7 @@ fn paint_top_stats(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Fa
   context.fill_text(format!("Current time: {}, day start: {}, modified at: {}", factory.ticks, factory.last_day_start, factory.modified_at).as_str(), 20.0, 40.0).expect("to paint");
 }
 fn paint_top_bars(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  let hovering = !mouse_state.is_down && !mouse_state.was_up && bounds_check(mouse_state.world_x, mouse_state.world_y, UI_DAY_BAR_OX, UI_DAY_BAR_OY, UI_DAY_BAR_OX + UI_DAY_BAR_W, UI_DAY_BAR_OY + UI_DAY_BAR_H);
+  let hovering = !mouse_state.is_down && !mouse_state.was_up && bounds_check(mouse_state.world_x, mouse_state.world_y, UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_OFFSET_Y + UI_DAY_PROGRESS_HEIGHT);
   let invalid = factory.finished_at == 0 && factory.modified_at > factory.last_day_start && factory.modified_at < factory.last_day_start + ONE_MS * 1000 * 60 * 60;
   let day_ticks = ONE_MS * 1000 * 60; // one day a minute (arbitrary)
 
@@ -2828,70 +2813,71 @@ fn paint_top_bars(options: &Options, state: &State, factory: &Factory, context: 
   } else {
     context.set_fill_style(&"grey".into()); // 100% background
   }
-  context.fill_rect(UI_DAY_BAR_OX, UI_DAY_BAR_OY, UI_DAY_BAR_W, UI_DAY_BAR_H);
+  context.fill_rect(UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_HEIGHT);
   context.set_fill_style(&"lightgreen".into()); // progress green
-  context.fill_rect(UI_DAY_BAR_OX, UI_DAY_BAR_OY, UI_DAY_BAR_W * factory.curr_day_progress.min(1.0), UI_DAY_BAR_H);
+  context.fill_rect(UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_WIDTH * factory.curr_day_progress.min(1.0), UI_DAY_PROGRESS_HEIGHT);
 
   if hovering {
     context.set_stroke_style(&"red".into());
   } else {
     context.set_stroke_style(&"black".into());
   }
-  context.stroke_rect(UI_DAY_BAR_OX, UI_DAY_BAR_OY, UI_DAY_BAR_W, UI_DAY_BAR_H);
+  context.stroke_rect(UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_HEIGHT);
 
   if invalid {
     context.set_font(&"18px monospace");
     context.set_fill_style(&"black".into());
-    context.fill_text("Change detected! Click to restart day", UI_DAY_BAR_OX + 37.0, UI_DAY_BAR_OY + 22.0); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
+    context.fill_text("Change detected! Click to restart day", UI_DAY_PROGRESS_OFFSET_X + 37.0, UI_DAY_PROGRESS_OFFSET_Y + 22.0); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
   }
   else if factory.finished_at > 0 {
     context.set_font(&"18px monospace");
     context.set_fill_style(&"black".into());
-    context.fill_text("Click to restart day", UI_DAY_BAR_OX + 150.0, UI_DAY_BAR_OY + 22.0); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
+    context.fill_text("Click to restart day", UI_DAY_PROGRESS_OFFSET_X + 150.0, UI_DAY_PROGRESS_OFFSET_Y + 22.0); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
   }
 
   context.set_font(&"30px monospace");
   context.set_fill_style(&"black".into());
-  context.fill_text("🌄", UI_DAY_BAR_OX - 35.0, UI_DAY_BAR_OY + 26.0);
-  context.fill_text("🎑", UI_DAY_BAR_OX + UI_DAY_BAR_W + 5.0, UI_DAY_BAR_OY + 26.0);
+  context.fill_text("🌄", UI_DAY_BAR_OFFSET_X, UI_DAY_BAR_OFFSET_Y + 26.0);
+  context.fill_text("🎑", UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH + 5.0, UI_DAY_PROGRESS_OFFSET_Y + 26.0);
 
-  // Progress is a combination of requirements. If there are two kinds of parts with requirements
-  // then they both add 50% to the progress individually. We have to fetch all requirements and
-  // look them up in the result array. Terrible big-oh performance but with single digit "n" :p
+  // // Progress is a combination of requirements. If there are two kinds of parts with requirements
+  // // then they both add 50% to the progress individually. We have to fetch all requirements and
+  // // look them up in the result array. Terrible big-oh performance but with single digit "n" :p
+  //
+  // context.set_fill_style(&"grey".into());
+  // context.fill_rect(UI_PROGRESS_BAR_OX, UI_PROGRESS_BAR_OY, UI_PROGRESS_BAR_W, UI_PROGRESS_BAR_H);
+  // context.set_fill_style(&"lightgreen".into());
+  // context.fill_rect(UI_PROGRESS_BAR_OX, UI_PROGRESS_BAR_OY, UI_PROGRESS_BAR_W * factory.curr_target_progress, UI_PROGRESS_BAR_H);
+  // context.set_stroke_style(&"black".into());
+  // context.stroke_rect(UI_PROGRESS_BAR_OX, UI_PROGRESS_BAR_OY, UI_PROGRESS_BAR_W, UI_PROGRESS_BAR_H);
+  //
+  // context.set_fill_style(&"black".into());
+  // if factory.curr_day_progress >= 1.0 && factory.curr_target_progress < 1.0 {
+  //   context.set_font(&"40px monospace");
+  //   context.fill_text("☒", UI_PROGRESS_BAR_OX - 32.0, UI_PROGRESS_BAR_OY + 26.0);
+  // } else if factory.curr_target_progress >= 1.0 {
+  //   context.set_font(&"40px monospace");
+  //   context.fill_text("☑", UI_PROGRESS_BAR_OX - 32.0, UI_PROGRESS_BAR_OY + 26.0);
+  // } else {
+  //   context.set_font(&"18px monospace");
+  //   context.fill_text(format!("{}%", (factory.curr_target_progress * 100.0).round()).as_str(), UI_PROGRESS_BAR_OX - 36.0, UI_PROGRESS_BAR_OY + 23.0);
+  // }
+  // context.set_font(&"30px monospace");
+  // if invalid {
+  //   context.fill_text("❌", UI_PROGRESS_BAR_OX + UI_PROGRESS_BAR_W + 5.0, UI_PROGRESS_BAR_OY + 26.0);
+  // } else {
+  //   context.fill_text("🏁", UI_FLOOR_OFFSET_X + FLOOR_WIDTH - 30.0, 126.0);
+  // }
+  // if factory.finished_at > 0 {
+  //   context.set_font(&"18px monospace");
+  //   context.set_fill_style(&"black".into());
+  //   if factory.curr_day_progress >= 1.0 {
+  //     context.fill_text(format!("Sunset at {}%", (factory.curr_target_progress * 100.0) as u64).as_str(), UI_PROGRESS_BAR_OX + 200.0, UI_PROGRESS_BAR_OY + 22.0); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
+  //   } else {
+  //     context.fill_text(format!("Completed at {}% of a day", (factory.curr_day_progress * 100.0) as u64).as_str(), UI_PROGRESS_BAR_OX + 120.0, UI_PROGRESS_BAR_OY + 22.0); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
+  //   }
+  // }
 
-  context.set_fill_style(&"grey".into());
-  context.fill_rect(UI_PROGRESS_BAR_OX, UI_PROGRESS_BAR_OY, UI_PROGRESS_BAR_W, UI_PROGRESS_BAR_H);
-  context.set_fill_style(&"lightgreen".into());
-  context.fill_rect(UI_PROGRESS_BAR_OX, UI_PROGRESS_BAR_OY, UI_PROGRESS_BAR_W * factory.curr_target_progress, UI_PROGRESS_BAR_H);
-  context.set_stroke_style(&"black".into());
-  context.stroke_rect(UI_PROGRESS_BAR_OX, UI_PROGRESS_BAR_OY, UI_PROGRESS_BAR_W, UI_PROGRESS_BAR_H);
-
-  context.set_fill_style(&"black".into());
-  if factory.curr_day_progress >= 1.0 && factory.curr_target_progress < 1.0 {
-    context.set_font(&"40px monospace");
-    context.fill_text("☒", UI_PROGRESS_BAR_OX - 32.0, UI_PROGRESS_BAR_OY + 26.0);
-  } else if factory.curr_target_progress >= 1.0 {
-    context.set_font(&"40px monospace");
-    context.fill_text("☑", UI_PROGRESS_BAR_OX - 32.0, UI_PROGRESS_BAR_OY + 26.0);
-  } else {
-    context.set_font(&"18px monospace");
-    context.fill_text(format!("{}%", (factory.curr_target_progress * 100.0).round()).as_str(), UI_PROGRESS_BAR_OX - 36.0, UI_PROGRESS_BAR_OY + 23.0);
-  }
-  context.set_font(&"30px monospace");
-  if invalid {
-    context.fill_text("❌", UI_PROGRESS_BAR_OX + UI_PROGRESS_BAR_W + 5.0, UI_PROGRESS_BAR_OY + 26.0);
-  } else {
-    context.fill_text("🏁", WORLD_OFFSET_X + WORLD_WIDTH - 30.0, 126.0);
-  }
-  if factory.finished_at > 0 {
-    context.set_font(&"18px monospace");
-    context.set_fill_style(&"black".into());
-    if factory.curr_day_progress >= 1.0 {
-      context.fill_text(format!("Sunset at {}%", (factory.curr_target_progress * 100.0) as u64).as_str(), UI_PROGRESS_BAR_OX + 200.0, UI_PROGRESS_BAR_OY + 22.0); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
-    } else {
-      context.fill_text(format!("Completed at {}% of a day", (factory.curr_day_progress * 100.0) as u64).as_str(), UI_PROGRESS_BAR_OX + 120.0, UI_PROGRESS_BAR_OY + 22.0); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
-    }
-  }
   context.set_font(&"12px monospace");
 }
 fn paint_ui_offers(context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_sprite: &HtmlImageElement, factory: &Factory, mouse_state: &MouseState) {
@@ -2911,22 +2897,22 @@ fn paint_ui_buttons(options: &mut Options, state: &mut State, context: &Rc<web_s
   paint_ui_button(context, mouse_state, 4.0, "Dump");
   paint_ui_button(context, mouse_state, 5.0, "Reset");
   paint_ui_button(context, mouse_state, 6.0, "Panic");
-  assert!(UI_BUTTON_COUNT == 7.0, "Update after adding new buttons");
+  assert!(UI_MENU_BUTTONS_COUNT_WIDTH == 7.0, "Update after adding new buttons");
 
   paint_ui_time_control(options, state, context, mouse_state);
 }
 fn paint_ui_button(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, index: f64, text: &str) {
-  let x = UI_BUTTONS_OX + index * (UI_BUTTON_W + UI_BUTTON_SPACING);
-  let y = UI_BUTTONS_OY;
+  let x = UI_MENU_BUTTONS_OFFSET_X + index * (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING);
+  let y = UI_MENU_BUTTONS_OFFSET_Y;
 
-  if bounds_check(mouse_state.world_x, mouse_state.world_y, x, y, x + UI_BUTTON_W, y + UI_BUTTON_H) {
+  if bounds_check(mouse_state.world_x, mouse_state.world_y, x, y, x + UI_MENU_BUTTONS_WIDTH, y + UI_MENU_BUTTONS_HEIGHT) {
     context.set_fill_style(&"#eee".into());
   } else {
     context.set_fill_style(&"#aaa".into());
   }
-  context.fill_rect(x, y, UI_BUTTON_W, UI_BUTTON_H);
+  context.fill_rect(x, y, UI_MENU_BUTTONS_WIDTH, UI_MENU_BUTTONS_HEIGHT);
   context.set_stroke_style(&"black".into());
-  context.stroke_rect(x, y, UI_BUTTON_W, UI_BUTTON_H);
+  context.stroke_rect(x, y, UI_MENU_BUTTONS_WIDTH, UI_MENU_BUTTONS_HEIGHT);
   context.set_fill_style(&"black".into());
   context.fill_text(text, x + 5.0, y + 14.0).expect("to paint");
 }
@@ -2938,22 +2924,22 @@ fn paint_ui_buttons2(options: &mut Options, state: &mut State, context: &Rc<web_
   // paint_ui_button2(context, mouse_state, 4.0, "nodir", false);
   // paint_ui_button2(context, mouse_state, 5.0, "togoal"); // fast forward to goal
   // paint_ui_button2(context, mouse_state, 6.0, "Panic");
-  assert!(UI_BUTTON_COUNT == 7.0, "Update after adding new buttons");
+  assert!(UI_MENU_BUTTONS_COUNT_WIDTH == 7.0, "Update after adding new buttons");
 }
 fn paint_ui_button2(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, index: f64, text: &str, on: bool) {
-  let x = UI_BUTTONS_OX + index * (UI_BUTTON_W + UI_BUTTON_SPACING);
-  let y = UI_BUTTONS_OY2;
+  let x = UI_MENU_BUTTONS_OFFSET_X + index * (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING);
+  let y = UI_MENU_BUTTONS_OFFSET_Y2;
 
   if on {
     context.set_fill_style(&"lightgreen".into());
-  } else if bounds_check(mouse_state.world_x, mouse_state.world_y, x, y, x + UI_BUTTON_W, y + UI_BUTTON_H) {
+  } else if bounds_check(mouse_state.world_x, mouse_state.world_y, x, y, x + UI_MENU_BUTTONS_WIDTH, y + UI_MENU_BUTTONS_HEIGHT) {
     context.set_fill_style(&"#eee".into());
   } else {
     context.set_fill_style(&"#aaa".into());
   }
-  context.fill_rect(x, y, UI_BUTTON_W, UI_BUTTON_H);
+  context.fill_rect(x, y, UI_MENU_BUTTONS_WIDTH, UI_MENU_BUTTONS_HEIGHT);
   context.set_stroke_style(&"black".into());
-  context.stroke_rect(x, y, UI_BUTTON_W, UI_BUTTON_H);
+  context.stroke_rect(x, y, UI_MENU_BUTTONS_WIDTH, UI_MENU_BUTTONS_HEIGHT);
   context.set_fill_style(&"black".into());
   context.fill_text(text, x + 5.0, y + 14.0).expect("to paint");
 }
@@ -2965,9 +2951,8 @@ fn paint_ui_time_control(options: &Options, state: &State, context: &Rc<web_sys:
   paint_ui_speed_bubble(options, state, context, mouse_state, 4, "+");
 }
 fn paint_ui_speed_bubble(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, index: usize, text: &str) {
-  let cx = UI_SPEED_BUBBLE_OX + 10.0 + 40.0 * (index as f64);
-  let cy = UI_SPEED_BUBBLE_OY + 5.0;
-  let cr = UI_SPEED_BUBBLE_RADIUS;
+  let cx = UI_SPEED_BUBBLE_OFFSET_X + (2.0 * UI_SPEED_BUBBLE_RADIUS + UI_SPEED_BUBBLE_SPACING) * (index as f64) + UI_SPEED_BUBBLE_RADIUS;
+  let cy = UI_SPEED_BUBBLE_OFFSET_Y + UI_SPEED_BUBBLE_RADIUS;
 
   if text == "⏭" && options.speed_modifier == 0.0 {
     context.set_fill_style(&"tomato".into());
@@ -2987,14 +2972,14 @@ fn paint_ui_speed_bubble(options: &Options, state: &State, context: &Rc<web_sys:
   else if text == "+" && options.speed_modifier > 2.0 {
     context.set_fill_style(&"#0f0".into());
   }
-  else if bounds_check(mouse_state.world_x, mouse_state.world_y, cx - cr, cy - cr, cx + cr, cy + cr) {
+  else if bounds_check(mouse_state.world_x, mouse_state.world_y, cx - UI_SPEED_BUBBLE_RADIUS, cy - UI_SPEED_BUBBLE_RADIUS, cx + UI_SPEED_BUBBLE_RADIUS, cy + UI_SPEED_BUBBLE_RADIUS) {
     context.set_fill_style(&"#eee".into());
   }
   else {
     context.set_fill_style(&"#aaa".into());
   }
   context.begin_path();
-  context.arc(cx, cy, cr, 0.0, 2.0 * 3.14).expect("to paint");
+  context.arc(cx, cy, UI_SPEED_BUBBLE_RADIUS, 0.0, 2.0 * 3.14).expect("to paint"); // cx/cy must be _center_ coord of the circle, not top-left
   context.fill();
   context.set_fill_style(&"stroke".into());
   context.stroke();
@@ -3004,7 +2989,7 @@ fn paint_ui_speed_bubble(options: &Options, state: &State, context: &Rc<web_sys:
 fn paint_ui_offer_supply(context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_sprite: &HtmlImageElement, factory: &Factory, index: usize, hovering: bool) {
   let offer = &factory.offers[index];
 
-  let offer_height = UI_OFFERS_H + 10.0;
+  let offer_height = UI_OFFERS_HEIGHT + 10.0;
 
   // Clear area.
 
@@ -3021,34 +3006,34 @@ fn paint_ui_offer_supply(context: &Rc<web_sys::CanvasRenderingContext2d>, part_t
     _ => panic!("this kind should not get here"),
   }
 
-  context.fill_rect(UI_OFFERS_OX, UI_OFFERS_OY + (index as f64) * offer_height, UI_OFFERS_W, UI_OFFERS_H);
+  context.fill_rect(UI_OFFERS_OFFSET_X, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height, UI_OFFERS_WIDTH, UI_OFFERS_HEIGHT);
   if hovering {
     context.set_stroke_style(&"red".into());
-    context.stroke_rect(UI_OFFERS_OX, UI_OFFERS_OY + (index as f64) * offer_height, UI_OFFERS_W, UI_OFFERS_H);
+    context.stroke_rect(UI_OFFERS_OFFSET_X, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height, UI_OFFERS_WIDTH, UI_OFFERS_HEIGHT);
   }
 
   context.set_stroke_style(&"black".into());
   context.set_fill_style(&"black".into());
-  context.stroke_text(format!("{:?}", offer.kind).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 1.0 * UI_FONT_H).expect("something error stroke_text");
+  context.stroke_text(format!("{:?}", offer.kind).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 1.0 * UI_DEBUG_APP_FONT_H).expect("something error stroke_text");
   match offer.kind {
     CellKind::Supply => {
-      let x = UI_OFFERS_OX + (UI_OFFERS_W / 2.0) - (CELL_W / 2.0);
-      let y = UI_OFFERS_OY + (index as f64) * offer_height + (UI_OFFERS_H / 2.0) - (CELL_H / 2.0);
+      let x = UI_OFFERS_OFFSET_X + (UI_OFFERS_WIDTH / 2.0) - (CELL_W / 2.0);
+      let y = UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + (UI_OFFERS_HEIGHT / 2.0) - (CELL_H / 2.0);
       paint_segment_part(&context, part_tile_sprite, part_c(offer.supply_icon), x, y, CELL_W, CELL_H);
 
-      context.fill_text(format!("Gives: {}", offer.supply_icon).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 2.0 * UI_FONT_H).expect("something error fill_text");
-      context.fill_text(format!("Speed: {}", offer.speed).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 3.0 * UI_FONT_H).expect("something error fill_text");
-      context.fill_text(format!("Cool: {}", offer.cooldown).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 4.0 * UI_FONT_H).expect("something error fill_text");
+      context.fill_text(format!("Gives: {}", offer.supply_icon).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 2.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+      context.fill_text(format!("Speed: {}", offer.speed).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 3.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+      context.fill_text(format!("Cool: {}", offer.cooldown).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 4.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
     }
     CellKind::Demand => {
-      // context.fill_text(format!("Takes: {}", offer.demand_icon).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 2.0 * UI_FONT_H).expect("something error fill_text");
+      // context.fill_text(format!("Takes: {}", offer.demand_icon).as_str(), UI_OFFERS_OFFSET_X + UI_ML, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 2.0 * UI_FONT_H).expect("something error fill_text");
     }
     CellKind::Machine => {
-      context.fill_text(format!("Size: {} x {}", offer.cell_width, offer.cell_height).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 2.0 * UI_FONT_H).expect("something error fill_text");
+      context.fill_text(format!("Size: {} x {}", offer.cell_width, offer.cell_height).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 2.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
       let wants = offer.wants.iter().map(|Part { icon, .. }| if icon == &' ' { '.' } else { *icon }).collect::<String>();
-      context.fill_text(format!("Inputs: {}", wants).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 3.0 * UI_FONT_H).expect("something error fill_text");
-      context.fill_text(format!("Output: {}", offer.machine_output).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 4.0 * UI_FONT_H).expect("something error fill_text");
-      context.fill_text(format!("Speed: {}", offer.speed).as_str(), UI_OFFERS_OX + UI_ML, UI_OFFERS_OY + (index as f64) * offer_height + 5.0 * UI_FONT_H).expect("something error fill_text");
+      context.fill_text(format!("Inputs: {}", wants).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 3.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+      context.fill_text(format!("Output: {}", offer.machine_output).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 4.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+      context.fill_text(format!("Speed: {}", offer.speed).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 5.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
     }
     _ => panic!("this kind should not get here"),
   }

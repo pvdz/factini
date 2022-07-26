@@ -898,3 +898,12 @@ fn remove_dir_from_cell_outs(factory: &mut Factory, coord: usize, needle_dir: Di
     factory.floor[coord].outs.remove(pos);
   }
 }
+
+pub fn cell_ports_to_str(cell: &super::cell::Cell) -> String {
+  return format!("up:{} right:{} down:{} left:{}",
+    port_to_char(cell.port_u),
+    port_to_char(cell.port_r),
+    port_to_char(cell.port_d),
+    port_to_char(cell.port_l),
+  );
+}

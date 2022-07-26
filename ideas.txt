@@ -79,6 +79,26 @@
   - demands take anything.
   - there's an idea of a factory that is then part of another factory, like recursion. and the efficiency of that factory is reflected in the outer machine etc. choices matter.
     - this could be your unlock tree implicitly?
+  - set of unique raw resources?
+    - wood (-> paper)
+    - water (-> ice? other liquids)
+    - stone (-> various flooring, walling, furniture)
+    - oil (-> plastic, paint (?))
+    - gas (not sure if relevant yet, could be any kind of gas, to be refined into something concrete)
+    - ore (-> refines into specific ingots of metal)
+    - sand (-> into glass, silicon, mirrors, even mud and clay if we wanted?)
+    tbd
+    - animals (-> refines into wool / leather / bone / feather / fabric / thread / glue / maybe rope)
+    - plants (-> refines into rope? cotton? what else? do we care about food at all?)
+
+
+  Left side: buildings to build
+  Right side: achievements to complete, list of unlocked recipes to click or review (will require some kind of paged collection UI)
+  Top: Day bar, each achievement gets their own completion bar
+  Each achievement unlocks a new recipe, allowing to create new stuff
+  TODO: figure out the "machines recursion" idea
+
+
 
 Belt me!
 Factini
