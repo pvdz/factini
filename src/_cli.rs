@@ -41,7 +41,7 @@ pub fn cli_main(options: &mut Options, state: &mut State) {
     d3 = g\n\
     d4 = g\n\
   ";
-  let mut factory = create_factory(options, state, map.to_string());
+  let mut factory = create_factory(options, state, map.to_string(), vec!(PartKind::Sapphire, PartKind::WoodenStick));
   if options.print_initial_table {
     println!("prio: {:?}", factory.prio);
     print_floor_with_views(options, state, &mut factory);

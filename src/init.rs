@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use super::belt::*;
 use super::cell::*;
 use super::cli_serialize::*;
@@ -27,6 +29,8 @@ pub fn init() -> ( Options, State, Factory ) {
     mouse_mode_selecting: false,
     selected_area_copy: vec!(),
     test: false,
+    bouncers: VecDeque::new(),
+    finished_quotes: vec!(),
   };
 
   // let map = "\
@@ -229,7 +233,9 @@ pub fn init() -> ( Options, State, Factory ) {
 
 
 
-  let mut factory = create_factory(&mut options, &mut state, map.to_string());
+  // let parts = PARTS.iter().map(|x| *x).collect::<Vec<PartKind>>(); // All parts
+  let parts = vec!(PartKind::DirtWhite);
+  let mut factory = create_factory(&mut options, &mut state, map.to_string(), parts);
   factory.changed = true;
 
   return ( options, state, factory );

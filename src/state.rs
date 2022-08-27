@@ -1,4 +1,7 @@
+use std::collections::VecDeque;
+
 use super::belt::*;
+use super::bouncer::*;
 use super::cell::*;
 use super::cli_serialize::*;
 use super::direction::*;
@@ -23,6 +26,8 @@ pub struct State {
   pub mouse_mode_selecting: bool,
   pub selected_area_copy: Vec<Vec<Cell>>,
   pub test: bool,
+  pub bouncers: VecDeque<Bouncer>,
+  pub finished_quotes: Vec<usize>,
 }
 
 #[derive(Debug)]
@@ -63,6 +68,8 @@ pub struct MouseState {
   pub over_offer: bool,
   pub dragging_offer: bool,
   pub offer_index: usize, // Only relevant when over_offer = true
+  pub over_machine_button: bool, // Is the mouse currently over the machine button?
+  pub dragging_machine: bool,
 
   pub craft_over_any: bool, // Was the over anywhere inside the craft circle? Prevemts actions underneath it.
   pub craft_over_ci: CraftInteractable,

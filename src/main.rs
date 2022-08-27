@@ -10,6 +10,7 @@ use std::collections::VecDeque;
 pub mod _cli;
 
 pub mod belt;
+pub mod bouncer;
 pub mod cell;
 pub mod cli_serialize;
 pub mod cli_deserialize;
@@ -27,6 +28,7 @@ pub mod paste;
 pub mod port;
 pub mod port_auto;
 pub mod prio;
+pub mod quote;
 pub mod state;
 pub mod supply;
 pub mod utils;

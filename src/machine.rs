@@ -159,19 +159,25 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
     }
   }
 
+  let mut accepts_nothing = true;
   let mut waiting_for_input = false;
   for i in 0..factory.floor[main_coord].machine.haves.len() {
     // If a certain input does not exist, it will be none.
     // If a certain input is none, then have should always be none too and it will auto-satisfy
     // Otherwise, it will satisfy if the have is not none, but rather the part that is wanted.
-    if factory.floor[main_coord].machine.wants[i].kind != factory.floor[main_coord].machine.haves[i].kind {
+    let want = factory.floor[main_coord].machine.wants[i].kind;
+    if want != factory.floor[main_coord].machine.haves[i].kind {
       waiting_for_input = true;
+      accepts_nothing = false;
       break;
+    }
+    else if want != PartKind::None {
+      accepts_nothing = false;
     }
   }
 
   // It should only trash the input if it's actually still waiting for something so check that first
-  if waiting_for_input {
+  if waiting_for_input || accepts_nothing {
     // Find the input connected to a belt with matching part as any of the inputs that await one
     for index in 0..factory.floor[main_coord].ins.len() {
       let (sub_dir, sub_coord, _main_neighbor_coord, main_neighbor_in_dir) = factory.floor[main_coord].ins[index];
@@ -187,24 +193,26 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
         if factory.floor[from_coord].kind == CellKind::Belt {
           // Verify that there is a part, the part is at 100% progress, and that the part is determined to go towards the machine
           let belt_part = factory.floor[from_coord].belt.part.kind;
-          if belt_part != PartKind::None && !factory.floor[from_coord].belt.part_to_tbd && factory.floor[from_coord].belt.part_to == main_neighbor_in_dir && factory.floor[from_coord].belt.part_progress >= factory.floor[from_coord].belt.speed {
 
-            // Check whether it fits in any input slot. If so, put it there. Otherwise trash it unless
-            // all slots are full (only trash input parts while actually waiting for more input).
+          if belt_part != PartKind::None && !factory.floor[from_coord].belt.part_to_tbd && factory.floor[from_coord].belt.part_to == main_neighbor_in_dir && factory.floor[from_coord].belt.part_progress >= factory.floor[from_coord].belt.speed {
+              // Check whether it fits in any input slot. If so, put it there. Otherwise trash it unless
+              // all slots are full (only trash input parts while actually waiting for more input).
 
             assert_eq!(factory.floor[main_coord].machine.wants.len(), factory.floor[main_coord].machine.haves.len(), "machines should start with same len wants as haves");
             let mut trash = true;
-            for i in 0..factory.floor[main_coord].machine.wants.len() {
-              let want = factory.floor[main_coord].machine.wants[i].kind;
-              let have = factory.floor[main_coord].machine.haves[i].kind;
-              if belt_part == factory.floor[main_coord].machine.wants[i].kind && belt_part != have && have == PartKind::None {
-                if options.print_moves || options.print_moves_machine {
-                  log(format!("({}) Machine @{} (sub @{}) accepting part {:?} as input {} from belt @{}, had {:?}", factory.ticks, main_coord, sub_coord, belt_part, i, from_coord, have));
+            if !accepts_nothing {
+              for i in 0..factory.floor[main_coord].machine.wants.len() {
+                let want = factory.floor[main_coord].machine.wants[i].kind;
+                let have = factory.floor[main_coord].machine.haves[i].kind;
+                if belt_part == factory.floor[main_coord].machine.wants[i].kind && belt_part != have && have == PartKind::None {
+                  if options.print_moves || options.print_moves_machine {
+                    log(format!("({}) Machine @{} (sub @{}) accepting part {:?} as input {} from belt @{}, had {:?}", factory.ticks, main_coord, sub_coord, belt_part, i, from_coord, have));
+                  }
+                  machine_receive_part(factory, main_coord, i, factory.floor[from_coord].belt.part.clone());
+                  belt_receive_part(factory, from_coord, incoming_dir, part_none());
+                  trash = false;
+                  break;
                 }
-                machine_receive_part(factory, main_coord, i, factory.floor[from_coord].belt.part.clone());
-                belt_receive_part(factory, from_coord, incoming_dir, part_none());
-                trash = false;
-                break;
               }
             }
 

@@ -57,6 +57,113 @@ pub enum PartKind {
   ShieldBlue,
 }
 
+pub const PARTS: [PartKind; 46] = [
+  PartKind::None,
+
+  PartKind::BlueWand,
+  PartKind::BookGreen,
+  PartKind::BookRed,
+  PartKind::BookBlue,
+  PartKind::BookWhite,
+  PartKind::BookBrown,
+  PartKind::BookHeart, // Red with heart
+  PartKind::BookPurple,
+  PartKind::BookYellow,
+  PartKind::BookBlack,
+  PartKind::BookSkull,
+  PartKind::BookShield, // Blue with shield
+  PartKind::EmptyBottle, // The "transparent potion"
+  PartKind::GoldDust,
+  PartKind::GoldenBlueWand,
+  PartKind::IngotBabyBlue, // The faded dark blue
+  PartKind::IngotGrey,
+  PartKind::IngotLawnGreen, // The slime green
+  PartKind::IngotOrange,
+  PartKind::IngotTurquoise, // The light blue
+  PartKind::IngotWhite,
+  PartKind::MaterialTurquoise, // The raw pile of dirt and pixels
+  PartKind::Paper,
+  PartKind::Parchment,
+  PartKind::PotionWhite,
+  PartKind::PotionBlack,
+  PartKind::PotionPurple,
+  PartKind::PotionGreen,
+  PartKind::PotionRed,
+  PartKind::PotionBlue,
+  PartKind::PotionBrown,
+  PartKind::PotionTurquoise,
+  PartKind::PotionYellow,
+  PartKind::PotionOrange,
+  PartKind::Sapphire,
+  PartKind::Trash, // Pseudo special case
+  PartKind::WoodenStick,
+  PartKind::DirtTurquoise,
+  PartKind::DirtBlue,
+  PartKind::DirtWhite,
+  PartKind::Rope,
+  PartKind::Ruby,
+  PartKind::Wood,
+  PartKind::ShieldWood,
+  PartKind::ShieldBlue,
+];
+
+fn part_assert_complete() {
+  for p in PARTS {
+    match p {
+      // If you add something here, add it to PARTS too
+      | PartKind::None
+      | PartKind::BlueWand
+      | PartKind::BookGreen
+      | PartKind::BookRed
+      | PartKind::BookBlue
+      | PartKind::BookWhite
+      | PartKind::BookBrown
+      | PartKind::BookHeart
+      | PartKind::BookPurple
+      | PartKind::BookYellow
+      | PartKind::BookBlack
+      | PartKind::BookSkull
+      | PartKind::BookShield
+      | PartKind::EmptyBottle
+      | PartKind::GoldDust
+      | PartKind::GoldenBlueWand
+      | PartKind::IngotBabyBlue
+      | PartKind::IngotGrey
+      | PartKind::IngotLawnGreen
+      | PartKind::IngotOrange
+      | PartKind::IngotTurquoise
+      | PartKind::IngotWhite
+      | PartKind::MaterialTurquoise
+      | PartKind::Paper
+      | PartKind::Parchment
+      | PartKind::PotionWhite
+      | PartKind::PotionBlack
+      | PartKind::PotionPurple
+      | PartKind::PotionGreen
+      | PartKind::PotionRed
+      | PartKind::PotionBlue
+      | PartKind::PotionBrown
+      | PartKind::PotionTurquoise
+      | PartKind::PotionYellow
+      | PartKind::PotionOrange
+      | PartKind::Sapphire
+      | PartKind::Trash
+      | PartKind::WoodenStick
+      | PartKind::DirtTurquoise
+      | PartKind::DirtBlue
+      | PartKind::DirtWhite
+      | PartKind::Rope
+      | PartKind::Ruby
+      | PartKind::Wood
+      | PartKind::ShieldWood
+      | PartKind::ShieldBlue
+      // If you add something here, add it to PARTS too
+      => {}
+    }
+  }
+}
+
+
 pub const fn part_none() -> Part {
   return Part {
     kind: part_icon_to_kind(' '),
@@ -147,6 +254,58 @@ pub const fn part_icon_to_kind(c: char) -> PartKind {
     _ => {
       PartKind::None
     },
+  }
+}
+pub const fn part_kind_to_icon(kind: PartKind) -> char {
+  match kind {
+    PartKind::WoodenStick => 'w',
+    PartKind::BlueWand => 'b',
+    PartKind::EmptyBottle => 'e',
+    PartKind::GoldDust => 'd',
+    PartKind::GoldenBlueWand => 'g',
+    PartKind::MaterialTurquoise => 'm',
+    PartKind::Sapphire => 's',
+    PartKind::Trash => 't',
+    PartKind::Paper => 'p',
+    PartKind::Parchment => 'q',
+    PartKind::DirtTurquoise => 'h',
+    PartKind::Rope => 'i',
+    PartKind::Ruby => 'j',
+    PartKind::Wood => 'k',
+    PartKind::ShieldWood => 'l',
+    PartKind::DirtWhite => 'n',
+    PartKind::ShieldBlue => 'o',
+    PartKind::DirtBlue => 'r',
+
+    PartKind::BookGreen => 'A',
+    PartKind::BookRed => 'B',
+    PartKind::BookBlue => 'C',
+    PartKind::BookWhite => 'D',
+    PartKind::BookBrown => 'E',
+    PartKind::BookHeart => 'F', // Red with heart
+    PartKind::BookPurple => 'G',
+    PartKind::BookYellow => 'H',
+    PartKind::BookBlack => 'I',
+    PartKind::BookSkull => 'J',
+    PartKind::BookShield => 'K', // Blue with shield
+    PartKind::IngotBabyBlue => 'L', // The faded dark blue
+    PartKind::IngotGrey => 'M',
+    PartKind::IngotLawnGreen => 'N', // The slime green
+    PartKind::IngotOrange => 'O',
+    PartKind::IngotTurquoise => 'P', // The light blue
+    PartKind::IngotWhite => 'Q',
+    PartKind::PotionWhite => 'R',
+    PartKind::PotionBlack => 'S',
+    PartKind::PotionPurple => 'T',
+    PartKind::PotionGreen => 'U',
+    PartKind::PotionRed => 'V',
+    PartKind::PotionBlue => 'W',
+    PartKind::PotionBrown => 'X',
+    PartKind::PotionTurquoise => 'Y',
+    PartKind::PotionYellow => 'Z',
+    PartKind::PotionOrange => 'x',
+
+    PartKind::None => ' ',
   }
 }
 
@@ -303,4 +462,61 @@ pub const fn part_to_sprite_coord(kind: PartKind) -> ( f64, f64 ) {
       ( 0.123, 0.123 )
     },
   };
+}
+
+pub fn part_icon_to_recipe(c: char) -> String {
+  // Note: empty strings are considered raw resources
+  match c {
+    'w' => "   .   .   .   .   .   .   .   .   .   ",
+    'b' => "   .   .   .   .   .   .   .   .   .   ",
+    'e' => "   .   .   .   .   .   .   .   .   .   ",
+    'd' => "   .   .   .   .   .   .   .   .   .   ",
+    'g' => "   .   .   .   .   .   .   .   .   .   ",
+    'm' => "   .   .   .   .   .   .   .   .   .   ",
+    's' => "   .   .   .   .   .   .   .   .   .   ",
+    't' => "   .   .   .   .   .   .   .   .   .   ",
+    'p' => "   .   .   .   .   .   .   .   .   .   ",
+    'q' => "   .   .   .   .   .   .   .   .   .   ",
+    'h' => "   .   .   .   .   .   .   .   .   .   ",
+    'i' => "   .   .   .   .   .   .   .   .   .   ",
+    'j' => "   .   .   .   .   .   .   .   .   .   ",
+    'k' => "   .   .   .   .   .   .   .   .   .   ",
+    'l' => "   .   Q   .   k   k   k   k   k   k   ",
+    'n' => "   .   .   .   W   l   W   .   .   .   ",
+    'o' => "   .   .   .   .   .   .   .   .   .   ",
+    'r' => "   .   .   .   .   .   .   .   .   .   ",
+
+    'A' => "   .   .   .   .   .   .   .   .   .   ",
+    'B' => "   .   .   .   .   .   .   .   .   .   ",
+    'C' => "   .   w   .   W   D   W   .   W   .   ",
+    'D' => "   i   p   p   i   p   p   i   p   p   ",
+    'E' => "   .   .   .   .   .   .   .   .   .   ",
+    'F' => "   .   .   .   .   .   .   .   .   .   ",
+    'G' => "   .   .   .   .   .   .   .   .   .   ",
+    'H' => "   .   .   .   .   .   .   .   .   .   ",
+    'I' => "   .   .   .   .   .   .   .   .   .   ",
+    'J' => "   .   .   .   .   .   .   .   .   .   ",
+    'K' => "   .   .   .   C   o   .   .   .   .   ",
+    'L' => "   .   .   .   .   .   .   .   .   .   ",
+    'M' => "   .   .   .   .   .   .   .   .   .   ",
+    'N' => "   .   .   .   .   .   .   .   .   .   ",
+    'O' => "   .   .   .   .   .   .   .   .   .   ",
+    'P' => "   .   .   .   .   .   .   .   .   .   ",
+    'Q' => "   .   .   .   n   n   n   n   n   n   ",
+    'R' => "   .   .   .   .   .   .   .   .   .   ",
+    'S' => "   .   .   .   .   .   .   .   .   .   ",
+    'T' => "   .   .   .   .   .   .   .   .   .   ",
+    'U' => "   .   .   .   .   .   .   .   .   .   ",
+    'V' => "   .   .   .   .   .   .   .   .   .   ",
+    'W' => "   .   r   .   .   e   .   .   r   .   ",
+    'X' => "   .   .   .   .   .   .   .   .   .   ",
+    'Y' => "   .   .   .   .   .   .   .   .   .   ",
+    'Z' => "   .   .   .   .   .   .   .   .   .   ",
+    'x' => "   .   .   .   .   .   .   .   .   .   ",
+
+    ' ' => "   .   .   .   .   .   .   .   .   .   ",
+    _ => {
+      "   .   .   .   .   .   .   .   .   .   "
+    },
+  }.to_string()
 }

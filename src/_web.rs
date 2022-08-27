@@ -37,6 +37,7 @@ use std::collections::VecDeque;
 use web_sys::{HtmlCanvasElement, HtmlImageElement};
 
 use super::belt::*;
+use super::bouncer::*;
 use super::cell::*;
 use super::cli_serialize::*;
 use super::craft::*;
@@ -52,6 +53,7 @@ use super::paste::*;
 use super::port::*;
 use super::port_auto::*;
 use super::prio::*;
+use super::quote::*;
 use super::state::*;
 use super::utils::*;
 
@@ -105,6 +107,8 @@ const UI_ACHIEVEMENT_OFFSET_X: f64 = GRID_X0;
 const UI_ACHIEVEMENT_OFFSET_Y: f64 = GRID_Y1;
 const UI_ACHIEVEMENT_WIDTH: f64 = GRID_LEFT_WIDTH;
 const UI_ACHIEVEMENT_HEIGHT: f64 = FLOOR_HEIGHT; // TODO: include footer space? or ..
+const UI_QUOTE_HEIGHT: f64 = CELL_H + 4.0;
+const UI_QUOTE_MARGIN: f64 = 5.0;
 
 // Top menu has the Day progress bar (and whatever). Starts next to achievement menu and goes above the Floor.
 const UI_TOP_OFFSET_X: f64 = GRID_X1;
@@ -124,6 +128,25 @@ const UI_BOTTOM_OFFSET_X: f64 = GRID_X1;
 const UI_BOTTOM_OFFSET_Y: f64 = GRID_Y2;
 const UI_BOTTOM_WIDTH: f64 = FLOOR_WIDTH;
 const UI_BOTTOM_HEIGHT: f64 = GRID_BOTTOM_HEIGHT;
+
+const UI_SPEED_BUBBLE_OFFSET_X: f64 = GRID_X1 + 5.0;
+const UI_SPEED_BUBBLE_OFFSET_Y: f64 = GRID_Y2 + 5.0;
+const UI_SPEED_BUBBLE_RADIUS: f64 = 20.0; // half the diameter...
+const UI_SPEED_BUBBLE_SPACING: f64 = 15.0;
+
+const UI_MENU_BUTTONS_COUNT_WIDTH_MAX: f64 = 7.0; // Update after adding new button
+const UI_MENU_BUTTONS_OFFSET_X: f64 = GRID_X1 + 2.0;
+const UI_MENU_BUTTONS_OFFSET_Y: f64 = GRID_Y2 + 55.0;
+const UI_MENU_BUTTONS_OFFSET_Y2: f64 = GRID_Y2 + 85.0;
+const UI_MENU_BUTTONS_WIDTH: f64 = 50.0;
+const UI_MENU_BUTTONS_HEIGHT: f64 = 20.0;
+const UI_MENU_BUTTONS_SPACING: f64 = 10.0;
+const UI_MENU_BUTTONS_WIDTH_MAX: f64 = UI_MENU_BUTTONS_COUNT_WIDTH_MAX * (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING);
+
+const UI_MENU_BOTTOM_MACHINE_X: f64 = UI_MENU_BUTTONS_OFFSET_X +UI_MENU_BUTTONS_WIDTH_MAX + 5.0;
+const UI_MENU_BOTTOM_MACHINE_Y: f64 = GRID_Y2 + 5.0;
+const UI_MENU_BOTTOM_MACHINE_WIDTH: f64 = 70.0;
+const UI_MENU_BOTTOM_MACHINE_HEIGHT: f64 = 70.0;
 
 const UI_RIGHT_OFFSET_X: f64 = GRID_X2;
 const UI_RIGHT_OFFSET_Y: f64 = GRID_Y0; // Start at top
@@ -152,22 +175,11 @@ const UI_DEBUG_CELL_FONT_HEIGHT: f64 = 16.0; // at 12px + bottom spacing
 
 const UI_OFFERS_OFFSET_X: f64 = GRID_X2;
 const UI_OFFERS_OFFSET_Y: f64 = GRID_Y0;
-const UI_OFFERS_WIDTH: f64 = 100.0;
-const UI_OFFERS_HEIGHT: f64 = 90.0;
+const UI_OFFERS_WIDTH: f64 = 50.0;
+const UI_OFFERS_HEIGHT: f64 = 50.0;
+const UI_OFFERS_PER_ROW: f64 = 3.0;
+const UI_OFFERS_WIDTH_PLUS_MARGIN: f64 = UI_OFFERS_WIDTH + 10.0;
 const UI_OFFERS_HEIGHT_PLUS_MARGIN: f64 = UI_OFFERS_HEIGHT + 10.0;
-
-const UI_SPEED_BUBBLE_OFFSET_X: f64 = GRID_X1 + 5.0;
-const UI_SPEED_BUBBLE_OFFSET_Y: f64 = GRID_Y2 + 5.0;
-const UI_SPEED_BUBBLE_RADIUS: f64 = 20.0; // half the diameter...
-const UI_SPEED_BUBBLE_SPACING: f64 = 15.0;
-
-const UI_MENU_BUTTONS_COUNT_WIDTH: f64 = 7.0; // Update after adding new button
-const UI_MENU_BUTTONS_OFFSET_X: f64 = GRID_X1 + 2.0;
-const UI_MENU_BUTTONS_OFFSET_Y: f64 = GRID_Y2 + 55.0;
-const UI_MENU_BUTTONS_OFFSET_Y2: f64 = GRID_Y2 + 85.0;
-const UI_MENU_BUTTONS_WIDTH: f64 = 50.0;
-const UI_MENU_BUTTONS_HEIGHT: f64 = 20.0;
-const UI_MENU_BUTTONS_SPACING: f64 = 10.0;
 
 // Temp placeholder
 const COLOR_SUPPLY: &str = "pink";
@@ -317,6 +329,7 @@ pub fn start() -> Result<(), JsValue> {
   let img_machine_1_1: web_sys::HtmlImageElement = load_tile("./img/machine_1_1.png")?;
   let img_machine_2_1: web_sys::HtmlImageElement = load_tile("./img/machine_2_1.png")?;
   let img_machine_3_2: web_sys::HtmlImageElement = load_tile("./img/machine_3_2.png")?;
+  let img_dumptruck: web_sys::HtmlImageElement = load_tile("./img/dumptruck.png")?;
 
   // Tbh this whole Rc approach is copied from the original template. It works so why not, :shrug:
   let mouse_x = Rc::new(Cell::new(0.0));
@@ -454,6 +467,8 @@ pub fn start() -> Result<(), JsValue> {
       over_offer: false,
       offer_index: 0,
       dragging_offer: false,
+      over_machine_button: false,
+      dragging_machine: false,
 
       craft_over_any: false,
       craft_over_ci: CraftInteractable::None,
@@ -549,7 +564,7 @@ pub fn start() -> Result<(), JsValue> {
           tick_factory(&mut options, &mut state, &mut factory);
         }
 
-        factory_collect_stats(&mut options, &mut state, &mut factory);
+        // factory_collect_stats(&mut options, &mut state, &mut factory);
       }
 
       if options.web_output_cli {
@@ -586,6 +601,35 @@ pub fn start() -> Result<(), JsValue> {
           factory.supplied = 0;
         }
 
+        if state.finished_quotes.len() > 0 {
+          loop {
+            let quote_index = state.finished_quotes.pop();
+            if let Some(quote_index) = quote_index {
+              // - get the quote and icon to paint
+              // - get the location to start painting
+              for unlock_part_index in 0..factory.quotes[quote_index].unlocks_parts.len() {
+                let icon = factory.quotes[quote_index].unlocks_parts[unlock_part_index]; // TODO: multiple parts
+                let ( x, y ) = get_quote_xy(quote_index, (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) * quote_index as f64); // Heigh is incorrect if a quote is fading but that's acceptable
+
+                state.bouncers.push_back(bouncer_create(x, y, GRID_Y2 + 20.0, icon, 8.7, factory.ticks, unlock_part_index as u64 * ONE_SECOND));
+              }
+
+              // From this point onward the Quote will fade out and then reduce its height till zero
+              factory.quotes[quote_index].completed_at = factory.ticks;
+
+              // Add all new unlocked quotes. They will appear by slowly growing in height
+              for unlock_quote_index in 0..factory.quotes[quote_index].unlocks_quotes.len() {
+                let mut quote = quote_get(factory.quotes[quote_index].unlocks_quotes[unlock_quote_index]);
+                quote.added_at = factory.ticks;
+                factory.quotes.push(quote);
+              }
+
+            } else {
+              break;
+            }
+          }
+        }
+
         // Paint the world (no input or world mutations after this point)
 
         context.set_font(&"12px monospace");
@@ -600,9 +644,84 @@ pub fn start() -> Result<(), JsValue> {
 
         paint_top_stats(&context, &mut factory);
         paint_top_bars(&options, &state, &mut factory, &context, &mouse_state);
-        paint_ui_offers(&context, &part_tile_sprite, &mut factory, &mouse_state);
-        paint_ui_buttons(&mut options, &mut state, &context, &mouse_state);
-        paint_ui_buttons2(&mut options, &mut state, &context, &mouse_state);
+        paint_left_quotes(&context, &part_tile_sprite, &mut factory, &mouse_state);
+        paint_ui_recipes(&context, &part_tile_sprite, &mut factory, &mouse_state);
+
+        let truck_dur_1 = 3.0; // seconds trucks take to cross the first part
+        let truck_dur_2 = 1.0; // turning circle
+        let truck_dur_3 = 5.0; // turning circle
+        let truck_size = 50.0;
+        let start_x = UI_MENU_BOTTOM_MACHINE_X + UI_MENU_BOTTOM_MACHINE_WIDTH - (truck_size + 5.0);
+        let end_x = GRID_X2 + 5.0;
+        // paint dump truck so it starts under the factory
+        for b in 0..state.bouncers.len() {
+          if state.bouncers[b].dump_trucked_at > 0 {
+            // Draw dump truck at proper position // TODO: prevent overlapping of multiples etc
+            // The first two seconds are spent driving under the floor to the right
+            // The rest is however long it takes to reach the final location where the button is created
+            let ticks_since_truck = factory.ticks - state.bouncers[b].dump_trucked_at;
+            let time_since_truck = ticks_since_truck as f64 / ONE_SECOND as f64;
+            if time_since_truck < truck_dur_1 {
+              let truck_x = start_x + (time_since_truck / truck_dur_1).min(1.0).max(0.0) * (end_x - start_x);
+              let truck_y = UI_MENU_BOTTOM_MACHINE_Y + (UI_MENU_BOTTOM_MACHINE_HEIGHT / 2.0) - (truck_size / 2.0); // Factory mid
+
+              context.save();
+              // This is how canvas rotation works; you rotate around the center of what you're painting, paint it, then reset the translation matrix.
+              // For this reason we must find the center of the dump truck, rotate around that point, and draw the dump track at minus half its size.
+              context.translate(truck_x + truck_size / 2.0, truck_y + truck_size / 2.0);
+              // pi/2 = quarter circle. what you draw upward will end up pointing to the right, which is what we want.
+              context.rotate(std::f64::consts::FRAC_PI_2);
+              // Compensate for the origin currently being in the middle of the dump truck. Top-left is just easier.
+              context.translate(-truck_size/2.0, -truck_size/2.0);
+              // The truck starts _inside_ the factory and drives to the right (maybe slanted)
+              context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, 0.0, 0.0, truck_size, truck_size);
+              // Paint the part icon on the back of the trick (x-centered, y-bottom)
+              paint_segment_part(&context, &part_tile_sprite, part_c(state.bouncers[b].icon), 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
+              context.restore();
+            } else if time_since_truck < (truck_dur_1 + truck_dur_2) {
+              let progress = ((time_since_truck - truck_dur_1) / truck_dur_2).min(1.0).max(0.0);
+              let truck_x = end_x + progress * 20.0;
+              let truck_y = UI_MENU_BOTTOM_MACHINE_Y + (UI_MENU_BOTTOM_MACHINE_HEIGHT / 2.0) - (truck_size / 2.0) + (progress * -50.0); // Turn upward
+
+              context.save();
+              // This is how canvas rotation works; you rotate around the center of what you're painting, paint it, then reset the translation matrix.
+              // For this reason we must find the center of the dump truck, rotate around that point, and draw the dump track at minus half its size.
+              context.translate(truck_x + truck_size / 2.0, truck_y + truck_size / 2.0);
+              // Note: same as before but we turn less as we progress in the turn
+              context.rotate(std::f64::consts::FRAC_PI_2 * (1.0 - progress));
+              // Compensate for the origin currently being in the middle of the dump truck. Top-left is just easier.
+              context.translate(-truck_size/2.0, -truck_size/2.0);
+              // The truck starts _inside_ the factory and drives to the right (maybe slanted)
+              context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, 0.0, 0.0, truck_size, truck_size);
+              // Paint the part icon on the back of the trick (x-centered, y-bottom)
+              paint_segment_part(&context, &part_tile_sprite, part_c(state.bouncers[b].icon), 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
+              context.restore();
+            } else if time_since_truck < (truck_dur_1 + truck_dur_2 + truck_dur_3) {
+              // Get target coordinate where this part will be permanently drawn so we know where the truck has to move to
+              let ( target_x, target_y ) = get_recipe_xy(state.bouncers[b].recipe_index);
+
+              let progress = ((time_since_truck - (truck_dur_1 + truck_dur_2)) / truck_dur_3).min(1.0).max(0.0);
+              let truck_x = end_x + 20.0;
+              let truck_y = UI_MENU_BOTTOM_MACHINE_Y + (UI_MENU_BOTTOM_MACHINE_HEIGHT / 2.0) - (truck_size / 2.0) + -50.0; // Turn upward
+
+              let x = truck_x + (target_x - truck_x) * progress;
+              let y = truck_y + (target_y - truck_y) * progress;
+
+              context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, x, y, truck_size, truck_size);
+              // Paint the part icon on the back of the trick (x-centered, y-bottom)
+              paint_segment_part(&context, &part_tile_sprite, part_c(state.bouncers[b].icon), x + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), y + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
+            } else {
+              // Truck reached its destiny.
+              // - Enable the button
+              // - Drop the bouncer
+              // - Enable all new Quote(s) where the requirements are a visible recipe
+              // - Drop the old Quote
+              factory.recipes[state.bouncers[b].recipe_index].1 = true;
+            }
+          }
+        }
+
+        paint_bottom_menu(&options, &state, &context, &img_machine_1_1, &mouse_state);
 
         // TODO: wait for tiles to be loaded because first few frames won't paint anything while the tiles are loading...
         paint_background_tiles(&options, &state, &context, &part_tile_sprite, &factory, &belt_tile_images, &img_machine4, &img_machine_1_1, &img_machine_2_1, &img_machine_3_2);
@@ -628,6 +747,61 @@ pub fn start() -> Result<(), JsValue> {
         context.stroke_rect(GRID_X0, GRID_Y2, GRID_LEFT_WIDTH, GRID_BOTTOM_HEIGHT);
         context.stroke_rect(GRID_X1, GRID_Y2, FLOOR_WIDTH, GRID_BOTTOM_HEIGHT);
         context.stroke_rect(GRID_X0, GRID_Y3, GRID_LEFT_WIDTH + GRID_SPACING + FLOOR_WIDTH + GRID_SPACING + GRID_RIGHT_WIDTH, GRID_BOTTOM_DEBUG_HEIGHT);
+
+        let trail_time = 2;
+        let fade_time = 3;
+
+        for b in 0..state.bouncers.len() {
+          let framed = bouncer_step(&mut state.bouncers[b], factory.ticks);
+          if framed {
+            let x = state.bouncers[b].x;
+            let y = state.bouncers[b].y;
+            state.bouncers[b].frames.push_back( ( x, y, factory.ticks ) );
+          }
+
+          for ( x, y, added ) in state.bouncers[b].frames.iter() {
+            // context.set_fill_style(&"black".into());
+            // context.fill_rect(*x, *y, 100.0, 100.0);
+
+            // Leave trail on screen for 10 seconds. Then fade out in 5 seconds.
+            let existing = factory.ticks - added;
+            let tens = existing > ONE_SECOND * trail_time;
+            if tens {
+              let alpha = 1.0 - ((existing - ONE_SECOND * trail_time) as f64 / ((ONE_SECOND * fade_time) as f64)).max(0.0).min(1.0);
+              context.set_global_alpha(alpha);
+            }
+            paint_segment_part(&context, &part_tile_sprite, part_c(state.bouncers[b].icon), *x, *y, CELL_W, CELL_H);
+            if tens {
+              context.set_global_alpha(1.0);
+            }
+          }
+
+          // Drop expired frames
+          while state.bouncers[b].frames.len() > 0 {
+            if factory.ticks - state.bouncers[b].frames[0].2 > (ONE_SECOND * (trail_time + fade_time)) {
+              state.bouncers[b].frames.pop_front();
+              // If completely faded. Start dump truck
+              if state.bouncers[b].frames.len() == 0 {
+                state.bouncers[b].dump_trucked_at = factory.ticks;
+                state.bouncers[b].recipe_index = factory.recipes.len();
+                // Add the recipe as a placeholder. Do not paint it yet. The truck will drive there first.
+                factory.recipes.push( ( state.bouncers[b].icon , false ) );
+              }
+            } else {
+              break;
+            }
+          }
+
+
+
+
+          // context.set_fill_style(&"white".into());
+          // context.fill_text(format!("x: {}", state.bouncers[b].x).as_str(), state.bouncers[b].x + 5.0, state.bouncers[b].y + 20.0);
+          // context.fill_text(format!("y: {}", state.bouncers[b].y).as_str(), state.bouncers[b].x + 5.0, state.bouncers[b].y + 40.0);
+          // context.fill_text(format!("dx: {}", state.bouncers[b].dx).as_str(), state.bouncers[b].x + 5.0, state.bouncers[b].y + 60.0);
+          // context.fill_text(format!("dx: {}", state.bouncers[b].y).as_str(), state.bouncers[b].x + 5.0, state.bouncers[b].y + 80.0);
+
+        }
       }
 
       // Schedule next frame
@@ -640,13 +814,13 @@ pub fn start() -> Result<(), JsValue> {
   Ok(())
 }
 
-fn world_x_to_top_left_cell_x_while_dragging_offer(world_x: f64, offer_width: usize) -> f64 {
+fn world_x_to_top_left_cell_x_while_dragging_offer_machine(world_x: f64, offer_width: usize) -> f64 {
   // Abstracted this to make sure the preview and actual action use the same computation
   let compx = if offer_width % 2 == 1 { 0.0 } else { 0.5 };
   let ox = ((world_x + -UI_FLOOR_OFFSET_X).floor() / CELL_W + compx).floor() - (offer_width / 2) as f64;
   return ox;
 }
-fn world_y_to_top_left_cell_y_while_dragging_offer(world_y: f64, offer_height: usize) -> f64 {
+fn world_y_to_top_left_cell_y_while_dragging_offer_machine(world_y: f64, offer_height: usize) -> f64 {
   let compy = if offer_height % 2 == 1 { 0.0 } else { 0.5 };
   let oy = ((world_y + -UI_FLOOR_OFFSET_Y).floor() / CELL_H + compy).floor() - (offer_height / 2) as f64;
   return oy;
@@ -658,6 +832,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
       if bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_OFFSET_Y + UI_DAY_PROGRESS_HEIGHT) {
         on_up_day_bar(options, state, factory, &mouse_state);
         mouse_state.dragging_offer = false;
+        mouse_state.dragging_machine = false;
         return;
       }
     }
@@ -668,12 +843,18 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
       log(format!("is_drag_start from craft popup (before erase/selection check)"));
     } else {
       // Do this one before the erasing/selecting. It may cancel those states even if active.
-      let ( over_offer, offer_index ) = hit_test_offers(factory, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
-      if over_offer {
+      if mouse_state.over_offer {
         // Need to remember which offer we are currently dragging.
-        log(format!("is_drag_start from offer {} ({:?})", offer_index, factory.offers[offer_index].kind));
+        log(format!("is_drag_start from offer {} ({:?})", mouse_state.offer_index, factory.recipes[mouse_state.offer_index].0));
         mouse_state.dragging_offer = true;
-        mouse_state.over_offer = over_offer;
+        mouse_state.dragging_machine = false;
+        state.mouse_mode_erasing = false;
+        state.mouse_mode_selecting = false;
+      }
+      else if mouse_state.over_machine_button {
+        log(format!("is_drag_start from machine"));
+        mouse_state.dragging_machine = true;
+        mouse_state.dragging_offer = false;
         state.mouse_mode_erasing = false;
         state.mouse_mode_selecting = false;
       }
@@ -762,11 +943,12 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
     }
 
     mouse_state.dragging_offer = false;
+    mouse_state.dragging_machine = false;
   }
 }
 fn handle_mouse_up_over_menu_buttons(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, factory: &mut Factory) {
   // Was one of the buttons below the floor clicked?
-  if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_MENU_BUTTONS_OFFSET_X, UI_MENU_BUTTONS_OFFSET_Y, UI_MENU_BUTTONS_OFFSET_X + UI_MENU_BUTTONS_COUNT_WIDTH * (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING), UI_MENU_BUTTONS_OFFSET_Y + UI_MENU_BUTTONS_HEIGHT) {
+  if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_MENU_BUTTONS_OFFSET_X, UI_MENU_BUTTONS_OFFSET_Y, UI_MENU_BUTTONS_OFFSET_X + UI_MENU_BUTTONS_WIDTH_MAX, UI_MENU_BUTTONS_OFFSET_Y + UI_MENU_BUTTONS_HEIGHT) {
     let button_index = (mouse_state.last_up_world_x - UI_MENU_BUTTONS_OFFSET_X) / (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING);
     if button_index % 1.0 < (UI_MENU_BUTTONS_WIDTH / (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING)) {
       log(format!("clicked inside button {}", button_index));
@@ -838,7 +1020,7 @@ fn handle_mouse_up_over_menu_buttons(cell_selection: &mut CellSelection, mouse_s
     }
   }
   // Second row of buttons?
-  else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_MENU_BUTTONS_OFFSET_X, UI_MENU_BUTTONS_OFFSET_Y2, UI_MENU_BUTTONS_OFFSET_X + UI_MENU_BUTTONS_COUNT_WIDTH * (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING), UI_MENU_BUTTONS_OFFSET_Y2 + UI_MENU_BUTTONS_HEIGHT) {
+  else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_MENU_BUTTONS_OFFSET_X, UI_MENU_BUTTONS_OFFSET_Y2, UI_MENU_BUTTONS_OFFSET_X + UI_MENU_BUTTONS_WIDTH_MAX, UI_MENU_BUTTONS_OFFSET_Y2 + UI_MENU_BUTTONS_HEIGHT) {
     log(format!("Second row of buttons"));
     let button_index = (mouse_state.last_up_world_x - UI_MENU_BUTTONS_OFFSET_X) / (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING);
     if button_index % 1.0 < (UI_MENU_BUTTONS_WIDTH / (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING)) {
@@ -928,6 +1110,7 @@ fn update_mouse_state(options: &mut Options, state: &mut State, factory: &mut Fa
   mouse_state.was_up = false;
   mouse_state.was_dragging = false;
   mouse_state.over_offer = false;
+  mouse_state.over_machine_button = false;
 
   mouse_state.craft_over_any = false;
   mouse_state.craft_over_ci = CraftInteractable::None;
@@ -964,8 +1147,15 @@ fn update_mouse_state(options: &mut Options, state: &mut State, factory: &mut Fa
     // When already dragging do not update offer visual state, do not record the "over" state at all
     // When dragging an offer, the offer_index will be set to the initial offer index (keep it!)
     let (over_offer, offer_index) = hit_test_offers(factory, mouse_state.world_x, mouse_state.world_y);
-    mouse_state.over_offer = over_offer;
-    mouse_state.offer_index = offer_index;
+    if over_offer {
+      mouse_state.over_offer = over_offer;
+      mouse_state.offer_index = offer_index;
+    } else {
+      let over_machine_button = hit_test_machine_button(mouse_state.world_x, mouse_state.world_y);
+      if over_machine_button {
+        mouse_state.over_machine_button = true;
+      }
+    }
   }
 
   // on mouse down
@@ -1079,6 +1269,9 @@ fn on_up_inside_floor(options: &mut Options, state: &mut State, factory: &mut Fa
     else if mouse_state.dragging_offer {
       on_drag_end_offer_over_floor(options, state, factory, mouse_state);
     }
+    else if mouse_state.dragging_machine {
+      on_drag_end_machine_over_floor(options, state, factory, mouse_state);
+    }
     // Drag ended on the floor, did drag start on the floor?
     else if bounds_check(mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X, mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y, 0.0,  0.0, FLOOR_WIDTH, FLOOR_HEIGHT) {
       // Is the mouse currently on the floor?
@@ -1107,6 +1300,114 @@ fn on_up_day_bar(options: &mut Options, state: &mut State, factory: &mut Factory
   factory.finished_at = 0;
   factory.finished_with = 0;
 }
+fn on_drag_end_machine_over_floor(options: &mut Options, state: &mut State, factory: &mut Factory, mouse_state: &MouseState) {
+  log(format!("on_drag_offer_into_floor()"));
+
+  let last_mouse_up_cell_x = ((mouse_state.last_up_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor();
+  let last_mouse_up_cell_y = ((mouse_state.last_up_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor();
+  let last_mouse_up_cell_coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
+  let last_mouse_up_inside_cell_x = ((mouse_state.last_up_world_x - UI_FLOOR_OFFSET_X) / CELL_W) - last_mouse_up_cell_x;
+  let last_mouse_up_inside_cell_y = ((mouse_state.last_up_world_y - UI_FLOOR_OFFSET_Y) / CELL_H) - last_mouse_up_cell_y;
+
+  // let offer = &factory.offers[mouse_state.offer_index];
+
+  // Was dragging a machine and released it on the floor
+
+  // First check eligibility: Would every part of the machine be on a middle cell, not edge?
+  let ocw = 3; // Fixing to 3x3 for now
+  let och = 3;
+  let cx = world_x_to_top_left_cell_x_while_dragging_offer_machine(mouse_state.last_up_world_x, ocw);
+  let cy = world_y_to_top_left_cell_y_while_dragging_offer_machine(mouse_state.last_up_world_y, och);
+  // Make sure the entire machine fits, not just the center or topleft cell
+  if bounds_check(cx, cy, 1.0, 1.0, FLOOR_CELLS_W as f64 - (ocw as f64), FLOOR_CELLS_H as f64 - (och as f64)) {
+    let ccoord = to_coord(cx as usize, cy as usize);
+
+    // Get all machines and then get the first unused ID. First we round up all the existing
+    // machine ids into a vector and then we iterate through the vector incrementally until
+    // an ID is not used. This is O(n^2) but realistically worst case O(63^2) and good luck.
+
+    let mut ids = vec!();
+    for coord in 0..FLOOR_CELLS_WH {
+      if factory.floor[coord].kind == CellKind::Machine && factory.floor[coord].machine.main_coord == coord {
+        ids.push(factory.floor[coord].machine.id);
+      }
+    }
+
+    // Now iterate through all valid IDs, that is: 0-9a-zA-Z. I guess bail if we exhaust that.
+    // TODO: gracefully handle too many machines
+    let mut found = '!';
+    // Note: machine ids offset at 1 (because m0 is just too confusing for comfort)
+    for id in 1..62 {
+      let c =
+        if id >= 36 {
+          (('A' as u8) + (id - 36)) as char // A-Z
+        } else if id > 9 {
+          (('a' as u8) + (id - 10)) as char // a-z
+        } else {
+          (('0' as u8) + id) as char // 1-9
+        };
+      if !ids.contains(&c) {
+        found = c;
+        break;
+      }
+    }
+    if found == '!' {
+      panic!("Unable to find a fresh ID. Either there are too many machines on the floor or there is a bug with reclaiming them. Or d: something else.");
+    }
+
+    // Fill the rest with sub machine cells
+    for i in 0..ocw {
+      for j in 0..och {
+        let x = cx as usize + i;
+        let y = cy as usize + j;
+        let coord = to_coord(x, y);
+
+        // Meh. But we want to remember this state for checks below.
+        let ( port_u, port_r, port_d, port_l ) = match factory.floor[coord] {
+          super::cell::Cell { port_u, port_r, port_d, port_l, .. } => ( port_u, port_r, port_d, port_l )
+        };
+
+        // Make sure to drop machines properly. Belts are 1x1 so no problem. Empty are fine.
+        if factory.floor[coord].kind == CellKind::Machine {
+          floor_delete_cell_at_partial(options, state, factory, coord);
+        }
+
+        if i == 0 && j == 0 {
+          // Top-left cell is the main_coord here
+          factory.floor[coord] = machine_main_cell(
+            found,
+            x, y,
+            ocw, och,
+            vec!(), // Could fill with trash but no need I guess
+            part_c('t'),
+            2000,
+            1, 1
+          );
+        } else {
+          factory.floor[coord] = machine_sub_cell(found, x, y, ccoord);
+        }
+        factory.floor[ccoord].machine.coords.push(coord);
+
+        factory.floor[coord].port_u = if j == 0 { port_u } else { Port::None };
+        factory.floor[coord].port_r = if i == ocw - 1 { port_r } else { Port::None };
+        factory.floor[coord].port_d = if j == och - 1 { port_d } else { Port::None };
+        factory.floor[coord].port_l = if i == 0 { port_l } else { Port::None };
+      }
+    }
+
+    log(format!("Attaching machine to neighbor dead ending belts"));
+    for i in 0..factory.floor[ccoord].machine.coords.len() {
+      let coord = factory.floor[ccoord].machine.coords[i];
+      connect_to_neighbor_dead_end_belts(options, state, factory, coord);
+    }
+
+    machine_discover_ins_and_outs(factory, ccoord);
+
+    factory.changed = true;
+  } else {
+    log(format!("Dropped a machine on the edge. Ignoring. {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize));
+  }
+}
 fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, factory: &mut Factory, mouse_state: &MouseState) {
   log(format!("on_drag_offer_into_floor()"));
 
@@ -1116,110 +1417,111 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, factor
   let last_mouse_up_inside_cell_x = ((mouse_state.last_up_world_x - UI_FLOOR_OFFSET_X) / CELL_W) - last_mouse_up_cell_x;
   let last_mouse_up_inside_cell_y = ((mouse_state.last_up_world_y - UI_FLOOR_OFFSET_Y) / CELL_H) - last_mouse_up_cell_y;
 
-  let offer = &factory.offers[mouse_state.offer_index];
+  // let offer = &factory.offers[mouse_state.offer_index];
 
   // Was dragging an offer and released it on the floor
   // Offers have cell constraints. In particular, supply/demand can only go on edges and
   // machines can not go on the edge.
-  match offer.kind {
-    CellKind::Machine => {
-      // would every part of the machine be on a middle cell, not edge?
-      let ocw = offer.cell_width;
-      let och = offer.cell_height;
-      let cx = world_x_to_top_left_cell_x_while_dragging_offer(mouse_state.last_up_world_x, ocw);
-      let cy = world_y_to_top_left_cell_y_while_dragging_offer(mouse_state.last_up_world_y, och);
-      // Make sure the entire machine fits, not just the center or topleft cell
-      if bounds_check(cx, cy, 1.0, 1.0, FLOOR_CELLS_W as f64 - (ocw as f64), FLOOR_CELLS_H as f64 - (och as f64)) {
-        let ccoord = to_coord(cx as usize, cy as usize);
-
-        // Get all machines and then get the first unused ID. First we round up all the existing
-        // machine ids into a vector and then we iterate through the vector incrementally until
-        // an ID is not used. This is O(n^2) but realistically worst case O(63^2) and good luck.
-
-        let mut ids = vec!();
-        for coord in 0..FLOOR_CELLS_WH {
-          if factory.floor[coord].kind == CellKind::Machine && factory.floor[coord].machine.main_coord == coord {
-            ids.push(factory.floor[coord].machine.id);
-          }
-        }
-        // Now iterate through all valid IDs, that is: 0-9a-zA-Z. I guess bail if we exhaust that.
-        // TODO: gracefully handle too many machines
-        let mut found = '!';
-        // Note: machine ids offset at 1 (because m0 is just too confusing for comfort)
-        for id in 1..62 {
-          let c =
-            if id >= 36 {
-              (('A' as u8) + (id - 36)) as char // A-Z
-            } else if id > 9 {
-              (('a' as u8) + (id - 10)) as char // a-z
-            } else {
-              (('0' as u8) + id) as char // 1-9
-            };
-          if !ids.contains(&c) {
-            found = c;
-            break;
-          }
-        }
-        if found == '!' {
-          panic!("Unable to find a fresh ID. Either there are too many machines on the floor or there is a bug with reclaiming them. Or d: something else.");
-        }
-
-        // Fill the rest with sub machine cells
-        for i in 0..ocw {
-          for j in 0..och {
-            let x = cx as usize + i;
-            let y = cy as usize + j;
-            let coord = to_coord(x, y);
-
-            // Meh. But we want to remember this state for checks below.
-            let ( port_u, port_r, port_d, port_l ) = match factory.floor[coord] {
-              super::cell::Cell { port_u, port_r, port_d, port_l, .. } => ( port_u, port_r, port_d, port_l )
-            };
-
-            // Make sure to drop machines properly. Belts are 1x1 so no problem. Empty are fine.
-            if factory.floor[coord].kind == CellKind::Machine {
-              floor_delete_cell_at_partial(options, state, factory, coord);
-            }
-
-            if i == 0 && j == 0 {
-              // Top-left cell is the main_coord here
-              factory.floor[coord] = machine_main_cell(
-                found,
-                x, y,
-                ocw, och,
-                factory.offers[mouse_state.offer_index].wants.clone(),
-                part_c(factory.offers[mouse_state.offer_index].machine_output),
-                factory.offers[mouse_state.offer_index].speed,
-                1, 1
-              );
-            } else {
-              factory.floor[coord] = machine_sub_cell(found, x, y, ccoord);
-            }
-            factory.floor[ccoord].machine.coords.push(coord);
-
-            factory.floor[coord].port_u = if j == 0 { port_u } else { Port::None };
-            factory.floor[coord].port_r = if i == ocw - 1 { port_r } else { Port::None };
-            factory.floor[coord].port_d = if j == och - 1 { port_d } else { Port::None };
-            factory.floor[coord].port_l = if i == 0 { port_l } else { Port::None };
-          }
-        }
-
-        log(format!("Attaching machine to neighbor dead ending belts"));
-        for i in 0..factory.floor[ccoord].machine.coords.len() {
-          let coord = factory.floor[ccoord].machine.coords[i];
-          connect_to_neighbor_dead_end_belts(options, state, factory, coord);
-        }
-
-        machine_discover_ins_and_outs(factory, ccoord);
-
-        factory.changed = true;
-      } else {
-        log(format!("Dropped a machine on the edge. Ignoring. {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize));
-      }
-    }
-    CellKind::Supply => {
+  // match offer.kind {
+  //   CellKind::Machine => {
+  //     // would every part of the machine be on a middle cell, not edge?
+  //     let ocw = offer.cell_width;
+  //     let och = offer.cell_height;
+  //     let cx = world_x_to_top_left_cell_x_while_dragging_offer_machine(mouse_state.last_up_world_x, ocw);
+  //     let cy = world_y_to_top_left_cell_y_while_dragging_offer_machine(mouse_state.last_up_world_y, och);
+  //     // Make sure the entire machine fits, not just the center or topleft cell
+  //     if bounds_check(cx, cy, 1.0, 1.0, FLOOR_CELLS_W as f64 - (ocw as f64), FLOOR_CELLS_H as f64 - (och as f64)) {
+  //       let ccoord = to_coord(cx as usize, cy as usize);
+  //
+  //       // Get all machines and then get the first unused ID. First we round up all the existing
+  //       // machine ids into a vector and then we iterate through the vector incrementally until
+  //       // an ID is not used. This is O(n^2) but realistically worst case O(63^2) and good luck.
+  //
+  //       let mut ids = vec!();
+  //       for coord in 0..FLOOR_CELLS_WH {
+  //         if factory.floor[coord].kind == CellKind::Machine && factory.floor[coord].machine.main_coord == coord {
+  //           ids.push(factory.floor[coord].machine.id);
+  //         }
+  //       }
+  //       // Now iterate through all valid IDs, that is: 0-9a-zA-Z. I guess bail if we exhaust that.
+  //       // TODO: gracefully handle too many machines
+  //       let mut found = '!';
+  //       // Note: machine ids offset at 1 (because m0 is just too confusing for comfort)
+  //       for id in 1..62 {
+  //         let c =
+  //           if id >= 36 {
+  //             (('A' as u8) + (id - 36)) as char // A-Z
+  //           } else if id > 9 {
+  //             (('a' as u8) + (id - 10)) as char // a-z
+  //           } else {
+  //             (('0' as u8) + id) as char // 1-9
+  //           };
+  //         if !ids.contains(&c) {
+  //           found = c;
+  //           break;
+  //         }
+  //       }
+  //       if found == '!' {
+  //         panic!("Unable to find a fresh ID. Either there are too many machines on the floor or there is a bug with reclaiming them. Or d: something else.");
+  //       }
+  //
+  //       // Fill the rest with sub machine cells
+  //       for i in 0..ocw {
+  //         for j in 0..och {
+  //           let x = cx as usize + i;
+  //           let y = cy as usize + j;
+  //           let coord = to_coord(x, y);
+  //
+  //           // Meh. But we want to remember this state for checks below.
+  //           let ( port_u, port_r, port_d, port_l ) = match factory.floor[coord] {
+  //             super::cell::Cell { port_u, port_r, port_d, port_l, .. } => ( port_u, port_r, port_d, port_l )
+  //           };
+  //
+  //           // Make sure to drop machines properly. Belts are 1x1 so no problem. Empty are fine.
+  //           if factory.floor[coord].kind == CellKind::Machine {
+  //             floor_delete_cell_at_partial(options, state, factory, coord);
+  //           }
+  //
+  //           if i == 0 && j == 0 {
+  //             // Top-left cell is the main_coord here
+  //             factory.floor[coord] = machine_main_cell(
+  //               found,
+  //               x, y,
+  //               ocw, och,
+  //               factory.offers[mouse_state.offer_index].wants.clone(),
+  //               part_c(factory.offers[mouse_state.offer_index].machine_output),
+  //               factory.offers[mouse_state.offer_index].speed,
+  //               1, 1
+  //             );
+  //           } else {
+  //             factory.floor[coord] = machine_sub_cell(found, x, y, ccoord);
+  //           }
+  //           factory.floor[ccoord].machine.coords.push(coord);
+  //
+  //           factory.floor[coord].port_u = if j == 0 { port_u } else { Port::None };
+  //           factory.floor[coord].port_r = if i == ocw - 1 { port_r } else { Port::None };
+  //           factory.floor[coord].port_d = if j == och - 1 { port_d } else { Port::None };
+  //           factory.floor[coord].port_l = if i == 0 { port_l } else { Port::None };
+  //         }
+  //       }
+  //
+  //       log(format!("Attaching machine to neighbor dead ending belts"));
+  //       for i in 0..factory.floor[ccoord].machine.coords.len() {
+  //         let coord = factory.floor[ccoord].machine.coords[i];
+  //         connect_to_neighbor_dead_end_belts(options, state, factory, coord);
+  //       }
+  //
+  //       machine_discover_ins_and_outs(factory, ccoord);
+  //
+  //       factory.changed = true;
+  //     } else {
+  //       log(format!("Dropped a machine on the edge. Ignoring. {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize));
+  //     }
+  //   }
+  //   CellKind::Supply => {
       if is_edge_not_corner(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize) {
         log(format!("Dropped a supply on an edge cell that is not corner. Deploying... {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize));
+        log(format!("Drag started from offer {} ({:?})", mouse_state.offer_index, factory.recipes[mouse_state.offer_index].0));
         let bools = ( last_mouse_up_cell_x == 0.0, last_mouse_up_cell_y == 0.0, last_mouse_up_cell_x as usize == FLOOR_CELLS_W - 1, last_mouse_up_cell_y as usize == FLOOR_CELLS_H - 1 );
         log(format!("wtf {} {:?} bools: {:?}", to_coord_right(last_mouse_up_cell_coord), factory.floor[to_coord_right(last_mouse_up_cell_coord)].port_l, bools));
         let prev_port = match bools {
@@ -1240,7 +1542,7 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, factor
           floor_delete_cell_at_partial(options, state, factory, last_mouse_up_cell_coord);
         }
         log(format!("Add new supply cell..."));
-        factory.floor[last_mouse_up_cell_coord] = supply_cell(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_c(factory.offers[mouse_state.offer_index].supply_icon), factory.offers[mouse_state.offer_index].speed, factory.offers[mouse_state.offer_index].cooldown, 1);
+        factory.floor[last_mouse_up_cell_coord] = supply_cell(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_c(factory.recipes[mouse_state.offer_index].0), 2000, 500, 1);
         connect_to_neighbor_dead_end_belts(options, state, factory, last_mouse_up_cell_coord);
         match bools {
           ( false, true, false, false ) => factory.floor[last_mouse_up_cell_coord].port_d = Port::Outbound,
@@ -1284,74 +1586,74 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, factor
       } else {
         log(format!("Dropped a supply on the floor or a corner. Ignoring. {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize));
       }
-    }
-    CellKind::Demand => {
-      if is_edge_not_corner(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize) {
-        log(format!("Dropped a demand on an edge cell that is not corner. Deploying..."));
-        let prev_port = match ( last_mouse_up_cell_x == 0.0, last_mouse_up_cell_y == 0.0, last_mouse_up_cell_x as usize == FLOOR_CELLS_W - 1, last_mouse_up_cell_y as usize == FLOOR_CELLS_H - 1 ) {
-          ( false, true, false, false ) => factory.floor[to_coord_down(last_mouse_up_cell_coord)].port_u,
-          ( false, false, true, false ) => factory.floor[to_coord_left(last_mouse_up_cell_coord)].port_r,
-          ( false, false, false, true ) => factory.floor[to_coord_up(last_mouse_up_cell_coord)].port_d,
-          ( true, false, false, false ) => factory.floor[to_coord_right(last_mouse_up_cell_coord)].port_l,
-          _ => panic!("Should be one side"),
-        };
-        log(format!("- Was neighbor connected to this cell? {:?}", prev_port));
-        // If there's already something on this cell then we need to remove it first
-        if factory.floor[last_mouse_up_cell_coord].kind != CellKind::Empty {
-          // Must be supply or demand
-          // We should be able to replace this one with the new tile without having to update
-          // the neighbors (if any). We do have to update the prio list (in case demand->supply).
-          log(format!("Remove old edge cell..."));
-          floor_delete_cell_at_partial(options, state, factory, last_mouse_up_cell_coord);
-        }
-        log(format!("Add new demand cell..."));
-        factory.floor[last_mouse_up_cell_coord] = demand_cell(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
-        connect_to_neighbor_dead_end_belts(options, state, factory, last_mouse_up_cell_coord);
-        match ( last_mouse_up_cell_x == 0.0, last_mouse_up_cell_y == 0.0, last_mouse_up_cell_x as usize == FLOOR_CELLS_W - 1, last_mouse_up_cell_y as usize == FLOOR_CELLS_H - 1 ) {
-          ( false, true, false, false ) => factory.floor[last_mouse_up_cell_coord].port_d = Port::Inbound,
-          ( false, false, true, false ) => factory.floor[last_mouse_up_cell_coord].port_l = Port::Inbound,
-          ( false, false, false, true ) => factory.floor[last_mouse_up_cell_coord].port_u = Port::Inbound,
-          ( true, false, false, false ) => factory.floor[last_mouse_up_cell_coord].port_r = Port::Inbound,
-          _ => panic!("Should be one side"),
-        }
-        if prev_port != Port::None {
-          log(format!("- Neighbor was connected so restoring that now..."));
-          match ( last_mouse_up_cell_x == 0.0, last_mouse_up_cell_y == 0.0, last_mouse_up_cell_x as usize == FLOOR_CELLS_W - 1, last_mouse_up_cell_y as usize == FLOOR_CELLS_H - 1 ) {
-            ( false, true, false, false ) => {
-              let ocoord = to_coord_down(last_mouse_up_cell_coord);
-              factory.floor[ocoord].port_u = Port::Outbound;
-              fix_belt_meta(factory, ocoord);
-              belt_discover_ins_and_outs(factory, ocoord);
-            },
-            ( false, false, true, false ) => {
-              let ocoord = to_coord_left(last_mouse_up_cell_coord);
-              factory.floor[ocoord].port_r = Port::Outbound;
-              fix_belt_meta(factory, ocoord);
-              belt_discover_ins_and_outs(factory, ocoord);
-            },
-            ( false, false, false, true ) => {
-              let ocoord = to_coord_up(last_mouse_up_cell_coord);
-              factory.floor[ocoord].port_d = Port::Outbound;
-              fix_belt_meta(factory, ocoord);
-              belt_discover_ins_and_outs(factory, ocoord);
-            },
-            ( true, false, false, false ) => {
-              let ocoord = to_coord_right(last_mouse_up_cell_coord);
-              factory.floor[ocoord].port_l = Port::Outbound;
-              fix_belt_meta(factory, ocoord);
-              belt_discover_ins_and_outs(factory, ocoord);
-            },
-            _ => panic!("Should be one side"),
-          }
-        }
-        factory.changed = true;
-      } else {
-        log(format!("Dropped a demand on the floor or a corner. Ignoring. {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize));
-      }
-    }
-    CellKind::Empty => panic!("no"),
-    CellKind::Belt => panic!("no"),
-  }
+  //   }
+  //   CellKind::Demand => {
+  //     if is_edge_not_corner(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize) {
+  //       log(format!("Dropped a demand on an edge cell that is not corner. Deploying..."));
+  //       let prev_port = match ( last_mouse_up_cell_x == 0.0, last_mouse_up_cell_y == 0.0, last_mouse_up_cell_x as usize == FLOOR_CELLS_W - 1, last_mouse_up_cell_y as usize == FLOOR_CELLS_H - 1 ) {
+  //         ( false, true, false, false ) => factory.floor[to_coord_down(last_mouse_up_cell_coord)].port_u,
+  //         ( false, false, true, false ) => factory.floor[to_coord_left(last_mouse_up_cell_coord)].port_r,
+  //         ( false, false, false, true ) => factory.floor[to_coord_up(last_mouse_up_cell_coord)].port_d,
+  //         ( true, false, false, false ) => factory.floor[to_coord_right(last_mouse_up_cell_coord)].port_l,
+  //         _ => panic!("Should be one side"),
+  //       };
+  //       log(format!("- Was neighbor connected to this cell? {:?}", prev_port));
+  //       // If there's already something on this cell then we need to remove it first
+  //       if factory.floor[last_mouse_up_cell_coord].kind != CellKind::Empty {
+  //         // Must be supply or demand
+  //         // We should be able to replace this one with the new tile without having to update
+  //         // the neighbors (if any). We do have to update the prio list (in case demand->supply).
+  //         log(format!("Remove old edge cell..."));
+  //         floor_delete_cell_at_partial(options, state, factory, last_mouse_up_cell_coord);
+  //       }
+  //       log(format!("Add new demand cell..."));
+  //       factory.floor[last_mouse_up_cell_coord] = demand_cell(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
+  //       connect_to_neighbor_dead_end_belts(options, state, factory, last_mouse_up_cell_coord);
+  //       match ( last_mouse_up_cell_x == 0.0, last_mouse_up_cell_y == 0.0, last_mouse_up_cell_x as usize == FLOOR_CELLS_W - 1, last_mouse_up_cell_y as usize == FLOOR_CELLS_H - 1 ) {
+  //         ( false, true, false, false ) => factory.floor[last_mouse_up_cell_coord].port_d = Port::Inbound,
+  //         ( false, false, true, false ) => factory.floor[last_mouse_up_cell_coord].port_l = Port::Inbound,
+  //         ( false, false, false, true ) => factory.floor[last_mouse_up_cell_coord].port_u = Port::Inbound,
+  //         ( true, false, false, false ) => factory.floor[last_mouse_up_cell_coord].port_r = Port::Inbound,
+  //         _ => panic!("Should be one side"),
+  //       }
+  //       if prev_port != Port::None {
+  //         log(format!("- Neighbor was connected so restoring that now..."));
+  //         match ( last_mouse_up_cell_x == 0.0, last_mouse_up_cell_y == 0.0, last_mouse_up_cell_x as usize == FLOOR_CELLS_W - 1, last_mouse_up_cell_y as usize == FLOOR_CELLS_H - 1 ) {
+  //           ( false, true, false, false ) => {
+  //             let ocoord = to_coord_down(last_mouse_up_cell_coord);
+  //             factory.floor[ocoord].port_u = Port::Outbound;
+  //             fix_belt_meta(factory, ocoord);
+  //             belt_discover_ins_and_outs(factory, ocoord);
+  //           },
+  //           ( false, false, true, false ) => {
+  //             let ocoord = to_coord_left(last_mouse_up_cell_coord);
+  //             factory.floor[ocoord].port_r = Port::Outbound;
+  //             fix_belt_meta(factory, ocoord);
+  //             belt_discover_ins_and_outs(factory, ocoord);
+  //           },
+  //           ( false, false, false, true ) => {
+  //             let ocoord = to_coord_up(last_mouse_up_cell_coord);
+  //             factory.floor[ocoord].port_d = Port::Outbound;
+  //             fix_belt_meta(factory, ocoord);
+  //             belt_discover_ins_and_outs(factory, ocoord);
+  //           },
+  //           ( true, false, false, false ) => {
+  //             let ocoord = to_coord_right(last_mouse_up_cell_coord);
+  //             factory.floor[ocoord].port_l = Port::Outbound;
+  //             fix_belt_meta(factory, ocoord);
+  //             belt_discover_ins_and_outs(factory, ocoord);
+  //           },
+  //           _ => panic!("Should be one side"),
+  //         }
+  //       }
+  //       factory.changed = true;
+  //     } else {
+  //       log(format!("Dropped a demand on the floor or a corner. Ignoring. {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize));
+  //     }
+  //   }
+  //   CellKind::Empty => panic!("no"),
+  //   CellKind::Belt => panic!("no"),
+  // }
 }
 fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
   log(format!("on_drag_end_inside_floor()"));
@@ -1663,41 +1965,37 @@ fn hit_test_get_craft_interactable_machine_at(options: &mut Options, state: &mut
     return ( CraftInteractable::BackClose, close_wx, close_wy, CELL_W, CELL_H, '#', 99 );
   }
 
+  // Actual number of seen inputs
   let len = factory.floor[main_coord].machine.last_received.len();
-  if len == 0 {
-    // Only showing a trash icon. Consider len=1 for all intentions and purposes.
-    let angle: f64 = 4.5 * 0.1 * std::f64::consts::TAU;
+  // Make sure that we always show something. If there aren't any elements, show trash as the only icon.
+  let count = len.max(1);
 
-    // TODO: could pre-compute these coords per factory and read the coords from a vec
-    let btn_c_wx = angle.sin() * minr;
-    let btn_c_wy = angle.cos() * minr;
-    let wx = center_wx + btn_c_wx - CELL_W / 2.0;
-    let wy = center_wy + btn_c_wy - CELL_H / 2.0;
-
-    if bounds_check(mwx, mwy, wx, wy, wx + CELL_W, wy + CELL_H) {
-      // log(format!("Clicked resource box {}. (TODO)", i));
-      return ( CraftInteractable::Resource, btn_c_wx, btn_c_wy, CELL_W, CELL_H, 't', 0 );
-    }
-  } else {
-    let angle_step = 5.5 - (len as f64 / 2.0).ceil() + (0.5 * ((len % 2) as f64));
-    for i in 0..len {
-      let angle: f64 = (angle_step + i as f64) * 0.1 * std::f64::consts::TAU;
-
-      // TODO: could pre-compute these coords per factory and read the coords from a vec
-      let btn_c_wx = angle.sin() * minr;
-      let btn_c_wy = angle.cos() * minr;
-      let wx = center_wx + btn_c_wx - CELL_W / 2.0;
-      let wy = center_wy + btn_c_wy - CELL_H / 2.0;
-
-      if bounds_check(mwx, mwy, wx, wy, wx + CELL_W, wy + CELL_H) {
-        // log(format!("Clicked resource box {}. (TODO)", i));
-        return ( CraftInteractable::Resource, btn_c_wx, btn_c_wy, CELL_W, CELL_H, factory.floor[main_coord].machine.last_received[i].0.icon, i as u8 );
-      }
+  let angle_step = 5.5 - (count as f64 / 2.0).ceil() + (0.5 * ((count % 2) as f64));
+  for i in 0..count {
+    let r = hit_test_get_craft_interactable_machine_at_index(angle_step, minr, center_wx, center_wy, mwx, mwy, i, if len == 0 { 't' } else { factory.floor[main_coord].machine.last_received[i].0.icon });
+    if let Some(x) = r {
+      return x;
     }
   }
 
   // log(format!("Clicked inside machine circle but did not hit any interactables"));
   return ( CraftInteractable::None, 0.0, 0.0, 0.0, 0.0, '#', 99 );
+}
+fn hit_test_get_craft_interactable_machine_at_index(angle_step: f64, minr: f64, center_wx: f64, center_wy: f64, mwx: f64, mwy: f64, index: usize, icon: char) -> Option< ( CraftInteractable, f64, f64, f64, f64, char, u8 ) > {
+  let angle: f64 = (angle_step + index as f64) * 0.1 * std::f64::consts::TAU;
+
+  // TODO: could pre-compute these coords per factory and read the coords from a vec
+  let btn_c_wx = angle.sin() * minr;
+  let btn_c_wy = angle.cos() * minr;
+  let wx = center_wx + btn_c_wx - CELL_W / 2.0;
+  let wy = center_wy + btn_c_wy - CELL_H / 2.0;
+
+  if bounds_check(mwx, mwy, wx, wy, wx + CELL_W, wy + CELL_H) {
+    // log(format!("Clicked resource box {}. (TODO)", i));
+    return Some( ( CraftInteractable::Resource, btn_c_wx, btn_c_wy, CELL_W, CELL_H, icon, index as u8 ) );
+  }
+
+  return None;
 }
 fn on_click_inside_floor(options: &mut Options, state: &mut State, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
   log(format!("on_click_inside_floor()"));
@@ -1758,17 +2056,37 @@ fn hit_test_machine_circle(factory: &Factory, any_machine_coord: usize, mwx: f64
   return hit_test_circle(mwx, mwy, center_wx, center_wy, cr);
 }
 fn hit_test_offers(factory: &Factory, mx: f64, my: f64) -> (bool, usize ) {
-  if bounds_check(mx, my, UI_OFFERS_OFFSET_X, UI_OFFERS_OFFSET_Y, UI_OFFERS_OFFSET_X + UI_OFFERS_WIDTH, UI_OFFERS_OFFSET_Y + UI_OFFERS_HEIGHT_PLUS_MARGIN * (factory.offers.len() as f64)) {
-    let inside_offer_and_margin_index = ((my - UI_OFFERS_OFFSET_Y) / UI_OFFERS_HEIGHT_PLUS_MARGIN).floor();
-    let offer_heights_away_from_top_of_offer = inside_offer_and_margin_index - (UI_OFFERS_OFFSET_Y + inside_offer_and_margin_index * UI_OFFERS_HEIGHT_PLUS_MARGIN) ;
-    if offer_heights_away_from_top_of_offer < UI_OFFERS_HEIGHT {
-      return ( true, inside_offer_and_margin_index as usize );
-    } else {
+  if bounds_check(mx, my, UI_OFFERS_OFFSET_X, UI_OFFERS_OFFSET_Y, UI_OFFERS_OFFSET_X + UI_OFFERS_WIDTH_PLUS_MARGIN * UI_OFFERS_PER_ROW, UI_OFFERS_OFFSET_Y + UI_OFFERS_HEIGHT_PLUS_MARGIN * (factory.recipes.len() as f64 / UI_OFFERS_PER_ROW).ceil()) {
+    let inside_offer_and_margin_x = (mx - UI_OFFERS_OFFSET_X) / UI_OFFERS_WIDTH_PLUS_MARGIN;
+    if (mx - UI_OFFERS_OFFSET_X) - (inside_offer_and_margin_x.floor() * UI_OFFERS_WIDTH_PLUS_MARGIN) > UI_OFFERS_WIDTH {
+      // In the horizontal margin. Miss.
       return ( false, 0 );
     }
+    let inside_offer_and_margin_y = (my - UI_OFFERS_OFFSET_Y) / UI_OFFERS_HEIGHT_PLUS_MARGIN;
+    if (my - UI_OFFERS_OFFSET_Y) - (inside_offer_and_margin_y.floor() * UI_OFFERS_HEIGHT_PLUS_MARGIN) > UI_OFFERS_HEIGHT {
+      // In the vertical margin. Miss.
+      return ( false, 0 );
+    }
+
+    let inside_offer_and_margin_index = (inside_offer_and_margin_x.floor() + inside_offer_and_margin_y.floor() * UI_OFFERS_PER_ROW) as usize;
+
+    let mut count = 0;
+    for i in 0..factory.recipes.len() {
+      if factory.recipes[i].1 {
+        if count == inside_offer_and_margin_index {
+          return ( true, i );
+        }
+        count += 1;
+      }
+    }
+
+    return ( true, 0 ); // How?
   } else {
     return ( false, 0 );
   };
+}
+fn hit_test_machine_button(mx: f64, my: f64) -> bool {
+  return bounds_check(mx, my, UI_MENU_BOTTOM_MACHINE_X, UI_MENU_BOTTOM_MACHINE_Y, UI_MENU_BOTTOM_MACHINE_X + UI_MENU_BOTTOM_MACHINE_WIDTH, UI_MENU_BOTTOM_MACHINE_Y + UI_MENU_BOTTOM_MACHINE_HEIGHT);
 }
 fn ray_trace_dragged_line(factory: &Factory, x0: f64, y0: f64, x1: f64, y1: f64, for_preview: bool) -> Vec<((usize, usize), BeltType, Direction, Direction)> {
   // We raytracing
@@ -2308,11 +2626,14 @@ fn paint_machine_selection_and_craft(options: &Options, state: &State, context: 
   let close_wy = center_wy + minr - CELL_H / 2.0;
   btn(context, close_wx, close_wy, '↩', mouse_state.craft_over_ci == CraftInteractable::BackClose);
 
+  // Actual number of seen inputs
   let len = factory.floor[main_coord].machine.last_received.len();
+  // Make sure that we always show something. If there aren't any elements, show trash as the only icon.
+  let count = len.max(1);
 
-  if len == 0 {
-    // Print a trash input
-    let angle: f64 = 5.0 * 0.1 * std::f64::consts::TAU;
+  let angle_step = 5.5 - (count as f64 / 2.0).ceil() + (0.5 * ((count % 2) as f64));
+  for i in 0..count {
+    let angle: f64 = (angle_step + i as f64) * 0.1 * std::f64::consts::TAU;
 
     // TODO: could pre-compute these coords per factory and read the coords from a vec
     let btn_c_wx = angle.sin() * minr;
@@ -2320,22 +2641,9 @@ fn paint_machine_selection_and_craft(options: &Options, state: &State, context: 
     let wx = center_wx + btn_c_wx - CELL_W / 2.0;
     let wy = center_wy + btn_c_wy - CELL_H / 2.0;
 
-    // When hovering over the index, the _c is set to the char of the digit of that index
-    btn_img(context, part_tile_sprite, wx, wy, 't', mouse_state.craft_over_ci_index == 0);
-  } else {
-    let angle_step = 5.5 - (len as f64 / 2.0).ceil() + (0.5 * ((len % 2) as f64));
-    for i in 0..len {
-      let angle: f64 = (angle_step + i as f64) * 0.1 * std::f64::consts::TAU;
-
-      // TODO: could pre-compute these coords per factory and read the coords from a vec
-      let btn_c_wx = angle.sin() * minr;
-      let btn_c_wy = angle.cos() * minr;
-      let wx = center_wx + btn_c_wx - CELL_W / 2.0;
-      let wy = center_wy + btn_c_wy - CELL_H / 2.0;
-
-      // When hovering over the index, the _c is set to the char of the digit of that index
-      btn_img(context, part_tile_sprite, wx, wy, factory.floor[main_coord].machine.last_received[i].0.icon, mouse_state.craft_over_ci_index == (i as u8));
-    }
+    // When hovering over the index, the _c is set to the char of the digit of that index.
+    // If there are no last seen elements, show a trash icon
+    btn_img(context, part_tile_sprite, wx, wy, if len == 0 { 't' } else { factory.floor[main_coord].machine.last_received[i].0.icon }, mouse_state.craft_over_ci_index == (i as u8));
   }
 }
 fn paint_mouse_cursor(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
@@ -2356,6 +2664,9 @@ fn paint_mouse_action(options: &Options, state: &State, factory: &Factory, conte
   }
   else if mouse_state.dragging_offer {
     paint_mouse_while_dragging_offer(options, state, factory, context, mouse_state);
+  }
+  else if mouse_state.dragging_machine {
+    paint_mouse_while_dragging_machine(options, state, factory, context, mouse_state);
   }
   else if mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && mouse_state.cell_x < FLOOR_CELLS_W as f64 && mouse_state.cell_y < FLOOR_CELLS_H as f64 {
     if !mouse_state.craft_over_any {
@@ -2444,37 +2755,105 @@ fn paint_mouse_in_selection_mode(options: &Options, state: &State, factory: &Fac
     }
   }
 }
+fn paint_mouse_while_dragging_machine(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  // For now, machines are fixed to 3x3
+  let machine_cells_width = 3;
+  let machine_cells_height = 3;
+  
+  
+  // Paint drop zone over the edge cells
+  context.set_fill_style(&"#00004444".into());
+
+  // All edges
+  context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, CELL_W, FLOOR_HEIGHT - CELL_H);
+  context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y, FLOOR_WIDTH - CELL_W, CELL_H);
+  context.fill_rect(UI_FLOOR_OFFSET_X + FLOOR_WIDTH - CELL_W, UI_FLOOR_OFFSET_Y + CELL_H, CELL_W, FLOOR_HEIGHT - CELL_H);
+  context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT - CELL_H, FLOOR_WIDTH - CELL_W, CELL_H);
+
+  // Note that mouse cell x is not where the top-left most cell of the machine would be
+  let top_left_machine_cell_x = world_x_to_top_left_cell_x_while_dragging_offer_machine(mouse_state.world_x, machine_cells_width);
+  let top_left_machine_cell_y = world_y_to_top_left_cell_y_while_dragging_offer_machine(mouse_state.world_y, machine_cells_height);
+
+  // Make sure the entire machine fits, not just the center or topleft cell
+  let legal = !bounds_check(top_left_machine_cell_x, top_left_machine_cell_y, 1.0, 1.0, FLOOR_CELLS_W as f64 - (machine_cells_width as f64), FLOOR_CELLS_H as f64 - (machine_cells_height as f64));
+  
+  // Face out illegal options
+  let ( paint_at_x, paint_at_y) =
+    if legal {
+      // Do not snap if machine would cover the edge
+      let ox = mouse_state.world_x - ((machine_cells_width as f64) * (CELL_W as f64) / 2.0 );
+      let oy = mouse_state.world_y - ((machine_cells_height as f64) * (CELL_H as f64) / 2.0 );
+      ( ox, oy )
+    } else {
+      ( UI_FLOOR_OFFSET_X + top_left_machine_cell_x.round() * CELL_W, UI_FLOOR_OFFSET_Y + top_left_machine_cell_y.round() * CELL_H )
+    };
+
+  fn paint_illegal(context: &Rc<web_sys::CanvasRenderingContext2d>, x: f64, y: f64, w: f64, h: f64) {
+    // tbd. dont like this part but it gets the job done I guess.
+    context.set_stroke_style(&"red".into());
+    context.stroke_rect(x, y, w, h);
+    // context.set_line_width(3.0);
+    // context.set_line_cap("round");
+    let n = 11.0;
+    let ws = w / n;
+    let hs = h / n;
+    for i in 0..ws as u32 {
+      for j in 0..hs as u32 {
+        let fi = i as f64;
+        let fj = j as f64;
+
+        context.begin_path();
+        context.move_to(x, y + fj * n);
+        context.line_to(x + w, y + fj * n);
+        context.stroke();
+
+        context.begin_path();
+        context.move_to(x + fi * n, y);
+        context.line_to(x + fi * n, y + h);
+        context.stroke();
+      }
+    }
+  }
+
+  context.set_fill_style(&"black".into());
+  context.set_fill_style(&COLOR_MACHINE_SEMI.into());
+  context.fill_rect(paint_at_x, paint_at_y, (machine_cells_width as f64) * CELL_W, (machine_cells_height as f64) * CELL_H);
+  if !legal { paint_illegal(&context, paint_at_x, paint_at_y, (machine_cells_width as f64) * CELL_W, (machine_cells_height as f64) * CELL_H); }
+  context.set_fill_style(&"black".into());
+  context.fill_text("M", paint_at_x + (machine_cells_width as f64) * CELL_W / 2.0 - 5.0, paint_at_y + (machine_cells_height as f64) * CELL_H / 2.0 + 2.0).expect("no error")
+}
 fn paint_mouse_while_dragging_offer(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  let offer = &factory.offers[mouse_state.offer_index];
+  // let offer = &factory.offers[mouse_state.offer_index];
 
   // Paint drop zone over the edge cells
   context.set_fill_style(&"#00004444".into());
 
   // Face out illegal options
   let ( paint_at_x, paint_at_y, legal ) =
-    if offer.kind == CellKind::Machine {
-      // All edges
-      context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, CELL_W, FLOOR_HEIGHT - CELL_H);
-      context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y, FLOOR_WIDTH - CELL_W, CELL_H);
-      context.fill_rect(UI_FLOOR_OFFSET_X + FLOOR_WIDTH - CELL_W, UI_FLOOR_OFFSET_Y + CELL_H, CELL_W, FLOOR_HEIGHT - CELL_H);
-      context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT - CELL_H, FLOOR_WIDTH - CELL_W, CELL_H);
-
-      // Note that mouse cell x is not where the top-left most cell of the machine would be
-      let top_left_machine_cell_x = world_x_to_top_left_cell_x_while_dragging_offer(mouse_state.world_x, offer.cell_width);
-      let top_left_machine_cell_y = world_y_to_top_left_cell_y_while_dragging_offer(mouse_state.world_y, offer.cell_height);
-      // Make sure the entire machine fits, not just the center or topleft cell
-      if
-      !bounds_check(top_left_machine_cell_x, top_left_machine_cell_y, 1.0, 1.0, FLOOR_CELLS_W as f64 - (offer.cell_width as f64), FLOOR_CELLS_H as f64 - (offer.cell_height as f64))
-      {
-        // Do not snap if machine would cover the edge
-        let ox = mouse_state.world_x - ((offer.cell_width as f64) * (CELL_W as f64) / 2.0 );
-        let oy = mouse_state.world_y - ((offer.cell_height as f64) * (CELL_H as f64) / 2.0 );
-        ( ox, oy, false )
-      } else {
-        ( UI_FLOOR_OFFSET_X + top_left_machine_cell_x.round() * CELL_W, UI_FLOOR_OFFSET_Y + top_left_machine_cell_y.round() * CELL_H, true )
-      }
-    }
-    else {
+    // if offer.kind == CellKind::Machine {
+    //   // All edges
+    //   context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, CELL_W, FLOOR_HEIGHT - CELL_H);
+    //   context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y, FLOOR_WIDTH - CELL_W, CELL_H);
+    //   context.fill_rect(UI_FLOOR_OFFSET_X + FLOOR_WIDTH - CELL_W, UI_FLOOR_OFFSET_Y + CELL_H, CELL_W, FLOOR_HEIGHT - CELL_H);
+    //   context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT - CELL_H, FLOOR_WIDTH - CELL_W, CELL_H);
+    //
+    //   // Note that mouse cell x is not where the top-left most cell of the machine would be
+    //   let top_left_machine_cell_x = world_x_to_top_left_cell_x_while_dragging_offer_machine(mouse_state.world_x, offer.cell_width);
+    //   let top_left_machine_cell_y = world_y_to_top_left_cell_y_while_dragging_offer_machine(mouse_state.world_y, offer.cell_height);
+    //   // Make sure the entire machine fits, not just the center or topleft cell
+    //   if
+    //   !bounds_check(top_left_machine_cell_x, top_left_machine_cell_y, 1.0, 1.0, FLOOR_CELLS_W as f64 - (offer.cell_width as f64), FLOOR_CELLS_H as f64 - (offer.cell_height as f64))
+    //   {
+    //     // Do not snap if machine would cover the edge
+    //     let ox = mouse_state.world_x - ((offer.cell_width as f64) * (CELL_W as f64) / 2.0 );
+    //     let oy = mouse_state.world_y - ((offer.cell_height as f64) * (CELL_H as f64) / 2.0 );
+    //     ( ox, oy, false )
+    //   } else {
+    //     ( UI_FLOOR_OFFSET_X + top_left_machine_cell_x.round() * CELL_W, UI_FLOOR_OFFSET_Y + top_left_machine_cell_y.round() * CELL_H, true )
+    //   }
+    // }
+    // else
+    {
       // Corners
       context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, CELL_W, CELL_H);
       context.fill_rect(UI_FLOOR_OFFSET_X + FLOOR_WIDTH - CELL_W, UI_FLOOR_OFFSET_Y, CELL_W, CELL_H);
@@ -2523,31 +2902,31 @@ fn paint_mouse_while_dragging_offer(options: &Options, state: &State, factory: &
   }
 
   context.set_fill_style(&"black".into());
-  match offer.kind {
-    CellKind::Empty => panic!("no"),
-    CellKind::Belt => panic!("no"),
-    CellKind::Machine => {
-      context.set_fill_style(&COLOR_MACHINE_SEMI.into());
-      context.fill_rect(paint_at_x, paint_at_y, (offer.cell_width as f64) * CELL_W, (offer.cell_height as f64) * CELL_H);
-      if !legal { paint_illegal(&context, paint_at_x, paint_at_y, (offer.cell_width as f64) * CELL_W, (offer.cell_height as f64) * CELL_H); }
-      context.set_fill_style(&"black".into());
-      context.fill_text("M", paint_at_x + (offer.cell_width as f64) * CELL_W / 2.0 - 5.0, paint_at_y + (offer.cell_height as f64) * CELL_H / 2.0 + 2.0).expect("no error")
-    },
-    CellKind::Supply => {
-      context.set_fill_style(&COLOR_SUPPLY_SEMI.into());
-      context.fill_rect(paint_at_x, paint_at_y, CELL_W, CELL_H);
-      if !legal { paint_illegal(&context, paint_at_x, paint_at_y, CELL_W, CELL_H); }
-      context.set_fill_style(&"black".into());
-      context.fill_text("S", paint_at_x + CELL_W / 2.0 - 5.0, paint_at_y + CELL_H / 2.0 + 2.0).expect("no error")
-    },
-    CellKind::Demand => {
-      context.set_fill_style(&COLOR_DEMAND_SEMI.into());
-      context.fill_rect(paint_at_x, paint_at_y, CELL_W, CELL_H);
-      if !legal { paint_illegal(&context, paint_at_x, paint_at_y, CELL_W, CELL_H); }
-      context.set_fill_style(&"black".into());
-      context.fill_text("D", paint_at_x + CELL_W / 2.0 - 5.0, paint_at_y + CELL_H / 2.0 + 2.0).expect("no error")
-    },
-  }
+  // match offer.kind {
+  //   CellKind::Empty => panic!("no"),
+  //   CellKind::Belt => panic!("no"),
+  //   CellKind::Machine => {
+  //     context.set_fill_style(&COLOR_MACHINE_SEMI.into());
+  //     context.fill_rect(paint_at_x, paint_at_y, (offer.cell_width as f64) * CELL_W, (offer.cell_height as f64) * CELL_H);
+  //     if !legal { paint_illegal(&context, paint_at_x, paint_at_y, (offer.cell_width as f64) * CELL_W, (offer.cell_height as f64) * CELL_H); }
+  //     context.set_fill_style(&"black".into());
+  //     context.fill_text("M", paint_at_x + (offer.cell_width as f64) * CELL_W / 2.0 - 5.0, paint_at_y + (offer.cell_height as f64) * CELL_H / 2.0 + 2.0).expect("no error")
+  //   },
+  //   CellKind::Supply => {
+  context.set_fill_style(&COLOR_SUPPLY_SEMI.into());
+  context.fill_rect(paint_at_x, paint_at_y, CELL_W, CELL_H);
+  if !legal { paint_illegal(&context, paint_at_x, paint_at_y, CELL_W, CELL_H); }
+  context.set_fill_style(&"black".into());
+  context.fill_text("S", paint_at_x + CELL_W / 2.0 - 5.0, paint_at_y + CELL_H / 2.0 + 2.0).expect("no error");
+  //   },
+  //   CellKind::Demand => {
+  //     context.set_fill_style(&COLOR_DEMAND_SEMI.into());
+  //     context.fill_rect(paint_at_x, paint_at_y, CELL_W, CELL_H);
+  //     if !legal { paint_illegal(&context, paint_at_x, paint_at_y, CELL_W, CELL_H); }
+  //     context.set_fill_style(&"black".into());
+  //     context.fill_text("D", paint_at_x + CELL_W / 2.0 - 5.0, paint_at_y + CELL_H / 2.0 + 2.0).expect("no error")
+  //   },
+  // }
 }
 fn paint_mouse_cell_location_on_floor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState, belt_tile_images: &Vec<web_sys::HtmlImageElement>) {
   if mouse_state.cell_x != cell_selection.x || mouse_state.cell_y != cell_selection.y {
@@ -2880,16 +3259,82 @@ fn paint_top_bars(options: &Options, state: &State, factory: &Factory, context: 
 
   context.set_font(&"12px monospace");
 }
-fn paint_ui_offers(context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_sprite: &HtmlImageElement, factory: &Factory, mouse_state: &MouseState) {
+fn get_quote_xy(index: usize, height_so_far: f64) -> ( f64, f64 ) {
+  // TODO: take io into account when it is not in sync with index
+  let x = UI_ACHIEVEMENT_OFFSET_X;
+  let y = UI_ACHIEVEMENT_OFFSET_Y + height_so_far;
+
+  return ( x, y );
+}
+fn paint_left_quotes(context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_sprite: &HtmlImageElement, factory: &Factory, mouse_state: &MouseState) {
+
+  // Do we want to do this serial or parallel? parallel is easier I guess
+  let quote_fade_time = 2 * ONE_SECOND;
+  let quote_shrink_time = 2 * ONE_SECOND;
+
+  let mut height = 0.0;
+
+  for quote_index in 0..factory.quotes.len() {
+    let ( x, y ) = get_quote_xy(quote_index, height);
+
+    let add_progress = if factory.quotes[quote_index].added_at > 0 { ((factory.ticks - factory.quotes[quote_index].added_at) as f64 / quote_fade_time as f64).max(0.0).min(1.0) } else { 1.0 };
+    let remove_progress = if factory.quotes[quote_index].completed_at > 0 { ((factory.ticks - factory.quotes[quote_index].completed_at) as f64 / quote_fade_time as f64).max(0.0).min(1.0) } else { 0.0 };
+    let h = add_progress * (1.0 - remove_progress) * UI_QUOTE_HEIGHT;
+    let m = add_progress * (1.0 - remove_progress) * UI_QUOTE_MARGIN;
+
+    context.set_fill_style(&"grey".into()); // 100% background
+    context.fill_rect(x, y, UI_ACHIEVEMENT_WIDTH, h);
+    context.set_fill_style(&"lightgreen".into()); // progress green
+    context.fill_rect(x, y, UI_ACHIEVEMENT_WIDTH * (factory.quotes[quote_index].wants[0].2 as f64 / factory.quotes[quote_index].wants[0].1 as f64).min(1.0), h);
+    context.set_stroke_style(&"black".into());
+    context.stroke_rect(x, y, UI_ACHIEVEMENT_WIDTH, h);
+
+    // Paint the icon(s), the required count, the progress
+
+    paint_segment_part(&context, part_tile_sprite, part_c(factory.quotes[quote_index].wants[0].0), x, y + 2.0, CELL_W, CELL_H);
+
+    context.set_fill_style(&"black".into());
+    context.fill_text(format!("{:?}", factory.quotes[quote_index].wants).as_str(), x + CELL_W + 10.0, y + 20.0);
+
+    height += h + m; // margin between quotes
+  }
+  // Clear the rect below the last item in case it was the bottom item and only partially painted
+  let ( x, y ) = get_quote_xy(factory.quotes.len(), height);
+  context.set_fill_style(&"#E86A17".into()); // This will be more annoying later but for now it'll do
+  context.fill_rect(x, y, UI_ACHIEVEMENT_WIDTH, UI_QUOTE_HEIGHT);
+}
+fn paint_ui_recipes(context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_sprite: &HtmlImageElement, factory: &Factory, mouse_state: &MouseState) {
   let (is_down_on_offer, down_inside_offer_index) =
     if mouse_state.is_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight offers
     else { ( true, mouse_state.offer_index ) };
 
-  for index in 0..factory.offers.len() {
-    paint_ui_offer_supply(&context, part_tile_sprite, factory, index, is_down_on_offer && index == down_inside_offer_index);
+  let mut inc = 0;
+  for index in 0..factory.recipes.len() {
+    if factory.recipes[index].1 {
+      paint_ui_recipe_supply(&context, part_tile_sprite, factory, index, inc, is_down_on_offer && index == down_inside_offer_index);
+      inc += 1;
+    }
   }
 }
-fn paint_ui_buttons(options: &mut Options, state: &mut State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+fn paint_bottom_menu(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, img_machine_1_1: &HtmlImageElement, mouse_state: &MouseState) {
+  paint_machine_icon(options, state, context, img_machine_1_1, mouse_state);
+  paint_ui_buttons(options, state, context, mouse_state);
+  paint_ui_buttons2(options, state, context, mouse_state);
+}
+fn paint_machine_icon (options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, img_machine_1_1: &HtmlImageElement, mouse_state: &MouseState) {
+  context.set_fill_style(&"#aaa".into());
+  context.fill_rect(UI_MENU_BOTTOM_MACHINE_X, UI_MENU_BOTTOM_MACHINE_Y, UI_MENU_BOTTOM_MACHINE_WIDTH, UI_MENU_BOTTOM_MACHINE_HEIGHT);
+
+  context.draw_image_with_html_image_element_and_dw_and_dh(
+    &img_machine_1_1,
+    // Paint onto canvas at
+    UI_MENU_BOTTOM_MACHINE_X, UI_MENU_BOTTOM_MACHINE_Y, UI_MENU_BOTTOM_MACHINE_WIDTH, UI_MENU_BOTTOM_MACHINE_HEIGHT
+  ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(UI_MENU_BOTTOM_MACHINE_X, UI_MENU_BOTTOM_MACHINE_Y, UI_MENU_BOTTOM_MACHINE_WIDTH, UI_MENU_BOTTOM_MACHINE_HEIGHT);
+}
+fn paint_ui_buttons(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   paint_ui_button(context, mouse_state, 0.0, "Empty");
   paint_ui_button(context, mouse_state, 1.0, "Unbelt");
   paint_ui_button(context, mouse_state, 2.0, "Unpart");
@@ -2897,7 +3342,7 @@ fn paint_ui_buttons(options: &mut Options, state: &mut State, context: &Rc<web_s
   paint_ui_button(context, mouse_state, 4.0, "Dump");
   paint_ui_button(context, mouse_state, 5.0, "Reset");
   paint_ui_button(context, mouse_state, 6.0, "Panic");
-  assert!(UI_MENU_BUTTONS_COUNT_WIDTH == 7.0, "Update after adding new buttons");
+  assert!(UI_MENU_BUTTONS_COUNT_WIDTH_MAX == 7.0, "Update after adding new buttons");
 
   paint_ui_time_control(options, state, context, mouse_state);
 }
@@ -2916,7 +3361,7 @@ fn paint_ui_button(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state:
   context.set_fill_style(&"black".into());
   context.fill_text(text, x + 5.0, y + 14.0).expect("to paint");
 }
-fn paint_ui_buttons2(options: &mut Options, state: &mut State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+fn paint_ui_buttons2(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   paint_ui_button2(context, mouse_state, 0.0, if state.mouse_mode_erasing { "erase" } else { "draw" }, state.mouse_mode_erasing);
   paint_ui_button2(context, mouse_state, 1.0, "select", state.mouse_mode_selecting);
   paint_ui_button2(context, mouse_state, 2.0, if state.selected_area_copy.len() > 0{ "stamp" } else { "copy" },     state.selected_area_copy.len() > 0);
@@ -2924,7 +3369,7 @@ fn paint_ui_buttons2(options: &mut Options, state: &mut State, context: &Rc<web_
   // paint_ui_button2(context, mouse_state, 4.0, "nodir", false);
   // paint_ui_button2(context, mouse_state, 5.0, "togoal"); // fast forward to goal
   // paint_ui_button2(context, mouse_state, 6.0, "Panic");
-  assert!(UI_MENU_BUTTONS_COUNT_WIDTH == 7.0, "Update after adding new buttons");
+  assert!(UI_MENU_BUTTONS_COUNT_WIDTH_MAX == 7.0, "Update after adding new buttons");
 }
 fn paint_ui_button2(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, index: f64, text: &str, on: bool) {
   let x = UI_MENU_BUTTONS_OFFSET_X + index * (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING);
@@ -2986,57 +3431,78 @@ fn paint_ui_speed_bubble(options: &Options, state: &State, context: &Rc<web_sys:
   context.set_fill_style(&"black".into());
   context.fill_text(text, cx - 4.0, cy + 4.0).expect("to paint");
 }
-fn paint_ui_offer_supply(context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_sprite: &HtmlImageElement, factory: &Factory, index: usize, hovering: bool) {
-  let offer = &factory.offers[index];
+fn get_recipe_xy(index: usize) -> ( f64, f64 ) {
+  let x = UI_OFFERS_OFFSET_X + (index as f64 % UI_OFFERS_PER_ROW).floor() * UI_OFFERS_WIDTH_PLUS_MARGIN;
+  let y = UI_OFFERS_OFFSET_Y + (index as f64 / UI_OFFERS_PER_ROW).floor() * UI_OFFERS_HEIGHT_PLUS_MARGIN;
+  
+  return ( x, y );
+}
+fn paint_ui_recipe_supply(context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_sprite: &HtmlImageElement, factory: &Factory, index: usize, inc: usize, hovering: bool) {
 
-  let offer_height = UI_OFFERS_HEIGHT + 10.0;
+  let c = factory.recipes[index].0;
 
-  // Clear area.
-
-  match offer.kind {
-    CellKind::Supply => {
-      context.set_fill_style(&COLOR_SUPPLY.into());
-    }
-    CellKind::Demand => {
-      context.set_fill_style(&COLOR_DEMAND.into());
-    }
-    CellKind::Machine => {
-      context.set_fill_style(&COLOR_MACHINE.into());
-    }
-    _ => panic!("this kind should not get here"),
-  }
-
-  context.fill_rect(UI_OFFERS_OFFSET_X, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height, UI_OFFERS_WIDTH, UI_OFFERS_HEIGHT);
+  context.set_fill_style(&COLOR_SUPPLY.into());
+  let ( x, y ) = get_recipe_xy(inc);
+  context.fill_rect(x, y, UI_OFFERS_WIDTH, UI_OFFERS_HEIGHT);
   if hovering {
-    context.set_stroke_style(&"red".into());
-    context.stroke_rect(UI_OFFERS_OFFSET_X, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height, UI_OFFERS_WIDTH, UI_OFFERS_HEIGHT);
+    context.set_stroke_style(&"black".into());
+    context.stroke_rect(x, y, UI_OFFERS_WIDTH, UI_OFFERS_HEIGHT);
   }
+  let x = x + (UI_OFFERS_WIDTH / 2.0) - (CELL_W / 2.0);
+  let y = y + (UI_OFFERS_HEIGHT / 2.0) - (CELL_H / 2.0);
+  paint_segment_part(&context, part_tile_sprite, part_c(c), x, y, CELL_W, CELL_H);
 
-  context.set_stroke_style(&"black".into());
-  context.set_fill_style(&"black".into());
-  context.stroke_text(format!("{:?}", offer.kind).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 1.0 * UI_DEBUG_APP_FONT_H).expect("something error stroke_text");
-  match offer.kind {
-    CellKind::Supply => {
-      let x = UI_OFFERS_OFFSET_X + (UI_OFFERS_WIDTH / 2.0) - (CELL_W / 2.0);
-      let y = UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + (UI_OFFERS_HEIGHT / 2.0) - (CELL_H / 2.0);
-      paint_segment_part(&context, part_tile_sprite, part_c(offer.supply_icon), x, y, CELL_W, CELL_H);
-
-      context.fill_text(format!("Gives: {}", offer.supply_icon).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 2.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
-      context.fill_text(format!("Speed: {}", offer.speed).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 3.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
-      context.fill_text(format!("Cool: {}", offer.cooldown).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 4.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
-    }
-    CellKind::Demand => {
-      // context.fill_text(format!("Takes: {}", offer.demand_icon).as_str(), UI_OFFERS_OFFSET_X + UI_ML, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 2.0 * UI_FONT_H).expect("something error fill_text");
-    }
-    CellKind::Machine => {
-      context.fill_text(format!("Size: {} x {}", offer.cell_width, offer.cell_height).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 2.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
-      let wants = offer.wants.iter().map(|Part { icon, .. }| if icon == &' ' { '.' } else { *icon }).collect::<String>();
-      context.fill_text(format!("Inputs: {}", wants).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 3.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
-      context.fill_text(format!("Output: {}", offer.machine_output).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 4.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
-      context.fill_text(format!("Speed: {}", offer.speed).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 5.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
-    }
-    _ => panic!("this kind should not get here"),
-  }
+  //
+  //
+  // let offer = &factory.offers[index];
+  //
+  //
+  // // Clear area.
+  //
+  // match offer.kind {
+  //   CellKind::Supply => {
+  //     context.set_fill_style(&COLOR_SUPPLY.into());
+  //   }
+  //   CellKind::Demand => {
+  //     context.set_fill_style(&COLOR_DEMAND.into());
+  //   }
+  //   CellKind::Machine => {
+  //     context.set_fill_style(&COLOR_MACHINE.into());
+  //   }
+  //   _ => panic!("this kind should not get here"),
+  // }
+  //
+  // context.fill_rect(UI_OFFERS_OFFSET_X, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height, UI_OFFERS_WIDTH, UI_OFFERS_HEIGHT);
+  // if hovering {
+  //   context.set_stroke_style(&"red".into());
+  //   context.stroke_rect(UI_OFFERS_OFFSET_X, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height, UI_OFFERS_WIDTH, UI_OFFERS_HEIGHT);
+  // }
+  //
+  // context.set_stroke_style(&"black".into());
+  // context.set_fill_style(&"black".into());
+  // context.stroke_text(format!("{:?}", offer.kind).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 1.0 * UI_DEBUG_APP_FONT_H).expect("something error stroke_text");
+  // match offer.kind {
+  //   CellKind::Supply => {
+  //     let x = UI_OFFERS_OFFSET_X + (UI_OFFERS_WIDTH / 2.0) - (CELL_W / 2.0);
+  //     let y = UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + (UI_OFFERS_HEIGHT / 2.0) - (CELL_H / 2.0);
+  //     paint_segment_part(&context, part_tile_sprite, part_c(offer.supply_icon), x, y, CELL_W, CELL_H);
+  //
+  //     context.fill_text(format!("Gives: {}", offer.supply_icon).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 2.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+  //     context.fill_text(format!("Speed: {}", offer.speed).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 3.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+  //     context.fill_text(format!("Cool: {}", offer.cooldown).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 4.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+  //   }
+  //   CellKind::Demand => {
+  //     // context.fill_text(format!("Takes: {}", offer.demand_icon).as_str(), UI_OFFERS_OFFSET_X + UI_ML, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 2.0 * UI_FONT_H).expect("something error fill_text");
+  //   }
+  //   CellKind::Machine => {
+  //     context.fill_text(format!("Size: {} x {}", offer.cell_width, offer.cell_height).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 2.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+  //     let wants = offer.wants.iter().map(|Part { icon, .. }| if icon == &' ' { '.' } else { *icon }).collect::<String>();
+  //     context.fill_text(format!("Inputs: {}", wants).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 3.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+  //     context.fill_text(format!("Output: {}", offer.machine_output).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 4.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+  //     context.fill_text(format!("Speed: {}", offer.speed).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 5.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+  //   }
+  //   _ => panic!("this kind should not get here"),
+  // }
 }
 fn paint_segment_part(context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_sprite: &HtmlImageElement, segment_part: Part, dx: f64, dy: f64, dw: f64, dh: f64) -> bool {
   let spw = 16.0;
