@@ -33,6 +33,7 @@ use std::rc::Rc;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 
+use std::collections::HashMap;
 use std::collections::VecDeque;
 use web_sys::{HtmlCanvasElement, HtmlImageElement};
 
@@ -40,6 +41,7 @@ use super::belt::*;
 use super::bouncer::*;
 use super::cell::*;
 use super::cli_serialize::*;
+use super::config::*;
 use super::craft::*;
 use super::direction::*;
 use super::factory::*;
@@ -194,6 +196,7 @@ const COLOR_MACHINE_SEMI: &str = "#aaaa0099";
 // I think all natives are exposed in js_sys or web_sys somehow so not sure we need this at all.
 #[wasm_bindgen]
 extern {
+  pub fn getGameConfig() -> String; // GAME_CONFIG
   // pub fn log(s: &str); // -> console.log(s)
   // pub fn print_world(s: &str);
   // pub fn print_options(options: &str);
@@ -230,7 +233,6 @@ fn load_tile(src: &str) -> Result<web_sys::HtmlImageElement, JsValue> {
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
   // Must run this once in web-mode to enable dumping panics to console.log
-
   panic::set_hook(Box::new(console_error_panic_hook::hook));
   // console_error_panic_hook::set_once();
 
@@ -253,59 +255,19 @@ pub fn start() -> Result<(), JsValue> {
 
   let todo = load_tile("./img/todo.png").expect("can'tpub const BELT_NONE.src");
 
+  // Load game "level" and part content config dynamic so we don't have to recompile it for
+  // ingame changes relating to parts and unlock order of them. This config includes sprite details.
+  let mut config = parse_fmd(getGameConfig());
+  // Load sprite maps. Once per image.
+  config.sprite_cache_canvas = config.sprite_cache_lookup.iter().map(|(src, _index)| {
+    return load_tile(src.clone().as_str()).expect("worky worky");
+  }).collect();
+  log(format!("Loading {} sprite maps for the parts: {:?}", config.sprite_cache_canvas.len(), config.sprite_cache_lookup));
+
+
   // Preload the belt tiles. Create an array with a to-do image for every slot. Then create img tags
   let mut belt_tile_images: Vec<web_sys::HtmlImageElement> = vec![todo; BELT_TYPE_COUNT]; // Prefill with todo images
   belt_tile_images[BeltType::NONE as usize] = load_tile(BELT_NONE.src)?;
-  // belt_tile_images[BeltType::U_R as usize] = load_tile(BELT_U_R.src)?;
-  // belt_tile_images[BeltType::R_U as usize] = load_tile(BELT_R_U.src)?;
-  // belt_tile_images[BeltType::R_D as usize] = load_tile(BELT_R_D.src)?;
-  // belt_tile_images[BeltType::D_R as usize] = load_tile(BELT_D_R.src)?;
-  // belt_tile_images[BeltType::D_L as usize] = load_tile(BELT_D_L.src)?;
-  // belt_tile_images[BeltType::L_D as usize] = load_tile(BELT_L_D.src)?;
-  // belt_tile_images[BeltType::L_U as usize] = load_tile(BELT_L_U.src)?;
-  // belt_tile_images[BeltType::U_L as usize] = load_tile(BELT_U_L.src)?;
-  // belt_tile_images[BeltType::U_D as usize] = load_tile(BELT_U_D.src)?;
-  // belt_tile_images[BeltType::D_U as usize] = load_tile(BELT_D_U.src)?;
-  // belt_tile_images[BeltType::L_R as usize] = load_tile(BELT_L_R.src)?;
-  // belt_tile_images[BeltType::R_L as usize] = load_tile(BELT_R_L.src)?;
-  // belt_tile_images[BeltType::U_LR as usize] = load_tile(BELT_U_LR.src)?;
-  // belt_tile_images[BeltType::RU_L as usize] = load_tile(BELT_RU_L.src)?;
-  // belt_tile_images[BeltType::LU_R as usize] = load_tile(BELT_LU_R.src)?;
-  // belt_tile_images[BeltType::L_RU as usize] = load_tile(BELT_L_RU.src)?;
-  // belt_tile_images[BeltType::LR_U as usize] = load_tile(BELT_LR_U.src)?;
-  // belt_tile_images[BeltType::R_LU as usize] = load_tile(BELT_R_LU.src)?;
-  // belt_tile_images[BeltType::R_DU as usize] = load_tile(BELT_R_DU.src)?;
-  // belt_tile_images[BeltType::RU_D as usize] = load_tile(BELT_RU_D.src)?;
-  // belt_tile_images[BeltType::DR_U as usize] = load_tile(BELT_DR_U.src)?;
-  // belt_tile_images[BeltType::DU_R as usize] = load_tile(BELT_DU_R.src)?;
-  // belt_tile_images[BeltType::U_DR as usize] = load_tile(BELT_U_DR.src)?;
-  // belt_tile_images[BeltType::D_RU as usize] = load_tile(BELT_D_RU.src)?;
-  // belt_tile_images[BeltType::D_LR as usize] = load_tile(BELT_D_LR.src)?;
-  // belt_tile_images[BeltType::DL_R as usize] = load_tile(BELT_DL_R.src)?;
-  // belt_tile_images[BeltType::DR_L as usize] = load_tile(BELT_DR_L.src)?;
-  // belt_tile_images[BeltType::LR_D as usize] = load_tile(BELT_LR_D.src)?;
-  // belt_tile_images[BeltType::L_DR as usize] = load_tile(BELT_L_DR.src)?;
-  // belt_tile_images[BeltType::R_DL as usize] = load_tile(BELT_R_DL.src)?;
-  // belt_tile_images[BeltType::L_DU as usize] = load_tile(BELT_L_DU.src)?;
-  // belt_tile_images[BeltType::LU_D as usize] = load_tile(BELT_LU_D.src)?;
-  // belt_tile_images[BeltType::DL_U as usize] = load_tile(BELT_DL_U.src)?;
-  // belt_tile_images[BeltType::DU_L as usize] = load_tile(BELT_DU_L.src)?;
-  // belt_tile_images[BeltType::U_DL as usize] = load_tile(BELT_U_DL.src)?;
-  // belt_tile_images[BeltType::D_UL as usize] = load_tile(BELT_D_LU.src)?;
-  // belt_tile_images[BeltType::U_DLR as usize] = load_tile(BELT_U_DLR.src)?;
-  // belt_tile_images[BeltType::R_DLU as usize] = load_tile(BELT_R_DLU.src)?;
-  // belt_tile_images[BeltType::D_LRU as usize] = load_tile(BELT_D_LRU.src)?;
-  // belt_tile_images[BeltType::L_DRU as usize] = load_tile(BELT_L_DRU.src)?;
-  // belt_tile_images[BeltType::RU_DL as usize] = load_tile(BELT_RU_DL.src)?;
-  // belt_tile_images[BeltType::DU_LR as usize] = load_tile(BELT_DU_LR.src)?;
-  // belt_tile_images[BeltType::LU_DR as usize] = load_tile(BELT_LU_DR.src)?;
-  // belt_tile_images[BeltType::LD_RU as usize] = load_tile(BELT_DL_RU.src)?;
-  // belt_tile_images[BeltType::DR_LU as usize] = load_tile(BELT_DR_LU.src)?;
-  // belt_tile_images[BeltType::LR_DU as usize] = load_tile(BELT_LR_DU.src)?;
-  // belt_tile_images[BeltType::DLR_U as usize] = load_tile(BELT_DLR_U.src)?;
-  // belt_tile_images[BeltType::DLU_R as usize] = load_tile(BELT_DLU_R.src)?;
-  // belt_tile_images[BeltType::RLU_D as usize] = load_tile(BELT_LRU_D.src)?;
-  // belt_tile_images[BeltType::DRU_L as usize] = load_tile(BELT_DRU_L.src)?;
   belt_tile_images[BeltType::RU as usize] = load_tile(BELT_RU.src)?;
   belt_tile_images[BeltType::DR as usize] = load_tile(BELT_DR.src)?;
   belt_tile_images[BeltType::DL as usize] = load_tile(BELT_DL.src)?;
@@ -319,8 +281,6 @@ pub fn start() -> Result<(), JsValue> {
   belt_tile_images[BeltType::DLRU as usize] = load_tile(BELT_DLRU.src)?;
   belt_tile_images[BeltType::UNKNOWN as usize] = load_tile(BELT_UNKNOWN.src)?;
   belt_tile_images[BeltType::INVALID as usize] = load_tile(BELT_INVALID.src)?;
-
-  let part_tile_sprite: web_sys::HtmlImageElement = load_tile("./img/roguelikeitems.png")?;
 
   let img_machine1: web_sys::HtmlImageElement = load_tile("./img/machine1.png")?;
   let img_machine2: web_sys::HtmlImageElement = load_tile("./img/machine2.png")?;
@@ -408,7 +368,6 @@ pub fn start() -> Result<(), JsValue> {
     closure.forget();
   }
 
-
   let ( mut options, mut state, mut factory ) = init();
 
   if options.print_initial_table {
@@ -423,7 +382,7 @@ pub fn start() -> Result<(), JsValue> {
   // might be useful to set consistency thresholds ("you need to maintain this efficiency for at
   // least 10s").
 
-    let window = web_sys::window().unwrap();
+  let window = web_sys::window().unwrap();
   let perf = window.performance().expect("performance should be available"); // Requires web_sys crate feature "Performance"
 
   {
@@ -644,8 +603,8 @@ pub fn start() -> Result<(), JsValue> {
 
         paint_top_stats(&context, &mut factory);
         paint_top_bars(&options, &state, &mut factory, &context, &mouse_state);
-        paint_left_quotes(&context, &part_tile_sprite, &mut factory, &mouse_state);
-        paint_ui_recipes(&context, &part_tile_sprite, &mut factory, &mouse_state);
+        paint_left_quotes(&config, &context, &mut factory, &mouse_state);
+        paint_ui_recipes(&config, &context, &mut factory, &mouse_state);
 
         let truck_dur_1 = 3.0; // seconds trucks take to cross the first part
         let truck_dur_2 = 1.0; // turning circle
@@ -668,15 +627,15 @@ pub fn start() -> Result<(), JsValue> {
               context.save();
               // This is how canvas rotation works; you rotate around the center of what you're painting, paint it, then reset the translation matrix.
               // For this reason we must find the center of the dump truck, rotate around that point, and draw the dump track at minus half its size.
-              context.translate(truck_x + truck_size / 2.0, truck_y + truck_size / 2.0);
+              context.translate(truck_x + truck_size / 2.0, truck_y + truck_size / 2.0).expect("oopsie translate");
               // pi/2 = quarter circle. what you draw upward will end up pointing to the right, which is what we want.
-              context.rotate(std::f64::consts::FRAC_PI_2);
+              context.rotate(std::f64::consts::FRAC_PI_2).expect("oopsie rotate");
               // Compensate for the origin currently being in the middle of the dump truck. Top-left is just easier.
-              context.translate(-truck_size/2.0, -truck_size/2.0);
+              context.translate(-truck_size/2.0, -truck_size/2.0).expect("oopsie translate");
               // The truck starts _inside_ the factory and drives to the right (maybe slanted)
-              context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, 0.0, 0.0, truck_size, truck_size);
+              context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, 0.0, 0.0, truck_size, truck_size).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
               // Paint the part icon on the back of the trick (x-centered, y-bottom)
-              paint_segment_part(&context, &part_tile_sprite, part_c(state.bouncers[b].icon), 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
+              paint_segment_part_from_config(&config, &context, part_c(state.bouncers[b].icon), 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
               context.restore();
             } else if time_since_truck < (truck_dur_1 + truck_dur_2) {
               let progress = ((time_since_truck - truck_dur_1) / truck_dur_2).min(1.0).max(0.0);
@@ -686,15 +645,15 @@ pub fn start() -> Result<(), JsValue> {
               context.save();
               // This is how canvas rotation works; you rotate around the center of what you're painting, paint it, then reset the translation matrix.
               // For this reason we must find the center of the dump truck, rotate around that point, and draw the dump track at minus half its size.
-              context.translate(truck_x + truck_size / 2.0, truck_y + truck_size / 2.0);
+              context.translate(truck_x + truck_size / 2.0, truck_y + truck_size / 2.0).expect("oopsie translate");
               // Note: same as before but we turn less as we progress in the turn
-              context.rotate(std::f64::consts::FRAC_PI_2 * (1.0 - progress));
+              context.rotate(std::f64::consts::FRAC_PI_2 * (1.0 - progress)).expect("oopsie rotate");
               // Compensate for the origin currently being in the middle of the dump truck. Top-left is just easier.
-              context.translate(-truck_size/2.0, -truck_size/2.0);
+              context.translate(-truck_size/2.0, -truck_size/2.0).expect("oopsie translate");
               // The truck starts _inside_ the factory and drives to the right (maybe slanted)
-              context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, 0.0, 0.0, truck_size, truck_size);
+              context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, 0.0, 0.0, truck_size, truck_size).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
               // Paint the part icon on the back of the trick (x-centered, y-bottom)
-              paint_segment_part(&context, &part_tile_sprite, part_c(state.bouncers[b].icon), 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
+              paint_segment_part_from_config(&config, &context, part_c(state.bouncers[b].icon), 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
               context.restore();
             } else if time_since_truck < (truck_dur_1 + truck_dur_2 + truck_dur_3) {
               // Get target coordinate where this part will be permanently drawn so we know where the truck has to move to
@@ -707,9 +666,9 @@ pub fn start() -> Result<(), JsValue> {
               let x = truck_x + (target_x - truck_x) * progress;
               let y = truck_y + (target_y - truck_y) * progress;
 
-              context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, x, y, truck_size, truck_size);
+              context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, x, y, truck_size, truck_size).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
               // Paint the part icon on the back of the trick (x-centered, y-bottom)
-              paint_segment_part(&context, &part_tile_sprite, part_c(state.bouncers[b].icon), x + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), y + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
+              paint_segment_part_from_config(&config, &context, part_c(state.bouncers[b].icon), x + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), y + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
             } else {
               // Truck reached its destiny.
               // - Enable the button
@@ -724,13 +683,13 @@ pub fn start() -> Result<(), JsValue> {
         paint_bottom_menu(&options, &state, &context, &img_machine_1_1, &mouse_state);
 
         // TODO: wait for tiles to be loaded because first few frames won't paint anything while the tiles are loading...
-        paint_background_tiles(&options, &state, &context, &part_tile_sprite, &factory, &belt_tile_images, &img_machine4, &img_machine_1_1, &img_machine_2_1, &img_machine_3_2);
+        paint_background_tiles(&options, &state, &config, &context, &factory, &belt_tile_images, &img_machine4, &img_machine_1_1, &img_machine_2_1, &img_machine_3_2);
         paint_ports(&context, &factory);
-        paint_belt_items(&context, &factory, &part_tile_sprite);
-        paint_machine_selection_and_craft(&options, &state, &context, &part_tile_sprite, &factory, &cell_selection, &mouse_state);
+        paint_belt_items(&config, &context, &factory);
+        paint_machine_selection_and_craft(&options, &state, &config, &context, &factory, &cell_selection, &mouse_state);
 
         paint_mouse_cursor(&context, &mouse_state);
-        paint_mouse_action(&options, &state, &factory, &context, &part_tile_sprite, &belt_tile_images, &mouse_state, &cell_selection);
+        paint_mouse_action(&options, &state, &config, &factory, &context, &belt_tile_images, &mouse_state, &cell_selection);
 
         paint_debug_app(&options, &state, &context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
         paint_debug_belt(&context, &factory, &cell_selection, &mouse_state);
@@ -770,7 +729,7 @@ pub fn start() -> Result<(), JsValue> {
               let alpha = 1.0 - ((existing - ONE_SECOND * trail_time) as f64 / ((ONE_SECOND * fade_time) as f64)).max(0.0).min(1.0);
               context.set_global_alpha(alpha);
             }
-            paint_segment_part(&context, &part_tile_sprite, part_c(state.bouncers[b].icon), *x, *y, CELL_W, CELL_H);
+            paint_segment_part_from_config(&config,&context, part_c(state.bouncers[b].icon), *x, *y, CELL_W, CELL_H);
             if tens {
               context.set_global_alpha(1.0);
             }
@@ -2351,8 +2310,8 @@ fn paint_world_cli(context: &Rc<web_sys::CanvasRenderingContext2d>, options: &mu
 fn paint_background_tiles(
   options: &Options,
   state: &State,
+  config: &Config,
   context: &Rc<web_sys::CanvasRenderingContext2d>,
-  part_tile_sprite: &web_sys::HtmlImageElement,
   factory: &Factory,
   belt_tile_images: &Vec<web_sys::HtmlImageElement>,
   img_machine2: &web_sys::HtmlImageElement,
@@ -2396,7 +2355,7 @@ fn paint_background_tiles(
         // TODO: paint supply image
         context.set_fill_style(&COLOR_SUPPLY.into());
         context.fill_rect( ox, oy, CELL_W, CELL_H);
-        paint_segment_part(&context, part_tile_sprite, part_c(factory.floor[coord].supply.gives.icon), ox, oy, CELL_W, CELL_H);
+        paint_segment_part_from_config(config, context, part_c(factory.floor[coord].supply.gives.icon), ox, oy, CELL_W, CELL_H);
       }
       CellKind::Demand => {
         // TODO: paint demand image
@@ -2449,7 +2408,7 @@ fn paint_ports(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factor
     }
   }
 }
-fn paint_belt_items(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, part_tile_sprite: &web_sys::HtmlImageElement) {
+fn paint_belt_items(config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory) {
   // Paint elements on the belt over the background tiles now
   for coord in 0..FLOOR_CELLS_WH {
     let (cx, cy) = to_xy(coord);
@@ -2491,7 +2450,7 @@ fn paint_belt_items(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &F
             }
           };
 
-        if paint_segment_part(&context, part_tile_sprite, cell.belt.part.clone(), px, py, PART_W, PART_H) {
+        if paint_segment_part_from_config(config, context, cell.belt.part.clone(), px, py, PART_W, PART_H) {
           // context.set_font(&"8px monospace");
           // context.set_fill_style(&"green".into());
           // context.fill_text(format!("{} {}x{}", coord, x, y).as_str(), px + 3.0, py + 10.0).expect("something error fill_text");
@@ -2509,7 +2468,7 @@ fn paint_belt_items(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &F
     }
   }
 }
-fn paint_machine_selection_and_craft(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_sprite: &web_sys::HtmlImageElement, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
+fn paint_machine_selection_and_craft(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
   if !cell_selection.on {
     // No cell selected.
     // log(format!("No cell selected"));
@@ -2584,7 +2543,7 @@ fn paint_machine_selection_and_craft(options: &Options, state: &State, context: 
   let none = part_none();
   for i in 0..(machine_cw * machine_ch) as usize {
     if let Some(part) = factory.floor[main_coord].machine.wants.get(i).or(Some(&none)) {
-      paint_segment_part(context, part_tile_sprite, part.clone(), main_wx + CELL_W * (i as f64 % machine_cw).floor(), main_wy + CELL_H * (i as f64 / machine_cw).floor(), CELL_W, CELL_H);
+      paint_segment_part_from_config(config, context, part.clone(), main_wx + CELL_W * (i as f64 % machine_cw).floor(), main_wy + CELL_H * (i as f64 / machine_cw).floor(), CELL_W, CELL_H);
     }
   }
 
@@ -2604,11 +2563,11 @@ fn paint_machine_selection_and_craft(options: &Options, state: &State, context: 
     context.stroke_rect(wx, wy, CELL_W, CELL_H);
     context.set_fill_style(&"black".into());
     context.set_font(&"48px monospace");
-    context.fill_text(format!("{}", text).as_str(), wx + 4.0, wy + 34.0); // This would be a sprite, anyways
+    context.fill_text(format!("{}", text).as_str(), wx + 4.0, wy + 34.0).expect("oopsie fill_text"); // This would be a sprite, anyways
     context.set_font(&"12px monospace");
   }
 
-  fn btn_img(context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_sprite: &web_sys::HtmlImageElement, wx: f64, wy: f64, icon: char, is_over: bool) {
+  fn btn_img(config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, wx: f64, wy: f64, icon: char, is_over: bool) {
     if is_over {
       context.set_fill_style(&"grey".into());
     } else {
@@ -2618,7 +2577,7 @@ fn paint_machine_selection_and_craft(options: &Options, state: &State, context: 
     context.set_stroke_style(&"black".into());
     context.stroke_rect(wx, wy, CELL_W, CELL_H);
 
-    paint_segment_part(context, part_tile_sprite, part_c(icon), wx, wy, CELL_W, CELL_H);
+    paint_segment_part_from_config(config, context, part_c(icon), wx, wy, CELL_W, CELL_H);
   }
 
   // The back/close button should always be under the machine, centered. Same size (one cell).
@@ -2643,7 +2602,7 @@ fn paint_machine_selection_and_craft(options: &Options, state: &State, context: 
 
     // When hovering over the index, the _c is set to the char of the digit of that index.
     // If there are no last seen elements, show a trash icon
-    btn_img(context, part_tile_sprite, wx, wy, if len == 0 { 't' } else { factory.floor[main_coord].machine.last_received[i].0.icon }, mouse_state.craft_over_ci_index == (i as u8));
+    btn_img(config, context, wx, wy, if len == 0 { 't' } else { factory.floor[main_coord].machine.last_received[i].0.icon }, mouse_state.craft_over_ci_index == (i as u8));
   }
 }
 fn paint_mouse_cursor(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
@@ -2652,9 +2611,9 @@ fn paint_mouse_cursor(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_sta
   context.ellipse(mouse_state.world_x, mouse_state.world_y, PART_W / 2.0, PART_H / 2.0, 3.14, 0.0, 6.28).expect("to paint a circle");
   context.fill();
 }
-fn paint_mouse_action(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_sprite: &web_sys::HtmlImageElement, belt_tile_images: &Vec<web_sys::HtmlImageElement>, mouse_state: &MouseState, cell_selection: &CellSelection) {
+fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, belt_tile_images: &Vec<web_sys::HtmlImageElement>, mouse_state: &MouseState, cell_selection: &CellSelection) {
   if mouse_state.craft_dragging_ci {
-    paint_mouse_dragging_craft_interactable(options, state, factory, context, part_tile_sprite, mouse_state, cell_selection);
+    paint_mouse_dragging_craft_interactable(options, state, config, factory, context, mouse_state, cell_selection);
   }
   else if state.mouse_mode_erasing {
     paint_mouse_in_erasing_mode(options, state, factory, context, mouse_state);
@@ -2682,7 +2641,7 @@ fn paint_mouse_action(options: &Options, state: &State, factory: &Factory, conte
     }
   }
 }
-fn paint_mouse_dragging_craft_interactable(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_sprite: &web_sys::HtmlImageElement, mouse_state: &MouseState, cell_selection: &CellSelection) {
+fn paint_mouse_dragging_craft_interactable(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, cell_selection: &CellSelection) {
   // Support up to 9 elements in the craft menu
   // If something is is dragged, ignore it.
   if mouse_state.craft_down_ci_index != 99 { // <99 means circle button, >99 means machine cell
@@ -2697,7 +2656,7 @@ fn paint_mouse_dragging_craft_interactable(options: &Options, state: &State, fac
     context.set_stroke_style(&"black".into());
     context.stroke_rect(mwx, mwy, w, h);
 
-    paint_segment_part(context, part_tile_sprite, part_c(mouse_state.craft_down_ci_icon), mwx, mwy, w, h);
+    paint_segment_part_from_config(config, context, part_c(mouse_state.craft_down_ci_icon), mwx, mwy, w, h);
   }
 }
 fn paint_mouse_in_erasing_mode(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
@@ -3206,18 +3165,18 @@ fn paint_top_bars(options: &Options, state: &State, factory: &Factory, context: 
   if invalid {
     context.set_font(&"18px monospace");
     context.set_fill_style(&"black".into());
-    context.fill_text("Change detected! Click to restart day", UI_DAY_PROGRESS_OFFSET_X + 37.0, UI_DAY_PROGRESS_OFFSET_Y + 22.0); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
+    context.fill_text("Change detected! Click to restart day", UI_DAY_PROGRESS_OFFSET_X + 37.0, UI_DAY_PROGRESS_OFFSET_Y + 22.0).expect("oopsie fill_text"); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
   }
   else if factory.finished_at > 0 {
     context.set_font(&"18px monospace");
     context.set_fill_style(&"black".into());
-    context.fill_text("Click to restart day", UI_DAY_PROGRESS_OFFSET_X + 150.0, UI_DAY_PROGRESS_OFFSET_Y + 22.0); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
+    context.fill_text("Click to restart day", UI_DAY_PROGRESS_OFFSET_X + 150.0, UI_DAY_PROGRESS_OFFSET_Y + 22.0).expect("oopsie fill_text"); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
   }
 
   context.set_font(&"30px monospace");
   context.set_fill_style(&"black".into());
-  context.fill_text("🌄", UI_DAY_BAR_OFFSET_X, UI_DAY_BAR_OFFSET_Y + 26.0);
-  context.fill_text("🎑", UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH + 5.0, UI_DAY_PROGRESS_OFFSET_Y + 26.0);
+  context.fill_text("🌄", UI_DAY_BAR_OFFSET_X, UI_DAY_BAR_OFFSET_Y + 26.0).expect("oopsie fill_text");
+  context.fill_text("🎑", UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH + 5.0, UI_DAY_PROGRESS_OFFSET_Y + 26.0).expect("oopsie fill_text");
 
   // // Progress is a combination of requirements. If there are two kinds of parts with requirements
   // // then they both add 50% to the progress individually. We have to fetch all requirements and
@@ -3266,7 +3225,7 @@ fn get_quote_xy(index: usize, height_so_far: f64) -> ( f64, f64 ) {
 
   return ( x, y );
 }
-fn paint_left_quotes(context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_sprite: &HtmlImageElement, factory: &Factory, mouse_state: &MouseState) {
+fn paint_left_quotes(config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState) {
 
   // Do we want to do this serial or parallel? parallel is easier I guess
   let quote_fade_time = 2 * ONE_SECOND;
@@ -3291,10 +3250,10 @@ fn paint_left_quotes(context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_
 
     // Paint the icon(s), the required count, the progress
 
-    paint_segment_part(&context, part_tile_sprite, part_c(factory.quotes[quote_index].wants[0].0), x, y + 2.0, CELL_W, CELL_H);
+    paint_segment_part_from_config(config, context, part_c(factory.quotes[quote_index].wants[0].0), x, y + 2.0, CELL_W, CELL_H);
 
     context.set_fill_style(&"black".into());
-    context.fill_text(format!("{:?}", factory.quotes[quote_index].wants).as_str(), x + CELL_W + 10.0, y + 20.0);
+    context.fill_text(format!("{:?}", factory.quotes[quote_index].wants).as_str(), x + CELL_W + 10.0, y + 20.0).expect("oopsie fill_text");
 
     height += h + m; // margin between quotes
   }
@@ -3303,7 +3262,7 @@ fn paint_left_quotes(context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_
   context.set_fill_style(&"#E86A17".into()); // This will be more annoying later but for now it'll do
   context.fill_rect(x, y, UI_ACHIEVEMENT_WIDTH, UI_QUOTE_HEIGHT);
 }
-fn paint_ui_recipes(context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_sprite: &HtmlImageElement, factory: &Factory, mouse_state: &MouseState) {
+fn paint_ui_recipes(config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState) {
   let (is_down_on_offer, down_inside_offer_index) =
     if mouse_state.is_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight offers
     else { ( true, mouse_state.offer_index ) };
@@ -3311,7 +3270,7 @@ fn paint_ui_recipes(context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_s
   let mut inc = 0;
   for index in 0..factory.recipes.len() {
     if factory.recipes[index].1 {
-      paint_ui_recipe_supply(&context, part_tile_sprite, factory, index, inc, is_down_on_offer && index == down_inside_offer_index);
+      paint_ui_recipe_supply(config, context, factory, index, inc, is_down_on_offer && index == down_inside_offer_index);
       inc += 1;
     }
   }
@@ -3437,7 +3396,7 @@ fn get_recipe_xy(index: usize) -> ( f64, f64 ) {
   
   return ( x, y );
 }
-fn paint_ui_recipe_supply(context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_sprite: &HtmlImageElement, factory: &Factory, index: usize, inc: usize, hovering: bool) {
+fn paint_ui_recipe_supply(config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, index: usize, inc: usize, hovering: bool) {
 
   let c = factory.recipes[index].0;
 
@@ -3450,72 +3409,18 @@ fn paint_ui_recipe_supply(context: &Rc<web_sys::CanvasRenderingContext2d>, part_
   }
   let x = x + (UI_OFFERS_WIDTH / 2.0) - (CELL_W / 2.0);
   let y = y + (UI_OFFERS_HEIGHT / 2.0) - (CELL_H / 2.0);
-  paint_segment_part(&context, part_tile_sprite, part_c(c), x, y, CELL_W, CELL_H);
-
-  //
-  //
-  // let offer = &factory.offers[index];
-  //
-  //
-  // // Clear area.
-  //
-  // match offer.kind {
-  //   CellKind::Supply => {
-  //     context.set_fill_style(&COLOR_SUPPLY.into());
-  //   }
-  //   CellKind::Demand => {
-  //     context.set_fill_style(&COLOR_DEMAND.into());
-  //   }
-  //   CellKind::Machine => {
-  //     context.set_fill_style(&COLOR_MACHINE.into());
-  //   }
-  //   _ => panic!("this kind should not get here"),
-  // }
-  //
-  // context.fill_rect(UI_OFFERS_OFFSET_X, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height, UI_OFFERS_WIDTH, UI_OFFERS_HEIGHT);
-  // if hovering {
-  //   context.set_stroke_style(&"red".into());
-  //   context.stroke_rect(UI_OFFERS_OFFSET_X, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height, UI_OFFERS_WIDTH, UI_OFFERS_HEIGHT);
-  // }
-  //
-  // context.set_stroke_style(&"black".into());
-  // context.set_fill_style(&"black".into());
-  // context.stroke_text(format!("{:?}", offer.kind).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 1.0 * UI_DEBUG_APP_FONT_H).expect("something error stroke_text");
-  // match offer.kind {
-  //   CellKind::Supply => {
-  //     let x = UI_OFFERS_OFFSET_X + (UI_OFFERS_WIDTH / 2.0) - (CELL_W / 2.0);
-  //     let y = UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + (UI_OFFERS_HEIGHT / 2.0) - (CELL_H / 2.0);
-  //     paint_segment_part(&context, part_tile_sprite, part_c(offer.supply_icon), x, y, CELL_W, CELL_H);
-  //
-  //     context.fill_text(format!("Gives: {}", offer.supply_icon).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 2.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
-  //     context.fill_text(format!("Speed: {}", offer.speed).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 3.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
-  //     context.fill_text(format!("Cool: {}", offer.cooldown).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 4.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
-  //   }
-  //   CellKind::Demand => {
-  //     // context.fill_text(format!("Takes: {}", offer.demand_icon).as_str(), UI_OFFERS_OFFSET_X + UI_ML, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 2.0 * UI_FONT_H).expect("something error fill_text");
-  //   }
-  //   CellKind::Machine => {
-  //     context.fill_text(format!("Size: {} x {}", offer.cell_width, offer.cell_height).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 2.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
-  //     let wants = offer.wants.iter().map(|Part { icon, .. }| if icon == &' ' { '.' } else { *icon }).collect::<String>();
-  //     context.fill_text(format!("Inputs: {}", wants).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 3.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
-  //     context.fill_text(format!("Output: {}", offer.machine_output).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 4.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
-  //     context.fill_text(format!("Speed: {}", offer.speed).as_str(), UI_OFFERS_OFFSET_X + UI_DEBUG_APP_SPACING, UI_OFFERS_OFFSET_Y + (index as f64) * offer_height + 5.0 * UI_DEBUG_APP_FONT_H).expect("something error fill_text");
-  //   }
-  //   _ => panic!("this kind should not get here"),
-  // }
+  paint_segment_part_from_config(config, context, part_c(c), x, y, CELL_W, CELL_H);
 }
-fn paint_segment_part(context: &Rc<web_sys::CanvasRenderingContext2d>, part_tile_sprite: &HtmlImageElement, segment_part: Part, dx: f64, dy: f64, dw: f64, dh: f64) -> bool {
-  let spw = 16.0;
-  let sph = 16.0;
-  let (spx, spy) = part_to_sprite_coord(segment_part.kind);
-  if spx == 0.123 && spy == 0.123 {
+fn paint_segment_part_from_config(config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, segment_part: Part, dx: f64, dy: f64, dw: f64, dh: f64) -> bool {
+  if segment_part.kind == PartKind::None {
     return false;
   }
+  let (spx, spy, spw, sph, canvas) = part_to_sprite_coord_from_config(config, segment_part.kind);
 
   context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-    &part_tile_sprite,
+    &canvas,
     // Sprite position
-    spx * spw, spy * sph, spw, sph,
+    spx, spy, spw, sph,
     // Paint onto canvas at
     dx, dy, dw, dh,
   ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature

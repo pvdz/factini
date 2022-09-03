@@ -14,6 +14,7 @@ pub mod bouncer;
 pub mod cell;
 pub mod cli_serialize;
 pub mod cli_deserialize;
+pub mod config;
 pub mod craft;
 pub mod demand;
 pub mod direction;

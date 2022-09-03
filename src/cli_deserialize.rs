@@ -395,10 +395,10 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
             's' => {
               // s<n> = <p> [s:<d+>] [c:<d+>]
               // s1 = w s:100 c:100
-              let mut nth = 0;
+              let nth;
               let mut speed = 1;
               let mut cooldown = 1;
-              let mut gives = 't';
+              let gives;
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
@@ -482,23 +482,22 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
               // (There are no parameters or augments to a demand, rn)
               // d<n>
               // d1
-              let mut nth = 0;
-              let mut takes = 't';
+              // let mut nth = 0;
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
               if c < '0' || c > '9' { panic!("Unexpected input while parsing demand augment: first character after `s` must be a digit indicating which supply it targets, found `{}`", c); }
-              nth = (c as u8) - ('0' as u8);
+              // nth = (c as u8) - ('0' as u8);
             },
             'm' => {
               // m<n> = <i>{0..w*h} -> <o> [s:<d+>]
               // m1 = a..b.c -> d s:100
               // Note: zero inputs are allowed. Dots are assumed to be "none". Parts will flow
               // in serial into the machine crafting pattern (left-right, top-bottom)
-              let mut nth = 0;
+              let nth;
               let mut speed = 1;
               let mut wants: Vec<Part> = vec!();
-              let mut output = 't';
+              let output;
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
@@ -585,7 +584,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
                   // os = w s:100 c:100
                   let mut speed = 1;
                   let mut cooldown = 1;
-                  let mut gives = 't';
+                  let gives;
 
                   let mut c = line.next().or(Some('#')).unwrap();
                   while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
@@ -688,7 +687,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
                   // om = abc -> d s:100
                   let mut speed = 1;
                   let mut wants = vec!();
-                  let mut output = 't';
+                  // let mut output = 't';
                   let mut width = 1;
                   let mut height = 1;
 
@@ -716,7 +715,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
                   let mut c = line.next().or(Some('#')).unwrap();
                   while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
                   if c < 'a' && c > 'z' { panic!("Unexpected input while parsing machine offer output: output characters must be a-z, found `{}`", c); }
-                  output = c;
+                  // output = c;
 
                   loop {
                     let mut c = line.next().or(Some('#')).unwrap();

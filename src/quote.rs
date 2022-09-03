@@ -3,6 +3,7 @@
 // an unlock step of sorts, as well as the next Quote or set of quotes that it unlocks.
 
 use super::part::*;
+use super::utils::*;
 
 #[derive(Debug)]
 pub struct Quote {
@@ -69,6 +70,7 @@ fn quote_assert_complete() {
 // 100 ores: unlock ingots, bottle
 // 100 ingots: unlock wood, shield
 // 100 wooden shields: unlock blue, dye, blue shield
+
 
 
 
