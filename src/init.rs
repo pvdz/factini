@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 use super::belt::*;
 use super::cell::*;
 use super::cli_serialize::*;
+use super::config::*;
 use super::direction::*;
 use super::factory::*;
 use super::floor::*;
@@ -16,7 +17,7 @@ use super::prio::*;
 use super::state::*;
 use super::utils::*;
 
-pub fn init() -> ( Options, State, Factory ) {
+pub fn init(config: &Config) -> ( Options, State, Factory ) {
 
   // Static state configuration (can still be changed by user)
   let mut options = create_options(1.0);
@@ -234,8 +235,8 @@ pub fn init() -> ( Options, State, Factory ) {
 
 
   // let parts = PARTS.iter().map(|x| *x).collect::<Vec<PartKind>>(); // All parts
-  let parts = vec!(PartKind::DirtWhite);
-  let mut factory = create_factory(&mut options, &mut state, map.to_string(), parts);
+  let parts = vec!(PARTKIND_TRASH);
+  let mut factory = create_factory(&mut options, &mut state, config, map.to_string(), parts);
   factory.changed = true;
 
   return ( options, state, factory );

@@ -13,10 +13,17 @@ pub struct Options {
   pub print_machine_actions: bool,
   pub print_factory_interval: u64,
   pub print_stats_interval: u64,
+  pub print_auto_layout_debug: bool,
+  pub print_fmd_trace: bool,
   pub trace_priority_step: bool,
   pub trace_porting_step: bool,
+  pub trace_map_parsing: bool,
   pub print_priority_tile_order: bool, // Print the prio index of a tile in the game (debug, web)
   pub print_initial_table: bool, // Print the CLI version of the floor after generating it initially?
+
+  pub draw_part_borders: bool, // Draw a border around Parts? Helps debugging invisible parts due to sprite problems
+  pub draw_part_char_icon: bool, // Draw the char icon representation for a part on top of it
+  pub draw_part_kind: bool, // Draw the part kind id representation for a part on top of it
 
   pub short_term_window: u64, // For stats; average over this many ticks
   pub long_term_window: u64, // For stats; average over this many ticks
@@ -42,10 +49,16 @@ pub fn create_options(speed_modifier: f64) -> Options {
     print_machine_actions: false,
     print_factory_interval: 5000,
     print_stats_interval: 100000,
+    print_auto_layout_debug: false,
+    print_fmd_trace: true,
     trace_priority_step: false,
     trace_porting_step: false,
+    trace_map_parsing: false,
     print_priority_tile_order: false,
     print_initial_table: false,
+    draw_part_borders: false,
+    draw_part_char_icon: false,
+    draw_part_kind: false,
     short_term_window: 10000,
     long_term_window: 600000,
     speed_modifier,

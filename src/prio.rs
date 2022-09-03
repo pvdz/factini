@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 
 use super::belt::*;
 use super::cell::*;
+use super::config::*;
 use super::demand::*;
 use super::floor::*;
 use super::options::*;
@@ -141,7 +142,7 @@ fn should_be_marked_for_cell_sorting_non_machine(options: &Options, cell: &Cell,
   }
 }
 
-pub fn create_prio_list(options: &Options, floor: &mut [Cell; FLOOR_CELLS_WH]) -> Vec<usize> {
+pub fn create_prio_list(options: &Options, config: &Config, floor: &mut [Cell; FLOOR_CELLS_WH]) -> Vec<usize> {
   log(format!("create_prio_list()... options.trace_priority_step={}", options.trace_priority_step));
   // Collect cells by marking them and putting their coords in a vec. In the end the vec must have
   // all non-empty cells and the factory game tick should traverse cells in that order. This way
@@ -207,7 +208,7 @@ pub fn create_prio_list(options: &Options, floor: &mut [Cell; FLOOR_CELLS_WH]) -
     log(format!("- after step 1, before loop {:?}", out));
   }
 
-  let mut noop = empty_cell(0, 0);
+  let mut noop = empty_cell(config, 0, 0);
   noop.marked = true;
 
   let mut stepped = 0;

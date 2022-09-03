@@ -4,6 +4,7 @@ use std::convert::TryInto;
 
 use super::belt::*;
 use super::cell::*;
+use super::config::*;
 use super::demand::*;
 use super::factory::*;
 use super::direction::*;
@@ -18,13 +19,13 @@ use super::supply::*;
 use super::utils::*;
 
 // Edge cells can only be demand/supply/empty, other cells can only be belt/machine/empty
-pub fn floor_empty() -> [Cell; FLOOR_CELLS_WH] {
+pub fn floor_empty(config: &Config) -> [Cell; FLOOR_CELLS_WH] {
   // https://stackoverflow.com/questions/67822062/fixed-array-initialization-without-implementing-copy-or-default-trait/67824946#67824946
   // :shrug: okay
   return (0..FLOOR_CELLS_WH)
     .map(|coord| {
       let (x, y) = to_xy(coord);
-      empty_cell(x, y)
+      empty_cell(config, x, y)
     })
     .collect::<Vec<Cell>>()
     .try_into() // runtime error if bad but this is fine
@@ -32,8 +33,8 @@ pub fn floor_empty() -> [Cell; FLOOR_CELLS_WH] {
 }
 
 
-pub fn auto_layout(options: &mut Options, state: &mut State, factory: &mut Factory) {
-  log(format!("auto_layout()"));
+pub fn auto_layout(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
+  log(format!("auto_layout(options.print_auto_layout_debug={})", options.print_auto_layout_debug));
   let mut machines = 0;
   for coord in 0..FLOOR_CELLS_WH {
     match factory.floor[coord].kind {
@@ -44,7 +45,7 @@ pub fn auto_layout(options: &mut Options, state: &mut State, factory: &mut Facto
         let down = if factory.floor[coord].port_d == Port::None { CellKind::Empty } else { get_cell_kind_at(factory, factory.floor[coord].coord_d) };
         let left = if factory.floor[coord].port_l == Port::None { CellKind::Empty } else { get_cell_kind_at(factory, factory.floor[coord].coord_l) };
 
-        factory.floor[coord].belt = belt_new(belt_auto_layout(up, right, down, left));
+        factory.floor[coord].belt = belt_new(config, belt_auto_layout(up, right, down, left));
       }
       CellKind::Machine => {
         if factory.floor[coord].machine.kind == MachineKind::Unknown {
@@ -67,16 +68,16 @@ pub fn auto_layout(options: &mut Options, state: &mut State, factory: &mut Facto
           let mut biggest_area_width = 0;
           let mut biggest_area_height = 0;
 
-          log(format!("======"));
-          log(format!("- Discovering machine..."));
+          if options.print_auto_layout_debug { log(format!("======")); }
+          if options.print_auto_layout_debug { log(format!("- Discovering machine...")); }
           // Find biggest machine rectangle area wise, with x,y in the top-left corner
           for n in y .. y + FLOOR_CELLS_H - y {
             max_height = n - y;
             for m in x .. x + max_width {
               let c = to_coord(m, n);
-              log(format!("  - {}x{}; is machine? {:?}; if so, what kind? {:?}", m, n, factory.floor[c].kind, factory.floor[c].machine.kind));
+              if options.print_auto_layout_debug { log(format!("  - {}x{}; is machine? {:?}; if so, what kind? {:?}", m, n, factory.floor[c].kind, factory.floor[c].machine.kind)); }
               if factory.floor[c].kind != CellKind::Machine || factory.floor[c].machine.kind != MachineKind::Unknown {
-                log(format!("    - end of machine row, max width {}, max height {}, first col? {}, area is {}, biggest is {}", max_width, max_height, m==x, max_width * max_height, biggest_area_size));
+                if options.print_auto_layout_debug { log(format!("    - end of machine row, max width {}, max height {}, first col? {}, area is {}, biggest is {}", max_width, max_height, m==x, max_width * max_height, biggest_area_size)); }
 
                 if max_width * max_height > biggest_area_size {
                   biggest_area_size = max_width * max_height;
@@ -92,7 +93,7 @@ pub fn auto_layout(options: &mut Options, state: &mut State, factory: &mut Facto
               break;
             }
           }
-          log(format!("  - Last area: {} ({} by {})", max_width * max_height, max_width, max_height));
+          if options.print_auto_layout_debug { log(format!("  - Last area: {} ({} by {})", max_width * max_height, max_width, max_height)); }
           if max_width * max_height > biggest_area_size {
             biggest_area_size = max_width * max_height;
             biggest_area_width = max_width;
@@ -108,8 +109,8 @@ pub fn auto_layout(options: &mut Options, state: &mut State, factory: &mut Facto
               (('0' as u8) + machines) as char // 1-9
             };
 
-          log(format!("  - Final biggest area: {} at {} x {}, assigning machine number {}, with id `{}`", biggest_area_size, biggest_area_width, biggest_area_height, machines, id));
-          log(format!("======"));
+          if options.print_auto_layout_debug { log(format!("  - Final biggest area: {} at {} x {}, assigning machine number {}, with id `{}`", biggest_area_size, biggest_area_width, biggest_area_height, machines, id)); }
+          if options.print_auto_layout_debug { log(format!("======")); }
 
           // Now collect all cells in this grid and assign them to be the same machine
           factory.floor[main_coord].machine.coords.clear();
@@ -133,14 +134,14 @@ pub fn auto_layout(options: &mut Options, state: &mut State, factory: &mut Facto
           let cw = biggest_area_width * biggest_area_height;
           for i in 0..cw {
             if factory.floor[main_coord].machine.wants.len() <= i {
-              factory.floor[main_coord].machine.wants.push(part_none());
+              factory.floor[main_coord].machine.wants.push(part_none(config));
             }
             if factory.floor[main_coord].machine.haves.len() <= i {
-              factory.floor[main_coord].machine.haves.push(part_none());
+              factory.floor[main_coord].machine.haves.push(part_none(config));
             }
           }
 
-          log(format!("Machine {} @{} has these cells: {:?}", factory.floor[main_coord].machine.id, main_coord, factory.floor[main_coord].machine.coords));
+          if options.print_auto_layout_debug { log(format!("Machine {} @{} has these cells: {:?}", factory.floor[main_coord].machine.id, main_coord, factory.floor[main_coord].machine.coords)); }
         }
       }
       CellKind::Supply => {}
@@ -447,7 +448,7 @@ pub const fn to_coord_left(coord: usize) -> usize {
 //
 //   fix_belt_meta(factory, coord2);
 // }
-pub fn floor_delete_cell_at_partial(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize) {
+pub fn floor_delete_cell_at_partial(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, coord: usize) {
   // Note: partial because factory prio must to be updated too, elsewhere (!)
   // Running auto-porting may uncover new tracks but should not be required to run
   // Can be used for any cell
@@ -460,17 +461,17 @@ pub fn floor_delete_cell_at_partial(options: &mut Options, state: &mut State, fa
     for index in 0..factory.floor[main_coord].machine.coords.len() {
       let coord = factory.floor[main_coord].machine.coords[index];
       if coord != main_coord {
-        floor_delete_cell_at_partial_sub(options, state, factory, coord);
+        floor_delete_cell_at_partial_sub(options, state, config, factory, coord);
       }
     }
     // Do main coord last since we indirectly reference it while removing the other subs
-    floor_delete_cell_at_partial_sub(options, state, factory, main_coord);
+    floor_delete_cell_at_partial_sub(options, state, config, factory, main_coord);
     log(format!("-- dropped"));
   } else {
-    return floor_delete_cell_at_partial_sub(options, state, factory, coord);
+    return floor_delete_cell_at_partial_sub(options, state, config, factory, coord);
   }
 }
-pub fn floor_delete_cell_at_partial_sub(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize) {
+pub fn floor_delete_cell_at_partial_sub(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, coord: usize) {
   // For all connected cells
   // - delete port towards this cell
   // - update belt meta to reflect new cell meta
@@ -479,31 +480,31 @@ pub fn floor_delete_cell_at_partial_sub(options: &mut Options, state: &mut State
 
   if factory.floor[coord].port_u != Port::None {
     if let Some(ocoord) = factory.floor[coord].coord_u {
-      port_disconnect_cell(factory, ocoord, Direction::Down);
+      port_disconnect_cell(config, factory, ocoord, Direction::Down);
       fix_belt_meta(factory, ocoord);
     }
   }
 
   if factory.floor[coord].port_r != Port::None {
     if let Some(ocoord) = factory.floor[coord].coord_r {
-      port_disconnect_cell(factory, ocoord, Direction::Left);
+      port_disconnect_cell(config, factory, ocoord, Direction::Left);
       fix_belt_meta(factory, ocoord);
     }
   }
 
   if factory.floor[coord].port_d != Port::None {
     if let Some(ocoord) = factory.floor[coord].coord_d {
-      port_disconnect_cell(factory, ocoord, Direction::Up);
+      port_disconnect_cell(config, factory, ocoord, Direction::Up);
       fix_belt_meta(factory, ocoord);
     }
   }
 
   if factory.floor[coord].port_l != Port::None {
     if let Some(ocoord) = factory.floor[coord].coord_l {
-      port_disconnect_cell(factory, ocoord, Direction::Right);
+      port_disconnect_cell(config, factory, ocoord, Direction::Right);
       fix_belt_meta(factory, ocoord);
     }
   }
 
-  factory.floor[coord] = empty_cell(factory.floor[coord].x, factory.floor[coord].y);
+  factory.floor[coord] = empty_cell(config, factory.floor[coord].x, factory.floor[coord].y);
 }

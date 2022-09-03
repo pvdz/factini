@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 
 use super::belt::*;
 use super::cell::*;
+use super::config::*;
 use super::direction::*;
 use super::floor::*;
 use super::factory::*;
@@ -32,9 +33,9 @@ pub struct Supply {
   pub supplied: u64,
 }
 
-pub const fn supply_none() -> Supply {
+pub fn supply_none(config: &Config) -> Supply {
   return Supply {
-    // part: part_none(),
+    // part: part_none(config),
     part_created_at: 0,
     part_tbd: true,
     part_progress: 0,
@@ -42,7 +43,7 @@ pub const fn supply_none() -> Supply {
     outgoing_dir: Direction::Up,
     neighbor_incoming_dir: Direction::Up,
     last_part_out_at: 0,
-    gives: part_none(),
+    gives: part_none(config),
     part_price: 0,
     speed: 0,
     cooldown: 0,
@@ -52,7 +53,7 @@ pub const fn supply_none() -> Supply {
 
 pub fn supply_new(gives: Part, neighbor_coord: usize, outgoing_dir: Direction, neighbor_incoming_dir: Direction, speed: u64, cooldown: u64, price: i32) -> Supply {
   return Supply {
-    // part: part_none(),
+    // part: part_none(config),
     part_created_at: 0,
     part_tbd: true,
     part_progress: 0,
@@ -71,7 +72,7 @@ pub fn supply_new(gives: Part, neighbor_coord: usize, outgoing_dir: Direction, n
 pub fn tick_supply(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize) {
   factory.floor[coord].ticks += 1;
 
-  if factory.floor[coord].supply.gives.kind == PartKind::None {
+  if factory.floor[coord].supply.gives.kind == PARTKIND_NONE {
     return;
   }
 

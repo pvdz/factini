@@ -5,6 +5,7 @@ use super::belt::*;
 use super::cell::*;
 use super::cli_serialize::*;
 use super::cli_deserialize::*;
+use super::config::*;
 use super::demand::*;
 use super::floor::*;
 use super::options::*;
@@ -47,15 +48,15 @@ pub struct Factory {
   pub trashed: u64,
 }
 
-pub fn create_factory(options: &mut Options, state: &mut State, floor_str: String, parts: Vec<PartKind>) -> Factory {
-  let ( floor, offers ) = floor_from_str(floor_str);
+pub fn create_factory(options: &mut Options, state: &mut State, config: &Config, floor_str: String, parts: Vec<PartKind>) -> Factory {
+  let ( floor, offers ) = floor_from_str(options, state, config, floor_str);
   let mut factory = Factory {
     ticks: 0,
     floor,
     prio: vec!(),
     offers,
-    quotes: vec!(quote_get(QuoteKind::Inglish)),
-    recipes: parts.iter().map(|p| ( part_kind_to_icon(*p), true )).collect::<Vec<(char, bool)>>(),
+    quotes: vec!(quote_get(config, QuoteKind::Inglish)),
+    recipes: parts.iter().map(|p| ( part_kind_to_icon(config, *p), true )).collect::<Vec<(char, bool)>>(),
     changed: true,
     last_day_start: 0,
     modified_at: 0,
@@ -69,15 +70,15 @@ pub fn create_factory(options: &mut Options, state: &mut State, floor_str: Strin
     accepted: 0,
     trashed: 0,
   };
-  auto_layout(options, state, &mut factory);
+  auto_layout(options, state, config, &mut factory);
   auto_ins_outs(options, state, &mut factory);
-  let prio = create_prio_list(options, &mut factory.floor);
+  let prio = create_prio_list(options, config, &mut factory.floor);
   factory.prio = prio;
   factory.changed = false;
   return factory;
 }
 
-pub fn tick_factory(options: &mut Options, state: &mut State, factory: &mut Factory) {
+pub fn tick_factory(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
   factory.ticks += 1;
 
   for n in 0..factory.prio.len() {
@@ -86,8 +87,8 @@ pub fn tick_factory(options: &mut Options, state: &mut State, factory: &mut Fact
 
     match factory.floor[coord].kind {
       CellKind::Empty => panic!("should not have empty cells in the prio list:: prio index: {}, coord: {}, cell: {:?}", n, coord, factory.floor[coord]),
-      CellKind::Belt => tick_belt(options, state, factory, coord),
-      CellKind::Machine => tick_machine(options, state, factory, coord),
+      CellKind::Belt => tick_belt(options, state, config, factory, coord),
+      CellKind::Machine => tick_machine(options, state, config, factory, coord),
       CellKind::Supply => tick_supply(options, state, factory, coord),
       CellKind::Demand => tick_demand(options, state, factory, coord),
     }

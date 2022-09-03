@@ -1,6 +1,7 @@
-use crate::direction::Direction;
 use super::belt::*;
 use super::cell::*;
+use super::config::*;
+use crate::direction::*;
 use super::floor::*;
 use super::factory::*;
 use super::options::*;
@@ -52,7 +53,7 @@ pub struct Machine {
   pub last_received: Vec< ( Part, u64 ) >,
 }
 
-pub const fn machine_none(main_coord: usize) -> Machine {
+pub fn machine_none(config: &Config, main_coord: usize) -> Machine {
   return Machine {
     kind: MachineKind::None,
     main_coord,
@@ -66,7 +67,7 @@ pub const fn machine_none(main_coord: usize) -> Machine {
 
     start_at: 0,
 
-    output_want: part_none(),
+    output_want: part_none(config),
 
     speed: 0,
     production_price: 0,
@@ -78,7 +79,7 @@ pub const fn machine_none(main_coord: usize) -> Machine {
   };
 }
 
-pub fn machine_new(kind: MachineKind, cell_width: usize, cell_height: usize, id: char, main_coord: usize, in_wants: Vec<Part>, output: Part, speed: u64) -> Machine {
+pub fn machine_new(options: &mut Options, state: &mut State, config: &Config, kind: MachineKind, cell_width: usize, cell_height: usize, id: char, main_coord: usize, in_wants: Vec<Part>, output: Part, speed: u64) -> Machine {
   // Note: this is also called for each machine sub cell once
   let mut wants = in_wants.clone();
   let mut haves = vec!();
@@ -86,12 +87,12 @@ pub fn machine_new(kind: MachineKind, cell_width: usize, cell_height: usize, id:
   let cw = cell_width * cell_height;
   for i in 0..cw {
     if wants.len() < cw {
-      wants.push(part_none());
+      wants.push(part_none(config));
     }
-    haves.push(part_none());
+    haves.push(part_none(config));
   }
 
-  let output = wants_discover_output(&wants, cell_width, cell_height);
+  let output = wants_discover_output(options, state, config, &wants, cell_width, cell_height);
 
   assert_eq!(wants.len(), haves.len(), "machines should start with same len wants as haves");
 
@@ -120,7 +121,7 @@ pub fn machine_new(kind: MachineKind, cell_width: usize, cell_height: usize, id:
   };
 }
 
-pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Factory, main_coord: usize) {
+pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, main_coord: usize) {
   // Finish building by giving the wanted part to a neighbor outbound belt
   // Accept from the input ports
   // Start building
@@ -139,7 +140,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
         Direction::Left => ( factory.floor[sub_coord].coord_l, Direction::Right ),
       };
       if let Some(to_coord) = to_coord {
-        if factory.floor[to_coord].kind == CellKind::Belt && factory.floor[to_coord].belt.part.kind == PartKind::None {
+        if factory.floor[to_coord].kind == CellKind::Belt && factory.floor[to_coord].belt.part.kind == PARTKIND_NONE {
           // The neighbor is a belt that is empty
           if options.print_moves || options.print_moves_machine {
             log(format!("({}) Machine @{} (sub @{}) finished part {:?}! Moving to belt @{}", factory.ticks, main_coord, sub_coord, factory.floor[main_coord].machine.output_want.kind, to_coord));
@@ -171,7 +172,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
       accepts_nothing = false;
       break;
     }
-    else if want != PartKind::None {
+    else if want != PARTKIND_NONE {
       accepts_nothing = false;
     }
   }
@@ -194,7 +195,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
           // Verify that there is a part, the part is at 100% progress, and that the part is determined to go towards the machine
           let belt_part = factory.floor[from_coord].belt.part.kind;
 
-          if belt_part != PartKind::None && !factory.floor[from_coord].belt.part_to_tbd && factory.floor[from_coord].belt.part_to == main_neighbor_in_dir && factory.floor[from_coord].belt.part_progress >= factory.floor[from_coord].belt.speed {
+          if belt_part != PARTKIND_NONE && !factory.floor[from_coord].belt.part_to_tbd && factory.floor[from_coord].belt.part_to == main_neighbor_in_dir && factory.floor[from_coord].belt.part_progress >= factory.floor[from_coord].belt.speed {
               // Check whether it fits in any input slot. If so, put it there. Otherwise trash it unless
               // all slots are full (only trash input parts while actually waiting for more input).
 
@@ -204,12 +205,12 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
               for i in 0..factory.floor[main_coord].machine.wants.len() {
                 let want = factory.floor[main_coord].machine.wants[i].kind;
                 let have = factory.floor[main_coord].machine.haves[i].kind;
-                if belt_part == factory.floor[main_coord].machine.wants[i].kind && belt_part != have && have == PartKind::None {
+                if belt_part == factory.floor[main_coord].machine.wants[i].kind && belt_part != have && have == PARTKIND_NONE {
                   if options.print_moves || options.print_moves_machine {
                     log(format!("({}) Machine @{} (sub @{}) accepting part {:?} as input {} from belt @{}, had {:?}", factory.ticks, main_coord, sub_coord, belt_part, i, from_coord, have));
                   }
                   machine_receive_part(factory, main_coord, i, factory.floor[from_coord].belt.part.clone());
-                  belt_receive_part(factory, from_coord, incoming_dir, part_none());
+                  belt_receive_part(factory, from_coord, incoming_dir, part_none(config));
                   trash = false;
                   break;
                 }
@@ -223,7 +224,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
               }
               let part = factory.floor[from_coord].belt.part.clone();
               machine_update_oldest_list(factory, main_coord, &part);
-              belt_receive_part(factory, from_coord, incoming_dir, part_none());
+              belt_receive_part(factory, from_coord, incoming_dir, part_none(config));
               factory.floor[main_coord].machine.trashed += 1;
             }
           }
@@ -248,7 +249,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, factory: &mut Fact
       // Ready to produce a new part
       if options.print_moves || options.print_moves_machine { log(format!("({}) Machine @{} started to create new part", factory.ticks, main_coord)); }
       for i in 0..factory.floor[main_coord].machine.haves.len() {
-        factory.floor[main_coord].machine.haves[i] = part_none();
+        factory.floor[main_coord].machine.haves[i] = part_none(config);
       }
       factory.floor[main_coord].machine.start_at = factory.ticks;
     }
@@ -322,15 +323,15 @@ pub fn machine_discover_ins_and_outs_floor(floor: &mut [Cell; FLOOR_CELLS_WH], m
   }
 }
 
-pub fn machine_change_want(options: &mut Options, state: &mut State, factory: &mut Factory, main_coord: usize, index: usize, part: Part) {
+pub fn machine_change_want(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, main_coord: usize, index: usize, part: Part) {
   factory.floor[main_coord].machine.wants[index] = part;
 
-  let new_out = machine_discover_output(options, state, factory, main_coord);
+  let new_out = machine_discover_output(options, state, config, factory, main_coord);
   log(format!("machine_change_want() -> {:?}", new_out));
   factory.floor[main_coord].machine.output_want = new_out;
 }
 
-pub fn machine_discover_output(options: &Options, state: &State, factory: &Factory, main_coord: usize) -> Part {
+pub fn machine_discover_output(options: &Options, state: &State, config: &Config, factory: &Factory, main_coord: usize) -> Part {
   // Given a set of wants, determine what the output should be
   // Things to consider;
   // - input pattern
@@ -349,32 +350,32 @@ pub fn machine_discover_output(options: &Options, state: &State, factory: &Facto
   let w = factory.floor[main_coord].machine.cell_width;
   let h = factory.floor[main_coord].machine.cell_height;
 
-  log(format!("machine_discover_output({}) {}_{}", main_coord, w, h));
+  if options.trace_map_parsing { log(format!("machine_discover_output({}) {}_{}", main_coord, w, h)); }
 
   match ( w , h ) {
-    ( 1, 3 ) => machine_discover_output_1_3(options, state, factory, main_coord),
-    ( 3, 3 ) => machine_discover_output_3_3(options, state, factory, main_coord),
+    ( 1, 3 ) => machine_discover_output_1_3(options, state, config, factory, main_coord),
+    ( 3, 3 ) => machine_discover_output_3_3(options, state, config, factory, main_coord),
     _ => {
-      log(format!("machine_discover_output(): machine dimensions not supported; {} x {}", w, h));
-      part_c('t')
+      if options.trace_map_parsing { log(format!("machine_discover_output(): machine dimensions not supported; {} x {}", w, h)); }
+      part_c(config, 't')
     },
   }
 }
-pub fn wants_discover_output(wants: &Vec<Part>, width: usize, height: usize) -> Part {
+pub fn wants_discover_output(options: &Options, state: &State, config: &Config, wants: &Vec<Part>, width: usize, height: usize) -> Part {
   match ( width , height ) {
-    ( 1, 3 ) => machine_wants_to_output_1_3(wants),
-    ( 3, 3 ) => machine_wants_to_output_3_3(wants),
+    ( 1, 3 ) => machine_wants_to_output_1_3(config, wants),
+    ( 3, 3 ) => machine_wants_to_output_3_3(config, wants),
     _ => {
-      log(format!("wants_discover_output(): machine dimensions not supported; {} x {}", width , height));
-      part_c('t')
+      if options.trace_map_parsing { log(format!("wants_discover_output(): machine dimensions not supported; {} x {}", width , height)); }
+      part_c(config, 't')
     },
   }
 }
-fn machine_discover_output_1_3(options: &Options, state: &State, factory: &Factory, main_coord: usize) -> Part {
+fn machine_discover_output_1_3(options: &Options, state: &State, config: &Config, factory: &Factory, main_coord: usize) -> Part {
   assert!(factory.floor[main_coord].machine.wants.len() == 3, "1x3 factory has 3 cells so should have 3 wants");
-  return machine_wants_to_output_1_3(&factory.floor[main_coord].machine.wants);
+  return machine_wants_to_output_1_3(config, &factory.floor[main_coord].machine.wants);
 }
-fn machine_wants_to_output_1_3(wants: &Vec<Part>) -> Part {
+fn machine_wants_to_output_1_3(config: &Config, wants: &Vec<Part>) -> Part {
   match (
     wants[0].icon,
     wants[1].icon,
@@ -384,26 +385,26 @@ fn machine_wants_to_output_1_3(wants: &Vec<Part>) -> Part {
       ' ',
       ' ',
       ' ',
-    ) => part_c('t'),
+    ) => part_c(config, 't'),
     (
       's',
       'w',
       'w',
-    ) => part_c('b'),
+    ) => part_c(config, 'b'),
     (
       'b',
       'd',
       'd',
-    ) => part_c('g'),
+    ) => part_c(config, 'g'),
 
-    _ => part_c('t'),
+    _ => part_c(config, 't'),
   }
 }
-fn machine_discover_output_3_3(options: &Options, state: &State, factory: &Factory, main_coord: usize) -> Part {
+fn machine_discover_output_3_3(options: &Options, state: &State, config: &Config, factory: &Factory, main_coord: usize) -> Part {
   assert!(factory.floor[main_coord].machine.wants.len() == 9, "3x3 factory has 9 cells so should have 9 wants");
-  return machine_wants_to_output_3_3(&factory.floor[main_coord].machine.wants);
+  return machine_wants_to_output_3_3(config, &factory.floor[main_coord].machine.wants);
 }
-pub fn machine_wants_to_output_3_3(wants: &Vec<Part>) -> Part {
+pub fn machine_wants_to_output_3_3(config: &Config, wants: &Vec<Part>) -> Part {
   match (
     wants[0].icon, wants[1].icon, wants[2].icon,
     wants[3].icon, wants[4].icon, wants[5].icon,
@@ -413,54 +414,54 @@ pub fn machine_wants_to_output_3_3(wants: &Vec<Part>) -> Part {
       ' ', ' ', ' ',
       ' ', ' ', ' ',
       ' ', ' ', ' ',
-    ) => part_c('t'),
+    ) => part_c(config, 't'),
     (
       ' ', ' ', ' ',
       'w', 'w', 'w',
       'w', ' ', 'w',
-    ) => part_c('T'),
+    ) => part_c(config, 'T'),
     (
       'w', ' ', ' ',
       'w', 'w', 'w',
       'w', ' ', 'w',
-    ) => part_c('C'),
+    ) => part_c(config, 'C'),
     (
       ' ', 'r', ' ',
       ' ', 'e', ' ',
       ' ', 'r', ' ',
-    ) => part_c('W'),
+    ) => part_c(config, 'W'),
     (
       'i', 'p', 'p',
       'i', 'p', 'p',
       'i', 'p', 'p',
-    ) => part_c('D'),
+    ) => part_c(config, 'D'),
     (
       ' ', 'W', ' ',
       'W', 'D', 'W',
       ' ', 'W', ' ',
-    ) => part_c('C'),
+    ) => part_c(config, 'C'),
     (
       ' ', ' ', ' ',
       'n', 'n', 'n',
       'n', 'n', 'n',
-    ) => part_c('Q'),
+    ) => part_c(config, 'Q'),
     (
       ' ', 'Q', ' ',
       'k', 'k', 'k',
       'k', 'k', 'k',
-    ) => part_c('l'),
+    ) => part_c(config, 'l'),
     (
       ' ', ' ', ' ',
       'W', 'l', 'W',
       ' ', ' ', ' ',
-    ) => part_c('o'),
+    ) => part_c(config, 'o'),
     (
       ' ', ' ', ' ',
       'C', 'o', ' ',
       ' ', ' ', ' ',
-    ) => part_c('K'),
+    ) => part_c(config, 'K'),
 
-    _ => part_c('t'),
+    _ => part_c(config, 't'),
   }
 }
 

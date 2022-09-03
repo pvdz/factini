@@ -2,6 +2,7 @@
 
 use super::belt::*;
 use super::cell::*;
+use super::config::*;
 use super::cli_serialize::*;
 use super::direction::*;
 use super::factory::*;
@@ -18,7 +19,7 @@ use super::state::*;
 use super::utils::*;
 
 
-pub fn paste(options: &mut Options, state: &mut State, factory: &mut Factory, selected_ox: usize, selected_oy: usize) {
+pub fn paste(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, selected_ox: usize, selected_oy: usize) {
   if state.selected_area_copy.len() > 0 {
     let clipboard_w = state.selected_area_copy[0].len();
     let clipboard_h = state.selected_area_copy.len();
@@ -29,7 +30,7 @@ pub fn paste(options: &mut Options, state: &mut State, factory: &mut Factory, se
         let cy = selected_oy + y;
         let coord = to_coord(cx, cy);
 
-        paste_one_cell(options, state, factory, x, y, clipboard_w, clipboard_h, cx, cy, coord);
+        paste_one_cell(options, state, config, factory, x, y, clipboard_w, clipboard_h, cx, cy, coord);
       }
     }
 
@@ -61,14 +62,14 @@ pub fn paste(options: &mut Options, state: &mut State, factory: &mut Factory, se
   }
 }
 
-pub fn paste_one_cell(options: &mut Options, state: &mut State, factory: &mut Factory, x: usize, y: usize, w: usize, h: usize, cx: usize, cy: usize, coord: usize) {
+pub fn paste_one_cell(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, x: usize, y: usize, w: usize, h: usize, cx: usize, cy: usize, coord: usize) {
   log(format!("- paste_one_cell({} {}) coord {} {} middle? {}", x, y, cx, cy, is_middle(cx, cy)));
 
   if is_middle(cx, cy) {
     // Are we destroying a machine? Then destroy it proper.
     if factory.floor[coord].kind == CellKind::Machine {
       log(format!("  - Dropping entire machine at target cell"));
-      floor_delete_cell_at_partial(options, state, factory, coord);
+      floor_delete_cell_at_partial(options, state, config, factory, coord);
     } else {
       // And otherwise it must be a belt or an empty cell. Ignore that case here.
     }
@@ -84,7 +85,7 @@ pub fn paste_one_cell(options: &mut Options, state: &mut State, factory: &mut Fa
     if state.selected_area_copy[y][x].kind == CellKind::Belt {
       log(format!("  - Copying from a belt"));
       let meta = state.selected_area_copy[y][x].belt.meta.clone();
-      factory.floor[coord] = belt_cell(cx, cy, meta);
+      factory.floor[coord] = belt_cell(config, cx, cy, meta);
       // Copy the port directions
       factory.floor[coord].port_u = state.selected_area_copy[y][x].port_u;
       factory.floor[coord].port_r = state.selected_area_copy[y][x].port_r;
@@ -113,7 +114,7 @@ pub fn paste_one_cell(options: &mut Options, state: &mut State, factory: &mut Fa
     }
     else {
       log(format!("  - Copying not from a belt so adding an empty cell"));
-      factory.floor[coord] = empty_cell(cx, cy);
+      factory.floor[coord] = empty_cell(config, cx, cy);
 
       if y == 0 || cy == 1 {
         log(format!("    - Upper row in copy area. Clear above down port; {:?}", factory.floor[to_coord_up(coord)].port_d));

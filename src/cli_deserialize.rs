@@ -4,6 +4,7 @@ use std::convert::TryInto;
 
 use super::belt::*;
 use super::cell::*;
+use super::config::*;
 use super::demand::*;
 use super::factory::*;
 use super::floor::*;
@@ -18,17 +19,17 @@ use super::state::*;
 use super::supply::*;
 use super::utils::*;
 
-pub fn floor_from_str(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
+pub fn floor_from_str(options: &mut Options, state: &mut State, config: &Config, str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
   if str.len() == 0 {
-    return ( floor_empty(), vec!() );
+    return ( floor_empty(config), vec!() );
   }
 
   // let ( floor, offers ) = str_to_floor(str);
-  let ( floor, offers ) = str_to_floor2(str);
+  let ( floor, offers ) = str_to_floor2(options, state, config, str);
   return ( floor, offers );
 }
 
-fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
+fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
   // Given a string in a grid format, generate a floor
   // The string starts with at least one line of config.
   // - For now the only modifier are the dimension of the hardcoded 11x11
@@ -111,7 +112,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
 
   log(format!("str_to_floor2:\n{}", str));
 
-  let mut floor: [Cell; FLOOR_CELLS_WH] = floor_empty();
+  let mut floor: [Cell; FLOOR_CELLS_WH] = floor_empty(config);
   let mut offers = vec!(); // TODO
 
   let hash: &char = &'#';
@@ -124,7 +125,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
   let mut lines = lines.iter_mut(); // hafta or the compiler complains
 
   let mut first_line = lines.next().unwrap(); // Bust if there's no input.
-  log(format!("first First line: {:?}", first_line));
+  if options.trace_map_parsing { log(format!("first First line: {:?}", first_line)); }
   loop {
     while first_line.peek().or(Some(&'#')).unwrap() == &' ' { first_line.next(); }
     // Keep skipping lines that start with comments and empty lines (only containing spaces)
@@ -133,7 +134,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
     }
     first_line = lines.next().unwrap(); // Bust if there's no more input.
   }
-  log(format!("First line: {:?}", first_line));
+  if options.trace_map_parsing { log(format!("First line after comments: {:?}", first_line)); }
 
   // We should now be at the start of the first non-comment line.
   // It is asserted to be the map header line.
@@ -257,7 +258,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
       let port_d = h;
       let port_l = d;
 
-      fn add_machine(floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, x: usize, y: usize, cell_kind: char, machine_main_coords: &mut [usize; 63], port_u: char, port_r: char, port_d: char, port_l: char) {
+      fn add_machine(options: &mut Options, state: &mut State, config: &Config, floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, x: usize, y: usize, cell_kind: char, machine_main_coords: &mut [usize; 63], port_u: char, port_r: char, port_d: char, port_l: char) {
         // Auto layout will have to reconcile the individual machine parts into one machine
         // Any modifiers as well as the input and output parameters of this machine are
         // listed below the floor model. Expect them to be filled in later.
@@ -269,7 +270,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
           } else {
             machine_main_coords[mn]
           };
-        let mut cell = machine_any_cell(cell_kind as char, x, y, 1, 1, MachineKind::Unknown, vec!(), part_c(' '), 1, 1, 1);
+        let mut cell = machine_any_cell(options, state, config, cell_kind as char, x, y, 1, 1, MachineKind::Unknown, vec!(), part_c(config, ' '), 1, 1, 1);
         cell.port_u = match port_u as char { '^' => Port::Outbound, 'v' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port up indicators must be `^`, `v`, `?` or a space, this was `{}`", port_u)};
         cell.port_r = match port_r as char { '>' => Port::Outbound, '<' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port right indicators must be `<`, `>`, `?` or a space, this was `{}`", port_u)};
         cell.port_d = match port_d as char { 'v' => Port::Outbound, '^' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port down indicators must be `^`, `v`, `?` or a space, this was `{}`", port_u)};
@@ -280,7 +281,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
       match cell_kind as char {
         's' => {
           if is_middle(i, j) {
-            add_machine(&mut floor, coord, i, j, cell_kind, &mut machine_main_coords, port_u, port_r, port_d, port_l);
+            add_machine(options, state, config, &mut floor, coord, i, j, cell_kind, &mut machine_main_coords, port_u, port_r, port_d, port_l);
           } else {
             let ( port_u, port_r, port_d, port_l ) =
               if j == 0 {
@@ -295,15 +296,15 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
                 panic!("Error parsing floor cell: Encountered an `s` inside the floor; this should be a Supply, which is bound to the edge");
               };
             // The speed and cooldown of the supply have to be added below the floor so use placeholder values for now; TODO: wire that up
-            log(format!("Supply"));
-            let cell = supply_cell(i, j, part_c('t'), 1, 1, 1);
+            if options.trace_map_parsing { log(format!("Supply")); }
+            let cell = supply_cell(config, i, j, part_c(config, 't'), 1, 1, 1);
             floor[coord] = cell;
           }
         },
 
         'd' => {
           if is_middle(i, j) {
-            add_machine(&mut floor, coord, i, j, cell_kind, &mut machine_main_coords, port_u, port_r, port_d, port_l);
+            add_machine(options, state, config, &mut floor, coord, i, j, cell_kind, &mut machine_main_coords, port_u, port_r, port_d, port_l);
           } else {
             let ( port_u, port_r, port_d, port_l ) =
             if j == 0 {
@@ -317,8 +318,8 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
             } else {
               panic!("Error parsing floor cell: Encountered an `d` inside the floor; this should be a Demand, which is bound to the edge");
             };
-            log(format!("Demand"));
-            let cell = demand_cell(i, j);
+            if options.trace_map_parsing { log(format!("Demand")); }
+            let cell = demand_cell(config, i, j);
             floor[coord] = cell;
           }
         },
@@ -327,7 +328,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
         | ' '
         | '.'
         => {
-          floor[coord] = empty_cell(i, j);
+          floor[coord] = empty_cell(config, i, j);
         }
 
         // Then there's a bunch of belt cells. These are either `b` or "table ascii art" chars
@@ -335,7 +336,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
         // based on the port configuration, anyways.
         '%' => { // Joker, unspecified belt. (b is used by machine id)
           // Fix belt meta later in the auto layout step
-          let mut cell = belt_cell(i, j, BELT_UNKNOWN);
+          let mut cell = belt_cell(config, i, j, BELT_UNKNOWN);
           cell.port_u = Port::Unknown;
           cell.port_r = Port::Unknown;
           cell.port_d = Port::Unknown;
@@ -359,7 +360,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
         | '╬'
         => {
           // Fix belt meta later in the auto layout step
-          let mut cell = belt_cell(i, j, BELT_UNKNOWN);
+          let mut cell = belt_cell(config, i, j, BELT_UNKNOWN);
           cell.port_u = match port_u as char { '^' => Port::Outbound, 'v' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port up indicators must be `^`, `v`, `?` or a space, this was `{}`", port_u)};
           cell.port_r = match port_r as char { '>' => Port::Outbound, '<' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port right indicators must be `<`, `>`, `?` or a space, this was `{}`", port_u)};
           cell.port_d = match port_d as char { 'v' => Port::Outbound, '^' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port down indicators must be `^`, `v`, `?` or a space, this was `{}`", port_u)};
@@ -371,7 +372,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
           if (cell_kind >= '1' && cell_kind <= '9') || (cell_kind >= 'a' && cell_kind <= 'z') || (cell_kind >= 'A' && cell_kind <= 'Z') {
             // Machine id is a single char 1-9a-zA-Z
             // Note: s and d are special cased between middle and edge cell above
-            add_machine(&mut floor, coord, i, j, cell_kind, &mut machine_main_coords, port_u, port_r, port_d, port_l);
+            add_machine(options, state, config, &mut floor, coord, i, j, cell_kind, &mut machine_main_coords, port_u, port_r, port_d, port_l);
           } else {
             panic!("Error while parsing factory string: Encountered an unknown center cell char at {}x{}: `{}` ({})", i, j, cell_kind as char, cell_kind)
           }
@@ -386,7 +387,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
     match lines.next() {
       None => break,
       Some(line) => {
-        log(format!("Next line: {:?}", line));
+        if options.trace_map_parsing { log(format!("Next line: {:?}", line)); }
         while line.peek().or(Some(&'#')).unwrap() == &' ' { line.next(); }
         // Keep skipping lines that start with comments and empty lines (only containing spaces)
         if line.peek().or(Some(&'#')).unwrap() != &'#' {
@@ -468,10 +469,10 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
               for coord in 0..FLOOR_CELLS_WH {
                 if floor[coord].kind == CellKind::Supply {
                   if n == nth {
-                    log(format!("Updating supply {} @{} with part {} and speed {} and cooldown {}", nth, coord, gives, speed, cooldown));
+                    if options.trace_map_parsing { log(format!("Updating supply {} @{} with part {} and speed {} and cooldown {}", nth, coord, gives, speed, cooldown)); }
                     floor[coord].supply.speed = speed;
                     floor[coord].supply.cooldown = cooldown;
-                    floor[coord].supply.gives = part_c(gives);
+                    floor[coord].supply.gives = part_c(config, gives);
                     break;
                   }
                   n += 1;
@@ -513,7 +514,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
               while c != '#' && c != '-' {
                 if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '.') { panic!("Unexpected input while parsing machine input: input characters must be a-zA-Z or dot, found `{}`", c); }
                 // Convert the dot back to an empty part.
-                wants.push(part_c(if c == '.' { ' ' } else { c }));
+                wants.push(part_c(config, if c == '.' { ' ' } else { c }));
 
                 c = line.next().or(Some('#')).unwrap();
                 while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
@@ -562,15 +563,15 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
               let main_coord = machine_main_coords[nth as usize];
               if main_coord > 0 {
                 let want_icons = wants.iter().map(|Part { icon, .. }| icon).collect::<Vec<&char>>();
-                let out2 = machine_wants_to_output_3_3(&wants);
-                log(format!("Updating machine {} @{} with inputs {:?} and output {:?} at speed {}", nth, main_coord, want_icons, out2, speed));
+                let out2 = machine_wants_to_output_3_3(config, &wants);
+                if options.trace_map_parsing { log(format!("Updating machine {} @{} with inputs {:?} and output {:?} at speed {}", nth, main_coord, want_icons, out2, speed)); }
 
                 // Note: auto discovery will have to make sure that wants.len and haves.len are equal and at least >= w*h
                 floor[main_coord].machine.wants = wants;
                 floor[main_coord].machine.output_want = out2; // part_c(output);
                 floor[main_coord].machine.speed = speed;
               } else {
-                log(format!("Machine {} was defined as having inputs {:?} and output {} at speed {} but its main_coord was not found", nth, wants, output, speed));
+                if options.trace_map_parsing { log(format!("Machine {} was defined as having inputs {:?} and output {} at speed {} but its main_coord was not found", nth, wants, output, speed)); }
               }
             },
             'o' => {
@@ -644,7 +645,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
                     }
                   }
 
-                  log(format!("- Creating Supply Offer that gives `{}`", gives));
+                  if options.trace_map_parsing { log(format!("- Creating Supply Offer that gives `{}`", gives)); }
                   offers.push(Offer {
                     kind: CellKind::Supply,
                     cell_width: 0,
@@ -670,7 +671,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
                   // if c < 'a' && c > 'z' { panic!("Unexpected input while parsing demand augment kind: input characters must be a-z, found `{}`", c); }
                   // takes = c;
 
-                  log(format!("- Creating Demand Offer"));
+                  if options.trace_map_parsing { log(format!("- Creating Demand Offer")); }
                   offers.push(Offer {
                     kind: CellKind::Demand,
                     cell_width: 0,
@@ -700,7 +701,7 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
                   while c != '#' && c != '-' {
                     if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '.') { panic!("Unexpected input while parsing machine augment input2: input characters must be a-z, found `{}`", c); }
                     // Convert the dot back to an empty part.
-                    wants.push(part_c(if c == '.' { ' ' } else { c }));
+                    wants.push(part_c(config, if c == '.' { ' ' } else { c }));
 
                     c = line.next().or(Some('#')).unwrap();
                     while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
@@ -799,11 +800,11 @@ fn str_to_floor2(str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
                   let cw = (width * height) as usize;
                   for i in 0..cw {
                     if wants.len() < cw {
-                      wants.push(part_none());
+                      wants.push(part_none(config));
                     }
                   }
 
-                  let output = wants_discover_output(&wants, width as usize, height as usize);
+                  let output = wants_discover_output(options, state, config, &wants, width as usize, height as usize);
 
                   offers.push(Offer {
                     kind: CellKind::Machine,

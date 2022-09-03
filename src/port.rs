@@ -3,6 +3,7 @@ use std::convert::TryInto;
 
 use super::belt::*;
 use super::cell::*;
+use super::config::*;
 use super::demand::*;
 use super::direction::*;
 use super::factory::*;
@@ -22,12 +23,12 @@ pub enum Port {
   Unknown,
 }
 
-pub fn port_disconnect_cells(factory: &mut Factory, coord1: usize, dir1: Direction, coord2: usize, dir2: Direction) {
+pub fn port_disconnect_cells(config: &Config, factory: &mut Factory, coord1: usize, dir1: Direction, coord2: usize, dir2: Direction) {
   // Note: this still requires fixing the cell meta and a new factory prio
-  port_disconnect_cell(factory, coord1, dir1);
-  port_disconnect_cell(factory, coord2, dir2);
+  port_disconnect_cell(config, factory, coord1, dir1);
+  port_disconnect_cell(config, factory, coord2, dir2);
 }
-pub fn port_disconnect_cell(factory: &mut Factory, coord: usize, dir: Direction) {
+pub fn port_disconnect_cell(config: &Config, factory: &mut Factory, coord: usize, dir: Direction) {
   // Some cells have fixed ports, only belts are dynamic, machines reset to unknown
   // Note: this still requires fixing the cell meta and a new factory prio
 
@@ -40,7 +41,7 @@ pub fn port_disconnect_cell(factory: &mut Factory, coord: usize, dir: Direction)
     }
   }
 
-  belt_receive_part(factory, coord, Direction::Up, part_none());
+  belt_receive_part(factory, coord, Direction::Up, part_none(config));
 }
 
 pub fn serialize_ports(factory: &Factory, coord: usize) -> String {

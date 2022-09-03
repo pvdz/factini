@@ -93,7 +93,7 @@ pub fn cli_main(options: &mut Options, state: &mut State) {
   // least 10s").
 
   loop {
-    tick_factory(options, state, &mut factory);
+    tick_factory(options, state, &config, &mut factory);
 
     if (factory.ticks % options.print_factory_interval) == 0 {
       println!("{:200}", ' ');

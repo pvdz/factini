@@ -1,4 +1,17 @@
 const GAME_CONFIG = `
+# Part_None
+Hardcoded first node internally but can appear anywhere, or nowhere, because there's no properties to this one
+
+# Part_Trash
+Hardcoded to be the second node internally but can appear anywhere
+This is something that looks like a grey rock
+- char: t
+- file: ./img/roguelikeitems.png
+- x: 176
+- y: 160
+- w: 16
+- h: 16
+
 # Part_BlueWand
 This is the slightly bigger blue wand
 - char: b
@@ -32,15 +45,6 @@ This is a sapphire
 - file: ./img/roguelikeitems.png
 - x: 16
 - y: 48
-- w: 16
-- h: 16
-
-# Part_Trash
-This is something that looks like a grey rock
-- char: t
-- file: ./img/roguelikeitems.png
-- x: 176
-- y: 160
 - w: 16
 - h: 16
 
@@ -373,5 +377,42 @@ The old paper
 - y: 80
 - w: 16
 - h: 16
+
+
+# Quest_Start
+- after: 
+- parts: Part_DirtWhite, Part_IngotWhite
+- targets: 100x Part_Ingot
+
+# Quest_Shield
+- after: Quest_Start
+- parts: Part_Wood, Part_ShieldWood
+- targets: 100x Part_ShieldWood
+
+# Quest_BlueBottle
+- after: Quest_Start
+- parts: Part_Sapphire, Part_PotionBlue
+- targets: 100x Part_PotionBlue
+
+# Quest_BlueShield
+- after: Quest_Shield, Quest_BlueBottle
+- parts: Part_ShieldBlue
+- targets: 100x Part_ShieldBlue
+
+# Quest_WhiteBook
+- after: Quest_Start
+- parts: Part_Rope, Part_Paper, Part_BookWhite
+- targets: 100x Part_BookWhite
+
+# Quest_BlueBook
+- after: Quest_BlueBottle, Quest_WhiteBook
+- parts: Part_BookBlue
+- targets: 100x Part_BookBlue
+
+# Quest_BookShield
+- after: Quest_BlueBook, Quest_BlueShield
+- parts: Part_BookShield
+- targets: 100x Part_BookShield
+
 
 `;
