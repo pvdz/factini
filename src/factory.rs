@@ -10,7 +10,6 @@ use super::demand::*;
 use super::floor::*;
 use super::options::*;
 use super::machine::*;
-use super::offer::*;
 use super::part::*;
 use super::port::*;
 use super::port_auto::*;
@@ -24,13 +23,13 @@ pub struct Factory {
   pub ticks: u64,
   pub floor: [Cell; FLOOR_CELLS_WH],
   pub prio: Vec<usize>,
-  pub offers: Vec<Offer>, // Cells the player can drag'n'drop
-  pub quotes: Vec<Quote>, // Current achievements to unlock
+  pub quotes: Vec<Quote>, // Current available achievements to unlock
   /**
    * Current available parts to use as supply or craft in machine.
+   * These are painted in the right hand menu. The bool tells us whether to actually paint it.
    * ( icon, available )
    */
-  pub recipes: Vec< ( char, bool ) >,
+  pub available_parts_rhs_menu: Vec< (PartKind, bool ) >,
 
   pub changed: bool, // Was any part of the factory changed since last tick? Resets counters and (p)recomputes tracks.
 
@@ -39,8 +38,6 @@ pub struct Factory {
   pub curr_day_progress: f64,
   pub finished_at: u64, // Do not set for invalid scores. If at any point before the end of day the targets have been fulfilled, set this value so it sticks at it in the UI. Zero value is ignored.
   pub finished_with: u64, // Do not set for invalid scores. If at the end of day the targets have not been fulfilled, set this value to the % of progress where it failed so it sticks in the UI. Zero value is ignored.
-  pub target_production: Vec<(char, u64)>, // Icon = part, u64 = desired count by end of day
-  pub actual_production: Vec<(char, u64)>, // Icon = part, u64 = received count so far
 
   pub supplied: u64,
   pub produced: u64,
@@ -49,27 +46,25 @@ pub struct Factory {
 }
 
 pub fn create_factory(options: &mut Options, state: &mut State, config: &Config, floor_str: String, parts: Vec<PartKind>) -> Factory {
-  let ( floor, offers ) = floor_from_str(options, state, config, floor_str);
+  let floor = floor_from_str(options, state, config, floor_str);
   let mut factory = Factory {
     ticks: 0,
     floor,
     prio: vec!(),
-    offers,
-    quotes: vec!(quote_get(config, QuoteKind::Inglish)),
-    recipes: parts.iter().map(|p| ( part_kind_to_icon(config, *p), true )).collect::<Vec<(char, bool)>>(),
+    quotes: quotes_get_available(config, 0),
+    available_parts_rhs_menu: parts.iter().map(|&p| ( p, true )).collect::<Vec<(PartKind, bool)>>(),
     changed: true,
     last_day_start: 0,
     modified_at: 0,
     curr_day_progress: 0.0,
     finished_at: 0,
     finished_with: 0,
-    target_production: vec!(('K', 10)),
-    actual_production: vec!(),
     supplied: 0,
     produced: 0,
     accepted: 0,
     trashed: 0,
   };
+  log(format!("available quotes: {:?}", factory.quotes));
   auto_layout(options, state, config, &mut factory);
   auto_ins_outs(options, state, &mut factory);
   let prio = create_prio_list(options, config, &mut factory.floor);
@@ -99,7 +94,7 @@ pub fn tick_factory(options: &mut Options, state: &mut State, config: &Config, f
     let day_progress = (factory.ticks - factory.last_day_start) as f64 / (day_ticks as f64);
     factory.curr_day_progress = day_progress;
 
-    factory_collect_stats(options, state, factory);
+    factory_collect_stats(config, options, state, factory);
 
     if factory.finished_at <= 0 && day_progress >= 1.0 {
       factory.finished_at = factory.ticks;
@@ -108,80 +103,68 @@ pub fn tick_factory(options: &mut Options, state: &mut State, config: &Config, f
   }
 }
 
-pub fn factory_collect_stats(options: &mut Options, state: &mut State, factory: &mut Factory) {
-  let mut supplied: u64 = 0;
-  let mut produced: u64 = 0;
-  let mut accepted: u64 = 0;
-  let mut trashed: u64 = 0;
-  let mut received: Vec<(char, u64)> = vec!();
+pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut State, factory: &mut Factory) {
+  let mut total_parts_supplied: u64 = 0;
+  let mut total_parts_produced: u64 = 0;
+  let mut total_parts_accepted: u64 = 0;
+  let mut total_parts_trashed: u64 = 0;
 
   let collected: Vec<(char, u64)> = vec!();
 
-  for i in 0..factory.quotes.len() {
-    for j in 0..factory.quotes[i].wants.len() {
-      if factory.quotes[j].completed_at == 0 {
-        factory.quotes[i].wants[j].2 = 0;
-      }
-    }
-  }
+  // for i in 0..factory.quotes.len() {
+  //   for j in 0..factory.quotes[i].wants.len() {
+  //     if factory.quotes[j].completed_at == 0 {
+  //       factory.quotes[i].wants[j].2 = 0;
+  //     }
+  //   }
+  // }
 
   for coord in 0..factory.floor.len() {
     match factory.floor[coord].kind {
       CellKind::Empty => {} // Ignore empty cells here
       CellKind::Supply => {
-        supplied += factory.floor[coord].supply.supplied;
+        total_parts_supplied += factory.floor[coord].supply.supplied;
       }
       CellKind::Machine => {
-        produced += factory.floor[coord].machine.produced;
-        trashed += factory.floor[coord].machine.trashed;
+        total_parts_produced += factory.floor[coord].machine.produced;
+        total_parts_trashed += factory.floor[coord].machine.trashed;
       }
       CellKind::Belt => {} // Ignore
       CellKind::Demand => {
         for i in 0..factory.floor[coord].demand.received.len() {
+          let (received_part_index, received_count) = factory.floor[coord].demand.received[i];
 
           // Update the quote counts (expensive search but these arrays should be tiny, sub-10)
           for j in 0..factory.quotes.len() {
-            for k in 0..factory.quotes[j].wants.len() {
-              // Ignore completed quotes. Increment quote totals if demand received a matching part.
-              if factory.quotes[j].completed_at == 0 && factory.quotes[j].wants[k].0 == factory.floor[coord].demand.received[i].0 {
-                factory.quotes[j].wants[k].2 += factory.floor[coord].demand.received[i].1;
-                if factory.quotes[j].wants[k].2 >= factory.quotes[j].wants[k].1 {
-                  // This quote is finished so end the day // TODO: multiple parts one quote
-                  factory.finished_at = factory.ticks;
-                  state.finished_quotes.push(j); // Start visual candy for this quote in next frame
-                }
-              }
+            // Ignore completed quotes.
+            if factory.quotes[j].completed_at > 0 {
+              continue;
             }
-          }
 
-          accepted += factory.floor[coord].demand.received[i].1;
-          let mut is_old = true;
-          for n in 0..received.len() {
-            if received[n].0 == factory.floor[coord].demand.received[i].0 {
-              received[n].1 += factory.floor[coord].demand.received[i].1;
-              is_old = false;
+            // Increment quote totals if demand received a matching part.
+            if factory.quotes[j].part_index == received_part_index {
+              factory.quotes[j].current_count += received_count;
+              if factory.quotes[j].current_count >= factory.quotes[j].target_count {
+                log(format!("finished quote {} with {} of {}", factory.quotes[j].name, factory.quotes[j].current_count, factory.quotes[j].target_count));
+                // This quote is finished so end the day // TODO: multiple parts one quote
+                factory.finished_at = factory.ticks;
+                state.finished_quotes.push(j); // Start visual candy for this quote in next frame
+              }
               break;
             }
           }
-          if is_old {
-            received.push(
-              (
-                factory.floor[coord].demand.received[i].0,
-                factory.floor[coord].demand.received[i].1
-              )
-            );
-          }
 
+          total_parts_accepted += received_count as u64;
+          factory.floor[coord].demand.received.clear();
         }
       }
     }
   }
 
-  factory.actual_production = received;
-  factory.supplied = supplied;
-  factory.produced = produced;
-  factory.accepted = accepted;
-  factory.trashed = trashed;
+  factory.supplied = total_parts_supplied;
+  factory.produced = total_parts_produced;
+  factory.accepted = total_parts_accepted;
+  factory.trashed = total_parts_trashed;
 }
 
 pub fn factory_reset_stats(options: &mut Options, state: &mut State, factory: &mut Factory) {
@@ -202,9 +185,10 @@ pub fn factory_reset_stats(options: &mut Options, state: &mut State, factory: &m
     }
   }
 
-  factory.actual_production = vec!();
   factory.supplied = 0;
   factory.produced = 0;
   factory.accepted = 0;
   factory.trashed = 0;
+
+  factory.quotes.iter_mut().for_each(|quote| quote.current_count = 0);
 }

@@ -1,3 +1,5 @@
+use std::time::SystemTime;
+
 use super::belt::*;
 use super::cell::*;
 use super::direction::*;
@@ -5,7 +7,6 @@ use super::factory::*;
 use super::floor::*;
 use super::machine::*;
 use super::options::*;
-use super::offer::*;
 use super::part::*;
 use super::port::*;
 use super::state::*;
@@ -294,9 +295,9 @@ pub fn generate_floor_without_views(options: &mut Options, state: &mut State, fa
 
   return out;
 }
-pub fn generate_floor_dump(options: &mut Options, state: &mut State, factory: &Factory) -> Vec<String> {
+pub fn generate_floor_dump(options: &mut Options, state: &mut State, factory: &Factory, now: u64) -> Vec<String> {
   // Send help. I'm sure this is wrong on multiple levels. But it works.
-  let aa = serialize2(options, state, factory, true);
+  let aa = serialize2(options, state, factory, true, now);
   let a = aa.split('\n');
   let mut out = vec!();
   for n in a {
@@ -305,7 +306,7 @@ pub fn generate_floor_dump(options: &mut Options, state: &mut State, factory: &F
   return out;
 }
 
-pub fn serialize2(options: &mut Options, state: &mut State, factory: &Factory, dump: bool) -> String {
+pub fn serialize2(options: &mut Options, state: &mut State, factory: &Factory, dump: bool, now: u64) -> String {
   // Create a string that we can parse again. This requires to be explicit about the port states.
   // While it would be super nice to have a condensed string, there's just too many variations.
   // There are four ports and each port can have one of four states (none, unknown, in, out) so
@@ -313,8 +314,9 @@ pub fn serialize2(options: &mut Options, state: &mut State, factory: &Factory, d
   // the machines. It's just infeasible and a bit of a parsing nightmare, although this is even
   // harder because now we have to parse a 3x3 but whatever.
 
-  let mut out = vec!(
-    vec!('d','=','1','7','x','1','7','\\','n','\\','\n'),
+  let mut out: Vec<Vec<char>> = vec!(
+    format!("# Created {:?}\n", now).chars().collect(),
+    "d=17x17\n".chars().collect(),
   );
 
   let mut line1: Vec<char> = vec!();
@@ -407,15 +409,12 @@ pub fn serialize2(options: &mut Options, state: &mut State, factory: &Factory, d
       for c in format!("{}", factory.floor[coord].machine.speed).as_bytes().iter() {
         cell_params.push(*c as char);
       }
-      cell_params.push('\\');
-      cell_params.push('n');
-      cell_params.push('\\');
       cell_params.push('\n');
     }
     else if factory.floor[coord].kind == CellKind::Supply {
       supply_count += 1;
       cell_params.push('s');
-      cell_params.push((('0' as u8) + supply_count) as char);
+      cell_params.push(n_to_alnum(supply_count));
       cell_params.push(' ');
       cell_params.push('=');
       cell_params.push(' ');
@@ -432,18 +431,12 @@ pub fn serialize2(options: &mut Options, state: &mut State, factory: &Factory, d
       for c in format!("{}", factory.floor[coord].supply.cooldown).as_bytes().iter() {
         cell_params.push(*c as char);
       }
-      cell_params.push('\\');
-      cell_params.push('n');
-      cell_params.push('\\');
       cell_params.push('\n');
     }
     else if factory.floor[coord].kind == CellKind::Demand {
       demand_count += 1;
       cell_params.push('d');
-      cell_params.push((('0' as u8) + demand_count) as char);
-      cell_params.push('\\');
-      cell_params.push('n');
-      cell_params.push('\\');
+      cell_params.push(n_to_alnum(demand_count));
       cell_params.push('\n');
     }
 
@@ -548,17 +541,8 @@ pub fn serialize2(options: &mut Options, state: &mut State, factory: &Factory, d
     );
 
     if x == FLOOR_CELLS_W - 1 {
-      line1.push('\\');
-      line1.push('n');
-      line1.push('\\');
       line1.push('\n');
-      line2.push('\\');
-      line2.push('n');
-      line2.push('\\');
       line2.push('\n');
-      line3.push('\\');
-      line3.push('n');
-      line3.push('\\');
       line3.push('\n');
 
       out.push(line1.clone());
@@ -573,86 +557,15 @@ pub fn serialize2(options: &mut Options, state: &mut State, factory: &Factory, d
 
   out.push(cell_params.clone());
 
-  for i in 0..factory.offers.len() {
-    out.push(serialize_offer(&factory.offers[i]));
-  }
-
 
   let flat: Vec<char> = out.into_iter().flatten().collect();
   return flat.iter().collect();
 }
 
-fn serialize_offer(offer: &Offer) -> Vec<char> {
-  let mut s: Vec<char> = vec!();
 
-  // TODO: encode modifiers too
-
-  s.push('o');
-  s.push(match offer.kind { CellKind::Machine => { 'm' }, CellKind::Supply => 's', CellKind::Demand => 'd', _ => panic!("offers are machines, suppliers, or demanders")});
-  s.push(' ');
-  s.push('=');
-  s.push(' ');
-  match offer.kind {
-    CellKind::Machine => {
-      for i in 0..offer.wants.len() {
-        let icon =
-            if offer.wants[i].kind == PARTKIND_NONE {
-              '.' // Explicitly an empty spot since those are relevant
-            } else {
-              offer.wants[i].icon
-            };
-        s.push(icon);
-        s.push(' ');
-      }
-      s.push('-');
-      s.push('>');
-      s.push(' ');
-      s.push(offer.machine_output);
-
-      s.push(' ');
-      s.push('s');
-      s.push(':');
-      for c in format!("{}", offer.speed).as_bytes().iter() {
-        s.push(*c as char);
-      }
-
-      s.push(' ');
-      s.push('d');
-      s.push(':');
-      for c in format!("{}", offer.cell_width).as_bytes().iter() {
-        s.push(*c as char);
-      }
-      s.push('x');
-      for c in format!("{}", offer.cell_height).as_bytes().iter() {
-        s.push(*c as char);
-      }
-    },
-    CellKind::Supply => {
-      s.push(offer.supply_icon);
-
-      s.push(' ');
-      s.push('s');
-      s.push(':');
-      for c in format!("{}", offer.speed).as_bytes().iter() {
-        s.push(*c as char);
-      }
-
-      s.push(' ');
-      s.push('c');
-      s.push(':');
-      for c in format!("{}", offer.cooldown).as_bytes().iter() {
-        s.push(*c as char);
-      }
-    }
-    CellKind::Demand => {
-      s.push(' ');
-    }
-    _ => panic!("offers are machines, suppliers, or demanders"),
-  }
-  s.push('\\');
-  s.push('n');
-  s.push('\\');
-  s.push('\n');
-
-  return s;
+fn n_to_alnum(n: u8) -> char {
+  return
+    if n <= 9 { ('0' as u8 + n) as char }
+    else if n <= 35 { ('a' as u8 + (n -10)) as char }
+    else { ('A' as u8 + (n -36)) as char };
 }

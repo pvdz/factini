@@ -17,7 +17,7 @@ pub struct Demand {
   pub neighbor_outgoing_dir: Direction,
   pub part_price: i32, // Amount of money you receive when supplying the proper part
   pub trash_price: i32, // Penalty you pay for giving the wrong part
-  pub received: Vec<(char, u64)>,
+  pub received: Vec<(PartKind, u32)>,
 }
 
 pub const fn demand_none() -> Demand {
@@ -48,11 +48,11 @@ pub fn tick_demand(options: &mut Options, state: &mut State, factory: &mut Facto
 
 pub fn demand_receive_part(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, demand_coord: usize, belt_coord: usize) {
   for i in 0..factory.floor[demand_coord].demand.received.len() {
-    if factory.floor[demand_coord].demand.received[i].0 == factory.floor[belt_coord].belt.part.icon {
+    if factory.floor[demand_coord].demand.received[i].0 == factory.floor[belt_coord].belt.part.kind {
       factory.floor[demand_coord].demand.received[i].1 += 1;
       return;
     }
   }
-  factory.floor[demand_coord].demand.received.push( ( factory.floor[belt_coord].belt.part.icon, 1 ) );
+  factory.floor[demand_coord].demand.received.push( ( factory.floor[belt_coord].belt.part.kind, 1 ) );
   belt_receive_part(factory, belt_coord, Direction::Up, part_none(config));
 }

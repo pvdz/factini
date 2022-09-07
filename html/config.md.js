@@ -382,37 +382,37 @@ The old paper
 # Quest_Start
 - after: 
 - parts: Part_DirtWhite, Part_IngotWhite
-- targets: 100x Part_Ingot
+- targets: 10x Part_IngotWhite
 
 # Quest_Shield
 - after: Quest_Start
 - parts: Part_Wood, Part_ShieldWood
-- targets: 100x Part_ShieldWood
+- targets: 10x Part_ShieldWood
 
 # Quest_BlueBottle
 - after: Quest_Start
 - parts: Part_Sapphire, Part_PotionBlue
-- targets: 100x Part_PotionBlue
+- targets: 10x Part_PotionBlue
 
 # Quest_BlueShield
 - after: Quest_Shield, Quest_BlueBottle
 - parts: Part_ShieldBlue
-- targets: 100x Part_ShieldBlue
+- targets: 10x Part_ShieldBlue
 
 # Quest_WhiteBook
 - after: Quest_Start
 - parts: Part_Rope, Part_Paper, Part_BookWhite
-- targets: 100x Part_BookWhite
+- targets: 10x Part_BookWhite
 
 # Quest_BlueBook
 - after: Quest_BlueBottle, Quest_WhiteBook
 - parts: Part_BookBlue
-- targets: 100x Part_BookBlue
+- targets: 10x Part_BookBlue
 
 # Quest_BookShield
 - after: Quest_BlueBook, Quest_BlueShield
 - parts: Part_BookShield
-- targets: 100x Part_BookShield
+- targets: 10x Part_BookShield
 
 
 `;

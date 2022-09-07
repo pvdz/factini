@@ -28,6 +28,21 @@ pub fn part_c(config: &Config, icon: char) -> Part {
   }
 }
 
+pub fn part_from_node(node: &ConfigNode) -> Part {
+  return Part {
+    kind: node.index,
+    icon: node.icon,
+  }
+}
+
+pub fn part_from_part_index(config: &Config, part_index: usize) -> Part {
+  let node = &config.nodes[part_index];
+  return Part {
+    kind: node.index,
+    icon: node.icon,
+  }
+}
+
 // h e -> W
 // i p j -> D
 // D W -> C
@@ -54,7 +69,7 @@ pub fn part_c(config: &Config, icon: char) -> Part {
 pub fn part_icon_to_kind(config: &Config, c: char) -> PartKind {
   // The value of a PartKind is really just the index on the nodes array of the config
   // TODO: figure out why the .or() is relevant. if you set it to 1 then it'll mess up (use debug tools to print parts)
-  return *config.map.get(c.to_string().as_str()).or(Some(&0)).unwrap() as PartKind;
+  return *config.node_name_to_index.get(c.to_string().as_str()).or(Some(&0)).unwrap() as PartKind;
 }
 pub fn part_kind_to_icon(config: &Config, kind: PartKind) -> char {
   return config.nodes[kind].icon;

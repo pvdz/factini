@@ -11,7 +11,7 @@ pub struct Config {
   pub nodes: Vec<ConfigNode>,
   pub quest_nodes: Vec<usize>, // maps to nodes vec
   pub part_nodes: Vec<usize>, // maps to nodes vec
-  pub map: HashMap<String, usize>,
+  pub node_name_to_index: HashMap<String, usize>,
   pub sprite_cache_lookup: HashMap<String, usize>, // indexes into sprite_cache_canvas
   pub sprite_cache_order: Vec<String>, // srcs by index.
   pub sprite_cache_canvas: Vec<web_sys::HtmlImageElement>,
@@ -19,6 +19,7 @@ pub struct Config {
 
 #[derive(Debug)]
 pub struct ConfigNode {
+  pub index: usize, // own index in the config.nodes vec
   pub kind: ConfigNodeKind,
   pub name: String,
   pub raw_name: String,
@@ -26,6 +27,7 @@ pub struct ConfigNode {
   // Quest
   pub unlocks_after_by_name: Vec<String>, // Fully qualified name. Becomes available when these quests are finished.
   pub unlocks_after_by_index: Vec<usize>, // Becomes available when these quests are finished
+  pub unlocks_todo_by_index: Vec<usize>, // Which quests still need to be unlocked before this one unlocks?
   pub starting_part_by_name: Vec<String>, // Fully qualified name. These parts are available when this quest becomes available
   pub starting_part_by_index: Vec<usize>, // These parts are available when this quest becomes available
   pub production_target_by_name: Vec<(u32, String)>, // Fully qualified name. count,name pairs, you need this to finish the quest
@@ -42,7 +44,7 @@ pub struct ConfigNode {
   pub w: u64,
   pub h: u64,
   // Mostly for debugging
-  pub initial_state: ConfigNodeState,
+  pub current_state: ConfigNodeState,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -53,9 +55,14 @@ pub enum ConfigNodeKind {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ConfigNodeState {
-  Active, // Currently enabled to be finished
-  Finished, // Already finished
   Waiting, // Waiting for eligibility to be active
+
+  // Quests
+  LFG, // Ready to be added to be given to the user but not yet given to the user
+  Active, // Currently given to the user, enabled to be finished
+  Finished, // Already finished
+
+  // Parts
   Available, // Part that can be used
 }
 
@@ -98,11 +105,13 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
 
   let mut nodes: Vec<ConfigNode> = vec!(
     ConfigNode {
+      index: PARTKIND_NONE, // 0
       kind: ConfigNodeKind::Part,
       name: "None".to_string(),
       raw_name: "Part_None".to_string(),
       unlocks_after_by_name: vec!(),
       unlocks_after_by_index: vec!(),
+      unlocks_todo_by_index: vec!(),
       starting_part_by_name: vec!(),
       starting_part_by_index: vec!(),
       production_target_by_name: vec!(),
@@ -115,14 +124,16 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
       y: 0,
       w: 0,
       h: 0,
-      initial_state: ConfigNodeState::Available,
+      current_state: ConfigNodeState::Available,
     },
     ConfigNode {
+      index: PARTKIND_TRASH, // 1
       kind: ConfigNodeKind::Part,
       name: "Trash".to_string(),
       raw_name: "Part_None".to_string(),
       unlocks_after_by_name: vec!(),
       unlocks_after_by_index: vec!(),
+      unlocks_todo_by_index: vec!(),
       starting_part_by_name: vec!(),
       starting_part_by_index: vec!(),
       production_target_by_name: vec!(),
@@ -135,7 +146,7 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
       y: 0,
       w: 0,
       h: 0,
-      initial_state: ConfigNodeState::Available,
+      current_state: ConfigNodeState::Available,
     },
   );
   // Indirect references to nodes. Can't share direct references so these index the nodes vec.
@@ -157,7 +168,18 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
           let name = split.next_back().or(Some("MissingName")).unwrap().trim(); // last
           let icon = if rest == "Part_None" { ' ' } else { '?' };
           if options.print_fmd_trace { log(format!("- raw: `{}`, kind: `{}`, name: `{}`", rest, kind, name)); }
+          let node_index: usize =
+            if rest == "Part_None" {
+              // PART_NONE = 0
+              0
+            } else if rest == "Part_Trash" {
+              // PART_TRASH = 1
+              1
+            } else {
+              nodes.len()
+            };
           let current_node = ConfigNode {
+            index: node_index,
             kind:
               match kind {
                 "Quest" => ConfigNodeKind::Quest,
@@ -168,6 +190,7 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
             raw_name: rest.to_string(),
             unlocks_after_by_name: vec!(),
             unlocks_after_by_index: vec!(),
+            unlocks_todo_by_index: vec!(),
             starting_part_by_name: vec!(),
             starting_part_by_index: vec!(),
             production_target_by_name: vec!(),
@@ -180,21 +203,14 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
             y: 0,
             w: 0,
             h: 0,
-            initial_state: ConfigNodeState::Waiting,
+            current_state: ConfigNodeState::Waiting,
           };
-          let node_index: usize =
-            if rest == "Part_None" {
-              // PART_NONE = 0
-              nodes[0] = current_node;
-              0
-            } else if rest == "Part_Trash" {
-              // PART_TRASH = 1
-              nodes[1] = current_node;
-              1
-            } else {
-              nodes.push(current_node);
-              nodes.len() - 1
-            };
+          if node_index > 1 {
+            nodes.push(current_node);
+          } else {
+            // none or trash node
+            nodes[node_index] = current_node;
+          }
           match kind {
             "Quest" => quest_nodes.push(node_index),
             "Part" => part_nodes.push(node_index),
@@ -240,9 +256,22 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
               for pair_untrimmed in pairs {
                 let pair = pair_untrimmed.trim();
                 if pair != "" {
-                  let mut split = pair.trim().split(' ');
-                  let count = split.next().or(Some("0")).unwrap().trim().parse::<u32>().or::<Result<u32, &str>>(Ok(0u32)).unwrap();
-                  let name = split.next_back().or(Some("MissingName")).unwrap().trim(); // last
+                  let split = pair.trim().split(' ').collect::<Vec<&str>>();
+                  let count_str = split[0].trim();
+                  // The count can end with an `x`, strip it
+                  let count_str2 =
+                    if count_str.ends_with('x') {
+                      count_str[..count_str.len()-1].trim()
+                    } else {
+                      count_str
+                    };
+                  let count = count_str2.parse::<u32>().or::<Result<u32, &str>>(Ok(0u32)).unwrap();
+                  if count == 0 {
+                    panic!("Config error: count for {} is zero or otherwise invalid. String found is `{}` (config value = `{}`, after x: `{}`)", nodes[nodes.len() - 1].raw_name, count_str, pair_untrimmed, count_str2);
+                  }
+                  let name = split[split.len() - 1]; // Ignore multiple spaces between, :shrug:
+                  let name = if name == "" { "MissingName" } else { name };
+                  log(format!("Parsing counts: `{}` into `{:?}` -> `{}` and `{}`", pair, split, count, name));
                   nodes.last_mut().unwrap().production_target_by_name.push((count, name.to_string()));
                 }
               }
@@ -284,9 +313,9 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
             }
             "state" => {
               match value_raw {
-                "active" => nodes.last_mut().unwrap().initial_state = ConfigNodeState::Active,
-                "finished" => nodes.last_mut().unwrap().initial_state = ConfigNodeState::Finished,
-                "waiting" => nodes.last_mut().unwrap().initial_state = ConfigNodeState::Waiting,
+                "active" => nodes.last_mut().unwrap().current_state = ConfigNodeState::Active,
+                "finished" => nodes.last_mut().unwrap().current_state = ConfigNodeState::Finished,
+                "waiting" => nodes.last_mut().unwrap().current_state = ConfigNodeState::Waiting,
                   _ => panic!("Only valid states are valid; Expecting one if 'active', 'finished', or 'waiting', got: {}", value_raw),
               }
             }
@@ -325,15 +354,24 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
 
     let mut indices: Vec<usize> = vec!();
     nodes[node_index].unlocks_after_by_name.iter().for_each(|name| {
-      indices.push(*node_name_to_index.get(name.as_str().clone()).unwrap_or_else(| | panic!("what happened here: unlock name=`{} of names=`{:?}`", name, node_name_to_index.keys())));
+      indices.push(*node_name_to_index.get(name.as_str().clone()).unwrap_or_else(| | panic!("parent_quest_name to index: what happened here: unlock name=`{} of names=`{:?}`", name, node_name_to_index.keys())));
     });
-    nodes[node_index].unlocks_after_by_index = indices;
+    nodes[node_index].unlocks_after_by_index = indices.clone();
+    nodes[node_index].unlocks_todo_by_index = indices; // This one depletes as quests are finished. When the vec is empty, this quest becomes available.
 
     let mut indices: Vec<usize> = vec!();
     nodes[node_index].starting_part_by_name.iter().for_each(|name| {
-      indices.push(*node_name_to_index.get(name.as_str().clone()).unwrap_or_else(| | panic!("what happened here: part name=`{} of names=`{:?}`", name, node_name_to_index.keys())));
+      indices.push(*node_name_to_index.get(name.as_str().clone()).unwrap_or_else(| | panic!("starting_part_name to index: what happened here: part name=`{} of names=`{:?}`", name, node_name_to_index.keys())));
     });
     nodes[node_index].starting_part_by_index = indices;
+
+    let mut indices: Vec<(u32, usize)> = vec!();
+    nodes[node_index].production_target_by_name.iter().for_each(|(count, name)| {
+      let index = *node_name_to_index.get(name.as_str().clone()).unwrap_or_else(| | panic!("production_target_name to index: what happened here: unlock name=`{} of names=`{:?}`", name, node_name_to_index.keys()));
+      indices.push((*count, index));
+    });
+    nodes[node_index].production_target_by_index = indices;
+
   });
 
   if options.print_fmd_trace { log(format!("+ prepare unique sprite map pointers")); }
@@ -369,10 +407,10 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
       if options.print_fmd_trace { log(format!("+++ state inner loop")); }
       // Repeat the process until there's no further changes. This loop is guaranteed to halt.
       changed = false;
-      if nodes[quest_index].initial_state == ConfigNodeState::Waiting {
-        if nodes[quest_index].unlocks_after_by_index.iter().all(|&other_index| nodes[other_index].initial_state == ConfigNodeState::Finished) {
+      if nodes[quest_index].current_state == ConfigNodeState::Waiting {
+        if nodes[quest_index].unlocks_after_by_index.iter().all(|&other_index| nodes[other_index].current_state == ConfigNodeState::Finished) {
           if options.print_fmd_trace { log(format!("+++ Quest `{}` is available because `{:?}` are all finished", nodes[quest_index].name, nodes[quest_index].unlocks_after_by_name)); }
-          nodes[quest_index].initial_state = ConfigNodeState::Available;
+          nodes[quest_index].current_state = ConfigNodeState::Available;
           changed = true;
         }
       }
@@ -382,21 +420,21 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
   if options.print_fmd_trace { log(format!("+ initialize the part node states")); }
   quest_nodes.iter().for_each(|&quest_index| {
     // Clone the list of numbers because otherwise it moves. So be it.
-    if options.print_fmd_trace { log(format!("++ Quest Part {} is {:?} and would enable parts {:?} ({:?})", nodes[quest_index].name, nodes[quest_index].initial_state, nodes[quest_index].starting_part_by_name, nodes[quest_index].starting_part_by_index)); }
-    if nodes[quest_index].initial_state != ConfigNodeState::Waiting {
+    if options.print_fmd_trace { log(format!("++ Quest Part {} is {:?} and would enable parts {:?} ({:?})", nodes[quest_index].name, nodes[quest_index].current_state, nodes[quest_index].starting_part_by_name, nodes[quest_index].starting_part_by_index)); }
+    if nodes[quest_index].current_state != ConfigNodeState::Waiting {
       nodes[quest_index].starting_part_by_index.clone().iter().for_each(|&part_index| {
         if options.print_fmd_trace { log(format!("+++ Part {} is available because Quest {} is available", nodes[part_index].name, nodes[quest_index].name)); }
-        nodes[part_index].initial_state = ConfigNodeState::Available;
+        nodes[part_index].current_state = ConfigNodeState::Available;
       });
     }
   });
 
   if options.print_fmd_trace { log(format!("Available Quests and Parts from the start:")); }
   nodes.iter().for_each(|node| {
-    if node.initial_state != ConfigNodeState::Waiting {
+    if node.current_state != ConfigNodeState::Waiting {
       match node.kind {
-        ConfigNodeKind::Part => log(format!("- Part {} will be {:?} from the start", node.raw_name, node.initial_state)),
-        ConfigNodeKind::Quest => log(format!("- Quest {} will be {:?} from the start", node.raw_name, node.initial_state)),
+        ConfigNodeKind::Part => log(format!("- Part {} will be {:?} from the start", node.raw_name, node.current_state)),
+        ConfigNodeKind::Quest => log(format!("- Quest {} will be {:?} from the start", node.raw_name, node.current_state)),
       }
     }
   });
@@ -404,7 +442,7 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
   // log(format!("parsed nodes: {:?}", &nodes[1..]));
   if options.print_fmd_trace { log(format!("parsed map: {:?}", node_name_to_index)); }
 
-  return Config { nodes, quest_nodes, part_nodes, map: node_name_to_index, sprite_cache_lookup, sprite_cache_order, sprite_cache_canvas: vec!() };
+  return Config { nodes, quest_nodes, part_nodes, node_name_to_index, sprite_cache_lookup, sprite_cache_order, sprite_cache_canvas: vec!() };
 }
 
 pub const EXAMPLE_CONFIG: &str = "

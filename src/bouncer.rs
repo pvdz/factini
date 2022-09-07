@@ -3,11 +3,11 @@ use std::collections::VecDeque;
 use super::belt::*;
 use super::cell::*;
 use super::cli_serialize::*;
+use super::config::*;
 use super::direction::*;
 use super::factory::*;
 use super::floor::*;
 use super::init::*;
-use super::offer::*;
 use super::options::*;
 use super::machine::*;
 use super::part::*;
@@ -29,7 +29,8 @@ pub struct Bouncer {
   pub x: f64,
   pub y: f64,
   pub max_y: f64,
-  pub icon: char,
+  pub quest_index: PartKind,
+  pub part_index: usize,
   pub dx: f64,
   pub dy: f64,
   pub last_time: u64,
@@ -38,23 +39,22 @@ pub struct Bouncer {
    */
   pub frames: VecDeque<( f64, f64, u64 )>,
   pub dump_trucked_at: u64,
-  pub recipe_index: usize,
 }
 
-pub fn bouncer_create(x: f64, y: f64, max_y: f64, icon: char, init_speed: f64, created_at: u64, delay: u64) -> Bouncer {
+pub fn bouncer_create(x: f64, y: f64, max_y: f64, quest_index: PartKind, part_index: usize, init_speed: f64, created_at: u64, delay: u64) -> Bouncer {
   return Bouncer {
     created_at,
     delay,
     x,
     y,
     max_y,
-    icon,
+    quest_index,
+    part_index,
     dx: init_speed,
     dy: 0.0,
     last_time: 0,
     frames: VecDeque::new(),
     dump_trucked_at: 0,
-    recipe_index: 0,
   };
 }
 
@@ -71,7 +71,7 @@ pub fn bouncer_step(bouncer: &mut Bouncer, ticks: u64) -> bool {
 
   if bouncer.last_time == 0 {
     bouncer.last_time = ticks;
-    return false;
+    return true;
   }
 
   let elapsed = ticks - bouncer.last_time;

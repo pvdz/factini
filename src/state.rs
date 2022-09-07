@@ -4,20 +4,20 @@ use super::belt::*;
 use super::bouncer::*;
 use super::cell::*;
 use super::cli_serialize::*;
+use crate::craft::*;
 use super::direction::*;
 use super::factory::*;
 use super::floor::*;
 use super::init::*;
-use super::offer::*;
-use super::options::*;
 use super::machine::*;
+use super::options::*;
 use super::part::*;
 use super::paste::*;
 use super::port::*;
 use super::port_auto::*;
 use super::prio::*;
+use super::truck::*;
 use super::utils::*;
-use crate::craft::CraftInteractable;
 
 pub struct State {
   pub paused: bool,
@@ -27,6 +27,7 @@ pub struct State {
   pub selected_area_copy: Vec<Vec<Cell>>,
   pub test: bool,
   pub bouncers: VecDeque<Bouncer>,
+  pub trucks: Vec<Truck>,
   pub finished_quotes: Vec<usize>,
 }
 

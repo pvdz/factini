@@ -10,7 +10,6 @@ use super::factory::*;
 use super::floor::*;
 use super::direction::*;
 use super::machine::*;
-use super::offer::*;
 use super::options::*;
 use super::part::*;
 use super::port::*;
@@ -19,17 +18,15 @@ use super::state::*;
 use super::supply::*;
 use super::utils::*;
 
-pub fn floor_from_str(options: &mut Options, state: &mut State, config: &Config, str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
-  if str.len() == 0 {
-    return ( floor_empty(config), vec!() );
+pub fn floor_from_str(options: &mut Options, state: &mut State, config: &Config, str: String) -> ( [Cell; FLOOR_CELLS_WH] ) {
+  if str.trim().len() == 0 {
+    return floor_empty(config);
   }
 
-  // let ( floor, offers ) = str_to_floor(str);
-  let ( floor, offers ) = str_to_floor2(options, state, config, str);
-  return ( floor, offers );
+  return str_to_floor2(options, state, config, str);
 }
 
-fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<Offer> ) {
+fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str: String) -> [Cell; FLOOR_CELLS_WH] {
   // Given a string in a grid format, generate a floor
   // The string starts with at least one line of config.
   // - For now the only modifier are the dimension of the hardcoded 11x11
@@ -113,7 +110,6 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
   log(format!("str_to_floor2:\n{}", str));
 
   let mut floor: [Cell; FLOOR_CELLS_WH] = floor_empty(config);
-  let mut offers = vec!(); // TODO
 
   let hash: &char = &'#';
   let space: &u8 = &32u8;
@@ -382,7 +378,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
   }
 
   // Keep parsing config lines while skipping comments. These are optional and augment
-  // things on the floor or populate the list of offers.
+  // things on the floor that don't really fit inside the schematic cleanly
   loop {
     match lines.next() {
       None => break,
@@ -403,12 +399,11 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              if c < '0' || c > '9' { panic!("Unexpected input while parsing supply augment: first character after `s` must be a digit indicating which supply it targets, found `{}`", c); }
-              nth = (c as u8) - ('0' as u8);
+              nth = alnum_to_n(c);
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              if c != '=' { panic!("Unexpected input while parsing supply augment: first character after `s{}` must be the `=` sign, found `{}`", nth, c); }
+              if c != '=' { panic!("Unexpected input while parsing supply augment: first character after `s{}` must be the `=` sign, found `{}`", n_to_alnum(nth), c); }
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
@@ -487,8 +482,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              if c < '0' || c > '9' { panic!("Unexpected input while parsing demand augment: first character after `s` must be a digit indicating which supply it targets, found `{}`", c); }
-              // nth = (c as u8) - ('0' as u8);
+              let nth = alnum_to_n(c);
             },
             'm' => {
               // m<n> = <i>{0..w*h} -> <o> [s:<d+>]
@@ -574,252 +568,6 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
                 if options.trace_map_parsing { log(format!("Machine {} was defined as having inputs {:?} and output {} at speed {} but its main_coord was not found", nth, wants, output, speed)); }
               }
             },
-            'o' => {
-              let mut c = line.next().or(Some('#')).unwrap();
-              while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-
-              // What kind of offer?
-              match c {
-                's' => {
-                  // os = <p> [s:<d+>] [c:<d+>]
-                  // os = w s:100 c:100
-                  let mut speed = 1;
-                  let mut cooldown = 1;
-                  let gives;
-
-                  let mut c = line.next().or(Some('#')).unwrap();
-                  while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                  if c != '=' { panic!("Unexpected input while parsing offer supply augment: first character after `os` must be the `=` sign, found `{}`", c); }
-
-                  let mut c = line.next().or(Some('#')).unwrap();
-                  while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                  if c < 'a' && c > 'z' { panic!("Unexpected input while parsing supply augment kind: input characters must be a-z, found `{}`", c); }
-                  gives = c;
-
-                  loop {
-                    let mut c = line.next().or(Some('#')).unwrap();
-                    while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                    match c {
-                      '#' => break, // EOL or start of line comment
-                      's' => {
-                        // speed modifier
-                        let mut c = line.next().or(Some('#')).unwrap();
-                        while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                        if c != ':' { panic!("Unexpected input while parsing supply augment speed modifier: first character after `s` must be a `:`, found `{}`", c); }
-
-                        speed = 0;
-                        let mut c = line.next().or(Some('#')).unwrap();
-                        while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                        loop {
-                          if c >= '0' && c <= '9' {
-                            speed = (speed * 10) + ((c as u8) - ('0' as u8)) as u64; // This can lead to overflow fatal. :shrug:
-                          } else if c == '#' || c == ' ' {
-                            break;
-                          } else {
-                            panic!("Unexpected input while parsing supply augment speed modifier: speed value consists of digits, found `{}`", c);
-                          }
-                          c = line.next().or(Some('#')).unwrap();
-                        }
-                      }
-                      'c' => {
-                        // cooldown modifier
-                        let mut c = line.next().or(Some('#')).unwrap();
-                        while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                        if c != ':' { panic!("Unexpected input while parsing supply augment cooldown modifier: first character after `c` must be a `:`, found `{}`", c); }
-
-                        cooldown = 0;
-                        let mut c = line.next().or(Some('#')).unwrap();
-                        while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                        loop {
-                          if c >= '0' && c <= '9' {
-                            cooldown = (cooldown * 10) + ((c as u8) - ('0' as u8)) as u64; // This can lead to overflow fatal. :shrug:
-                          } else if c == '#' || c == ' ' {
-                            break;
-                          } else {
-                            panic!("Unexpected input while parsing supply augment cooldown modifier: cooldown value consists of digits, found `{}`", c);
-                          }
-                          c = line.next().or(Some('#')).unwrap();
-                        }
-                      }
-                      c => panic!("Unexpected input while parsing supply augment modifier: expecting `s`, `c`, '#', or EOL, found `{}`", c),
-                    }
-                  }
-
-                  if options.trace_map_parsing { log(format!("- Creating Supply Offer that gives `{}`", gives)); }
-                  offers.push(Offer {
-                    kind: CellKind::Supply,
-                    cell_width: 0,
-                    cell_height: 0,
-                    supply_icon: gives,
-                    wants: vec!(),
-                    machine_output: ' ',
-                    speed,
-                    cooldown
-                  });
-                },
-                'd' => {
-                  // No arguments.
-                  // od
-                  // let mut takes = 't';
-
-                  // let mut c = line.next().or(Some('#')).unwrap();
-                  // while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                  // if c != '=' { panic!("Unexpected input while parsing offer demand augment: first character after `od` must be the `=` sign, found `{}`", c); }
-                  //
-                  // let mut c = line.next().or(Some('#')).unwrap();
-                  // while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                  // if c < 'a' && c > 'z' { panic!("Unexpected input while parsing demand augment kind: input characters must be a-z, found `{}`", c); }
-                  // takes = c;
-
-                  if options.trace_map_parsing { log(format!("- Creating Demand Offer")); }
-                  offers.push(Offer {
-                    kind: CellKind::Demand,
-                    cell_width: 0,
-                    cell_height: 0,
-                    supply_icon: ' ',
-                    wants: vec!(),
-                    machine_output: ' ',
-                    speed: 1,
-                    cooldown: 1,
-                  });
-                },
-                'm' => {
-                  // om = <i>[i][i] -> <o> [s:<d+>]
-                  // om = abc -> d s:100
-                  let mut speed = 1;
-                  let mut wants = vec!();
-                  // let mut output = 't';
-                  let mut width = 1;
-                  let mut height = 1;
-
-                  let mut c = line.next().or(Some('#')).unwrap();
-                  while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                  if c != '=' { panic!("Unexpected input while parsing machine offer: first character after `om` must be the `=` sign, found `{}`", c); }
-
-                  let mut c = line.next().or(Some('#')).unwrap();
-                  while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                  while c != '#' && c != '-' {
-                    if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '.') { panic!("Unexpected input while parsing machine augment input2: input characters must be a-z, found `{}`", c); }
-                    // Convert the dot back to an empty part.
-                    wants.push(part_c(config, if c == '.' { ' ' } else { c }));
-
-                    c = line.next().or(Some('#')).unwrap();
-                    while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                  }
-
-                  if c != '-' { panic!("Unexpected input while parsing machine offer: after input must follow an `->` arrow and then the output, found `{}`", c); }
-
-                  let mut c = line.next().or(Some('#')).unwrap();
-                  while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                  if c != '>' { panic!("Unexpected input while parsing machine offer: after input must follow an `->` arrow and then the output, found `{}`", c); }
-
-                  let mut c = line.next().or(Some('#')).unwrap();
-                  while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                  if c < 'a' && c > 'z' { panic!("Unexpected input while parsing machine offer output: output characters must be a-z, found `{}`", c); }
-                  // output = c;
-
-                  loop {
-                    let mut c = line.next().or(Some('#')).unwrap();
-                    while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                    match c {
-                      '#' => break, // EOL or start of line comment
-                      's' => {
-                        // speed modifier
-                        let mut c = line.next().or(Some('#')).unwrap();
-                        while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                        if c != ':' { panic!("Unexpected input while parsing machine offer speed modifier: first character after `s` must be a `:`, found `{}`", c); }
-
-                        speed = 0;
-                        let mut c = line.next().or(Some('#')).unwrap();
-                        while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                        loop {
-                          if c == '#' || c == ' ' {
-                            break;
-                          }
-                          if c < '0' && c > '9' {
-                            panic!("Unexpected input while parsing machine offer speed modifier: speed value consists of digits, found `{}`", c);
-                          }
-                          speed = (speed * 10) + ((c as u8) - ('0' as u8)) as u64; // This can lead to overflow fatal. :shrug:
-                          c = line.next().or(Some('#')).unwrap();
-                        }
-                      }
-                      'd' => {
-                        // dimensions of the machine offer modifier
-                        let mut c = line.next().or(Some('#')).unwrap();
-                        while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                        if c != ':' { panic!("Unexpected input while parsing machine offer dimension modifier: first character after `s` must be a `:`, found `{}`", c); }
-
-                        width = 0;
-                        height = 0;
-                        let mut c = line.next().or(Some('#')).unwrap();
-                        while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                        loop {
-                          if c == ' ' {
-                            let mut c = line.next().or(Some('#')).unwrap();
-                            while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                            if c == 'x' {
-                              break;
-                            }
-                            panic!("Unexpected input while parsing machine offer dimension modifier: dimension value must be followed by `x`, found `{}`", c);
-                          }
-                          if c == 'x' {
-                            break;
-                          }
-                          if c < '0' && c > '9' {
-                            panic!("Unexpected input while parsing machine offer dimension modifier: dimension value consists of digits, found `{}`", c);
-                          }
-                          width = (width * 10) + ((c as u8) - ('0' as u8)) as u64; // This can lead to overflow fatal. :shrug:
-                          c = line.next().or(Some('#')).unwrap();
-
-                          if c >= '0' && c <= '9' {
-                            width = (width * 10) + ((c as u8) - ('0' as u8)) as u64; // This can lead to overflow fatal. :shrug:
-                          } else if c == 'x' {
-                            break;
-                          } else {
-                            panic!("Unexpected input while parsing machine offer dimension modifier: the first set of digits should be followed by an `x`, found `{}`", c);
-                          }
-                          c = line.next().or(Some('#')).unwrap();
-                        }
-                        let mut c = line.next().or(Some('#')).unwrap();
-                        while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                        loop {
-                          if c >= '0' && c <= '9' {
-                            height = (height * 10) + ((c as u8) - ('0' as u8)) as u64; // This can lead to overflow fatal. :shrug:
-                          } else if c == ' ' || c == '#' {
-                            break;
-                          } else {
-                            panic!("Unexpected input while parsing machine offer dimension modifier: the second set of digits should be followed a space or the end of the line, found `{}`", c);
-                          }
-                          c = line.next().or(Some('#')).unwrap();
-                        }
-                      }
-                      c => panic!("Unexpected input while parsing machine offer modifier: expecting `s`, '#', or EOL, found `{}`", c),
-                    }
-                  }
-
-                  let cw = (width * height) as usize;
-                  for i in 0..cw {
-                    if wants.len() < cw {
-                      wants.push(part_none(config));
-                    }
-                  }
-
-                  let output = wants_discover_output(options, state, config, &wants, width as usize, height as usize);
-
-                  offers.push(Offer {
-                    kind: CellKind::Machine,
-                    cell_width: width as usize,
-                    cell_height: height as usize,
-                    supply_icon: ' ',
-                    wants,
-                    machine_output: output.icon,
-                    speed,
-                    cooldown: 0
-                  });
-                },
-                c => panic!("Unexpected input while parsing offer kind: expecting `s`, `d`, or `m`, found `{}`", c),
-              }
-            },
             _ => panic!("Unexpected input while parsing input augments: wanted start of augment line, found `{}`", c),
           }
         }
@@ -830,5 +578,25 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
   // Set the .ins and .outs of each cell cause otherwise nothing happens.
   auto_ins_outs_floor(&mut floor);
 
-  return ( floor, offers );
+  return floor;
+}
+
+fn n_to_alnum(n: u8) -> char {
+  return
+    if n <= 9 { ('0' as u8 + n) as char }
+    else if n <= 35 { ('a' as u8 + (n -10)) as char }
+    else { ('A' as u8 + (n -36)) as char };
+}
+
+fn alnum_to_n(c: char) -> u8 {
+  return
+    if c >= '0' && c <= '9' {
+      (c as u8) - ('0' as u8)
+    } else if c >= 'a' && c <= 'z' {
+      (c as u8) - ('a' as u8) + 10
+    } else if c >= 'A' && c <= 'Z' {
+      (c as u8) - ('A' as u8) + 36
+    } else {
+      panic!("Unexpected input while parsing index augment: first character after `s` or `d` must be a 0-9a-zA-Z indicating which supply/demand it targets, found `{}`", c);
+    };
 }

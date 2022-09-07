@@ -22,7 +22,6 @@ pub mod factory;
 pub mod floor;
 pub mod init;
 pub mod machine;
-pub mod offer;
 pub mod options;
 pub mod part;
 pub mod paste;
@@ -32,6 +31,7 @@ pub mod prio;
 pub mod quote;
 pub mod state;
 pub mod supply;
+pub mod truck;
 pub mod utils;
 
 #[cfg(target_arch = "wasm32")]

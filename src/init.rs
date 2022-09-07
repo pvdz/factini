@@ -7,7 +7,6 @@ use super::config::*;
 use super::direction::*;
 use super::factory::*;
 use super::floor::*;
-use super::offer::*;
 use super::options::*;
 use super::machine::*;
 use super::part::*;
@@ -15,10 +14,10 @@ use super::port::*;
 use super::port_auto::*;
 use super::prio::*;
 use super::state::*;
+use super::truck::*;
 use super::utils::*;
 
-pub fn init(config: &Config) -> ( Options, State, Factory ) {
-
+pub fn init(config: &Config, map_str: String) -> ( Options, State, Factory ) {
   // Static state configuration (can still be changed by user)
   let mut options = create_options(1.0);
 
@@ -30,9 +29,20 @@ pub fn init(config: &Config) -> ( Options, State, Factory ) {
     mouse_mode_selecting: false,
     selected_area_copy: vec!(),
     test: false,
+    trucks: vec!() as Vec<Truck>, // Why is the cast necessary? :shrug:
     bouncers: VecDeque::new(),
     finished_quotes: vec!(),
   };
+
+  let parts = vec!(PARTKIND_TRASH);
+  let mut factory = create_factory(&mut options, &mut state, config, map_str, parts);
+  factory.changed = true;
+
+  return ( options, state, factory );
+}
+
+// @deprecated
+fn old_map() {
 
   // let map = "\
   //   ...............s.\n\
@@ -123,25 +133,6 @@ pub fn init(config: &Config) -> ( Options, State, Factory ) {
     │ └─────────────v───────────^───────────────────┘ │\n\
     │.  .  .  .  .  d  .  .  .  s  .  .  .  .  .  .  .│\n\
     └─────────────────────────────────────────────────┘\n\
-    s1 = w s:0 c:100\n\
-    s2 = s s:0 c:100\n\
-    m1 = s w w -> b s:500\n\
-    m2 = b G G -> g s:500\n\
-    s3 = w s:0 c:100\n\
-    m3 = b G G -> g s:500\n\
-    s4 = s s:0 c:100\n\
-    d1\n\
-    d2\n\
-    d3\n\
-    s5 = G s:0 c:100\n\
-    os = w s:2000 c:100\n\
-    os = s s:2000 c:100\n\
-    os = G s:2000 c:100\n\
-    od =  \n\
-    om = s . . w . . . . . . . . . . . . . . . . . . . . . -> t s:2000 d:5x5\n\
-    om = s w w -> b s:500 d:1x3\n\
-    om = b G G -> t s:500 d:1x3\n\
-    om = b . . . . . . . -> t s:2000 d:4x2\n\
   ";
   let map = "\
     d=17x17\n\
@@ -223,21 +214,4 @@ pub fn init(config: &Config) -> ( Options, State, Factory ) {
     od =  \n\
     om = s . . w . . . . . -> t s:2000 d:3x3\n\
   ";
-
-// h e -> W
-// i p j -> D
-// D W -> C
-// n -> Q
-// k Q -> l
-// W l -> o
-// C o -> K
-
-
-
-  // let parts = PARTS.iter().map(|x| *x).collect::<Vec<PartKind>>(); // All parts
-  let parts = vec!(PARTKIND_TRASH);
-  let mut factory = create_factory(&mut options, &mut state, config, map.to_string(), parts);
-  factory.changed = true;
-
-  return ( options, state, factory );
 }

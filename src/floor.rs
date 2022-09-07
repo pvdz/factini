@@ -9,7 +9,6 @@ use super::demand::*;
 use super::factory::*;
 use super::direction::*;
 use super::machine::*;
-use super::offer::*;
 use super::options::*;
 use super::part::*;
 use super::port::*;

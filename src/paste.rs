@@ -8,7 +8,6 @@ use super::direction::*;
 use super::factory::*;
 use super::floor::*;
 use super::init::*;
-use super::offer::*;
 use super::options::*;
 use super::machine::*;
 use super::part::*;
