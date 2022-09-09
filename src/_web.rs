@@ -15,8 +15,18 @@
 // - a part that reaches 100% of a cell but can't be moved to the side should not block the next part from entering the cell until all ports are taken like that. the part can sit in the port and a belt can only take parts if it has an available port.
 // - when importing, the machine output is ignored so we should remove it from the template
 // - closing a factory when the close button is over the bottom menu, doesn't work. same for side menu, I guess
-// - suppliers should get craft menus with resource-only. how do we determine what "root" resources are?
+// - suppliers should get craft menus with resource-only
 // - make sun move across the day bar? in a sort of rainbow path?
+// - laser beams from suppliers to the quote that they increase
+// - show the patterns of unlocked parts somehow if they have a pattern. hover over part while machine is open to preview the pattern? click part to show pattern somehow. drag part to machine to auto-fill the pattern? hint while hover
+// - make it a lot easier to craft the pattern of known parts in factories
+// - make the menu-machine "process" the finished parts before generating trucks
+// - prepare belt animations?
+// - allow smaller machines still?
+// - give unlocked parts that have patterns a different color (maybe even separate them? maybe not)
+// - let trash be a joker part
+// - animate machines at work
+// - paint the prepared parts of a machine while not selected?
 
 // This is required to export panic to the web
 use std::panic;

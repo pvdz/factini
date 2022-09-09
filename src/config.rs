@@ -66,6 +66,18 @@ pub enum ConfigNodeState {
   Available, // Part that can be used
 }
 
+pub fn config_get_available_parts(config: &Config) -> Vec<PartKind>{
+  let mut parts = vec!(
+    PARTKIND_TRASH // for testing/debugging?
+  );
+  config.part_nodes.iter().for_each(|&part_index| {
+    if config.nodes[part_index].current_state == ConfigNodeState::Available {
+      parts.push(part_index);
+    }
+  });
+  return parts;
+}
+
 pub fn parse_fmd(options: &Options, config: String) -> Config {
   // Parse Fake MD config
   log(format!("parse_fmd(options.print_fmd_trace={})", options.print_fmd_trace));

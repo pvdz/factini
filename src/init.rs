@@ -34,7 +34,7 @@ pub fn init(config: &Config, map_str: String) -> ( Options, State, Factory ) {
     finished_quotes: vec!(),
   };
 
-  let parts = vec!(PARTKIND_TRASH);
+  let parts = config_get_available_parts(config);
   let mut factory = create_factory(&mut options, &mut state, config, map_str, parts);
   factory.changed = true;
 
