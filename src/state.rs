@@ -29,6 +29,7 @@ pub struct State {
   pub bouncers: VecDeque<Bouncer>,
   pub trucks: Vec<Truck>,
   pub finished_quotes: Vec<usize>,
+  pub lasers: Vec<Laser>,
 }
 
 #[derive(Debug)]
@@ -113,4 +114,12 @@ pub struct MouseState {
   pub last_up_canvas_y: f64,
   pub last_up_world_x: f64,
   pub last_up_world_y: f64,
+}
+
+#[derive(Debug)]
+pub struct Laser {
+  pub coord: usize,
+  pub quote_pos: usize,
+  pub ttl: u32,
+  pub color: String,
 }

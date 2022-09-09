@@ -111,14 +111,6 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
 
   let collected: Vec<(char, u64)> = vec!();
 
-  // for i in 0..factory.quotes.len() {
-  //   for j in 0..factory.quotes[i].wants.len() {
-  //     if factory.quotes[j].completed_at == 0 {
-  //       factory.quotes[i].wants[j].2 = 0;
-  //     }
-  //   }
-  // }
-
   for coord in 0..factory.floor.len() {
     match factory.floor[coord].kind {
       CellKind::Empty => {} // Ignore empty cells here
@@ -135,6 +127,7 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
           let (received_part_index, received_count) = factory.floor[coord].demand.received[i];
 
           // Update the quote counts (expensive search but these arrays should be tiny, sub-10)
+          let mut visible_index = 0;
           for j in 0..factory.quotes.len() {
             // Ignore completed quotes.
             if factory.quotes[j].completed_at > 0 {
@@ -144,6 +137,14 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
             // Increment quote totals if demand received a matching part.
             if factory.quotes[j].part_index == received_part_index {
               factory.quotes[j].current_count += received_count;
+
+              state.lasers.push(Laser {
+                coord,
+                quote_pos: visible_index,
+                ttl: 5,
+                color: "white".to_string().clone(),
+              });
+
               if factory.quotes[j].current_count >= factory.quotes[j].target_count {
                 log(format!("finished quote {} with {} of {}", factory.quotes[j].name, factory.quotes[j].current_count, factory.quotes[j].target_count));
                 // This quote is finished so end the day // TODO: multiple parts one quote
@@ -152,6 +153,8 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
               }
               break;
             }
+
+            visible_index += 1;
           }
 
           total_parts_accepted += received_count as u64;

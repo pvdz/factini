@@ -17,7 +17,6 @@
 // - closing a factory when the close button is over the bottom menu, doesn't work. same for side menu, I guess
 // - suppliers should get craft menus with resource-only
 // - make sun move across the day bar? in a sort of rainbow path?
-// - laser beams from suppliers to the quote that they increase
 // - show the patterns of unlocked parts somehow if they have a pattern. hover over part while machine is open to preview the pattern? click part to show pattern somehow. drag part to machine to auto-fill the pattern? hint while hover
 // - make it a lot easier to craft the pattern of known parts in factories
 // - make the menu-machine "process" the finished parts before generating trucks
@@ -614,6 +613,27 @@ pub fn start() -> Result<(), JsValue> {
         paint_top_bars(&options, &state, &mut factory, &context, &mouse_state);
         paint_left_quotes(&options, &state, &config, &context, &mut factory, &mouse_state);
         paint_ui_recipes(&options, &state, &config, &context, &mut factory, &mouse_state);
+
+        let mut i = state.lasers.len();
+        while i > 0 {
+          i -= 1;
+
+          let coord = state.lasers[i].coord;
+          let (x, y) = to_xy(coord);
+          let quote_pos = state.lasers[i].quote_pos;
+          let color = &state.lasers[i].color;
+
+          context.set_stroke_style(&color.into());
+          context.begin_path();
+          context.move_to(GRID_X1 + x as f64 * CELL_W + CELL_W / 2.0, GRID_Y1 + y as f64 * CELL_H + CELL_H / 2.0);
+          context.line_to(GRID_X0 as f64 + UI_ACHIEVEMENT_WIDTH as f64 / 2.0, GRID_Y1 + (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) as f64 * quote_pos as f64 + (UI_QUOTE_HEIGHT as f64) / 2.0);
+          context.stroke();
+
+          state.lasers[i].ttl -= 1;
+          if state.lasers[i].ttl <= 0 {
+            state.lasers.remove(i);
+          }
+        }
 
         let truck_dur_1 = 3.0; // seconds trucks take to cross the first part
         let truck_dur_2 = 1.0; // turning circle
@@ -3315,7 +3335,7 @@ fn paint_left_quotes(options: &Options, state: &State, config: &Config, context:
     paint_segment_part_from_config(options, state, config, context, part_from_part_index(config, factory.quotes[quote_index].part_index), x + 4.0, y + 2.0, CELL_W, CELL_H);
 
     context.set_fill_style(&"black".into());
-    context.fill_text(format!("{}/{}x {}", factory.quotes[quote_index].current_count, factory.quotes[quote_index].target_count, factory.quotes[quote_index].name).as_str(), x + CELL_W + 10.0, y + 23.0).expect("oopsie fill_text");
+    context.fill_text(format!("{}/{}x", factory.quotes[quote_index].current_count, factory.quotes[quote_index].target_count).as_str(), x + CELL_W + 10.0, y + 23.0).expect("oopsie fill_text");
 
     height += h + m; // margin between quotes
   }

@@ -32,6 +32,7 @@ pub fn init(config: &Config, map_str: String) -> ( Options, State, Factory ) {
     trucks: vec!() as Vec<Truck>, // Why is the cast necessary? :shrug:
     bouncers: VecDeque::new(),
     finished_quotes: vec!(),
+    lasers: vec!(),
   };
 
   let parts = config_get_available_parts(config);
