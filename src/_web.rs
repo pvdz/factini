@@ -727,10 +727,10 @@ pub fn start() -> Result<(), JsValue> {
         paint_mouse_action(&options, &state, &config, &factory, &context, &belt_tile_images, &mouse_state, &cell_selection);
 
         paint_debug_app(&options, &state, &context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
-        paint_debug_belt(&context, &factory, &cell_selection, &mouse_state);
-        paint_debug_machine(&context, &factory, &cell_selection, &mouse_state);
-        paint_debug_supply(&context, &factory, &cell_selection, &mouse_state);
-        paint_debug_demand(&context, &factory, &cell_selection, &mouse_state);
+        paint_debug_selected_belt_cell(&context, &factory, &cell_selection, &mouse_state);
+        paint_debug_selected_machine_cell(&context, &factory, &cell_selection, &mouse_state);
+        paint_debug_selected_supply_cell(&context, &factory, &cell_selection, &mouse_state);
+        paint_debug_selected_demand_cell(&context, &factory, &cell_selection, &mouse_state);
 
         context.set_stroke_style(&"white".into());
         context.stroke_rect(GRID_X0, GRID_Y0, GRID_LEFT_WIDTH, GRID_TOP_HEIGHT);
@@ -2993,8 +2993,7 @@ fn paint_ghost_belt_of_type(cell_x: usize, cell_y: usize, belt_type: BeltType, c
   context.draw_image_with_html_image_element_and_dw_and_dh(&img, UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + 5.0, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + 5.0, CELL_W - 10.0, CELL_H - 10.0).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
   context.set_global_alpha(1.0);
 }
-// TODO: rename "and selected cell"
-fn paint_debug_belt(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
+fn paint_debug_selected_belt_cell(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
   if !cell_selection.on {
     return;
   }
@@ -3064,8 +3063,7 @@ fn paint_debug_belt(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &F
 
   // TODO: could print neighbor progress decision stuff
 }
-// TODO: rename "and selected cell"
-fn paint_debug_machine(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
+fn paint_debug_selected_machine_cell(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
   if !cell_selection.on {
     return;
   }
@@ -3130,8 +3128,7 @@ fn paint_debug_machine(context: &Rc<web_sys::CanvasRenderingContext2d>, factory:
   context.fill_text(format!("Produced: {: >4}", factory.floor[main_coord].machine.produced).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (14.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
   context.fill_text(format!("Trashed: {: >4}", factory.floor[main_coord].machine.trashed).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (15.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
 }
-// TODO: rename "and selected cell"
-fn paint_debug_supply(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
+fn paint_debug_selected_supply_cell(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
   if !cell_selection.on {
     return;
   }
@@ -3175,8 +3172,7 @@ fn paint_debug_supply(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: 
   context.fill_text(format!("Progress: {: >3}% (tbd: {})", (((factory.ticks - factory.floor[coord].supply.part_progress) as f64 / factory.floor[coord].supply.speed.max(1) as f64).min(1.0) * 100.0) as u8, factory.floor[coord].supply.part_tbd).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (8.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
   context.fill_text(format!("Supplied: {: >4}", factory.floor[coord].supply.supplied).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (9.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
 }
-// TODO: rename "and selected cell"
-fn paint_debug_demand(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
+fn paint_debug_selected_demand_cell(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
   if !cell_selection.on {
     return;
   }
