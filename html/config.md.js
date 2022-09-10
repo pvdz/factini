@@ -77,7 +77,6 @@ The old paper
 
 # Part_DirtWhite
 - char: n
-- pattern: .   .   .   W   l   W   .   .   .
 - file: ./img/roguelikeitems.png
 - x: 32
 - y: 64

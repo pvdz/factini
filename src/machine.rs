@@ -51,6 +51,7 @@ pub struct Machine {
   // The idea is that we remember the last 9 received parts and when we receive another one
   // that is not in this list, we replace the entry with the oldest timestamp with the new one.
   pub last_received: Vec< ( Part, u64 ) >,
+  pub last_received_parts: Vec<PartKind>,
 }
 
 pub fn machine_none(config: &Config, main_coord: usize) -> Machine {
@@ -76,6 +77,7 @@ pub fn machine_none(config: &Config, main_coord: usize) -> Machine {
     trashed: 0,
 
     last_received: vec!(),
+    last_received_parts: vec!(),
   };
 }
 
@@ -118,6 +120,7 @@ pub fn machine_new(options: &mut Options, state: &mut State, config: &Config, ki
     trashed: 0,
 
     last_received: vec!(),
+    last_received_parts: vec!(),
   };
 }
 
@@ -262,6 +265,9 @@ fn machine_receive_part(factory: &mut Factory, main_coord: usize, have_index: us
   factory.floor[main_coord].machine.haves[have_index] = part;
 }
 fn machine_update_oldest_list(factory: &mut Factory, main_coord: usize, part: &Part) {
+  assert_ne!(part.kind, PARTKIND_NONE, "machine_update_oldest_list: should not receive NONE parts here...");
+  assert_ne!(part.kind, 0, "machine_update_oldest_list: should not receive NONE parts here...");
+
   // Update the last_received, if necessary
   let mut oldest_index = 0;
   let mut oldest_ticks = factory.ticks;
@@ -279,8 +285,10 @@ fn machine_update_oldest_list(factory: &mut Factory, main_coord: usize, part: &P
 
   if len < 9 {
     factory.floor[main_coord].machine.last_received.push( ( part.clone(), factory.ticks ) );
+    factory.floor[main_coord].machine.last_received_parts.push(part.kind);
   } else {
     factory.floor[main_coord].machine.last_received[oldest_index] = ( part.clone(), factory.ticks );
+    factory.floor[main_coord].machine.last_received_parts[oldest_index] = part.kind;
   }
 }
 

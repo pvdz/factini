@@ -29,7 +29,7 @@ pub struct Factory {
    * These are painted in the right hand menu. The bool tells us whether to actually paint it.
    * ( icon, available )
    */
-  pub available_parts_rhs_menu: Vec< (PartKind, bool ) >,
+  pub available_parts_rhs_menu: Vec< (PartKind, bool ) >, // Which part and whether the player can use it yet
 
   pub changed: bool, // Was any part of the factory changed since last tick? Resets counters and (p)recomputes tracks.
 

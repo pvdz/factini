@@ -34,7 +34,9 @@ pub struct ConfigNode {
   pub production_target_by_index: Vec<(u32, usize)>, // count,index pairs, you need this to finish the quest
 
   // Part
-  pub pattern: Vec<String>, // Machine pattern that generates this part
+  pub pattern_by_index: Vec<PartKind>, // Machine pattern that generates this part (part_index)
+  pub pattern_by_name: Vec<String>, // Machine pattern that generates this part (actual names)
+  pub pattern_unique_icons: Vec<PartKind>, // String of unique non-empty part icons. We can use this to quickly find machines that have received these parts.
   pub icon: char, // Single (unique) character that also represents this part internally
   pub file: String, // Sprite image location
   pub file_canvas_cache_index: usize, // The canvas with the sprite image loaded
@@ -128,7 +130,9 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
       starting_part_by_index: vec!(),
       production_target_by_name: vec!(),
       production_target_by_index: vec!(),
-      pattern: vec!(),
+      pattern_by_index: vec!(),
+      pattern_by_name: vec!(),
+      pattern_unique_icons: vec!(),
       icon: ' ',
       file: "".to_string(),
       file_canvas_cache_index: 0,
@@ -148,9 +152,11 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
       unlocks_todo_by_index: vec!(),
       starting_part_by_name: vec!(),
       starting_part_by_index: vec!(),
+      pattern_unique_icons: vec!(),
       production_target_by_name: vec!(),
       production_target_by_index: vec!(),
-      pattern: vec!(),
+      pattern_by_index: vec!(),
+      pattern_by_name: vec!(),
       icon: 't',
       file: "".to_string(),
       file_canvas_cache_index: 0,
@@ -207,7 +213,9 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
             starting_part_by_index: vec!(),
             production_target_by_name: vec!(),
             production_target_by_index: vec!(),
-            pattern: vec!(),
+            pattern_by_index: vec!(),
+            pattern_by_name: vec!(),
+            pattern_unique_icons: vec!(),
             icon,
             file: "".to_string(),
             file_canvas_cache_index: 0,
@@ -295,7 +303,7 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
               for name_untrimmed in pairs {
                 let name = name_untrimmed.trim();
                 if name != "" {
-                  nodes.last_mut().unwrap().pattern.push(name.trim().to_string());
+                  nodes.last_mut().unwrap().pattern_by_name.push(name.trim().to_string());
                 }
               }
             }
@@ -360,13 +368,41 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
     }
   });
 
+
+  if options.print_fmd_trace { log(format!("+ create part pattern_by_index tables")); }
+  nodes.iter_mut().for_each(|node| {
+    node.pattern_by_index = node.pattern_by_name.iter().map(|name| {
+      let mut t = name.as_str().clone();
+      if t == "." || t == "_"{
+        // In patterns we use . or _ to represent nothing, which translates to the empty/none part
+        t = " ";
+      }
+      return *node_name_to_index.get(t).unwrap_or_else(| | panic!("pattern_by_name to index: what happened here: unlock name=`{}` of names=`{:?}`", name, node_name_to_index.keys()))
+    }).collect::<Vec<PartKind>>();
+
+    // If the pattern was defined with empty nodes then clear it
+    if node.pattern_by_index.iter().all(|&part_index| part_index == PARTKIND_NONE) {
+      node.pattern_by_index = vec!();
+      node.pattern_by_name = vec!();
+    }
+  });
+
+  for i in 0..nodes.len() {
+    // Get all unique required parts, convert them to their icon, order them, create a string
+    // If we do the same for the machines then we can do string comparisons.
+    let mut icons = nodes[i].pattern_by_index.iter().filter(|&&part_index| part_index != PARTKIND_NONE).map(|&x|x).collect::<Vec<usize>>();
+    icons.sort_unstable();
+    icons.dedup();
+    nodes[i].pattern_unique_icons = icons;
+  }
+
   if options.print_fmd_trace { log(format!("+ create quest unlocks_after_by_index and starting_part_by_index pointers")); }
   quest_nodes.iter().for_each(|&node_index| {
     if options.print_fmd_trace { log(format!("++ quest node index = {}, name = {}, unlocks after = `{:?}`", node_index, nodes[node_index].name, nodes[node_index].unlocks_after_by_name)); }
 
     let mut indices: Vec<usize> = vec!();
     nodes[node_index].unlocks_after_by_name.iter().for_each(|name| {
-      indices.push(*node_name_to_index.get(name.as_str().clone()).unwrap_or_else(| | panic!("parent_quest_name to index: what happened here: unlock name=`{} of names=`{:?}`", name, node_name_to_index.keys())));
+      indices.push(*node_name_to_index.get(name.as_str().clone()).unwrap_or_else(| | panic!("parent_quest_name to index: what happened here: unlock name=`{}` of names=`{:?}`", name, node_name_to_index.keys())));
     });
     nodes[node_index].unlocks_after_by_index = indices.clone();
     nodes[node_index].unlocks_todo_by_index = indices; // This one depletes as quests are finished. When the vec is empty, this quest becomes available.
