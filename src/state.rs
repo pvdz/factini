@@ -88,6 +88,7 @@ pub struct MouseState {
   pub craft_down_ci_ww: f64,
   pub craft_down_ci_wh: f64,
   pub craft_down_ci_icon: char,
+  pub craft_down_ci_part_kind: PartKind,
   pub craft_down_ci_index: u8,
   pub craft_up_any: bool, // Was the up anywhere inside the craft circle? Prevemts actions underneath it.
   pub craft_up_ci: CraftInteractable,

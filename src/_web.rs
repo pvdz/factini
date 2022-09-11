@@ -470,6 +470,7 @@ pub fn start() -> Result<(), JsValue> {
       craft_down_ci_ww: 0.0,
       craft_down_ci_wh: 0.0,
       craft_down_ci_icon: '#',
+      craft_down_ci_part_kind: PARTKIND_NONE,
       craft_down_ci_index: 99, // <99 means circle button index. >99 means machine cell index -100.
       craft_up_any: false,
       craft_up_ci: CraftInteractable::None,
@@ -695,7 +696,7 @@ pub fn start() -> Result<(), JsValue> {
             // The truck starts _inside_ the factory and drives to the right (maybe slanted)
             context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, 0.0, 0.0, truck_size, truck_size).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
             // Paint the part icon on the back of the trick (x-centered, y-bottom)
-            paint_segment_part_from_config(&options, &state, &config, &context, part_from_part_index(&config, state.trucks[t].part_index), 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
+            paint_segment_part_from_config(&options, &state, &config, &context, state.trucks[t].part_index, 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
             context.restore();
           } else if time_since_truck < (truck_dur_1 + truck_dur_2) {
             let progress = ((time_since_truck - truck_dur_1) / truck_dur_2).min(1.0).max(0.0);
@@ -713,7 +714,7 @@ pub fn start() -> Result<(), JsValue> {
             // The truck starts _inside_ the factory and drives to the right (maybe slanted)
             context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, 0.0, 0.0, truck_size, truck_size).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
             // Paint the part icon on the back of the trick (x-centered, y-bottom)
-            paint_segment_part_from_config(&options, &state, &config, &context, part_from_part_index(&config, state.trucks[t].part_index), 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
+            paint_segment_part_from_config(&options, &state, &config, &context, state.trucks[t].part_index, 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
             context.restore();
           } else if time_since_truck < (truck_dur_1 + truck_dur_2 + truck_dur_3) {
             // Get target coordinate where this part will be permanently drawn so we know where the truck has to move to
@@ -728,7 +729,7 @@ pub fn start() -> Result<(), JsValue> {
 
             context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, x, y, truck_size, truck_size).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
             // Paint the part icon on the back of the trick (x-centered, y-bottom)
-            paint_segment_part_from_config(&options, &state, &config, &context, part_from_part_index(&config, state.trucks[t].part_index), x + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), y + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
+            paint_segment_part_from_config(&options, &state, &config, &context, state.trucks[t].part_index, x + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), y + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
           } else {
             // Truck reached its destiny.
             // - Enable the button
@@ -788,7 +789,7 @@ pub fn start() -> Result<(), JsValue> {
               let alpha = 1.0 - ((existing - ONE_SECOND * trail_time) as f64 / ((ONE_SECOND * fade_time) as f64)).max(0.0).min(1.0);
               context.set_global_alpha(alpha);
             }
-            paint_segment_part_from_config(&options, &state, &config, &context, part_from_part_index(&config, state.bouncers[b].part_index), *x, *y, CELL_W, CELL_H);
+            paint_segment_part_from_config(&options, &state, &config, &context, state.bouncers[b].part_index, *x, *y, CELL_W, CELL_H);
             if tens {
               context.set_global_alpha(1.0);
             }
@@ -1190,14 +1191,15 @@ fn update_mouse_state(options: &mut Options, state: &mut State, config: &Config,
 
   mouse_state.craft_over_any = is_machine_selected && hit_test_machine_circle(factory, cell_selection.coord, mouse_state.world_x, mouse_state.world_y);
   if mouse_state.craft_over_any {
-    let ( what, wx, wy, ww, wh, icon, index ) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.world_x, mouse_state.world_y);
+    let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.world_x, mouse_state.world_y);
     mouse_state.craft_over_ci = what;
     mouse_state.craft_over_ci_wx = wx;
     mouse_state.craft_over_ci_wy = wy;
     mouse_state.craft_over_ci_wx = ww;
     mouse_state.craft_over_ci_wy = wh;
     mouse_state.craft_over_ci_icon = icon;
-    mouse_state.craft_over_ci_index = index;
+    mouse_state.craft_down_ci_part_kind = part_index;
+    mouse_state.craft_over_ci_index = craft_index;
   }
 
   if !mouse_state.is_dragging {
@@ -1230,7 +1232,7 @@ fn update_mouse_state(options: &mut Options, state: &mut State, config: &Config,
 
     mouse_state.craft_down_any = is_machine_selected && hit_test_machine_circle(factory, cell_selection.coord, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
     if mouse_state.craft_down_any {
-      let ( what, wx, wy, ww, wh, icon, index ) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
+      let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
       log(format!("mouse down inside craft selection -> {:?}", what));
       mouse_state.craft_down_ci = what;
       mouse_state.craft_down_ci_wx = wx;
@@ -1238,7 +1240,8 @@ fn update_mouse_state(options: &mut Options, state: &mut State, config: &Config,
       mouse_state.craft_down_ci_wx = ww;
       mouse_state.craft_down_ci_wy = wh;
       mouse_state.craft_down_ci_icon = icon;
-      mouse_state.craft_down_ci_index = index;
+      mouse_state.craft_down_ci_part_kind = part_index;
+      mouse_state.craft_down_ci_index = craft_index;
     }
   }
 
@@ -1254,7 +1257,7 @@ fn update_mouse_state(options: &mut Options, state: &mut State, config: &Config,
       if mouse_state.craft_down_any {
         // Prevent any other interaction to the floor regardless of whether an interactable was hit
         if mouse_state.craft_down_ci != CraftInteractable::None && mouse_state.craft_down_ci != CraftInteractable::BackClose {
-          log(format!("dragging craft interactable; {}-{} and {}-{}; dragging a {} at index {}", mouse_state.last_down_world_x, mouse_state.world_x, mouse_state.last_down_world_y, mouse_state.world_y, mouse_state.craft_down_ci_icon, mouse_state.craft_down_ci_index));
+          log(format!("dragging craft interactable; {}-{} and {}-{}; dragging a {} at index {}", mouse_state.last_down_world_x, mouse_state.world_x, mouse_state.last_down_world_y, mouse_state.world_y, mouse_state.craft_down_ci_part_kind, mouse_state.craft_down_ci_index));
           mouse_state.craft_dragging_ci = true;
 
           // If this was dragging from a machine cell, clear that machine input at this index
@@ -1294,7 +1297,7 @@ fn update_mouse_state(options: &mut Options, state: &mut State, config: &Config,
     }
     mouse_state.craft_up_any = is_machine_selected && hit_test_machine_circle(factory, cell_selection.coord, mouse_state.last_up_world_x, mouse_state.last_up_world_y);
     if mouse_state.craft_up_any {
-      let ( what, wx, wy, ww, wh, icon, index ) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_up_world_x, mouse_state.last_up_world_y);
+      let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_up_world_x, mouse_state.last_up_world_y);
       log(format!("mouse up inside craft selection -> {:?}", what));
       mouse_state.craft_up_ci = what;
       mouse_state.craft_up_ci_wx = wx;
@@ -1302,7 +1305,8 @@ fn update_mouse_state(options: &mut Options, state: &mut State, config: &Config,
       mouse_state.craft_up_ci_wx = ww;
       mouse_state.craft_up_ci_wy = wh;
       mouse_state.craft_up_ci_icon = icon;
-      mouse_state.craft_up_ci_index = index;
+      mouse_state.craft_down_ci_part_kind = part_index;
+      mouse_state.craft_up_ci_index = craft_index;
     }
   }
 }
@@ -1320,9 +1324,9 @@ fn on_up_inside_floor(options: &mut Options, state: &mut State, config: &Config,
           let main_coord = factory.floor[cell_selection.coord].machine.main_coord;
           let index = mouse_state.craft_up_ci_index as usize - 100;
           log(format!("Setting input @{} from machine @{} because drag start; has {} wants and {} haves", index, cell_selection.coord, factory.floor[main_coord].machine.wants.len(), factory.floor[main_coord].machine.haves.len()));
-          machine_change_want(options, state, config, factory, main_coord, index, part_c(config, mouse_state.craft_down_ci_icon));
+          machine_change_want(options, state, config, factory, main_coord, index, part_from_part_index(config, mouse_state.craft_down_ci_part_kind));
           // Clear the haves to make sure it doesn't contain an incompatible part now
-          factory.floor[main_coord].machine.haves[index] = part_c(config, mouse_state.craft_down_ci_icon);
+          factory.floor[main_coord].machine.haves[index] = part_from_part_index(config, mouse_state.craft_down_ci_part_kind);
         }
       }
     }
@@ -1812,7 +1816,7 @@ fn on_click_inside_machine_selection_circle(options: &mut Options, state: &mut S
     }
   }
 }
-fn hit_test_get_craft_interactable_machine_at(options: &mut Options, state: &mut State, factory: &mut Factory, cell_selection: &mut CellSelection, mwx: f64, mwy: f64) -> ( CraftInteractable, f64, f64, f64, f64, char, u8 ) {
+fn hit_test_get_craft_interactable_machine_at(options: &mut Options, state: &mut State, factory: &mut Factory, cell_selection: &mut CellSelection, mwx: f64, mwy: f64) -> ( CraftInteractable, f64, f64, f64, f64, char, PartKind, u8 ) {
   // Figure out whether any of the interactables were clicked
 
   let coord = cell_selection.coord;
@@ -1840,7 +1844,7 @@ fn hit_test_get_craft_interactable_machine_at(options: &mut Options, state: &mut
 
     // Clicked inside machine. Determine cell and delete it.
     // log(format!("Clicked on a cell of the actual machine. Now determine the input cell and clear it. (TODO)"));
-    return ( CraftInteractable::InputCell, machine_wx, machine_wy, CELL_W, CELL_H, factory.floor[main_coord].machine.wants[index as usize].icon, 100 + (index as u8) );
+    return ( CraftInteractable::InputCell, machine_wx, machine_wy, CELL_W, CELL_H, factory.floor[main_coord].machine.wants[index as usize].icon, factory.floor[main_coord].machine.wants[index as usize].kind, 100 + (index as u8) );
   }
 
   // Minimal distance of painting interactbles is the distance from the center to the furthest
@@ -1853,7 +1857,7 @@ fn hit_test_get_craft_interactable_machine_at(options: &mut Options, state: &mut
   let close_wy = center_wy + minr - CELL_H / 2.0;
   if bounds_check(mwx, mwy, close_wx, close_wy, close_wx + CELL_W, close_wy + CELL_H) {
     // log(format!("Clicked the back/close button. (TODO)"));
-    return ( CraftInteractable::BackClose, close_wx, close_wy, CELL_W, CELL_H, '#', 99 );
+    return ( CraftInteractable::BackClose, close_wx, close_wy, CELL_W, CELL_H, '#', PARTKIND_NONE, 99 );
   }
 
   // Actual number of seen inputs
@@ -1863,17 +1867,17 @@ fn hit_test_get_craft_interactable_machine_at(options: &mut Options, state: &mut
 
   let angle_step = 5.5 - (count as f64 / 2.0).ceil() + (0.5 * ((count % 2) as f64));
   for i in 0..count {
-    let r = hit_test_get_craft_interactable_machine_at_index(angle_step, minr, center_wx, center_wy, mwx, mwy, i, if len == 0 { 't' } else { factory.floor[main_coord].machine.last_received[i].0.icon });
+    let r = hit_test_get_craft_interactable_machine_at_index(angle_step, minr, center_wx, center_wy, mwx, mwy, i, if len == 0 { 't' } else { factory.floor[main_coord].machine.last_received[i].0.icon }, if len == 0 { PARTKIND_TRASH } else { factory.floor[main_coord].machine.last_received[i].0.kind });
     if let Some(x) = r {
       return x;
     }
   }
 
   // log(format!("Clicked inside machine circle but did not hit any interactables"));
-  return ( CraftInteractable::None, 0.0, 0.0, 0.0, 0.0, '#', 99 );
+  return ( CraftInteractable::None, 0.0, 0.0, 0.0, 0.0, '#', PARTKIND_NONE, 99 );
 }
-fn hit_test_get_craft_interactable_machine_at_index(angle_step: f64, minr: f64, center_wx: f64, center_wy: f64, mwx: f64, mwy: f64, index: usize, icon: char) -> Option< ( CraftInteractable, f64, f64, f64, f64, char, u8 ) > {
-  let angle: f64 = (angle_step + index as f64) * 0.1 * std::f64::consts::TAU;
+fn hit_test_get_craft_interactable_machine_at_index(angle_step: f64, minr: f64, center_wx: f64, center_wy: f64, mwx: f64, mwy: f64, craft_index: usize, icon: char, part_index: PartKind) -> Option< (CraftInteractable, f64, f64, f64, f64, char, PartKind, u8 ) > {
+  let angle: f64 = (angle_step + craft_index as f64) * 0.1 * std::f64::consts::TAU;
 
   // TODO: could pre-compute these coords per factory and read the coords from a vec
   let btn_c_wx = angle.sin() * minr;
@@ -1883,7 +1887,7 @@ fn hit_test_get_craft_interactable_machine_at_index(angle_step: f64, minr: f64, 
 
   if bounds_check(mwx, mwy, wx, wy, wx + CELL_W, wy + CELL_H) {
     // log(format!("Clicked resource box {}. (TODO)", i));
-    return Some( ( CraftInteractable::Resource, btn_c_wx, btn_c_wy, CELL_W, CELL_H, icon, index as u8 ) );
+    return Some( ( CraftInteractable::Resource, btn_c_wx, btn_c_wy, CELL_W, CELL_H, icon, part_index, craft_index as u8 ) );
   }
 
   return None;
@@ -2239,6 +2243,29 @@ fn paint_world_cli(context: &Rc<web_sys::CanvasRenderingContext2d>, options: &mu
     context.fill_text(format!("{}", lines[n]).as_str(), 50.0, (n as f64) * 24.0 + 50.0).expect("something lower error fill_text");
   }
 }
+fn paint_supply_and_part_at(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, cx: usize, cy: usize, part_index: PartKind) {
+  let ox = UI_FLOOR_OFFSET_X + CELL_W * (cx as f64);
+  let oy = UI_FLOOR_OFFSET_Y + CELL_H * (cy as f64);
+  let dock_target =
+    if cy == 0 {
+      CONFIG_NODE_SUPPLY_UP
+    } else if cx == FLOOR_CELLS_W-1 {
+      CONFIG_NODE_SUPPLY_RIGHT
+    } else if cy == FLOOR_CELLS_H-1 {
+      CONFIG_NODE_SUPPLY_DOWN
+    } else if cx == 0 {
+      CONFIG_NODE_SUPPLY_LEFT
+    } else {
+      panic!("no");
+    };
+  // TODO: should we offer the option to draw the dock behind in case of semi-transparent supply imgs?
+  context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+    &config.sprite_cache_canvas[config.nodes[dock_target].file_canvas_cache_index],
+    config.nodes[dock_target].x, config.nodes[dock_target].y, config.nodes[dock_target].w, config.nodes[dock_target].h,
+    ox, oy, CELL_W, CELL_H
+  ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+  paint_segment_part_from_config(options, state, config, context, part_index, ox + CELL_W/4.0, oy + CELL_H/4.0, CELL_W/2.0, CELL_H/2.0);
+}
 fn paint_background_tiles(
   options: &Options,
   state: &State,
@@ -2309,25 +2336,7 @@ fn paint_background_tiles(
         }
       },
       CellKind::Supply => {
-        let dock_target =
-          if cy == 0 {
-            CONFIG_NODE_SUPPLY_UP
-          } else if cx == FLOOR_CELLS_W-1 {
-            CONFIG_NODE_SUPPLY_RIGHT
-          } else if cy == FLOOR_CELLS_H-1 {
-            CONFIG_NODE_SUPPLY_DOWN
-          } else if cx == 0 {
-            CONFIG_NODE_SUPPLY_LEFT
-          } else {
-            panic!("no");
-          };
-        // TODO: should we offer the option to draw the dock behind in case of semi-transparent supply imgs?
-        context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-          &config.sprite_cache_canvas[config.nodes[dock_target].file_canvas_cache_index],
-          config.nodes[dock_target].x, config.nodes[dock_target].y, config.nodes[dock_target].w, config.nodes[dock_target].h,
-          ox, oy, CELL_W, CELL_H
-        ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
-        paint_segment_part_from_config(options, state, config, context, part_c(config, factory.floor[coord].supply.gives.icon), ox + CELL_W/4.0, oy + CELL_H/4.0, CELL_W/2.0, CELL_H/2.0);
+        paint_supply_and_part_at(options, state, config, context, cx, cy, factory.floor[coord].supply.gives.kind);
       }
       CellKind::Demand => {
         let dock_target =
@@ -2433,7 +2442,7 @@ fn paint_belt_items(options: &Options, state: &State, config: &Config, context: 
             }
           };
 
-        if paint_segment_part_from_config(options, state, config, context, cell.belt.part.clone(), px, py, PART_W, PART_H) {
+        if paint_segment_part_from_config(options, state, config, context, cell.belt.part.kind, px, py, PART_W, PART_H) {
           // context.set_font(&"8px monospace");
           // context.set_fill_style(&"green".into());
           // context.fill_text(format!("{} {}x{}", coord, x, y).as_str(), px + 3.0, py + 10.0).expect("something error fill_text");
@@ -2526,7 +2535,7 @@ fn paint_machine_selection_and_craft(options: &Options, state: &State, config: &
   let none = part_none(config);
   for i in 0..(machine_cw * machine_ch) as usize {
     if let Some(part) = factory.floor[main_coord].machine.wants.get(i).or(Some(&none)) {
-      paint_segment_part_from_config(options, state, config, context, part.clone(), main_wx + CELL_W * (i as f64 % machine_cw).floor(), main_wy + CELL_H * (i as f64 / machine_cw).floor(), CELL_W, CELL_H);
+      paint_segment_part_from_config(options, state, config, context, part.kind, main_wx + CELL_W * (i as f64 % machine_cw).floor(), main_wy + CELL_H * (i as f64 / machine_cw).floor(), CELL_W, CELL_H);
     }
   }
 
@@ -2550,7 +2559,7 @@ fn paint_machine_selection_and_craft(options: &Options, state: &State, config: &
     context.set_font(&"12px monospace");
   }
 
-  fn btn_img(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, wx: f64, wy: f64, icon: char, is_over: bool) {
+  fn btn_img(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, wx: f64, wy: f64, part_index: PartKind, is_over: bool) {
     if is_over {
       context.set_fill_style(&"grey".into());
     } else {
@@ -2560,7 +2569,7 @@ fn paint_machine_selection_and_craft(options: &Options, state: &State, config: &
     context.set_stroke_style(&"black".into());
     context.stroke_rect(wx, wy, CELL_W, CELL_H);
 
-    paint_segment_part_from_config(options, state, config, context, part_c(config, icon), wx, wy, CELL_W, CELL_H);
+    paint_segment_part_from_config(options, state, config, context, part_index, wx, wy, CELL_W, CELL_H);
   }
 
   // The back/close button should always be under the machine, centered. Same size (one cell).
@@ -2585,7 +2594,7 @@ fn paint_machine_selection_and_craft(options: &Options, state: &State, config: &
 
     // When hovering over the index, the _c is set to the char of the digit of that index.
     // If there are no last seen elements, show a trash icon
-    btn_img(options, state, config, context, wx, wy, if len == 0 { 't' } else { factory.floor[main_coord].machine.last_received[i].0.icon }, mouse_state.craft_over_ci_index == (i as u8));
+    btn_img(options, state, config, context, wx, wy, if len == 0 { PARTKIND_TRASH } else { factory.floor[main_coord].machine.last_received[i].0.kind }, mouse_state.craft_over_ci_index == (i as u8));
   }
 }
 fn paint_mouse_cursor(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
@@ -2639,7 +2648,7 @@ fn paint_mouse_dragging_craft_interactable(options: &Options, state: &State, con
     context.set_stroke_style(&"black".into());
     context.stroke_rect(mwx, mwy, w, h);
 
-    paint_segment_part_from_config(options, state, config, context, part_c(config, mouse_state.craft_down_ci_icon), mwx, mwy, w, h);
+    paint_segment_part_from_config(options, state, config, context, mouse_state.craft_down_ci_part_kind, mwx, mwy, w, h);
   }
 }
 fn paint_mouse_in_erasing_mode(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
@@ -3154,7 +3163,7 @@ fn paint_left_quotes(options: &Options, state: &State, config: &Config, context:
       factory.quotes[quote_index].part_index,
       config.nodes[factory.quotes[quote_index].part_index]
     );
-    paint_segment_part_from_config(options, state, config, context, part_from_part_index(config, factory.quotes[quote_index].part_index), x + 4.0, y + 2.0, CELL_W, CELL_H);
+    paint_segment_part_from_config(options, state, config, context, factory.quotes[quote_index].part_index, x + 4.0, y + 2.0, CELL_W, CELL_H);
 
     context.set_fill_style(&"black".into());
     context.fill_text(format!("{}/{}x", factory.quotes[quote_index].current_count, factory.quotes[quote_index].target_count).as_str(), x + CELL_W + 10.0, y + 23.0).expect("oopsie fill_text");
@@ -3263,7 +3272,7 @@ fn paint_ui_offer_supply(options: &Options, state: &State, config: &Config, cont
   }
   let x = x + (UI_OFFERS_WIDTH / 2.0) - (CELL_W / 2.0);
   let y = y + (UI_OFFERS_HEIGHT / 2.0) - (CELL_H / 2.0);
-  paint_segment_part_from_config(options, state, config, context, part_from_part_index(config, part_index), x, y, CELL_W, CELL_H);
+  paint_segment_part_from_config(options, state, config, context, part_index, x, y, CELL_W, CELL_H);
 }
 fn paint_bottom_menu(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, img_machine_1_1: &HtmlImageElement, mouse_state: &MouseState) {
   paint_machine_icon(options, state, context, img_machine_1_1, mouse_state);
@@ -3386,18 +3395,18 @@ fn get_offer_xy(index: usize) -> (f64, f64 ) {
 
   return ( x, y );
 }
-fn paint_segment_part_from_config(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, segment_part: Part, dx: f64, dy: f64, dw: f64, dh: f64) -> bool {
-  return paint_segment_part_from_config_bug(options, state, config, context, segment_part, dx, dy, dw, dh, false);
+fn paint_segment_part_from_config(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, segment_part_index: PartKind, dx: f64, dy: f64, dw: f64, dh: f64) -> bool {
+  return paint_segment_part_from_config_bug(options, state, config, context, segment_part_index, dx, dy, dw, dh, false);
 }
-fn paint_segment_part_from_config_bug(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, segment_part: Part, dx: f64, dy: f64, dw: f64, dh: f64, bug: bool) -> bool {
-  if segment_part.kind == PARTKIND_NONE {
+fn paint_segment_part_from_config_bug(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, segment_part_index: PartKind, dx: f64, dy: f64, dw: f64, dh: f64, bug: bool) -> bool {
+  if segment_part_index == PARTKIND_NONE {
     return false;
   }
 
-  assert!(config.nodes[segment_part.kind].kind == ConfigNodeKind::Part, "segment parts should refer to part nodes... received {:?} which resolves to {:?}", segment_part, config.nodes[segment_part.kind]);
+  assert!(config.nodes[segment_part_index].kind == ConfigNodeKind::Part, "segment parts should refer to part nodes... received {:?} which resolves to {:?}", segment_part_index, config.nodes[segment_part_index]);
 
-  let (spx, spy, spw, sph, canvas) = part_to_sprite_coord_from_config(config, segment_part.kind);
-  if bug { log(format!("meh? {} {} {} {}: {:?} --> {:?}", spx, spy, spw, sph, segment_part, config.nodes[segment_part.kind])); }
+  let (spx, spy, spw, sph, canvas) = part_to_sprite_coord_from_config(config, segment_part_index);
+  if bug { log(format!("meh? {} {} {} {}: {:?} --> {:?}", spx, spy, spw, sph, segment_part_index, config.nodes[segment_part_index])); }
 
   // log(format!("wat: {} {} {} {}     {} {} {} {}", spx, spy, spw, sph , dx, dy, dw, dh,));
   // web_sys::window().unwrap().document().unwrap().get_element_by_id("tdb").unwrap().dyn_into::<web_sys::HtmlElement>().unwrap().append_child(&canvas).expect("to work");
@@ -3419,9 +3428,11 @@ fn paint_segment_part_from_config_bug(options: &Options, state: &State, config: 
     context.fill_rect(dx, dy, dw, dh);
     context.set_fill_style(&"black".into());
     if options.draw_part_kind {
-      context.fill_text(segment_part.kind.to_string().as_str(), dx + dw / 2.0 - (if segment_part.kind < 9 { 4.0 } else { 14.0 }), dy + dh / 2.0 + 3.0).expect("to paint");
+      context.fill_text(segment_part_index.to_string().as_str(), dx + dw / 2.0 - (if segment_part_index < 9 { 4.0 } else { 14.0 }), dy + dh / 2.0 + 3.0).expect("to paint");
+    } else if segment_part_index == PARTKIND_NONE {
+      context.fill_text("ε", dx + dw / 2.0 - 4.0, dy + dh / 2.0 + 3.0).expect("to paint");
     } else {
-      context.fill_text((if segment_part.icon == ' ' { 'ε' } else { segment_part.icon }).to_string().as_str(), dx + dw / 2.0 - 4.0, dy + dh / 2.0 + 3.0).expect("to paint");
+      context.fill_text(format!("{}", config.nodes[segment_part_index].icon).as_str(), dx + dw / 2.0 - 4.0, dy + dh / 2.0 + 3.0).expect("to paint");
     }
   }
 
