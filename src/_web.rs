@@ -7,7 +7,6 @@
 // - investigate different machine speeds at different configs
 //  - throughput problem. part has to wait at 50% for next part to clear, causing delays. if there's enough outputs there's always room and no such delay. if supply-to-machine is one belt there's also no queueing so it's faster
 // - undo/redo? could store export snapshots after each change. Not sure if that's super expensive.
-// - paint edge differently?
 // - save/load snapshots of the factory
 // - putting machine down next to two dead end belts will only connect one?
 // - does snaking bother me when a belt should move all at once or not at all? should we change the algo? probably not that hard to move all connected cells between intersections/entry/exit points at once. if one moves, all move, etc.
@@ -22,10 +21,15 @@
 // - make the menu-machine "process" the finished parts before generating trucks
 // - prepare belt animations?
 // - allow smaller machines still?
-// - give unlocked parts that have patterns a different color (maybe even separate them? maybe not)
 // - let trash be a joker part
 // - animate machines at work
 // - paint the prepared parts of a machine while not selected?
+// - fix image preview while dragging
+// - fix hover indicator while dragging pattern (snap to machine)
+// - fix dragging machine inverting hint
+// - allow demand/supply/machine icon to be config defined. maybe box sizes / margins as well?
+// - rename recipe stuff in side bar to offers
+
 
 // This is required to export panic to the web
 use std::panic;
@@ -305,6 +309,14 @@ pub fn start() -> Result<(), JsValue> {
   let img_machine_2_1: web_sys::HtmlImageElement = load_tile("./img/machine_2_1.png")?;
   let img_machine_3_2: web_sys::HtmlImageElement = load_tile("./img/machine_3_2.png")?;
   let img_dumptruck: web_sys::HtmlImageElement = load_tile("./img/dumptruck.png")?;
+  let img_loading_dock: web_sys::HtmlImageElement = load_tile("./img/dock1.png")?;
+  let img_loading_sand: web_sys::HtmlImageElement = load_tile("./img/sand.png")?;
+  let img_suppliers: web_sys::HtmlImageElement = load_tile("./img/suppliers.png")?;
+  let img_demander: web_sys::HtmlImageElement = load_tile("./img/demander.png")?;
+
+  // https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/createPattern
+  // https://rustwasm.github.io/wasm-bindgen/api/web_sys/struct.CanvasRenderingContext2d.html#method.create_pattern_with_html_image_element
+  // let ptrn_dock1 = context.create_pattern_with_html_image_element(&img_loading_dock, "repeat").expect("trying to load dock1 tile");
 
   // Tbh this whole Rc approach is copied from the original template. It works so why not, :shrug:
   let mouse_x = Rc::new(Cell::new(0.0));
@@ -606,8 +618,28 @@ pub fn start() -> Result<(), JsValue> {
         // context.set_fill_style(&"lightblue".into());
         context.fill_rect(0.0, 0.0, CANVAS_WIDTH as f64, CANVAS_HEIGHT as f64);
 
-        context.set_stroke_style(&"#aaa".into());
-        context.stroke_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, FLOOR_CELLS_W as f64 * CELL_W, FLOOR_CELLS_H as f64 * CELL_H);
+        // Global background
+        if let Some(ptrn_sand) = context.create_pattern_with_html_image_element(&img_loading_sand, "repeat").expect("trying to load dock1 tile") {
+          context.set_fill_style(&ptrn_sand);
+          context.fill_rect(0.0, 0.0, CANVAS_WIDTH as f64, CANVAS_HEIGHT as f64);
+        } else {
+          context.set_stroke_style(&"#aaa".into());
+          context.stroke_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, FLOOR_CELLS_W as f64 * CELL_W, FLOOR_CELLS_H as f64 * CELL_H);
+        }
+        // Put a semi-transparent layer over the inner floor part to make it darker
+        context.set_fill_style(&"#00000077".into());
+        context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y + CELL_H, (FLOOR_CELLS_W - 2) as f64 * CELL_W, (FLOOR_CELLS_H - 2) as f64 * CELL_H);
+
+        // Paint the loading docks, which is where the suppliers and demanders can go
+        if let Some(ptrn_dock1) = context.create_pattern_with_html_image_element(&img_loading_dock, "repeat").expect("trying to load dock1 tile") {
+          context.set_global_alpha(0.5);
+          context.set_fill_style(&ptrn_dock1);
+          context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y, (FLOOR_CELLS_W as f64 - 2.0) * CELL_W, CELL_H);
+          context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y + CELL_H, CELL_W, (FLOOR_CELLS_H as f64 - 2.0) * CELL_H);
+          context.fill_rect(UI_FLOOR_OFFSET_X + (FLOOR_CELLS_W as f64 - 1.0) * CELL_W, UI_FLOOR_OFFSET_Y + CELL_H, CELL_W, (FLOOR_CELLS_H as f64 - 2.0) * CELL_H);
+          context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y + (FLOOR_CELLS_H as f64 - 1.0) * CELL_H, (FLOOR_CELLS_W as f64 - 2.0) * CELL_W, CELL_H);
+          context.set_global_alpha(1.0);
+        }
 
         paint_top_stats(&context, &mut factory);
         paint_top_bars(&options, &state, &mut factory, &context, &mouse_state);
@@ -718,11 +750,11 @@ pub fn start() -> Result<(), JsValue> {
         paint_bottom_menu(&options, &state, &context, &img_machine_1_1, &mouse_state);
 
         // TODO: wait for tiles to be loaded because first few frames won't paint anything while the tiles are loading...
-        paint_background_tiles(&options, &state, &config, &context, &factory, &belt_tile_images, &img_machine4, &img_machine_1_1, &img_machine_2_1, &img_machine_3_2);
+        paint_background_tiles(&options, &state, &config, &context, &factory, &belt_tile_images, &img_machine4, &img_machine_1_1, &img_machine_2_1, &img_machine_3_2, &img_suppliers, &img_demander);
         paint_ports(&context, &factory);
         paint_belt_items(&options, &state, &config, &context, &factory);
         paint_machine_selection_and_craft(&options, &state, &config, &context, &factory, &cell_selection, &mouse_state);
-        paint_ui_offer_machine_hint(&options, &state, &config, &context, &mut factory, &mouse_state, &cell_selection);
+        paint_ui_offer_droptarget_hint_conditionally(&options, &state, &config, &context, &mut factory, &mouse_state, &cell_selection);
 
         paint_mouse_cursor(&context, &mouse_state);
         paint_mouse_action(&options, &state, &config, &factory, &context, &belt_tile_images, &mouse_state, &cell_selection);
@@ -733,15 +765,17 @@ pub fn start() -> Result<(), JsValue> {
         paint_debug_selected_supply_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_debug_selected_demand_cell(&context, &factory, &cell_selection, &mouse_state);
 
-        context.set_stroke_style(&"white".into());
-        context.stroke_rect(GRID_X0, GRID_Y0, GRID_LEFT_WIDTH, GRID_TOP_HEIGHT);
-        context.stroke_rect(GRID_X1, GRID_Y0, FLOOR_WIDTH, GRID_TOP_HEIGHT);
-        context.stroke_rect(GRID_X2, GRID_Y0, GRID_RIGHT_WIDTH, GRID_TOP_HEIGHT + GRID_SPACING + FLOOR_HEIGHT + GRID_SPACING + GRID_BOTTOM_HEIGHT);
-        context.stroke_rect(GRID_X0, GRID_Y1, GRID_LEFT_WIDTH, FLOOR_HEIGHT);
-        context.stroke_rect(GRID_X1, GRID_Y1, FLOOR_WIDTH, FLOOR_HEIGHT);
-        context.stroke_rect(GRID_X0, GRID_Y2, GRID_LEFT_WIDTH, GRID_BOTTOM_HEIGHT);
-        context.stroke_rect(GRID_X1, GRID_Y2, FLOOR_WIDTH, GRID_BOTTOM_HEIGHT);
-        context.stroke_rect(GRID_X0, GRID_Y3, GRID_LEFT_WIDTH + GRID_SPACING + FLOOR_WIDTH + GRID_SPACING + GRID_RIGHT_WIDTH, GRID_BOTTOM_DEBUG_HEIGHT);
+        if options.draw_ui_section_border {
+          context.set_stroke_style(&options.ui_section_border_color.into());
+          context.stroke_rect(GRID_X0, GRID_Y0, GRID_LEFT_WIDTH, GRID_TOP_HEIGHT);
+          context.stroke_rect(GRID_X1, GRID_Y0, FLOOR_WIDTH, GRID_TOP_HEIGHT);
+          context.stroke_rect(GRID_X2, GRID_Y0, GRID_RIGHT_WIDTH, GRID_TOP_HEIGHT + GRID_SPACING + FLOOR_HEIGHT + GRID_SPACING + GRID_BOTTOM_HEIGHT);
+          context.stroke_rect(GRID_X0, GRID_Y1, GRID_LEFT_WIDTH, FLOOR_HEIGHT);
+          context.stroke_rect(GRID_X1, GRID_Y1, FLOOR_WIDTH, FLOOR_HEIGHT);
+          context.stroke_rect(GRID_X0, GRID_Y2, GRID_LEFT_WIDTH, GRID_BOTTOM_HEIGHT);
+          context.stroke_rect(GRID_X1, GRID_Y2, FLOOR_WIDTH, GRID_BOTTOM_HEIGHT);
+          context.stroke_rect(GRID_X0, GRID_Y3, GRID_LEFT_WIDTH + GRID_SPACING + FLOOR_WIDTH + GRID_SPACING + GRID_RIGHT_WIDTH, GRID_BOTTOM_DEBUG_HEIGHT);
+        }
 
         let trail_time = 2;
         let fade_time = 2;
@@ -2226,6 +2260,8 @@ fn paint_background_tiles(
   img_machine_1_1: &web_sys::HtmlImageElement,
   img_machine_2_1: &web_sys::HtmlImageElement,
   img_machine_3_2: &web_sys::HtmlImageElement,
+  img_suppliers: &web_sys::HtmlImageElement,
+  img_demander: &web_sys::HtmlImageElement,
 ) {
   // Paint background cell tiles
   for coord in 0..FLOOR_CELLS_WH {
@@ -2260,19 +2296,25 @@ fn paint_background_tiles(
         }
       },
       CellKind::Supply => {
-        // TODO: paint supply image
-        context.set_fill_style(&COLOR_SUPPLY.into());
-        context.fill_rect( ox, oy, CELL_W, CELL_H);
-        paint_segment_part_from_config(options, state, config, context, part_c(config, factory.floor[coord].supply.gives.icon), ox, oy, CELL_W, CELL_H);
+        let sprite_index = match (cx == 0, cy == 0, cx == FLOOR_CELLS_W - 1, cy == FLOOR_CELLS_H - 1) {
+          (false, true, false, false) => 0.0,
+          (true, false, false, false) => 1.0,
+          (false, false, false, true) => 2.0,
+          (false, false, true, false) => 3.0,
+          _ => panic!("no"),
+        };
+        context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(img_suppliers, sprite_index * 32.0, 0.0, 32.0, 32.0, ox, oy, CELL_W, CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+        paint_segment_part_from_config(options, state, config, context, part_c(config, factory.floor[coord].supply.gives.icon), ox + CELL_W/4.0, oy + CELL_H/4.0, CELL_W/2.0, CELL_H/2.0);
       }
       CellKind::Demand => {
-        // TODO: paint demand image
-        context.set_fill_style(&COLOR_DEMAND.into());
-        context.fill_rect( ox, oy, CELL_W, CELL_H);
-        if !options.print_priority_tile_order {
-          context.set_fill_style(&"black".into());
-          context.fill_text(format!("D").as_str(), ox + 8.0, oy + 21.0).expect("something lower error fill_text");
-        }
+        let sprite_index = match (cx == 0, cy == 0, cx == FLOOR_CELLS_W - 1, cy == FLOOR_CELLS_H - 1) {
+          (false, true, false, false) => 0.0,
+          (true, false, false, false) => 1.0,
+          (false, false, false, true) => 2.0,
+          (false, false, true, false) => 3.0,
+          _ => panic!("no"),
+        };
+        context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(img_demander, sprite_index * 32.0, 0.0, 32.0, 32.0, ox, oy, CELL_W, CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
       }
     }
   }
@@ -2530,7 +2572,7 @@ fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory
     paint_mouse_in_selection_mode(options, state, factory, context, belt_tile_images, mouse_state, cell_selection);
   }
   else if mouse_state.dragging_offer {
-    paint_mouse_while_dragging_offer(options, state, factory, context, mouse_state);
+    paint_mouse_while_dragging_offer(options, state, config, factory, context, mouse_state);
   }
   else if mouse_state.dragging_machine {
     paint_mouse_while_dragging_machine(options, state, factory, context, mouse_state);
@@ -2689,18 +2731,23 @@ fn paint_mouse_while_dragging_machine(options: &Options, state: &State, factory:
   context.set_fill_style(&"black".into());
   context.fill_text("M", paint_at_x + (machine_cells_width as f64) * CELL_W / 2.0 - 5.0, paint_at_y + (machine_cells_height as f64) * CELL_H / 2.0 + 2.0).expect("no error")
 }
-fn paint_mouse_while_dragging_offer(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  // Paint drop zone over the edge cells
-  context.set_fill_style(&"#00004444".into());
+fn paint_mouse_while_dragging_offer(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  // // Paint drop zone over the edge cells
+  // context.set_fill_style(&"#00004444".into());
+  //
+  // // Face out illegal options
+  // // Corners
+  // context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, CELL_W, CELL_H);
+  // context.fill_rect(UI_FLOOR_OFFSET_X + FLOOR_WIDTH - CELL_W, UI_FLOOR_OFFSET_Y, CELL_W, CELL_H);
+  // context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT - CELL_H, CELL_W, CELL_H);
+  // context.fill_rect(UI_FLOOR_OFFSET_X + FLOOR_WIDTH - CELL_W, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT - CELL_H, CELL_W, CELL_H);
 
-  // Face out illegal options
-  // Corners
-  context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, CELL_W, CELL_H);
-  context.fill_rect(UI_FLOOR_OFFSET_X + FLOOR_WIDTH - CELL_W, UI_FLOOR_OFFSET_Y, CELL_W, CELL_H);
-  context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT - CELL_H, CELL_W, CELL_H);
-  context.fill_rect(UI_FLOOR_OFFSET_X + FLOOR_WIDTH - CELL_W, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT - CELL_H, CELL_W, CELL_H);
-  // Center
-  context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y + CELL_H, FLOOR_WIDTH - CELL_W * 2.0, FLOOR_HEIGHT - CELL_H * 2.0);
+  let part_index = factory.available_parts_rhs_menu[mouse_state.offer_index].0;
+  paint_ui_offer_droptarget_hint(options, state, config, context, factory, part_index);
+
+  // Does this part go on the edge or a machine?
+  let for_edge = config.nodes[part_index].pattern_by_index.len() > 0;
+
   let ( paint_at_x, paint_at_y, legal ) =
     // Snap if x or y is edge but not both or neither
     if
@@ -3081,10 +3128,10 @@ fn paint_left_quotes(options: &Options, state: &State, config: &Config, context:
 
     height += h + m; // margin between quotes
   }
-  // Clear the rect below the last item in case it was the bottom item and only partially painted
-  let ( x, y ) = get_quote_xy(factory.quotes.len(), height);
-  context.set_fill_style(&"#E86A17".into()); // This will be more annoying later but for now it'll do
-  context.fill_rect(x, y, UI_ACHIEVEMENT_WIDTH, UI_QUOTE_HEIGHT);
+  // // Clear the rect below the last item in case it was the bottom item and only partially painted
+  // let ( x, y ) = get_quote_xy(factory.quotes.len(), height);
+  // context.set_fill_style(&"#E86A17".into()); // This will be more annoying later but for now it'll do
+  // context.fill_rect(x, y, UI_ACHIEVEMENT_WIDTH, UI_QUOTE_HEIGHT);
 }
 fn paint_ui_recipes(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) {
   let ( is_mouse_over_offer, offer_hover_index ) =
@@ -3095,12 +3142,12 @@ fn paint_ui_recipes(options: &Options, state: &State, config: &Config, context: 
   for index in 0..factory.available_parts_rhs_menu.len() {
     let ( part_index, part_interactable ) = factory.available_parts_rhs_menu[index];
     if part_interactable {
-      paint_ui_recipe_supply(options, state, config, context, factory, part_index, inc, is_mouse_over_offer && index == offer_hover_index);
+      paint_ui_recipe_supply(options, state, config, context, factory, part_index, inc, is_mouse_over_offer && index == offer_hover_index, if config.nodes[part_index].pattern_unique_icons.len() > 0 { "#c99110" } else { "pink" });
       inc += 1;
     }
   }
 }
-fn paint_ui_offer_machine_hint(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) {
+fn paint_ui_offer_droptarget_hint_conditionally(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) {
   let ( is_mouse_over_offer, offer_hover_index ) =
     if mouse_state.is_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight offers
     else { ( mouse_state.over_offer, mouse_state.offer_index ) };
@@ -3119,11 +3166,14 @@ fn paint_ui_offer_machine_hint(options: &Options, state: &State, config: &Config
     return;
   }
 
+  let hover_part_index: PartKind = factory.available_parts_rhs_menu[mouse_state.offer_index].0;
+  paint_ui_offer_droptarget_hint(options, state, config, context, factory, hover_part_index);
+}
+fn paint_ui_offer_droptarget_hint(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, part_index: usize) {
   // Parts with patterns go to machines. Parts without patterns (or empty patterns) are suppliers.
-  let hover_part_index: PartKind = factory.available_parts_rhs_menu[offer_hover_index].0;
-  if config.nodes[hover_part_index].pattern_by_index.len() > 0 {
+  if config.nodes[part_index].pattern_by_index.len() > 0 {
     // Get all unique required parts
-    let want_icons = &config.nodes[hover_part_index].pattern_unique_icons;
+    let want_icons = &config.nodes[part_index].pattern_unique_icons;
 
     // TODO: do this prep in the mouse state change so we only do it once per mouse-over
     // TODO: did I not have a shortcut to iterate over just machine cells?
@@ -3138,33 +3188,40 @@ fn paint_ui_offer_machine_hint(options: &Options, state: &State, config: &Config
         // Now modify the machine
         let (x, y) = to_xy(coord);
         if eligible {
-          context.set_fill_style(&"#00770077".into());
+          context.set_fill_style(&"#00ff0077".into());
         } else {
-          context.set_fill_style(&"#77000077".into());
+          context.set_fill_style(&"#c27b1277".into());
         }
         context.fill_rect(UI_FLOOR_OFFSET_X + x as f64 * CELL_W, UI_FLOOR_OFFSET_Y + y as f64 * CELL_H, CELL_W * factory.floor[coord].machine.cell_width as f64, CELL_H * factory.floor[coord].machine.cell_height as f64);
       }
     }
+
+    // Mark edges as disallowed
+    context.set_fill_style(&"#ff000077".into());
+    context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y, (FLOOR_CELLS_W as f64 - 2.0) * CELL_W, CELL_H);
+    context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y + CELL_H, CELL_W, (FLOOR_CELLS_H as f64 - 2.0) * CELL_H);
+    context.fill_rect(UI_FLOOR_OFFSET_X + (FLOOR_CELLS_W as f64 - 1.0) * CELL_W, UI_FLOOR_OFFSET_Y + CELL_H, CELL_W, (FLOOR_CELLS_H as f64 - 2.0) * CELL_H);
+    context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y + (FLOOR_CELLS_H as f64 - 1.0) * CELL_H, (FLOOR_CELLS_W as f64 - 2.0) * CELL_W, CELL_H);
   } else {
     // This part has no pattern so it must be a supply. Highlight the edge, cover the rest
     context.set_fill_style(&"#77000077".into());
     context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y + CELL_H, (FLOOR_CELLS_W as f64 - 2.0) * CELL_W, (FLOOR_CELLS_H as f64 - 2.0) * CELL_H);
-    // Corners too
-    context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, CELL_W, CELL_H);
-    context.fill_rect(UI_FLOOR_OFFSET_X + (FLOOR_CELLS_W as f64 - 1.0) * CELL_W, UI_FLOOR_OFFSET_Y, CELL_W, CELL_H);
-    context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y + (FLOOR_CELLS_H as f64 - 1.0) * CELL_H, CELL_W, CELL_H);
-    context.fill_rect(UI_FLOOR_OFFSET_X + (FLOOR_CELLS_W as f64 - 1.0) * CELL_W, UI_FLOOR_OFFSET_Y + (FLOOR_CELLS_H as f64 - 1.0) * CELL_H, CELL_W, CELL_H);
+    // // Corners too
+    // context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, CELL_W, CELL_H);
+    // context.fill_rect(UI_FLOOR_OFFSET_X + (FLOOR_CELLS_W as f64 - 1.0) * CELL_W, UI_FLOOR_OFFSET_Y, CELL_W, CELL_H);
+    // context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y + (FLOOR_CELLS_H as f64 - 1.0) * CELL_H, CELL_W, CELL_H);
+    // context.fill_rect(UI_FLOOR_OFFSET_X + (FLOOR_CELLS_W as f64 - 1.0) * CELL_W, UI_FLOOR_OFFSET_Y + (FLOOR_CELLS_H as f64 - 1.0) * CELL_H, CELL_W, CELL_H);
 
     // Allowed edges
-    context.set_fill_style(&"#00770077".into());
+    context.set_fill_style(&"#00ff0077".into());
     context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y, (FLOOR_CELLS_W as f64 - 2.0) * CELL_W, CELL_H);
     context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y + CELL_H, CELL_W, (FLOOR_CELLS_H as f64 - 2.0) * CELL_H);
     context.fill_rect(UI_FLOOR_OFFSET_X + (FLOOR_CELLS_W as f64 - 1.0) * CELL_W, UI_FLOOR_OFFSET_Y + CELL_H, CELL_W, (FLOOR_CELLS_H as f64 - 2.0) * CELL_H);
     context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y + (FLOOR_CELLS_H as f64 - 1.0) * CELL_H, (FLOOR_CELLS_W as f64 - 2.0) * CELL_W, CELL_H);
   }
 }
-fn paint_ui_recipe_supply(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, part_index: usize, inc: usize, hovering: bool) {
-  context.set_fill_style(&COLOR_SUPPLY.into());
+fn paint_ui_recipe_supply(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, part_index: usize, inc: usize, hovering: bool, color: &str) {
+  context.set_fill_style(&color.into());
   let ( x, y ) = get_recipe_xy(inc);
   context.fill_rect(x, y, UI_OFFERS_WIDTH, UI_OFFERS_HEIGHT);
   if hovering {
