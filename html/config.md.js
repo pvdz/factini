@@ -3,7 +3,7 @@ const GAME_CONFIG = `
 Hardcoded first node internally but can appear anywhere, or nowhere, because there's no properties to this one
 
 # Part_Trash
-Hardcoded to be the second node internally but can appear anywhere
+Hardcoded to be the second node internally but can appear anywhere. We can skin it here.
 This is something that looks like a grey rock
 - char: t
 - file: ./img/roguelikeitems.png
@@ -413,5 +413,88 @@ The old paper
 - parts: Part_BookShield
 - targets: 10x Part_BookShield
 
+# Supply_Up
+- file: ./img/supply.png
+- x: 0
+- y: 0
+- w: 32
+- h: 32
 
+# Supply_Right
+- file: ./img/supply.png
+- x: 96
+- y: 0
+- w: 32
+- h: 32
+
+# Supply_Down
+- file: ./img/supply.png
+- x: 64
+- y: 0
+- w: 32
+- h: 32
+
+# Supply_Left
+- file: ./img/supply.png
+- x: 32
+- y: 0
+- w: 32
+- h: 32
+
+# Demand_Up
+- file: ./img/demand.png
+- x: 0
+- y: 0
+- w: 32
+- h: 32
+
+# Demand_Right
+- file: ./img/demand.png
+- x: 96
+- y: 0
+- w: 32
+- h: 32
+
+# Demand_Down
+- file: ./img/demand.png
+- x: 64
+- y: 0
+- w: 32
+- h: 32
+
+# Demand_Left
+- file: ./img/demand.png
+- x: 32
+- y: 0
+- w: 32
+- h: 32
+
+# Dock_Up
+This is the edge area where suppliers and demanders can be placed
+- file: ./img/dock.png
+- x: 0
+- y: 0
+- w: 64
+- h: 64
+
+# Dock_Right
+- file: ./img/dock.png
+- x: 0
+- y: 0
+- w: 64
+- h: 64
+
+# Dock_Down
+- file: ./img/dock.png
+- x: 0
+- y: 0
+- w: 64
+- h: 64
+
+# Dock_Left
+- file: ./img/dock.png
+- x: 0
+- y: 0
+- w: 64
+- h: 64
 `;

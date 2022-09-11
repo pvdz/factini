@@ -6,6 +6,19 @@ use super::part::*;
 use super::state::*;
 use super::utils::*;
 
+pub const CONFIG_NODE_SUPPLY_UP: usize = 2;
+pub const CONFIG_NODE_SUPPLY_RIGHT: usize = 3;
+pub const CONFIG_NODE_SUPPLY_DOWN: usize = 4;
+pub const CONFIG_NODE_SUPPLY_LEFT: usize = 5;
+pub const CONFIG_NODE_DEMAND_UP: usize = 6;
+pub const CONFIG_NODE_DEMAND_RIGHT: usize = 7;
+pub const CONFIG_NODE_DEMAND_DOWN: usize = 8;
+pub const CONFIG_NODE_DEMAND_LEFT: usize = 9;
+pub const CONFIG_NODE_DOCK_UP: usize = 10;
+pub const CONFIG_NODE_DOCK_RIGHT: usize = 11;
+pub const CONFIG_NODE_DOCK_DOWN: usize = 12;
+pub const CONFIG_NODE_DOCK_LEFT: usize = 13;
+
 #[derive(Debug)]
 pub struct Config {
   pub nodes: Vec<ConfigNode>,
@@ -41,10 +54,10 @@ pub struct ConfigNode {
   pub file: String, // Sprite image location
   pub file_canvas_cache_index: usize, // The canvas with the sprite image loaded
   // Coord of the part on the sprite
-  pub x: u64,
-  pub y: u64,
-  pub w: u64,
-  pub h: u64,
+  pub x: f64,
+  pub y: f64,
+  pub w: f64,
+  pub h: f64,
   // Mostly for debugging
   pub current_state: ConfigNodeState,
 }
@@ -53,6 +66,9 @@ pub struct ConfigNode {
 pub enum ConfigNodeKind {
   Part,
   Quest,
+  Supply,
+  Demand,
+  Dock,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -136,10 +152,10 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
       icon: ' ',
       file: "".to_string(),
       file_canvas_cache_index: 0,
-      x: 0,
-      y: 0,
-      w: 0,
-      h: 0,
+      x: 0.0,
+      y: 0.0,
+      w: 0.0,
+      h: 0.0,
       current_state: ConfigNodeState::Available,
     },
     ConfigNode {
@@ -160,10 +176,298 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
       icon: 't',
       file: "".to_string(),
       file_canvas_cache_index: 0,
-      x: 0,
-      y: 0,
-      w: 0,
-      h: 0,
+      x: 0.0,
+      y: 0.0,
+      w: 0.0,
+      h: 0.0,
+      current_state: ConfigNodeState::Available,
+    },
+    ConfigNode {
+      index: CONFIG_NODE_SUPPLY_UP,
+      kind: ConfigNodeKind::Supply,
+      name: "Supply".to_string(),
+      raw_name: "Supply_Up".to_string(),
+      unlocks_after_by_name: vec!(),
+      unlocks_after_by_index: vec!(),
+      unlocks_todo_by_index: vec!(),
+      starting_part_by_name: vec!(),
+      starting_part_by_index: vec!(),
+      pattern_unique_icons: vec!(),
+      production_target_by_name: vec!(),
+      production_target_by_index: vec!(),
+      pattern_by_index: vec!(),
+      pattern_by_name: vec!(),
+      icon: '?',
+      file: "./img/supply.png".to_string(),
+      file_canvas_cache_index: 0,
+      x: 0.0,
+      y: 0.0,
+      w: 32.0,
+      h: 32.0,
+      current_state: ConfigNodeState::Available,
+    },
+    ConfigNode {
+      index: CONFIG_NODE_SUPPLY_RIGHT,
+      kind: ConfigNodeKind::Supply,
+      name: "Supply".to_string(),
+      raw_name: "Supply_Up".to_string(),
+      unlocks_after_by_name: vec!(),
+      unlocks_after_by_index: vec!(),
+      unlocks_todo_by_index: vec!(),
+      starting_part_by_name: vec!(),
+      starting_part_by_index: vec!(),
+      pattern_unique_icons: vec!(),
+      production_target_by_name: vec!(),
+      production_target_by_index: vec!(),
+      pattern_by_index: vec!(),
+      pattern_by_name: vec!(),
+      icon: '?',
+      file: "./img/supply.png".to_string(),
+      file_canvas_cache_index: 0,
+      x: 96.0,
+      y: 0.0,
+      w: 32.0,
+      h: 32.0,
+      current_state: ConfigNodeState::Available,
+    },
+    ConfigNode {
+      index: CONFIG_NODE_SUPPLY_DOWN,
+      kind: ConfigNodeKind::Supply,
+      name: "Supply".to_string(),
+      raw_name: "Supply_Up".to_string(),
+      unlocks_after_by_name: vec!(),
+      unlocks_after_by_index: vec!(),
+      unlocks_todo_by_index: vec!(),
+      starting_part_by_name: vec!(),
+      starting_part_by_index: vec!(),
+      pattern_unique_icons: vec!(),
+      production_target_by_name: vec!(),
+      production_target_by_index: vec!(),
+      pattern_by_index: vec!(),
+      pattern_by_name: vec!(),
+      icon: '?',
+      file: "./img/supply.png".to_string(),
+      file_canvas_cache_index: 0,
+      x: 64.0,
+      y: 0.0,
+      w: 32.0,
+      h: 32.0,
+      current_state: ConfigNodeState::Available,
+    },
+    ConfigNode {
+      index: CONFIG_NODE_SUPPLY_LEFT,
+      kind: ConfigNodeKind::Supply,
+      name: "Supply".to_string(),
+      raw_name: "Supply_Up".to_string(),
+      unlocks_after_by_name: vec!(),
+      unlocks_after_by_index: vec!(),
+      unlocks_todo_by_index: vec!(),
+      starting_part_by_name: vec!(),
+      starting_part_by_index: vec!(),
+      pattern_unique_icons: vec!(),
+      production_target_by_name: vec!(),
+      production_target_by_index: vec!(),
+      pattern_by_index: vec!(),
+      pattern_by_name: vec!(),
+      icon: '?',
+      file: "./img/supply.png".to_string(),
+      file_canvas_cache_index: 0,
+      x: 32.0,
+      y: 0.0,
+      w: 32.0,
+      h: 32.0,
+      current_state: ConfigNodeState::Available,
+    },
+    ConfigNode {
+      index: CONFIG_NODE_DEMAND_UP,
+      kind: ConfigNodeKind::Demand,
+      name: "Demand".to_string(),
+      raw_name: "Demand_Up".to_string(),
+      unlocks_after_by_name: vec!(),
+      unlocks_after_by_index: vec!(),
+      unlocks_todo_by_index: vec!(),
+      starting_part_by_name: vec!(),
+      starting_part_by_index: vec!(),
+      pattern_unique_icons: vec!(),
+      production_target_by_name: vec!(),
+      production_target_by_index: vec!(),
+      pattern_by_index: vec!(),
+      pattern_by_name: vec!(),
+      icon: '?',
+      file: "./img/demand.png".to_string(),
+      file_canvas_cache_index: 0,
+      x: 0.0,
+      y: 0.0,
+      w: 32.0,
+      h: 32.0,
+      current_state: ConfigNodeState::Available,
+    },
+    ConfigNode {
+      index: CONFIG_NODE_DEMAND_RIGHT,
+      kind: ConfigNodeKind::Demand,
+      name: "Demand".to_string(),
+      raw_name: "Demand_Right".to_string(),
+      unlocks_after_by_name: vec!(),
+      unlocks_after_by_index: vec!(),
+      unlocks_todo_by_index: vec!(),
+      starting_part_by_name: vec!(),
+      starting_part_by_index: vec!(),
+      pattern_unique_icons: vec!(),
+      production_target_by_name: vec!(),
+      production_target_by_index: vec!(),
+      pattern_by_index: vec!(),
+      pattern_by_name: vec!(),
+      icon: '?',
+      file: "./img/demand.png".to_string(),
+      file_canvas_cache_index: 0,
+      x: 96.0,
+      y: 0.0,
+      w: 32.0,
+      h: 32.0,
+      current_state: ConfigNodeState::Available,
+    },
+    ConfigNode {
+      index: CONFIG_NODE_DEMAND_DOWN,
+      kind: ConfigNodeKind::Demand,
+      name: "Demand".to_string(),
+      raw_name: "Demand_Down".to_string(),
+      unlocks_after_by_name: vec!(),
+      unlocks_after_by_index: vec!(),
+      unlocks_todo_by_index: vec!(),
+      starting_part_by_name: vec!(),
+      starting_part_by_index: vec!(),
+      pattern_unique_icons: vec!(),
+      production_target_by_name: vec!(),
+      production_target_by_index: vec!(),
+      pattern_by_index: vec!(),
+      pattern_by_name: vec!(),
+      icon: '?',
+      file: "./img/demand.png".to_string(),
+      file_canvas_cache_index: 0,
+      x: 64.0,
+      y: 0.0,
+      w: 32.0,
+      h: 32.0,
+      current_state: ConfigNodeState::Available,
+    },
+    ConfigNode {
+      index: CONFIG_NODE_DEMAND_LEFT,
+      kind: ConfigNodeKind::Demand,
+      name: "Demand".to_string(),
+      raw_name: "Demand_Left".to_string(),
+      unlocks_after_by_name: vec!(),
+      unlocks_after_by_index: vec!(),
+      unlocks_todo_by_index: vec!(),
+      starting_part_by_name: vec!(),
+      starting_part_by_index: vec!(),
+      pattern_unique_icons: vec!(),
+      production_target_by_name: vec!(),
+      production_target_by_index: vec!(),
+      pattern_by_index: vec!(),
+      pattern_by_name: vec!(),
+      icon: '?',
+      file: "./img/demand.png".to_string(),
+      file_canvas_cache_index: 0,
+      x: 32.0,
+      y: 0.0,
+      w: 32.0,
+      h: 32.0,
+      current_state: ConfigNodeState::Available,
+    },
+    ConfigNode {
+      index: CONFIG_NODE_DOCK_UP,
+      kind: ConfigNodeKind::Dock,
+      name: "Dock".to_string(),
+      raw_name: "Dock_Up".to_string(),
+      unlocks_after_by_name: vec!(),
+      unlocks_after_by_index: vec!(),
+      unlocks_todo_by_index: vec!(),
+      starting_part_by_name: vec!(),
+      starting_part_by_index: vec!(),
+      pattern_unique_icons: vec!(),
+      production_target_by_name: vec!(),
+      production_target_by_index: vec!(),
+      pattern_by_index: vec!(),
+      pattern_by_name: vec!(),
+      icon: '?',
+      file: "./img/dock.png".to_string(),
+      file_canvas_cache_index: 0,
+      x: 0.0,
+      y: 0.0,
+      w: 64.0,
+      h: 64.0,
+      current_state: ConfigNodeState::Available,
+    },
+    ConfigNode {
+      index: CONFIG_NODE_DOCK_RIGHT,
+      kind: ConfigNodeKind::Dock,
+      name: "Dock".to_string(),
+      raw_name: "Dock_Right".to_string(),
+      unlocks_after_by_name: vec!(),
+      unlocks_after_by_index: vec!(),
+      unlocks_todo_by_index: vec!(),
+      starting_part_by_name: vec!(),
+      starting_part_by_index: vec!(),
+      pattern_unique_icons: vec!(),
+      production_target_by_name: vec!(),
+      production_target_by_index: vec!(),
+      pattern_by_index: vec!(),
+      pattern_by_name: vec!(),
+      icon: '?',
+      file: "./img/dock.png".to_string(),
+      file_canvas_cache_index: 0,
+      x: 0.0,
+      y: 0.0,
+      w: 64.0,
+      h: 64.0,
+      current_state: ConfigNodeState::Available,
+    },
+    ConfigNode {
+      index: CONFIG_NODE_DOCK_DOWN,
+      kind: ConfigNodeKind::Dock,
+      name: "Dock".to_string(),
+      raw_name: "Dock_Down".to_string(),
+      unlocks_after_by_name: vec!(),
+      unlocks_after_by_index: vec!(),
+      unlocks_todo_by_index: vec!(),
+      starting_part_by_name: vec!(),
+      starting_part_by_index: vec!(),
+      pattern_unique_icons: vec!(),
+      production_target_by_name: vec!(),
+      production_target_by_index: vec!(),
+      pattern_by_index: vec!(),
+      pattern_by_name: vec!(),
+      icon: '?',
+      file: "./img/dock.png".to_string(),
+      file_canvas_cache_index: 0,
+      x: 0.0,
+      y: 0.0,
+      w: 64.0,
+      h: 64.0,
+      current_state: ConfigNodeState::Available,
+    },
+    ConfigNode {
+      index: CONFIG_NODE_DOCK_LEFT,
+      kind: ConfigNodeKind::Dock,
+      name: "Dock".to_string(),
+      raw_name: "Dock_Left".to_string(),
+      unlocks_after_by_name: vec!(),
+      unlocks_after_by_index: vec!(),
+      unlocks_todo_by_index: vec!(),
+      starting_part_by_name: vec!(),
+      starting_part_by_index: vec!(),
+      pattern_unique_icons: vec!(),
+      production_target_by_name: vec!(),
+      production_target_by_index: vec!(),
+      pattern_by_index: vec!(),
+      pattern_by_name: vec!(),
+      icon: '?',
+      file: "./img/dock.png".to_string(),
+      file_canvas_cache_index: 0,
+      x: 0.0,
+      y: 0.0,
+      w: 64.0,
+      h: 64.0,
       current_state: ConfigNodeState::Available,
     },
   );
@@ -172,6 +476,7 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
   let mut part_nodes: Vec<usize> = vec!(0, 1);
 
   let mut seen_header = false;
+  let mut current_node_index = 0;
   config.lines().for_each(
     |line| {
       let trimmed = line.trim();
@@ -187,14 +492,22 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
           let icon = if rest == "Part_None" { ' ' } else { '?' };
           if options.print_fmd_trace { log(format!("- raw: `{}`, kind: `{}`, name: `{}`", rest, kind, name)); }
           let node_index: usize =
-            if rest == "Part_None" {
-              // PART_NONE = 0
-              0
-            } else if rest == "Part_Trash" {
-              // PART_TRASH = 1
-              1
-            } else {
-              nodes.len()
+            match rest {
+              "Part_None" => PARTKIND_NONE,
+              "Part_Trash" => PARTKIND_TRASH,
+              "Supply_Up" => CONFIG_NODE_SUPPLY_UP,
+              "Supply_Right" => CONFIG_NODE_SUPPLY_RIGHT,
+              "Supply_Down" => CONFIG_NODE_SUPPLY_DOWN,
+              "Supply_Left" => CONFIG_NODE_SUPPLY_LEFT,
+              "Demand_Up" => CONFIG_NODE_DEMAND_UP,
+              "Demand_Right" => CONFIG_NODE_DEMAND_RIGHT,
+              "Demand_Down" => CONFIG_NODE_DEMAND_DOWN,
+              "Demand_Left" => CONFIG_NODE_DEMAND_LEFT,
+              "Dock_Up" => CONFIG_NODE_DOCK_UP,
+              "Dock_Right" => CONFIG_NODE_DOCK_RIGHT,
+              "Dock_Down" => CONFIG_NODE_DOCK_DOWN,
+              "Dock_Left" => CONFIG_NODE_DOCK_LEFT,
+              _ => nodes.len(),
             };
           let current_node = ConfigNode {
             index: node_index,
@@ -202,7 +515,10 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
               match kind {
                 "Quest" => ConfigNodeKind::Quest,
                 "Part" => ConfigNodeKind::Part,
-                _ => panic!("Unsupported node kind. Node headers should be composed like Kind_Name and the kind can only be Quest or Part but was {:?}", kind),
+                "Demand" => ConfigNodeKind::Demand,
+                "Supply" => ConfigNodeKind::Supply,
+                "Dock" => ConfigNodeKind::Dock,
+                _ => panic!("Unsupported node kind. Node headers should be composed like Kind_Name and the kind can only be Quest, Part, Supply, Demand, or Dock. But it was {:?} (`{}`)", kind, rest),
               },
             name: name.to_string(),
             raw_name: rest.to_string(),
@@ -219,22 +535,26 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
             icon,
             file: "".to_string(),
             file_canvas_cache_index: 0,
-            x: 0,
-            y: 0,
-            w: 0,
-            h: 0,
+            x: 0.0,
+            y: 0.0,
+            w: 0.0,
+            h: 0.0,
             current_state: ConfigNodeState::Waiting,
           };
-          if node_index > 1 {
+          if node_index == nodes.len() {
             nodes.push(current_node);
           } else {
-            // none or trash node
+            // none, trash, supply, demand, dock
             nodes[node_index] = current_node;
           }
+          current_node_index = node_index;
           match kind {
             "Quest" => quest_nodes.push(node_index),
             "Part" => part_nodes.push(node_index),
-            _ => panic!("Unsupported node kind. Node headers should be composed like Kind_Name and the kind can only be Quest or Part but was {:?}", kind),
+            "Supply" => {}
+            "Demand" => {}
+            "Dock" => {}
+            _ => panic!("Unsupported node kind. Node headers should be composed like Kind_Name and the kind can only be Quest, Part, Supply, Demand, or Dock. But it was {:?}", kind),
           }
         }
         Some('-') => {
@@ -255,7 +575,7 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
               for name_untrimmed in pairs {
                 let name = name_untrimmed.trim();
                 if name != "" {
-                  nodes.last_mut().unwrap().unlocks_after_by_name.push(name.trim().to_string());
+                  nodes[current_node_index].unlocks_after_by_name.push(name.trim().to_string());
                 }
               }
             }
@@ -266,7 +586,7 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
               for name_untrimmed in pairs {
                 let name = name_untrimmed.trim();
                 if name != "" {
-                  nodes.last_mut().unwrap().starting_part_by_name.push(name.to_string());
+                  nodes[current_node_index].starting_part_by_name.push(name.to_string());
                 }
               }
             }
@@ -292,7 +612,7 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
                   let name = split[split.len() - 1]; // Ignore multiple spaces between, :shrug:
                   let name = if name == "" { "MissingName" } else { name };
                   log(format!("Parsing counts: `{}` into `{:?}` -> `{}` and `{}`", pair, split, count, name));
-                  nodes.last_mut().unwrap().production_target_by_name.push((count, name.to_string()));
+                  nodes[current_node_index].production_target_by_name.push((count, name.to_string()));
                 }
               }
             }
@@ -303,39 +623,39 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
               for name_untrimmed in pairs {
                 let name = name_untrimmed.trim();
                 if name != "" {
-                  nodes.last_mut().unwrap().pattern_by_name.push(name.trim().to_string());
+                  nodes[current_node_index].pattern_by_name.push(name.trim().to_string());
                 }
               }
             }
             "char" => {
               // The icon
-              nodes.last_mut().unwrap().icon = value_raw.bytes().next().or(Some('?' as u8)).unwrap() as char;
+              nodes[current_node_index].icon = value_raw.bytes().next().or(Some('?' as u8)).unwrap() as char;
             }
             "file" => {
               // The sprite file
-              nodes.last_mut().unwrap().file = value_raw.trim().to_string();
+              nodes[current_node_index].file = value_raw.trim().to_string();
             }
             "x" => {
               // x coord in the sprite file where this sprite begins
-              nodes.last_mut().unwrap().x = value_raw.parse::<u64>().or::<Result<u32, &str>>(Ok(0)).unwrap();
+              nodes[current_node_index].x = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
             }
             "y" => {
               // y coord in the sprite file where this sprite begins
-              nodes.last_mut().unwrap().y = value_raw.parse::<u64>().or::<Result<u32, &str>>(Ok(0)).unwrap();
+              nodes[current_node_index].y = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
             }
             "w" => {
               // width in the sprite file of this sprite
-              nodes.last_mut().unwrap().w = value_raw.parse::<u64>().or::<Result<u32, &str>>(Ok(0)).unwrap();
+              nodes[current_node_index].w = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
             }
             "h" => {
               // height in the sprite file of this sprite
-              nodes.last_mut().unwrap().h = value_raw.parse::<u64>().or::<Result<u32, &str>>(Ok(0)).unwrap();
+              nodes[current_node_index].h = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
             }
             "state" => {
               match value_raw {
-                "active" => nodes.last_mut().unwrap().current_state = ConfigNodeState::Active,
-                "finished" => nodes.last_mut().unwrap().current_state = ConfigNodeState::Finished,
-                "waiting" => nodes.last_mut().unwrap().current_state = ConfigNodeState::Waiting,
+                "active" => nodes[current_node_index].current_state = ConfigNodeState::Active,
+                "finished" => nodes[current_node_index].current_state = ConfigNodeState::Finished,
+                "waiting" => nodes[current_node_index].current_state = ConfigNodeState::Waiting,
                   _ => panic!("Only valid states are valid; Expecting one if 'active', 'finished', or 'waiting', got: {}", value_raw),
               }
             }
@@ -483,6 +803,9 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
       match node.kind {
         ConfigNodeKind::Part => log(format!("- Part {} will be {:?} from the start", node.raw_name, node.current_state)),
         ConfigNodeKind::Quest => log(format!("- Quest {} will be {:?} from the start", node.raw_name, node.current_state)),
+        ConfigNodeKind::Demand => {}
+        ConfigNodeKind::Supply => {}
+        ConfigNodeKind::Dock => {}
       }
     }
   });

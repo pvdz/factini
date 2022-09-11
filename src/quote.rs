@@ -57,7 +57,6 @@ pub fn quotes_get_available(config: &Config, ticks: u64) -> Vec<Quote> {
 }
 
 pub fn quote_create(config: &Config, quest_index: usize, ticks: u64) -> Vec<Quote> {
-  log(format!("ok wtf? {:?}", config.nodes[quest_index].production_target_by_index));
   return config.nodes[quest_index].production_target_by_index.iter().map(|&(count, part_index)| {
     Quote {
       name: format!("{}/{}", config.nodes[quest_index].name, config.nodes[part_index].name),

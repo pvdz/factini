@@ -27,7 +27,7 @@
 // - fix image preview while dragging
 // - fix hover indicator while dragging pattern (snap to machine)
 // - fix dragging machine inverting hint
-// - allow demand/supply/machine icon to be config defined. maybe box sizes / margins as well?
+// - allow machine icon to be config defined. maybe box sizes / margins as well?
 
 
 // This is required to export panic to the web
@@ -276,6 +276,10 @@ pub fn start() -> Result<(), JsValue> {
   // ingame changes relating to parts and unlock order of them. This config includes sprite details.
   let def_options = create_options(0.0);
   let mut config = parse_fmd(&def_options, getGameConfig());
+
+
+  config.nodes.iter().for_each(|node| log(format!("node `{}` wants to load `{}`", node.raw_name, node.file)));
+
   // Load sprite maps. Once per image.
   config.sprite_cache_canvas = config.sprite_cache_order.iter().enumerate().map(|(_index, src)| {
     // log(format!("Canvas {} src {}", _index, src));
@@ -308,10 +312,7 @@ pub fn start() -> Result<(), JsValue> {
   let img_machine_2_1: web_sys::HtmlImageElement = load_tile("./img/machine_2_1.png")?;
   let img_machine_3_2: web_sys::HtmlImageElement = load_tile("./img/machine_3_2.png")?;
   let img_dumptruck: web_sys::HtmlImageElement = load_tile("./img/dumptruck.png")?;
-  let img_loading_dock: web_sys::HtmlImageElement = load_tile("./img/dock1.png")?;
   let img_loading_sand: web_sys::HtmlImageElement = load_tile("./img/sand.png")?;
-  let img_suppliers: web_sys::HtmlImageElement = load_tile("./img/suppliers.png")?;
-  let img_demander: web_sys::HtmlImageElement = load_tile("./img/demander.png")?;
 
   // https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/createPattern
   // https://rustwasm.github.io/wasm-bindgen/api/web_sys/struct.CanvasRenderingContext2d.html#method.create_pattern_with_html_image_element
@@ -618,7 +619,7 @@ pub fn start() -> Result<(), JsValue> {
         context.fill_rect(0.0, 0.0, CANVAS_WIDTH as f64, CANVAS_HEIGHT as f64);
 
         // Global background
-        if let Some(ptrn_sand) = context.create_pattern_with_html_image_element(&img_loading_sand, "repeat").expect("trying to load dock1 tile") {
+        if let Some(ptrn_sand) = context.create_pattern_with_html_image_element(&img_loading_sand, "repeat").expect("trying to load sand ztile") {
           context.set_fill_style(&ptrn_sand);
           context.fill_rect(0.0, 0.0, CANVAS_WIDTH as f64, CANVAS_HEIGHT as f64);
         } else {
@@ -629,22 +630,12 @@ pub fn start() -> Result<(), JsValue> {
         context.set_fill_style(&"#00000077".into());
         context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y + CELL_H, (FLOOR_CELLS_W - 2) as f64 * CELL_W, (FLOOR_CELLS_H - 2) as f64 * CELL_H);
 
-        // Paint the loading docks, which is where the suppliers and demanders can go
-        if let Some(ptrn_dock1) = context.create_pattern_with_html_image_element(&img_loading_dock, "repeat").expect("trying to load dock1 tile") {
-          context.set_global_alpha(0.5);
-          context.set_fill_style(&ptrn_dock1);
-          context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y, (FLOOR_CELLS_W as f64 - 2.0) * CELL_W, CELL_H);
-          context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y + CELL_H, CELL_W, (FLOOR_CELLS_H as f64 - 2.0) * CELL_H);
-          context.fill_rect(UI_FLOOR_OFFSET_X + (FLOOR_CELLS_W as f64 - 1.0) * CELL_W, UI_FLOOR_OFFSET_Y + CELL_H, CELL_W, (FLOOR_CELLS_H as f64 - 2.0) * CELL_H);
-          context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y + (FLOOR_CELLS_H as f64 - 1.0) * CELL_H, (FLOOR_CELLS_W as f64 - 2.0) * CELL_W, CELL_H);
-          context.set_global_alpha(1.0);
-        }
-
         paint_top_stats(&context, &mut factory);
         paint_top_bars(&options, &state, &mut factory, &context, &mouse_state);
         paint_left_quotes(&options, &state, &config, &context, &mut factory, &mouse_state);
         paint_ui_offers(&options, &state, &config, &context, &mut factory, &mouse_state, &cell_selection);
 
+        // Paint quotes (left menu)
         let mut i = state.lasers.len();
         while i > 0 {
           i -= 1;
@@ -666,6 +657,7 @@ pub fn start() -> Result<(), JsValue> {
           }
         }
 
+        // Paint trucks
         let truck_dur_1 = 3.0; // seconds trucks take to cross the first part
         let truck_dur_2 = 1.0; // turning circle
         let truck_dur_3 = 5.0; // time to get up
@@ -749,7 +741,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_bottom_menu(&options, &state, &context, &img_machine_1_1, &mouse_state);
 
         // TODO: wait for tiles to be loaded because first few frames won't paint anything while the tiles are loading...
-        paint_background_tiles(&options, &state, &config, &context, &factory, &belt_tile_images, &img_machine4, &img_machine_1_1, &img_machine_2_1, &img_machine_3_2, &img_suppliers, &img_demander);
+        paint_background_tiles(&options, &state, &config, &context, &factory, &belt_tile_images, &img_machine4, &img_machine_1_1, &img_machine_2_1, &img_machine_3_2);
         paint_ports(&context, &factory);
         paint_belt_items(&options, &state, &config, &context, &factory);
         paint_machine_selection_and_craft(&options, &state, &config, &context, &factory, &cell_selection, &mouse_state);
@@ -2259,8 +2251,6 @@ fn paint_background_tiles(
   img_machine_1_1: &web_sys::HtmlImageElement,
   img_machine_2_1: &web_sys::HtmlImageElement,
   img_machine_3_2: &web_sys::HtmlImageElement,
-  img_suppliers: &web_sys::HtmlImageElement,
-  img_demander: &web_sys::HtmlImageElement,
 ) {
   // Paint background cell tiles
   for coord in 0..FLOOR_CELLS_WH {
@@ -2271,7 +2261,32 @@ fn paint_background_tiles(
 
     // This is cheating since we defer the loading stuff to the browser. Sue me.
     match factory.floor[coord].kind {
-      CellKind::Empty => (),
+      CellKind::Empty => {
+        if (cx == 0 || cx == FLOOR_CELLS_W - 1) && (cy == 0 || cy == FLOOR_CELLS_H - 1) { continue; }
+
+        let dock_target =
+          if cy == 0 {
+            CONFIG_NODE_DOCK_UP
+          } else if cx == FLOOR_CELLS_W - 1 {
+            CONFIG_NODE_DOCK_RIGHT
+          } else if cy == FLOOR_CELLS_H - 1 {
+            CONFIG_NODE_DOCK_DOWN
+          } else if cx == 0 {
+            CONFIG_NODE_DOCK_LEFT
+          } else {
+            continue;
+          };
+
+        // Paint the loading docks, which is where the suppliers and demanders can go
+        context.set_global_alpha(0.5); // TODO: the alpha should probably be governed by the image (semi-trans) or a configurable setting...
+        // Paint the dock image for non-corner edge cells
+        context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+          &config.sprite_cache_canvas[config.nodes[dock_target].file_canvas_cache_index],
+          config.nodes[dock_target].x, config.nodes[dock_target].y, config.nodes[dock_target].w, config.nodes[dock_target].h,
+          ox, oy, CELL_W, CELL_H
+        ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+        context.set_global_alpha(1.0);
+      },
       CellKind::Belt => {
         let belt_meta = &factory.floor[coord].belt.meta;
         let img: &HtmlImageElement = &belt_tile_images[belt_meta.btype as usize];
@@ -2295,25 +2310,45 @@ fn paint_background_tiles(
         }
       },
       CellKind::Supply => {
-        let sprite_index = match (cx == 0, cy == 0, cx == FLOOR_CELLS_W - 1, cy == FLOOR_CELLS_H - 1) {
-          (false, true, false, false) => 0.0,
-          (true, false, false, false) => 1.0,
-          (false, false, false, true) => 2.0,
-          (false, false, true, false) => 3.0,
-          _ => panic!("no"),
-        };
-        context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(img_suppliers, sprite_index * 32.0, 0.0, 32.0, 32.0, ox, oy, CELL_W, CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+        let dock_target =
+          if cy == 0 {
+            CONFIG_NODE_SUPPLY_UP
+          } else if cx == FLOOR_CELLS_W-1 {
+            CONFIG_NODE_SUPPLY_RIGHT
+          } else if cy == FLOOR_CELLS_H-1 {
+            CONFIG_NODE_SUPPLY_DOWN
+          } else if cx == 0 {
+            CONFIG_NODE_SUPPLY_LEFT
+          } else {
+            panic!("no");
+          };
+        // TODO: should we offer the option to draw the dock behind in case of semi-transparent supply imgs?
+        context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+          &config.sprite_cache_canvas[config.nodes[dock_target].file_canvas_cache_index],
+          config.nodes[dock_target].x, config.nodes[dock_target].y, config.nodes[dock_target].w, config.nodes[dock_target].h,
+          ox, oy, CELL_W, CELL_H
+        ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
         paint_segment_part_from_config(options, state, config, context, part_c(config, factory.floor[coord].supply.gives.icon), ox + CELL_W/4.0, oy + CELL_H/4.0, CELL_W/2.0, CELL_H/2.0);
       }
       CellKind::Demand => {
-        let sprite_index = match (cx == 0, cy == 0, cx == FLOOR_CELLS_W - 1, cy == FLOOR_CELLS_H - 1) {
-          (false, true, false, false) => 0.0,
-          (true, false, false, false) => 1.0,
-          (false, false, false, true) => 2.0,
-          (false, false, true, false) => 3.0,
-          _ => panic!("no"),
-        };
-        context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(img_demander, sprite_index * 32.0, 0.0, 32.0, 32.0, ox, oy, CELL_W, CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+        let dock_target =
+          if cy == 0 {
+            CONFIG_NODE_DEMAND_UP
+          } else if cx == FLOOR_CELLS_W-1 {
+            CONFIG_NODE_DEMAND_RIGHT
+          } else if cy == FLOOR_CELLS_H-1 {
+            CONFIG_NODE_DEMAND_DOWN
+          } else if cx == 0 {
+            CONFIG_NODE_DEMAND_LEFT
+          } else {
+            panic!("no");
+          };
+        // TODO: should we offer the option to draw the dock behind in case of semi-transparent supply imgs?
+        context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+          &config.sprite_cache_canvas[config.nodes[dock_target].file_canvas_cache_index],
+          config.nodes[dock_target].x, config.nodes[dock_target].y, config.nodes[dock_target].w, config.nodes[dock_target].h,
+          ox, oy, CELL_W, CELL_H
+        ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
       }
     }
   }
