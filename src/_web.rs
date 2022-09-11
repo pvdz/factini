@@ -28,7 +28,6 @@
 // - fix hover indicator while dragging pattern (snap to machine)
 // - fix dragging machine inverting hint
 // - allow demand/supply/machine icon to be config defined. maybe box sizes / margins as well?
-// - rename recipe stuff in side bar to offers
 
 
 // This is required to export panic to the web
@@ -644,7 +643,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_top_stats(&context, &mut factory);
         paint_top_bars(&options, &state, &mut factory, &context, &mouse_state);
         paint_left_quotes(&options, &state, &config, &context, &mut factory, &mouse_state);
-        paint_ui_recipes(&options, &state, &config, &context, &mut factory, &mouse_state, &cell_selection);
+        paint_ui_offers(&options, &state, &config, &context, &mut factory, &mouse_state, &cell_selection);
 
         let mut i = state.lasers.len();
         while i > 0 {
@@ -727,7 +726,7 @@ pub fn start() -> Result<(), JsValue> {
             context.restore();
           } else if time_since_truck < (truck_dur_1 + truck_dur_2 + truck_dur_3) {
             // Get target coordinate where this part will be permanently drawn so we know where the truck has to move to
-            let ( target_x, target_y ) = get_recipe_xy(state.trucks[t].target_menu_part_position);
+            let ( target_x, target_y ) = get_offer_xy(state.trucks[t].target_menu_part_position);
 
             let progress = ((time_since_truck - (truck_dur_1 + truck_dur_2)) / truck_dur_3).min(1.0).max(0.0);
             let truck_x = end_x + 20.0;
@@ -3133,7 +3132,7 @@ fn paint_left_quotes(options: &Options, state: &State, config: &Config, context:
   // context.set_fill_style(&"#E86A17".into()); // This will be more annoying later but for now it'll do
   // context.fill_rect(x, y, UI_ACHIEVEMENT_WIDTH, UI_QUOTE_HEIGHT);
 }
-fn paint_ui_recipes(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) {
+fn paint_ui_offers(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) {
   let ( is_mouse_over_offer, offer_hover_index ) =
     if mouse_state.is_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight offers
     else { ( mouse_state.over_offer, mouse_state.offer_index ) };
@@ -3142,7 +3141,7 @@ fn paint_ui_recipes(options: &Options, state: &State, config: &Config, context: 
   for index in 0..factory.available_parts_rhs_menu.len() {
     let ( part_index, part_interactable ) = factory.available_parts_rhs_menu[index];
     if part_interactable {
-      paint_ui_recipe_supply(options, state, config, context, factory, part_index, inc, is_mouse_over_offer && index == offer_hover_index, if config.nodes[part_index].pattern_unique_icons.len() > 0 { "#c99110" } else { "pink" });
+      paint_ui_offer_supply(options, state, config, context, factory, part_index, inc, is_mouse_over_offer && index == offer_hover_index, if config.nodes[part_index].pattern_unique_icons.len() > 0 { "#c99110" } else { "pink" });
       inc += 1;
     }
   }
@@ -3220,9 +3219,9 @@ fn paint_ui_offer_droptarget_hint(options: &Options, state: &State, config: &Con
     context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y + (FLOOR_CELLS_H as f64 - 1.0) * CELL_H, (FLOOR_CELLS_W as f64 - 2.0) * CELL_W, CELL_H);
   }
 }
-fn paint_ui_recipe_supply(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, part_index: usize, inc: usize, hovering: bool, color: &str) {
+fn paint_ui_offer_supply(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, part_index: usize, inc: usize, hovering: bool, color: &str) {
   context.set_fill_style(&color.into());
-  let ( x, y ) = get_recipe_xy(inc);
+  let ( x, y ) = get_offer_xy(inc);
   context.fill_rect(x, y, UI_OFFERS_WIDTH, UI_OFFERS_HEIGHT);
   if hovering {
     context.set_stroke_style(&"black".into());
@@ -3347,7 +3346,7 @@ fn paint_ui_speed_bubble(options: &Options, state: &State, context: &Rc<web_sys:
   context.set_fill_style(&"black".into());
   context.fill_text(text, cx - 4.0, cy + 4.0).expect("to paint");
 }
-fn get_recipe_xy(index: usize) -> ( f64, f64 ) {
+fn get_offer_xy(index: usize) -> (f64, f64 ) {
   let x = UI_OFFERS_OFFSET_X + (index as f64 % UI_OFFERS_PER_ROW).floor() * UI_OFFERS_WIDTH_PLUS_MARGIN;
   let y = UI_OFFERS_OFFSET_Y + (index as f64 / UI_OFFERS_PER_ROW).floor() * UI_OFFERS_HEIGHT_PLUS_MARGIN;
 
