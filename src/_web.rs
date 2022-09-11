@@ -26,7 +26,6 @@
 // - paint the prepared parts of a machine while not selected?
 // - fix image preview while dragging
 // - fix hover indicator while dragging pattern (snap to machine)
-// - fix dragging machine inverting hint
 // - allow machine icon to be config defined. maybe box sizes / margins as well?
 
 
@@ -2718,17 +2717,17 @@ fn paint_mouse_while_dragging_machine(options: &Options, state: &State, factory:
   let top_left_machine_cell_y = world_y_to_top_left_cell_y_while_dragging_offer_machine(mouse_state.world_y, machine_cells_height);
 
   // Make sure the entire machine fits, not just the center or topleft cell
-  let legal = !bounds_check(top_left_machine_cell_x, top_left_machine_cell_y, 1.0, 1.0, FLOOR_CELLS_W as f64 - (machine_cells_width as f64), FLOOR_CELLS_H as f64 - (machine_cells_height as f64));
+  let legal = bounds_check(top_left_machine_cell_x, top_left_machine_cell_y, 1.0, 1.0, FLOOR_CELLS_W as f64 - (machine_cells_width as f64), FLOOR_CELLS_H as f64 - (machine_cells_height as f64));
 
   // Face out illegal options
   let ( paint_at_x, paint_at_y) =
     if legal {
+      ( UI_FLOOR_OFFSET_X + top_left_machine_cell_x.round() * CELL_W, UI_FLOOR_OFFSET_Y + top_left_machine_cell_y.round() * CELL_H )
+    } else {
       // Do not snap if machine would cover the edge
       let ox = mouse_state.world_x - ((machine_cells_width as f64) * (CELL_W as f64) / 2.0 );
       let oy = mouse_state.world_y - ((machine_cells_height as f64) * (CELL_H as f64) / 2.0 );
       ( ox, oy )
-    } else {
-      ( UI_FLOOR_OFFSET_X + top_left_machine_cell_x.round() * CELL_W, UI_FLOOR_OFFSET_Y + top_left_machine_cell_y.round() * CELL_H )
     };
 
   fn paint_illegal(context: &Rc<web_sys::CanvasRenderingContext2d>, x: f64, y: f64, w: f64, h: f64) {
