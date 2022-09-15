@@ -16,7 +16,6 @@
 // - closing a factory when the close button is over the bottom menu, doesn't work. same for side menu, I guess
 // - suppliers should get craft menus with resource-only
 // - make sun move across the day bar? in a sort of rainbow path?
-// - show the patterns of unlocked parts somehow if they have a pattern. green rotating outline? hover over part while machine is open to preview the pattern? click part to show pattern somehow. drag part to machine to auto-fill the pattern? hint while hover
 // - make the menu-machine "process" the finished parts before generating trucks
 // - prepare belt animations?
 // - allow smaller machines still?
@@ -3209,7 +3208,7 @@ fn paint_ui_offers(options: &Options, state: &State, config: &Config, context: &
   for index in 0..factory.available_parts_rhs_menu.len() {
     let ( part_index, part_interactable ) = factory.available_parts_rhs_menu[index];
     if part_interactable {
-      paint_ui_offer_supply(options, state, config, context, factory, part_index, inc, is_mouse_over_offer && index == offer_hover_index, if config.nodes[part_index].pattern_unique_icons.len() > 0 { "#c99110" } else { "pink" });
+      paint_ui_offer(options, state, config, context, factory, cell_selection, part_index, inc, is_mouse_over_offer && index == offer_hover_index, if config.nodes[part_index].pattern_unique_icons.len() > 0 { "#c99110" } else { "pink" });
       inc += 1;
     }
   }
@@ -3287,7 +3286,7 @@ fn paint_ui_offer_droptarget_hint(options: &Options, state: &State, config: &Con
     context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y + (FLOOR_CELLS_H as f64 - 1.0) * CELL_H, (FLOOR_CELLS_W as f64 - 2.0) * CELL_W, CELL_H);
   }
 }
-fn paint_ui_offer_supply(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, part_index: usize, inc: usize, hovering: bool, color: &str) {
+fn paint_ui_offer(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, part_index: usize, inc: usize, hovering: bool, color: &str) {
   context.set_fill_style(&color.into());
   let ( x, y ) = get_offer_xy(inc);
   context.fill_rect(x, y, UI_OFFERS_WIDTH, UI_OFFERS_HEIGHT);
@@ -3295,9 +3294,55 @@ fn paint_ui_offer_supply(options: &Options, state: &State, config: &Config, cont
     context.set_stroke_style(&"black".into());
     context.stroke_rect(x, y, UI_OFFERS_WIDTH, UI_OFFERS_HEIGHT);
   }
-  let x = x + (UI_OFFERS_WIDTH / 2.0) - (CELL_W / 2.0);
-  let y = y + (UI_OFFERS_HEIGHT / 2.0) - (CELL_H / 2.0);
-  paint_segment_part_from_config(options, state, config, context, part_index, x, y, CELL_W, CELL_H);
+  let px = x + (UI_OFFERS_WIDTH / 2.0) - (CELL_W / 2.0);
+  let py = y + (UI_OFFERS_HEIGHT / 2.0) - (CELL_H / 2.0);
+  paint_segment_part_from_config(options, state, config, context, part_index, px, py, CELL_W, CELL_H);
+
+  context.set_stroke_style(&"white".into());
+  context.stroke_rect(x, y, UI_OFFERS_WIDTH, UI_OFFERS_HEIGHT);
+
+  let div = 50;
+
+  // If current selected machine can paint this offer, paint some green rotating pixel around it
+  // TODO: make this more performant. Maybe by pregenerated image or by pregenerating them onstart?
+  let scoord = cell_selection.coord;
+  let mcoord = factory.floor[scoord].machine.main_coord;
+  if
+    cell_selection.on &&
+    factory.floor[scoord].kind == CellKind::Machine &&
+    config.nodes[part_index].pattern_unique_icons.len() > 0 &&
+    config.nodes[part_index].pattern_unique_icons.iter().all(|part_index| {
+      return factory.floor[mcoord].machine.last_received_parts.contains(part_index);
+    })
+  {
+    // paint some pixels green? (https://colordesigner.io/gradient-generator)
+    paint_green_pixel(context, factory.ticks + 0 * div, x, y, div, "#9ac48b");
+    paint_green_pixel(context, factory.ticks + 1 * div, x, y, div, "#8ebd7f");
+    paint_green_pixel(context, factory.ticks + 2 * div, x, y, div, "#83b773");
+    paint_green_pixel(context, factory.ticks + 3 * div, x, y, div, "#77b066");
+    paint_green_pixel(context, factory.ticks + 4 * div, x, y, div, "#6baa5a");
+    paint_green_pixel(context, factory.ticks + 5 * div, x, y, div, "#5fa34e");
+    paint_green_pixel(context, factory.ticks + 7 * div, x, y, div, "#539c42");
+    paint_green_pixel(context, factory.ticks + 8 * div, x, y, div, "#459635");
+    paint_green_pixel(context, factory.ticks + 9 * div, x, y, div, "#368f27");
+  }
+}
+
+fn paint_green_pixel(context: &Rc<web_sys::CanvasRenderingContext2d>, ticks: u64, x: f64, y: f64, div: u64, color: &str) {
+  context.set_stroke_style(&color.into());
+  let border_len = (UI_OFFERS_WIDTH + UI_OFFERS_HEIGHT + UI_OFFERS_WIDTH + UI_OFFERS_HEIGHT) as u64;
+  let pos = ((ticks/div) % border_len) as f64;
+  let fx = x as f64;
+  let fy = y as f64;
+  if pos < UI_OFFERS_WIDTH {
+    context.stroke_rect(fx + pos, fy, 1.0, 1.0);
+  } else if pos < UI_OFFERS_WIDTH + UI_OFFERS_HEIGHT {
+    context.stroke_rect(fx + UI_OFFERS_WIDTH, fy + (pos - UI_OFFERS_WIDTH), 1.0, 1.0);
+  } else if pos < UI_OFFERS_WIDTH + UI_OFFERS_HEIGHT + UI_OFFERS_WIDTH {
+    context.stroke_rect(fx + UI_OFFERS_WIDTH - (pos - (UI_OFFERS_WIDTH + UI_OFFERS_HEIGHT)), fy + UI_OFFERS_HEIGHT, 1.0, 1.0);
+  } else {
+    context.stroke_rect(fx, fy + UI_OFFERS_HEIGHT - (pos - (UI_OFFERS_WIDTH + UI_OFFERS_HEIGHT + UI_OFFERS_WIDTH)), 1.0, 1.0);
+  }
 }
 fn paint_bottom_menu(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, img_machine_1_1: &HtmlImageElement, mouse_state: &MouseState) {
   paint_machine_icon(options, state, context, img_machine_1_1, mouse_state);
