@@ -134,6 +134,7 @@ The old paper
 
 # Part_ShieldBlue
 - char: o
+- pattern: _   _   _   W   l   W   _  _  _
 - file: ./img/roguelikeitems.png
 - x: 144 
 - y: 176 
@@ -158,7 +159,7 @@ The old paper
 
 # Part_BookBlue
 - char: C
-- pattern: .   w   .   W   D   W   .   W   .
+- pattern: .   W   .   W   D   W   .   W   .
 - file: ./img/roguelikeitems.png
 - x: 144
 - y: 192

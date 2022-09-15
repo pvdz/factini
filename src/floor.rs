@@ -354,21 +354,30 @@ pub fn get_edge_neighbor(x: usize, y: usize, coord: usize) -> (usize, Direction,
 // │     └───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘     │
 // └───────────────────────────────────────────────────────┘
 
-pub fn is_floor(x: usize, y: usize) -> bool {
+pub fn is_floor(x: f64, y: f64) -> bool {
   // Note: usize is
-  return x <= FLOOR_CELLS_W - 1 && y <= FLOOR_CELLS_H - 1;
+  return x >= 0.0 && x < FLOOR_CELLS_W as f64 && y >= 0.0 && y < FLOOR_CELLS_H as f64;
 }
 
-pub fn is_middle(x: usize, y: usize) -> bool {
-  return x > 0 && y > 0 && x < FLOOR_CELLS_W - 1 && y < FLOOR_CELLS_H - 1;
+pub fn is_middle(x: f64, y: f64) -> bool {
+  return x >= 1.0 && y >= 1.0 && x < FLOOR_CELLS_W as f64 - 1.0 && y < FLOOR_CELLS_H as f64 - 1.0;
 }
 
-pub fn is_edge(x: usize, y: usize) -> bool {
-  return x == 0 || y == 0 || x == FLOOR_CELLS_W - 1 || y == FLOOR_CELLS_H - 1;
+pub fn is_edge(x: f64, y: f64) -> bool {
+  return (x >= 0.0 && x < 1.0) || (y >= 0.0 && y < 1.0) || (x >= FLOOR_CELLS_W as f64 - 1.0 && x < FLOOR_CELLS_W as f64) || (y >= FLOOR_CELLS_H as f64 - 1.0 && y < FLOOR_CELLS_H as f64);
 }
 
-pub fn is_edge_not_corner(x: usize, y: usize) -> bool {
-  return (x == 0 || x == FLOOR_CELLS_W - 1) != (y == 0 || y == FLOOR_CELLS_H - 1);
+pub fn is_edge_not_corner(x: f64, y: f64) -> bool {
+  // We have to do a bounds check on the other side regardless
+  if (x >= 0.0 && x < 1.0) || (x >= (FLOOR_CELLS_W - 1) as f64 && x < FLOOR_CELLS_W as f64) {
+    return y > 0.0 && y < (FLOOR_CELLS_H - 1) as f64;
+  }
+
+  if (y >= 0.0 && y < 1.0) || (y >= (FLOOR_CELLS_H - 1) as f64 && y < FLOOR_CELLS_H as f64) {
+    return x > 0.0 && x < (FLOOR_CELLS_W - 1) as f64;
+  }
+
+  return false;
 }
 
 pub fn to_xy(coord: usize) -> (usize, usize) {

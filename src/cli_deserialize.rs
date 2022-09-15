@@ -276,7 +276,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
 
       match cell_kind as char {
         's' => {
-          if is_middle(i, j) {
+          if is_middle(i as f64, j as f64) {
             add_machine(options, state, config, &mut floor, coord, i, j, cell_kind, &mut machine_main_coords, port_u, port_r, port_d, port_l);
           } else {
             let ( port_u, port_r, port_d, port_l ) =
@@ -299,7 +299,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
         },
 
         'd' => {
-          if is_middle(i, j) {
+          if is_middle(i as f64, j as f64) {
             add_machine(options, state, config, &mut floor, coord, i, j, cell_kind, &mut machine_main_coords, port_u, port_r, port_d, port_l);
           } else {
             let ( port_u, port_r, port_d, port_l ) =

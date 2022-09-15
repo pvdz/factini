@@ -24,10 +24,11 @@
 // - let trash be a joker part
 // - animate machines at work
 // - paint the prepared parts of a machine while not selected?
+// - paint current output part of a machine
+// - click offer to show pattern (not hover, mobile friendly)
 // - fix image preview while dragging
-// - fix hover indicator while dragging pattern (snap to machine)
 // - allow machine icon to be config defined. maybe box sizes / margins as well?
-
+// - dragging offer without pattern when machine is open has awkward behavior especially when machine is near edge
 
 // This is required to export panic to the web
 use std::panic;
@@ -943,7 +944,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
       log(format!("mouse up with selection mode enabled..."));
       let down_cell_x = ((mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor();
       let down_cell_y = ((mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor();
-      if mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && is_floor(mouse_state.cell_x as usize, mouse_state.cell_y as usize) {
+      if mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && is_floor(mouse_state.cell_x, mouse_state.cell_y) {
         log(format!("  was up on floor"));
 
         // Moving while there's stuff on the clipboard? This mouse up is a paste / stamp.
@@ -952,7 +953,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
           paste(options, state, config, factory, mouse_state.cell_x as usize, mouse_state.cell_y as usize);
         }
         // Dragging a selection?
-        else if down_cell_x >= 0.0 && down_cell_y >= 0.0 && is_floor(down_cell_x as usize, down_cell_y as usize) {
+        else if down_cell_x >= 0.0 && down_cell_y >= 0.0 && is_floor(down_cell_x, down_cell_y) {
           log(format!("  was down in floor, too. ok!"));
           let now_cell_x = mouse_state.cell_x.floor();
           let now_cell_y = mouse_state.cell_y.floor();
@@ -1482,9 +1483,11 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
   let last_mouse_up_inside_cell_x = ((mouse_state.last_up_world_x - UI_FLOOR_OFFSET_X) / CELL_W) - last_mouse_up_cell_x;
   let last_mouse_up_inside_cell_y = ((mouse_state.last_up_world_y - UI_FLOOR_OFFSET_Y) / CELL_H) - last_mouse_up_cell_y;
 
-  if is_edge_not_corner(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize) {
+  let dragged_part_index = factory.available_parts_rhs_menu[mouse_state.offer_index].0;
+
+  if is_edge_not_corner(last_mouse_up_cell_x, last_mouse_up_cell_y) {
     log(format!("Dropped a supply on an edge cell that is not corner. Deploying... {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize));
-    log(format!("Drag started from offer {} ({:?})", mouse_state.offer_index, factory.available_parts_rhs_menu[mouse_state.offer_index].0));
+    log(format!("Drag started from offer {} ({:?})", mouse_state.offer_index, dragged_part_index));
     let bools = ( last_mouse_up_cell_x == 0.0, last_mouse_up_cell_y == 0.0, last_mouse_up_cell_x as usize == FLOOR_CELLS_W - 1, last_mouse_up_cell_y as usize == FLOOR_CELLS_H - 1 );
     log(format!("wtf {} {:?} bools: {:?}", to_coord_right(last_mouse_up_cell_coord), factory.floor[to_coord_right(last_mouse_up_cell_coord)].port_l, bools));
     let prev_port = match bools {
@@ -1505,7 +1508,7 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
       floor_delete_cell_at_partial(options, state, config, factory, last_mouse_up_cell_coord);
     }
     log(format!("Add new supply cell..."));
-    factory.floor[last_mouse_up_cell_coord] = supply_cell(config, last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_from_part_index(config, factory.available_parts_rhs_menu[mouse_state.offer_index].0), 2000, 500, 1);
+    factory.floor[last_mouse_up_cell_coord] = supply_cell(config, last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_from_part_index(config, dragged_part_index), 2000, 500, 1);
     connect_to_neighbor_dead_end_belts(options, state, factory, last_mouse_up_cell_coord);
     match bools {
       ( false, true, false, false ) => factory.floor[last_mouse_up_cell_coord].port_d = Port::Outbound,
@@ -1546,8 +1549,28 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
       }
     }
     factory.changed = true;
+  } else if is_middle(last_mouse_up_cell_x, last_mouse_up_cell_y) && config.nodes[dragged_part_index].pattern_unique_icons.len() > 0 {
+    // Figure out whether it was dropped on a machine
+    if factory.floor[mouse_state.cell_coord].kind == CellKind::Machine {
+      log(format!("Dropped an offer with pattern in the middle and on a machine. Update the machine!"));
+      let main_coord = factory.floor[mouse_state.cell_coord].machine.main_coord;
+      for i in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
+        let part_index = config.nodes[dragged_part_index].pattern_by_index.get(i).unwrap_or(&PARTKIND_NONE);
+        machine_change_want(options, state, config, factory, main_coord, i, part_from_part_index(config, *part_index));
+        // Make sure the haves are cleared as well
+        factory.floor[main_coord].machine.haves[i] = part_none(config);
+
+      }
+
+
+      // log(format!("pattern before: {:?}", factory.floor[mouse_state.cell_coord].machine.wants));
+      // factory.floor[mouse_state.cell_coord].machine.wants =
+      // log(format!("pattern after: {:?}", factory.floor[mouse_state.cell_coord].machine.wants));
+    } else {
+      log(format!("Dropped an offer with pattern in the middle  but not on a machine. Ignoring..."));
+    }
   } else {
-    log(format!("Dropped a supply on the floor or a corner. Ignoring. {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize));
+    log(format!("Dropped a supply offer ({:?}) without pattern on the floor, or any supply offer on a corner. Ignoring. {} {}", dragged_part_index, last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize));
   }
 }
 fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
@@ -1620,25 +1643,25 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, config: &C
       // Convert empty cells to belt cells.
       // Create a port between these two cells, but none of the other cells.
 
-      if is_edge(cell_x1, cell_y1) && is_edge(cell_x2, cell_y2) {
+      if is_edge(cell_x1 as f64, cell_y1 as f64) && is_edge(cell_x2 as f64, cell_y2 as f64) {
         // Noop. Just don't.
       }
       else {
         if factory.floor[coord1].kind == CellKind::Empty {
-          if is_edge_not_corner(cell_x1, cell_y1) {
+          if is_edge_not_corner(cell_x1 as f64, cell_y1 as f64) {
             // Cell is empty so place a trash supplier here as a placeholder
             factory.floor[coord1] = supply_cell(config, cell_x1, cell_y1, part_c(config, 't'), 2000, 0, 0);
           }
-          else if is_middle(cell_x1, cell_y1) {
+          else if is_middle(cell_x1 as f64, cell_y1 as f64) {
             factory.floor[coord1] = belt_cell(config, cell_x1, cell_y1, belt_type_to_belt_meta(belt_type1));
           }
         }
         if factory.floor[coord2].kind == CellKind::Empty {
-          if is_edge_not_corner(cell_x2, cell_y2) {
+          if is_edge_not_corner(cell_x2 as f64, cell_y2 as f64) {
             // Cell is empty so place a demander here
             factory.floor[coord2] = demand_cell(config, cell_x2, cell_y2);
           }
-          else if is_middle(cell_x2, cell_y2) {
+          else if is_middle(cell_x2 as f64, cell_y2 as f64) {
             factory.floor[coord2] = belt_cell(config, cell_x2, cell_y2, belt_type_to_belt_meta(belt_type2));
           }
         }
@@ -1709,7 +1732,7 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, config: &C
           // Note: if the first cell is in the middle then the track does not start on the edge
           if index == 0 {
             log(format!("({}) first track part...", index));
-            if is_middle(cell_x, cell_y) {
+            if is_middle(cell_x as f64, cell_y as f64) {
               // The track starts in the middle of the floor. Do not add a trashcan.
               log(format!("({})  - in middle. still_starting_on_edge now false", index));
               still_starting_on_edge = false;
@@ -1718,7 +1741,7 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, config: &C
           // Still on the edge but not the first so the prior part of the track and all pieces
           // before it were all on the edge. If this one is not then the previous cell should
           // get the trashcan treatment. And otherwise we noop until the next cell.
-          else if is_middle(cell_x, cell_y) {
+          else if is_middle(cell_x as f64, cell_y as f64) {
             log(format!("({}) first middle part of track", index));
             // Track started on the edge but has at least one segment in the middle.
             // Create a trash on the previous (edge) cell if that cell is empty.
@@ -1732,7 +1755,7 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, config: &C
             log(format!("({}) non-first-but-still-edge part of track", index));
           }
         }
-        else if is_edge_not_corner(cell_x, cell_y) {
+        else if is_edge_not_corner(cell_x as f64, cell_y as f64) {
           log(format!("({}) ending edge part of track", index));
           if !already_ending_on_edge {
             log(format!("({}) - first ending edge part of track, already_ending_on_edge = true", index));
@@ -1757,7 +1780,7 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, config: &C
           // it's a belt which we'll try to connect to the previous/next part of the belt. Or it's
           // another piece that we don't want to override anyways, and will also be connected.
           if factory.floor[coord].kind == CellKind::Empty {
-            if is_middle(cell_x, cell_y) {
+            if is_middle(cell_x as f64, cell_y as f64) {
               factory.floor[coord] = belt_cell(config, cell_x, cell_y, belt_type_to_belt_meta(belt_type));
 
               // Connect the end points to any existing neighboring cells if not already connected
@@ -2243,7 +2266,7 @@ fn paint_world_cli(context: &Rc<web_sys::CanvasRenderingContext2d>, options: &mu
     context.fill_text(format!("{}", lines[n]).as_str(), 50.0, (n as f64) * 24.0 + 50.0).expect("something lower error fill_text");
   }
 }
-fn paint_supply_and_part_at(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, cx: usize, cy: usize, part_index: PartKind) {
+fn paint_supply_and_part_at_edge(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, cx: usize, cy: usize, part_index: PartKind) {
   let ox = UI_FLOOR_OFFSET_X + CELL_W * (cx as f64);
   let oy = UI_FLOOR_OFFSET_Y + CELL_H * (cy as f64);
   let dock_target =
@@ -2265,6 +2288,41 @@ fn paint_supply_and_part_at(options: &Options, state: &State, config: &Config, c
     ox, oy, CELL_W, CELL_H
   ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
   paint_segment_part_from_config(options, state, config, context, part_index, ox + CELL_W/4.0, oy + CELL_H/4.0, CELL_W/2.0, CELL_H/2.0);
+}
+fn paint_supply_and_part_not_edge(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, ox: f64, oy: f64, part_index: PartKind) {
+  paint_segment_part_from_config(options, state, config, context, part_index, ox + CELL_W*0.13, oy + CELL_H*0.13, CELL_W*0.75, CELL_H*0.75);
+}
+fn paint_part_and_pattern_at_middle(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cx: usize, cy: usize, part_index: PartKind) {
+  // current coord must be a machine. Paint the pattern of the part we're currently dragging.
+  let ox = UI_FLOOR_OFFSET_X + CELL_W * (cx as f64);
+  let oy = UI_FLOOR_OFFSET_Y + CELL_H * (cy as f64);
+  let main_coord = factory.floor[to_coord(cx, cy)].machine.main_coord;
+  let (mx, my) = to_xy(main_coord);
+  let mwc = factory.floor[main_coord].machine.cell_width;
+  let mhc = factory.floor[main_coord].machine.cell_height;
+  let mw = mwc as f64 * CELL_W;
+  let mh = mhc as f64 * CELL_H;
+  let margin_w = mw * 0.125; // the pattern takes up 75% of machine, use remaining 25% for padding (12.5% each side)
+  let margin_h = mh * 0.125;
+  let pw = mw / 3.0 * 0.75; // paint pattern on a 3x3 grid on 75% of machine size
+  let ph = mh / 3.0 * 0.75;
+
+  // Paint the pattern for this part, slightly smaller than the box for the machine, regardless of its size
+  context.set_fill_style(&"#ffffff55".into());
+  context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W * (mx as f64) + mw * 0.1, UI_FLOOR_OFFSET_Y + CELL_H * (my as f64) + mh * 0.1, mw * 0.80, mh * 0.80);
+
+  // Get the pattern of what you're draggin. Paint it over the machine.
+  for i in 0..config.nodes[part_index].pattern_by_index.len() {
+    paint_segment_part_from_config(
+      options, state, config, context,
+      config.nodes[part_index].pattern_by_index[i],
+      UI_FLOOR_OFFSET_X + CELL_W * (mx as f64) + margin_w + pw * (i%3) as f64, UI_FLOOR_OFFSET_Y + CELL_H * (my as f64) + margin_h + ph * (i/3) as f64,
+      pw, ph
+    );
+  }
+}
+fn paint_supply_and_part_not_floor(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, ox: f64, oy: f64, part_index: PartKind) {
+  paint_segment_part_from_config(options, state, config, context, part_index, ox + CELL_W*0.13, oy + CELL_H*0.13, CELL_W*0.75, CELL_H*0.75);
 }
 fn paint_background_tiles(
   options: &Options,
@@ -2336,7 +2394,7 @@ fn paint_background_tiles(
         }
       },
       CellKind::Supply => {
-        paint_supply_and_part_at(options, state, config, context, cx, cy, factory.floor[coord].supply.gives.kind);
+        paint_supply_and_part_at_edge(options, state, config, context, cx, cy, factory.floor[coord].supply.gives.kind);
       }
       CellKind::Demand => {
         let dock_target =
@@ -2664,7 +2722,7 @@ fn paint_mouse_in_selection_mode(options: &Options, state: &State, factory: &Fac
   if mouse_state.is_down && state.selected_area_copy.len() == 0 {
     let down_cell_x = ((mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor();
     let down_cell_y = ((mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor();
-    if down_cell_x >= 0.0 && down_cell_y >= 0.0 && is_floor(down_cell_x as usize, down_cell_y as usize) && mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && is_floor(mouse_state.cell_x as usize, mouse_state.cell_y as usize) {
+    if down_cell_x >= 0.0 && down_cell_y >= 0.0 && is_floor(down_cell_x, down_cell_y) && mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && is_floor(mouse_state.cell_x, mouse_state.cell_y) {
       // Draw dotted stroke rect around cells from mouse down cell to current cell
       context.set_stroke_style(&"blue".into());
       let now_cell_x = mouse_state.cell_x.floor();
@@ -2691,7 +2749,7 @@ fn paint_mouse_in_selection_mode(options: &Options, state: &State, factory: &Fac
           for i in 0..state.selected_area_copy[j].len() {
             let x = cell_x + (i as f64);
             let y = cell_y + (j as f64);
-            if x >= 0.0 && y >= 0.0 && is_middle(x as usize, y as usize) {
+            if is_middle(x, y) {
               let bt = state.selected_area_copy[j][i].belt.meta.btype;
               paint_ghost_belt_of_type(x as usize, y as usize, bt, &context, &belt_tile_images);
             }
@@ -2774,67 +2832,33 @@ fn paint_mouse_while_dragging_machine(options: &Options, state: &State, factory:
   context.fill_text("M", paint_at_x + (machine_cells_width as f64) * CELL_W / 2.0 - 5.0, paint_at_y + (machine_cells_height as f64) * CELL_H / 2.0 + 2.0).expect("no error")
 }
 fn paint_mouse_while_dragging_offer(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  // // Paint drop zone over the edge cells
-  // context.set_fill_style(&"#00004444".into());
-  //
-  // // Face out illegal options
-  // // Corners
-  // context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, CELL_W, CELL_H);
-  // context.fill_rect(UI_FLOOR_OFFSET_X + FLOOR_WIDTH - CELL_W, UI_FLOOR_OFFSET_Y, CELL_W, CELL_H);
-  // context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT - CELL_H, CELL_W, CELL_H);
-  // context.fill_rect(UI_FLOOR_OFFSET_X + FLOOR_WIDTH - CELL_W, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT - CELL_H, CELL_W, CELL_H);
+  // Two cases:
+  // - the offer has a pattern; only allow to drag to machines. with debug setting can be both?
+  // - the offer has no pattern; only allow to edge as supply
 
   let part_index = factory.available_parts_rhs_menu[mouse_state.offer_index].0;
   paint_ui_offer_droptarget_hint(options, state, config, context, factory, part_index);
 
-  // Does this part go on the edge or a machine?
-  let for_edge = config.nodes[part_index].pattern_by_index.len() > 0;
+  let len = config.nodes[part_index].pattern_unique_icons.len();
+  if len > 0 {
+    // Only machines unless debug setting is enabled
+    // When over a machine, preview the pattern over the machine? Or snap the offer to its center?
 
-  let ( paint_at_x, paint_at_y, legal ) =
-    // Snap if x or y is edge but not both or neither
-    if
-    (mouse_state.cell_x == 0.0 || mouse_state.cell_x == FLOOR_CELLS_W as f64 - 1.0)
-      !=
-      (mouse_state.cell_y == 0.0 || mouse_state.cell_y == FLOOR_CELLS_H as f64 - 1.0)
-    {
-      ( UI_FLOOR_OFFSET_X + mouse_state.cell_x * CELL_W, UI_FLOOR_OFFSET_Y + mouse_state.cell_y * CELL_H, true )
+    // Mouse position determines actual cell that we check
+    if is_middle(mouse_state.cell_x, mouse_state.cell_y) && factory.floor[mouse_state.cell_coord].kind == CellKind::Machine {
+      paint_part_and_pattern_at_middle(options, state, config, context, factory, mouse_state.cell_x as usize, mouse_state.cell_y as usize, part_index);
     } else {
-      ( mouse_state.world_x - ((CELL_W as f64) / 2.0), mouse_state.world_y - ((CELL_H as f64) / 2.0), false )
-    };
-
-  fn paint_illegal(context: &Rc<web_sys::CanvasRenderingContext2d>, x: f64, y: f64, w: f64, h: f64) {
-    // tbd. dont like this part but it gets the job done I guess.
-    context.set_stroke_style(&"red".into());
-    context.stroke_rect(x, y, w, h);
-    // context.set_line_width(3.0);
-    // context.set_line_cap("round");
-    let n = 11.0;
-    let ws = w / n;
-    let hs = h / n;
-    for i in 0..ws as u32 {
-      for j in 0..hs as u32 {
-        let fi = i as f64;
-        let fj = j as f64;
-
-        context.begin_path();
-        context.move_to(x, y + fj * n);
-        context.line_to(x + w, y + fj * n);
-        context.stroke();
-
-        context.begin_path();
-        context.move_to(x + fi * n, y);
-        context.line_to(x + fi * n, y + h);
-        context.stroke();
-      }
+      paint_supply_and_part_not_floor(options, state, config, context, mouse_state.world_x - ((CELL_W as f64) / 2.0), mouse_state.world_y - ((CELL_H as f64) / 2.0), part_index);
     }
   }
-
-  context.set_fill_style(&"black".into());
-  context.set_fill_style(&COLOR_SUPPLY_SEMI.into());
-  context.fill_rect(paint_at_x, paint_at_y, CELL_W, CELL_H);
-  if !legal { paint_illegal(&context, paint_at_x, paint_at_y, CELL_W, CELL_H); }
-  context.set_fill_style(&"black".into());
-  context.fill_text("S", paint_at_x + CELL_W / 2.0 - 5.0, paint_at_y + CELL_H / 2.0 + 2.0).expect("no error");
+  else {
+    // Only edge. No point in dumping into machine, I guess? Maybe as an expensive supply? Who cares?
+    if is_edge_not_corner(mouse_state.cell_x, mouse_state.cell_y) {
+      paint_supply_and_part_at_edge(options, state, config, context, mouse_state.cell_x as usize, mouse_state.cell_y as usize, part_index);
+    } else {
+      paint_supply_and_part_not_edge(options, state, config, context, mouse_state.cell_x - ((CELL_W as f64) / 2.0), mouse_state.cell_y - ((CELL_H as f64) / 2.0), part_index);
+    }
+  }
 }
 fn paint_mouse_cell_location_on_floor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState, belt_tile_images: &Vec<web_sys::HtmlImageElement>) {
   if mouse_state.cell_x != cell_selection.x || mouse_state.cell_y != cell_selection.y {

@@ -37,7 +37,7 @@ pub fn paste(options: &mut Options, state: &mut State, config: &Config, factory:
       for x in 0..clipboard_w {
         let cx = selected_ox + x;
         let cy = selected_oy + y;
-        if is_middle(cx, cy) {
+        if is_middle(cx as f64, cy as f64) {
           let coord = to_coord(cx, cy);
           log(format!("patching edge: {} {} -> {}", x, y, coord));
           log(format!("  fixing belt {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
@@ -62,9 +62,9 @@ pub fn paste(options: &mut Options, state: &mut State, config: &Config, factory:
 }
 
 pub fn paste_one_cell(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, x: usize, y: usize, w: usize, h: usize, cx: usize, cy: usize, coord: usize) {
-  log(format!("- paste_one_cell({} {}) coord {} {} middle? {}", x, y, cx, cy, is_middle(cx, cy)));
+  log(format!("- paste_one_cell({} {}) coord {} {} middle? {}", x, y, cx, cy, is_middle(cx as f64, cy as f64)));
 
-  if is_middle(cx, cy) {
+  if is_middle(cx as f64, cy as f64) {
     // Are we destroying a machine? Then destroy it proper.
     if factory.floor[coord].kind == CellKind::Machine {
       log(format!("  - Dropping entire machine at target cell"));
