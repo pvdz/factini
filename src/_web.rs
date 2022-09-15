@@ -16,17 +16,15 @@
 // - closing a factory when the close button is over the bottom menu, doesn't work. same for side menu, I guess
 // - suppliers should get craft menus with resource-only
 // - make sun move across the day bar? in a sort of rainbow path?
-// - show the patterns of unlocked parts somehow if they have a pattern. hover over part while machine is open to preview the pattern? click part to show pattern somehow. drag part to machine to auto-fill the pattern? hint while hover
-// - make it a lot easier to craft the pattern of known parts in factories
+// - show the patterns of unlocked parts somehow if they have a pattern. green rotating outline? hover over part while machine is open to preview the pattern? click part to show pattern somehow. drag part to machine to auto-fill the pattern? hint while hover
 // - make the menu-machine "process" the finished parts before generating trucks
 // - prepare belt animations?
 // - allow smaller machines still?
 // - let trash be a joker part
 // - animate machines at work
 // - paint the prepared parts of a machine while not selected?
-// - paint current output part of a machine
 // - click offer to show pattern (not hover, mobile friendly)
-// - fix image preview while dragging
+// - fix image preview while dragging non-pattern offer
 // - allow machine icon to be config defined. maybe box sizes / margins as well?
 // - dragging offer without pattern when machine is open has awkward behavior especially when machine is near edge
 
@@ -2391,6 +2389,9 @@ fn paint_background_tiles(
             _ => img_machine2,
           };
           context.draw_image_with_html_image_element_and_dw_and_dh(machine_img, ox, oy, factory.floor[coord].machine.cell_width as f64 * CELL_W, factory.floor[coord].machine.cell_height as f64 * CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+
+          // Paint tiny output part
+          paint_segment_part_from_config(options, state, config, context, factory.floor[coord].machine.output_want.kind, ox + CELL_W / 4.0, oy + CELL_H / 4.0, CELL_W / 2.0, CELL_H / 2.0);
         }
       },
       CellKind::Supply => {
