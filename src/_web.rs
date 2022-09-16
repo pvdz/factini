@@ -23,9 +23,9 @@
 // - animate machines at work
 // - paint the prepared parts of a machine while not selected?
 // - click offer to show pattern (not hover, mobile friendly)
-// - fix image preview while dragging non-pattern offer
-// - allow machine icon to be config defined. maybe box sizes / margins as well?
-// - dragging offer without pattern when machine is open has awkward behavior especially when machine is near edge
+// - allow machine icon to be config defined. maybe box sizes / margins as well? output-icon-position/size?
+// - should machine craft menu close when dragging non-pattern offer?
+// - what's up with these assertion traps :(
 
 // This is required to export panic to the web
 use std::panic;
@@ -2858,7 +2858,7 @@ fn paint_mouse_while_dragging_offer(options: &Options, state: &State, config: &C
     if is_edge_not_corner(mouse_state.cell_x, mouse_state.cell_y) {
       paint_supply_and_part_at_edge(options, state, config, context, mouse_state.cell_x as usize, mouse_state.cell_y as usize, part_index);
     } else {
-      paint_supply_and_part_not_edge(options, state, config, context, mouse_state.cell_x - ((CELL_W as f64) / 2.0), mouse_state.cell_y - ((CELL_H as f64) / 2.0), part_index);
+      paint_supply_and_part_not_edge(options, state, config, context, mouse_state.world_x - ((CELL_W as f64) / 2.0), mouse_state.world_y - ((CELL_H as f64) / 2.0), part_index);
     }
   }
 }
