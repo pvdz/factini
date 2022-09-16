@@ -461,6 +461,7 @@ pub fn start() -> Result<(), JsValue> {
       craft_over_ci_wh: 0.0,
       craft_over_ci_icon: '#',
       craft_over_ci_index: 99, // <99 means circle button index. >99 means machine cell index -100.
+      craft_over_ci_part_kind: PARTKIND_NONE,
       craft_down_any: false,
       craft_down_ci: CraftInteractable::None,
       craft_down_ci_wx: 0.0,
@@ -478,6 +479,7 @@ pub fn start() -> Result<(), JsValue> {
       craft_up_ci_wh: 0.0,
       craft_up_ci_icon: '#',
       craft_up_ci_index: 99, // <99 means circle button index. >99 means machine cell index -100.
+      craft_up_ci_part_kind: PARTKIND_NONE,
       craft_dragging_ci: false,
 
       was_down: false,
@@ -893,7 +895,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
 
   if mouse_state.is_drag_start {
     if mouse_state.craft_down_any {
-      log(format!("is_drag_start from craft popup (before erase/selection check)"));
+      log(format!("is_drag_start from craft popup (before erase/selection check); kind={:?}", mouse_state.craft_down_ci_part_kind));
     } else {
       // Do this one before the erasing/selecting. It may cancel those states even if active.
       if mouse_state.over_offer {
@@ -974,7 +976,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
 
   if mouse_state.is_drag_start {
     if mouse_state.craft_down_any {
-      log(format!("Started dragging from craft popup (after erase/selection check"));
+      log(format!("Started dragging from craft popup (after erase/selection check; kind={:?}", mouse_state.craft_down_ci_part_kind));
     }
     else if bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
       // Drag start on floor. Do nothing here.
@@ -1188,7 +1190,7 @@ fn update_mouse_state(options: &mut Options, state: &mut State, config: &Config,
   let is_machine_selected = cell_selection.on && factory.floor[cell_selection.coord].kind == CellKind::Machine;
 
   mouse_state.craft_over_any = is_machine_selected && hit_test_machine_circle(factory, cell_selection.coord, mouse_state.world_x, mouse_state.world_y);
-  if mouse_state.craft_over_any {
+  if mouse_state.craft_over_any && !mouse_state.is_dragging {
     let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.world_x, mouse_state.world_y);
     mouse_state.craft_over_ci = what;
     mouse_state.craft_over_ci_wx = wx;
@@ -1196,7 +1198,7 @@ fn update_mouse_state(options: &mut Options, state: &mut State, config: &Config,
     mouse_state.craft_over_ci_wx = ww;
     mouse_state.craft_over_ci_wy = wh;
     mouse_state.craft_over_ci_icon = icon;
-    mouse_state.craft_down_ci_part_kind = part_index;
+    mouse_state.craft_over_ci_part_kind = part_index;
     mouse_state.craft_over_ci_index = craft_index;
   }
 
@@ -1231,7 +1233,7 @@ fn update_mouse_state(options: &mut Options, state: &mut State, config: &Config,
     mouse_state.craft_down_any = is_machine_selected && hit_test_machine_circle(factory, cell_selection.coord, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
     if mouse_state.craft_down_any {
       let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
-      log(format!("mouse down inside craft selection -> {:?}", what));
+      log(format!("mouse down inside craft selection -> {:?} {:?} {} at craft index {}", what, part_index, config.nodes[part_index].raw_name, craft_index));
       mouse_state.craft_down_ci = what;
       mouse_state.craft_down_ci_wx = wx;
       mouse_state.craft_down_ci_wy = wy;
@@ -1296,14 +1298,14 @@ fn update_mouse_state(options: &mut Options, state: &mut State, config: &Config,
     mouse_state.craft_up_any = is_machine_selected && hit_test_machine_circle(factory, cell_selection.coord, mouse_state.last_up_world_x, mouse_state.last_up_world_y);
     if mouse_state.craft_up_any {
       let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_up_world_x, mouse_state.last_up_world_y);
-      log(format!("mouse up inside craft selection -> {:?}", what));
+      log(format!("mouse up inside craft selection -> {:?} -> dropping {} ({:?})", what, mouse_state.craft_down_ci_part_kind, config.nodes[mouse_state.craft_down_ci_part_kind].raw_name));
       mouse_state.craft_up_ci = what;
       mouse_state.craft_up_ci_wx = wx;
       mouse_state.craft_up_ci_wy = wy;
       mouse_state.craft_up_ci_wx = ww;
       mouse_state.craft_up_ci_wy = wh;
       mouse_state.craft_up_ci_icon = icon;
-      mouse_state.craft_down_ci_part_kind = part_index;
+      mouse_state.craft_up_ci_part_kind = part_index;
       mouse_state.craft_up_ci_index = craft_index;
     }
   }

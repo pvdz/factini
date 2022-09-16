@@ -81,6 +81,7 @@ pub struct MouseState {
   pub craft_over_ci_wh: f64,
   pub craft_over_ci_icon: char,
   pub craft_over_ci_index: u8,
+  pub craft_over_ci_part_kind: PartKind,
   pub craft_down_any: bool, // Was the down anywhere inside the craft circle? Prevemts actions underneath it.
   pub craft_down_ci: CraftInteractable,
   pub craft_down_ci_wx: f64,
@@ -97,6 +98,7 @@ pub struct MouseState {
   pub craft_up_ci_ww: f64,
   pub craft_up_ci_wh: f64,
   pub craft_up_ci_icon: char,
+  pub craft_up_ci_part_kind: PartKind,
   pub craft_up_ci_index: u8,
   pub craft_dragging_ci: bool, // in this case craft_down_ci_c can tell you what's being dragged
 
