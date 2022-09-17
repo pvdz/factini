@@ -6,6 +6,7 @@ use super::part::*;
 use super::state::*;
 use super::utils::*;
 
+// These index directly to the config.nodes vec
 pub const CONFIG_NODE_SUPPLY_UP: usize = 2;
 pub const CONFIG_NODE_SUPPLY_RIGHT: usize = 3;
 pub const CONFIG_NODE_SUPPLY_DOWN: usize = 4;
@@ -18,6 +19,9 @@ pub const CONFIG_NODE_DOCK_UP: usize = 10;
 pub const CONFIG_NODE_DOCK_RIGHT: usize = 11;
 pub const CONFIG_NODE_DOCK_DOWN: usize = 12;
 pub const CONFIG_NODE_DOCK_LEFT: usize = 13;
+pub const CONFIG_NODE_MACHINE_1X1: usize = 13;
+pub const CONFIG_NODE_MACHINE_2X2: usize = 14;
+pub const CONFIG_NODE_MACHINE_3X3: usize = 15;
 
 #[derive(Debug)]
 pub struct Config {
@@ -69,6 +73,7 @@ pub enum ConfigNodeKind {
   Supply,
   Demand,
   Dock,
+  Machine,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -470,7 +475,85 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
       h: 64.0,
       current_state: ConfigNodeState::Available,
     },
+    ConfigNode {
+      index: CONFIG_NODE_MACHINE_1x1,
+      kind: ConfigNodeKind::Machine,
+      name: "Machine".to_string(),
+      raw_name: "Machine_1x1".to_string(),
+      unlocks_after_by_name: vec!(),
+      unlocks_after_by_index: vec!(),
+      unlocks_todo_by_index: vec!(),
+      starting_part_by_name: vec!(),
+      starting_part_by_index: vec!(),
+      pattern_unique_icons: vec!(),
+      production_target_by_name: vec!(),
+      production_target_by_index: vec!(),
+      pattern_by_index: vec!(),
+      pattern_by_name: vec!(),
+      icon: '?',
+      file: "./img/machine_1_1.png".to_string(),
+      file_canvas_cache_index: 0,
+      // this is for the output part icon
+      x: 5.0,
+      y: 5.0,
+      w: 5.0,
+      h: 5.0,
+      current_state: ConfigNodeState::Available,
+    }
+  ),
+  ConfigNode {
+    index: CONFIG_NODE_MACHINE_2x2,
+    kind: ConfigNodeKind::Machine,
+    name: "Machine".to_string(),
+    raw_name: "Machine_1x1".to_string(),
+    unlocks_after_by_name: vec!(),
+    unlocks_after_by_index: vec!(),
+    unlocks_todo_by_index: vec!(),
+    starting_part_by_name: vec!(),
+    starting_part_by_index: vec!(),
+    pattern_unique_icons: vec!(),
+    production_target_by_name: vec!(),
+    production_target_by_index: vec!(),
+    pattern_by_index: vec!(),
+    pattern_by_name: vec!(),
+    icon: '?',
+    file: "./img/machine_2_2.png".to_string(),
+    file_canvas_cache_index: 0,
+    // this is for the output part icon
+    x: 5.0,
+    y: 5.0,
+    w: 5.0,
+    h: 5.0,
+    current_state: ConfigNodeState::Available,
+  }
+  ),
+  ConfigNode {
+    index: CONFIG_NODE_MACHINE_3x3,
+    kind: ConfigNodeKind::Machine,
+    name: "Machine".to_string(),
+    raw_name: "Machine_3x3".to_string(),
+    unlocks_after_by_name: vec!(),
+    unlocks_after_by_index: vec!(),
+    unlocks_todo_by_index: vec!(),
+    starting_part_by_name: vec!(),
+    starting_part_by_index: vec!(),
+    pattern_unique_icons: vec!(),
+    production_target_by_name: vec!(),
+    production_target_by_index: vec!(),
+    pattern_by_index: vec!(),
+    pattern_by_name: vec!(),
+    icon: '?',
+    file: "./img/machine_1_1.png".to_string(),
+    file_canvas_cache_index: 0,
+    // this is for the output part icon
+    x: 0.0,
+    y: 0.0,
+    w: 30.0,
+    h: 30.0,
+    current_state: ConfigNodeState::Available,
+  }
   );
+  assert!(nodes.iter().enumerate().all(|(i, n)| n.index == i), "config.nodes should start with a set of nodes where each index is set correctly");
   // Indirect references to nodes. Can't share direct references so these index the nodes vec.
   let mut quest_nodes: Vec<usize> = vec!();
   let mut part_nodes: Vec<usize> = vec!(0, 1);
@@ -507,6 +590,7 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
               "Dock_Right" => CONFIG_NODE_DOCK_RIGHT,
               "Dock_Down" => CONFIG_NODE_DOCK_DOWN,
               "Dock_Left" => CONFIG_NODE_DOCK_LEFT,
+              "Machine_3x3" => CONFIG_NODE_MACHINE_3x3,
               _ => nodes.len(),
             };
           let current_node = ConfigNode {
@@ -518,7 +602,8 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
                 "Demand" => ConfigNodeKind::Demand,
                 "Supply" => ConfigNodeKind::Supply,
                 "Dock" => ConfigNodeKind::Dock,
-                _ => panic!("Unsupported node kind. Node headers should be composed like Kind_Name and the kind can only be Quest, Part, Supply, Demand, or Dock. But it was {:?} (`{}`)", kind, rest),
+                "Machine" => ConfigNodeKind::Dock,
+                _ => panic!("Unsupported node kind. Node headers should be composed like Kind_Name and the kind can only be Quest, Part, Supply, Demand, Machine, or Dock. But it was {:?} (`{}`)", kind, rest),
               },
             name: name.to_string(),
             raw_name: rest.to_string(),
@@ -554,7 +639,8 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
             "Supply" => {}
             "Demand" => {}
             "Dock" => {}
-            _ => panic!("Unsupported node kind. Node headers should be composed like Kind_Name and the kind can only be Quest, Part, Supply, Demand, or Dock. But it was {:?}", kind),
+            "Machine" => {}
+            _ => panic!("Unsupported node kind. Node headers should be composed like Kind_Name and the kind can only be Quest, Part, Supply, Demand, Machine, or Dock. But it was {:?}", kind),
           }
         }
         Some('-') => {
@@ -635,19 +721,27 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
               // The sprite file
               nodes[current_node_index].file = value_raw.trim().to_string();
             }
-            "x" => {
+            | "part_x"
+            | "x"
+            => {
               // x coord in the sprite file where this sprite begins
               nodes[current_node_index].x = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
             }
-            "y" => {
+            | "part_y"
+            | "y"
+            => {
               // y coord in the sprite file where this sprite begins
               nodes[current_node_index].y = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
             }
-            "w" => {
+            | "part_w"
+            | "w"
+            => {
               // width in the sprite file of this sprite
               nodes[current_node_index].w = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
             }
-            "h" => {
+            | "part_h"
+            | "h"
+            => {
               // height in the sprite file of this sprite
               nodes[current_node_index].h = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
             }
@@ -806,6 +900,7 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
         ConfigNodeKind::Demand => {}
         ConfigNodeKind::Supply => {}
         ConfigNodeKind::Dock => {}
+        ConfigNodeKind::Machine => {}
       }
     }
   });

@@ -22,9 +22,9 @@
 // - animate machines at work
 // - paint the prepared parts of a machine while not selected?
 // - click offer to show pattern (not hover, mobile friendly)
-// - allow machine icon to be config defined. maybe box sizes / margins as well? output-icon-position/size?
 // - what's up with these assertion traps :(
 //   - `let (received_part_index, received_count) = factory.floor[coord].demand.received[i];` threw oob (1 while len=0)
+// - make recipes be arbitrary? 2x2? let go of pattern?
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -2532,19 +2532,19 @@ fn paint_background_tiles(
         // TODO: each machine size should have a unique, customized, sprite
         if factory.floor[coord].machine.main_coord == coord {
           let machine_img = match ( factory.floor[coord].machine.cell_width, factory.floor[coord].machine.cell_height ) {
-            ( 1, 1 ) => img_machine_1_1,
-            ( 2, 2 ) => img_machine_1_1,
-            ( 3, 3 ) => img_machine_1_1,
+            ( 1, 1 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_1x1].file_canvas_cache_index],
+            ( 2, 2 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_2x2].file_canvas_cache_index],
+            ( 3, 3 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3x3].file_canvas_cache_index],
             ( 4, 4 ) => img_machine_1_1,
             ( 2, 1 ) => img_machine_2_1,
             ( 4, 2 ) => img_machine_2_1,
             ( 3, 2 ) => img_machine_3_2,
-            _ => img_machine2,
+            _ => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3x3].file_canvas_cache_index],
           };
           context.draw_image_with_html_image_element_and_dw_and_dh(machine_img, ox, oy, factory.floor[coord].machine.cell_width as f64 * CELL_W, factory.floor[coord].machine.cell_height as f64 * CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
 
           // Paint tiny output part
-          paint_segment_part_from_config(options, state, config, context, factory.floor[coord].machine.output_want.kind, ox + CELL_W / 4.0, oy + CELL_H / 4.0, CELL_W / 2.0, CELL_H / 2.0);
+          paint_segment_part_from_config(options, state, config, context, factory.floor[coord].machine.output_want.kind, ox + config.nodes[CONFIG_NODE_MACHINE_3x3].x, oy + config.nodes[CONFIG_NODE_MACHINE_3x3].y, config.nodes[CONFIG_NODE_MACHINE_3x3].w, config.nodes[CONFIG_NODE_MACHINE_3x3].h);
         }
       },
       CellKind::Supply => {

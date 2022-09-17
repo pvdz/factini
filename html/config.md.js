@@ -498,4 +498,12 @@ This is the edge area where suppliers and demanders can be placed
 - y: 0
 - w: 64
 - h: 64
+
+# Machine_3x3
+- file: ./img/machine_1_1.png
+- part_x: 5
+- part_y: 5
+- part_w: 20
+- part_h: 20
+
 `;
