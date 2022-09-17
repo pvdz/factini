@@ -331,7 +331,7 @@ pub fn machine_discover_ins_and_outs_floor(floor: &mut [Cell; FLOOR_CELLS_WH], m
   }
 }
 
-pub fn machine_change_want(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, main_coord: usize, index: usize, part: Part) {
+pub fn machine_change_want(options: &Options, state: &State, config: &Config, factory: &mut Factory, main_coord: usize, index: usize, part: Part) {
   factory.floor[main_coord].machine.wants[index] = part;
 
   let new_out = machine_discover_output(options, state, config, factory, main_coord);

@@ -13,7 +13,6 @@
 // - first/last part of belt preview while dragging should be fixed, or be hardcoded dead ends
 // - a part that reaches 100% of a cell but can't be moved to the side should not block the next part from entering the cell until all ports are taken like that. the part can sit in the port and a belt can only take parts if it has an available port.
 // - when importing, the machine output is ignored so we should remove it from the template
-// - closing a factory when the close button is over the bottom menu, doesn't work. same for side menu, I guess
 // - suppliers should get craft menus with resource-only
 // - make sun move across the day bar? in a sort of rainbow path?
 // - make the menu-machine "process" the finished parts before generating trucks
@@ -26,6 +25,8 @@
 // - allow machine icon to be config defined. maybe box sizes / margins as well? output-icon-position/size?
 // - what's up with these assertion traps :(
 //   - `let (received_part_index, received_count) = factory.floor[coord].demand.received[i];` threw oob (1 while len=0)
+
+// https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
 
 // This is required to export panic to the web
@@ -448,8 +449,10 @@ pub fn start() -> Result<(), JsValue> {
       is_dragging: false,
       is_drag_start: false,
 
-      over_offer: false,
-      offer_index: 0,
+      offer_down: false,
+      offer_down_offer_index: 0,
+      offer_hover: false,
+      offer_hover_offer_index: 0,
       dragging_offer: false,
       over_machine_button: false,
       dragging_machine: false,
@@ -746,7 +749,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_ports(&context, &factory);
         paint_belt_items(&options, &state, &config, &context, &factory);
         paint_machine_selection_and_craft(&options, &state, &config, &context, &factory, &cell_selection, &mouse_state);
-        paint_ui_offer_droptarget_hint_conditionally(&options, &state, &config, &context, &mut factory, &mouse_state, &cell_selection);
+        paint_ui_offer_hover_droptarget_hint_conditionally(&options, &state, &config, &context, &mut factory, &mouse_state, &cell_selection);
 
         paint_mouse_cursor(&context, &mouse_state);
         paint_mouse_action(&options, &state, &config, &factory, &context, &belt_tile_images, &mouse_state, &cell_selection);
@@ -886,7 +889,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
   if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_OFFSET_Y + UI_DAY_PROGRESS_HEIGHT) {
     if mouse_state.was_up {
       if bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_OFFSET_Y + UI_DAY_PROGRESS_HEIGHT) {
-        on_up_day_bar(options, state, config, factory, &mouse_state);
+        on_up_top_bar(options, state, config, factory, mouse_state);
         mouse_state.dragging_offer = false;
         mouse_state.dragging_machine = false;
         return;
@@ -894,266 +897,65 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
     }
   }
 
+  // Do these before the erasing/selecting. It may cancel those states even if active.
   if mouse_state.is_drag_start {
     if mouse_state.craft_down_any {
-      log(format!("is_drag_start from craft popup (before erase/selection check); kind={:?}", mouse_state.craft_down_ci_part_kind));
+      on_drag_start_craft_before(options, state, config, factory, mouse_state, cell_selection);
     } else {
-      // Do this one before the erasing/selecting. It may cancel those states even if active.
-      if mouse_state.over_offer {
-        // Is that offer visible / interactive yet?
-        if factory.available_parts_rhs_menu[mouse_state.offer_index].1 {
-          // Need to remember which offer we are currently dragging.
-          log(format!("is_drag_start from offer {} ({:?})", mouse_state.offer_index, factory.available_parts_rhs_menu[mouse_state.offer_index].0));
-          mouse_state.dragging_offer = true;
-          mouse_state.dragging_machine = false;
-          state.mouse_mode_erasing = false;
-          state.mouse_mode_selecting = false;
-
-          let part_index = factory.available_parts_rhs_menu[mouse_state.offer_index].0;
-          if config.nodes[part_index].pattern_unique_icons.len() == 0 {
-            log(format!("closing machine craft menu because dragging offer without pattern"));
-            cell_selection.on = false;
-          }
-
-
-        }
+      if mouse_state.offer_down {
+        on_drag_start_offer(options, state, config, factory, mouse_state, cell_selection);
       }
       else if mouse_state.over_machine_button {
-        log(format!("is_drag_start from machine"));
-        mouse_state.dragging_machine = true;
-        mouse_state.dragging_offer = false;
-        state.mouse_mode_erasing = false;
-        state.mouse_mode_selecting = false;
+        on_drag_start_machine_button(options, state, config, mouse_state);
       }
     }
   }
 
   if state.mouse_mode_erasing {
     if mouse_state.is_down {
-      if bounds_check(mouse_state.world_x, mouse_state.world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
-        // On the floor. Delete anything.
-        let coord = mouse_state.cell_coord;
-        if factory.floor[coord].kind != CellKind::Empty {
-          floor_delete_cell_at_partial(options, state, config, factory, coord);
-          factory.changed = true;
-        }
-      }
+      on_down_erase(options, state, config, factory, mouse_state);
     }
     else if mouse_state.was_up {
-      // Still allow to use menu buttons while deleting, but ignore other hit boxes
-      log(format!("({}) handle_mouse_up_over_menu_buttons from erasing", factory.ticks));
-      handle_mouse_up_over_menu_buttons(cell_selection, mouse_state, options, state, config, factory);
+      on_up_erase(options, state, config, factory, mouse_state, cell_selection);
     }
     return;
   }
 
   if state.mouse_mode_selecting {
     if mouse_state.was_up {
-      log(format!("mouse up with selection mode enabled..."));
-      let down_cell_x = ((mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor();
-      let down_cell_y = ((mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor();
-      if mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && is_floor(mouse_state.cell_x, mouse_state.cell_y) {
-        log(format!("  was up on floor"));
-
-        // Moving while there's stuff on the clipboard? This mouse up is a paste / stamp.
-        if state.selected_area_copy.len() > 0 {
-          log(format!("    clipboard has data so we stamp it now"));
-          paste(options, state, config, factory, mouse_state.cell_x as usize, mouse_state.cell_y as usize);
-        }
-        // Dragging a selection?
-        else if down_cell_x >= 0.0 && down_cell_y >= 0.0 && is_floor(down_cell_x, down_cell_y) {
-          log(format!("  was down in floor, too. ok!"));
-          let now_cell_x = mouse_state.cell_x.floor();
-          let now_cell_y = mouse_state.cell_y.floor();
-
-          cell_selection.x = down_cell_x.min(now_cell_x);
-          cell_selection.y = down_cell_y.min(now_cell_y);
-          cell_selection.x2 = down_cell_x.max(now_cell_x);
-          cell_selection.y2 = down_cell_y.max(now_cell_y);
-          cell_selection.on = true;
-        } else {
-          log(format!("  not down in floor"));
-        }
-      } else {
-        // Still allow to use menu buttons while deleting, but ignore other hit boxes
-        log(format!("({}) handle_mouse_up_over_menu_buttons() with selection mode enabled", factory.ticks));
-        handle_mouse_up_over_menu_buttons(cell_selection, mouse_state, options, state, config, factory);
-      }
+      on_up_selecting(options, state, config, factory, mouse_state, cell_selection);
     }
     return;
   }
 
   if mouse_state.is_drag_start {
     if mouse_state.craft_down_any {
-      log(format!("Started dragging from craft popup (after erase/selection check; kind={:?}", mouse_state.craft_down_ci_part_kind));
+      on_drag_start_craft_after(mouse_state);
     }
     else if bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
-      // Drag start on floor. Do nothing here.
-      // This is computed on the fly and state is already recorded through other means.
-      log(format!("Started dragging from floor"));
+      on_drag_start_floor();
     }
   }
 
   if mouse_state.was_up {
-    if mouse_state.is_dragging {
-      // This is more a visual thing I think
-      log(format!("(ignored a up because is_dragging is set)"));
+    if mouse_state.was_dragging {
+      on_drag_end_floor(options, state, config, factory, cell_selection, mouse_state);
+    }
+    else if mouse_state.craft_up_any {
+      on_click_inside_machine_selection_circle(options, state, config, factory, cell_selection, mouse_state);
     }
     // Was the click inside the painted world?
     // In that case we change/toggle the cell selection
     else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
-      on_up_inside_floor(options, state, config, factory, cell_selection, &mouse_state);
+      on_up_floor(options, state, config, factory, cell_selection, &mouse_state);
     }
     else {
-      log(format!("({}) handle_mouse_up_over_menu_buttons from normal", factory.ticks));
-      handle_mouse_up_over_menu_buttons(cell_selection, mouse_state, options, state, config, factory);
+      log(format!("({}) on_up_menu from normal", factory.ticks));
+      on_up_menu(cell_selection, mouse_state, options, state, config, factory);
     }
 
     mouse_state.dragging_offer = false;
     mouse_state.dragging_machine = false;
-  }
-}
-fn handle_mouse_up_over_menu_buttons(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
-  // Was one of the buttons below the floor clicked?
-  if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_MENU_BUTTONS_OFFSET_X, UI_MENU_BUTTONS_OFFSET_Y, UI_MENU_BUTTONS_OFFSET_X + UI_MENU_BUTTONS_WIDTH_MAX, UI_MENU_BUTTONS_OFFSET_Y + UI_MENU_BUTTONS_HEIGHT) {
-    let button_index = (mouse_state.last_up_world_x - UI_MENU_BUTTONS_OFFSET_X) / (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING);
-    if button_index % 1.0 < (UI_MENU_BUTTONS_WIDTH / (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING)) {
-      log(format!("clicked inside button {}", button_index));
-      match button_index.floor() as u8 {
-        0 => { // Empty
-          log(format!("Removing all cells from the factory..."));
-          for coord in 0..factory.floor.len() {
-            let (x, y) = to_xy(coord);
-            factory.floor[coord] = empty_cell(config, x, y);
-          }
-          factory.changed = true;
-        }
-        1 => { // Unbelt
-          log(format!("Removing all belts from the factory"));
-          for coord in 0..factory.floor.len() {
-            let (x, y) = to_xy(coord);
-            match factory.floor[coord].kind {
-              CellKind::Belt => factory.floor[coord] = empty_cell(config, x, y),
-              CellKind::Empty => (),
-              CellKind::Demand => (),
-              CellKind::Supply => (),
-              CellKind::Machine => {
-                factory.floor[coord].port_u = Port::None;
-                factory.floor[coord].port_r = Port::None;
-                factory.floor[coord].port_d = Port::None;
-                factory.floor[coord].port_l = Port::None;
-              },
-            }
-          }
-          factory.changed = true;
-        }
-        2 => { // Unpart
-          log(format!("Removing all part data from the factory"));
-          unpart(options, state, config, factory);
-        }
-        3 => { // Undir
-          log(format!("Applying undir..."));
-          for coord in 0..factory.floor.len() {
-            let (x, y) = to_xy(coord);
-            if factory.floor[coord].kind != CellKind::Supply && factory.floor[coord].kind != CellKind::Demand {
-              if factory.floor[coord].port_u != Port::None {
-                cell_set_port_u_to(factory, coord, Port::Unknown, to_coord_up(coord));
-              }
-              if factory.floor[coord].port_r != Port::None {
-                cell_set_port_r_to(factory, coord, Port::Unknown, to_coord_right(coord));
-              }
-              if factory.floor[coord].port_d != Port::None {
-                cell_set_port_d_to(factory, coord, Port::Unknown, to_coord_down(coord));
-              }
-              if factory.floor[coord].port_l != Port::None {
-                cell_set_port_l_to(factory, coord, Port::Unknown, to_coord_left(coord));
-              }
-            }
-          }
-          factory.changed = true;
-        }
-        4 => { // Dump
-          log(format!("Dumping factory..."));
-          log(format!("\n{}", generate_floor_dump(options, state, &factory, dnow()).join("\n")));
-        }
-        5 => {
-          log(format!("Restarting game at the start of next frame"));
-          state.reset_next_frame = true;
-        }
-        _ => panic!("Hit the panic button. Or another button without implementation."),
-      }
-    } else {
-      log(format!("clicked margin after button {}", button_index));
-    }
-  }
-  // Second row of buttons?
-  else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_MENU_BUTTONS_OFFSET_X, UI_MENU_BUTTONS_OFFSET_Y2, UI_MENU_BUTTONS_OFFSET_X + UI_MENU_BUTTONS_WIDTH_MAX, UI_MENU_BUTTONS_OFFSET_Y2 + UI_MENU_BUTTONS_HEIGHT) {
-    log(format!("Second row of buttons"));
-    let button_index = (mouse_state.last_up_world_x - UI_MENU_BUTTONS_OFFSET_X) / (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING);
-    if button_index % 1.0 < (UI_MENU_BUTTONS_WIDTH / (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING)) {
-      log(format!("({}) clicked inside button {}", factory.ticks, button_index));
-      match button_index.floor() as u8 {
-        0 => { // Draw / Erase
-          log(format!("toggle draw/erase mode"));
-          state.mouse_mode_erasing = !state.mouse_mode_erasing;
-          state.mouse_mode_selecting = false;
-          cell_selection.area = false;
-          cell_selection.on = false;
-          state.selected_area_copy = vec!(); // Or retain this?
-        }
-        1 => { // Select
-          log(format!("Toggle selection mode"));
-          state.mouse_mode_selecting = !state.mouse_mode_selecting;
-          state.mouse_mode_erasing = false;
-          cell_selection.area = state.mouse_mode_selecting;
-          cell_selection.on = false;
-          state.selected_area_copy = vec!(); // Or retain this?
-        }
-        2 => { // Copy
-          log(format!("Copy selection"));
-          if state.mouse_mode_selecting && cell_selection.on {
-            // If there's no clipboard, fill it now. Otherwise clear the clipboard.
-            if state.selected_area_copy.len() == 0 {
-              // clone each cell in the area verbatim
-              // Store this copy in... state
-              let mut area = vec!();
-              // Only copy belts. Machines are too hard to deal with. Edge stuff is too tricky.
-              let cox = cell_selection.x.min(cell_selection.x2) as usize;
-              let coy = cell_selection.y.min(cell_selection.y2) as usize;
-              for y in 0..1 + (cell_selection.y - cell_selection.y2).abs() as usize {
-                area.push(vec!());
-                for x in 0..1 + (cell_selection.x - cell_selection.x2).abs() as usize {
-                  area[y].push(factory.floor[to_coord(cox + x, coy + y)].clone());
-                }
-              }
-              state.selected_area_copy = area;
-            }
-            else {
-              state.selected_area_copy = vec!();
-            }
-          }
-        }
-        3 => { // tbd
-          log(format!("(no button here)"));
-        }
-        4 => { // tbd
-          log(format!("(no button here)"));
-        }
-        5 => { // tbd
-          log(format!("(no button here)"));
-        }
-        6 => { // tbd
-          log(format!("(no button here)"));
-        }
-        _ => panic!("Hit a button2 without implementation."),
-      }
-    } else {
-      log(format!("clicked margin after button {}", button_index));
-    }
-  }
-  // Any of the speed bubbles?
-  else if hit_check_speed_bubbles_any(options, state, mouse_state) {
-    on_click_speed_bubbles(options, state, mouse_state);
   }
 }
 fn unpart(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
@@ -1162,8 +964,8 @@ fn unpart(options: &mut Options, state: &mut State, config: &Config, factory: &m
   }
   factory.changed = true;
 }
-fn update_mouse_state(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &mut MouseState, mouse_x: f64, mouse_y: f64, mouse_moved_since_app_start: bool, last_mouse_down_x: f64, last_mouse_down_y: f64, last_mouse_down_button: u16, last_mouse_up_x: f64, last_mouse_up_y: f64) {
-  // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
+fn update_mouse_state(options: &Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &mut MouseState, mouse_x: f64, mouse_y: f64, mouse_moved_since_app_start: bool, last_mouse_down_x: f64, last_mouse_down_y: f64, last_mouse_down_button: u16, last_mouse_up_x: f64, last_mouse_up_y: f64) {
+  // Note: event handlers should not be called from here. This should only update mouse_state.
 
   // Reset
   mouse_state.moved_since_start = mouse_moved_since_app_start;
@@ -1173,10 +975,11 @@ fn update_mouse_state(options: &mut Options, state: &mut State, config: &Config,
     mouse_state.craft_down_ci = CraftInteractable::None;
     mouse_state.craft_down_any = false;
     mouse_state.craft_dragging_ci = false;
+    mouse_state.offer_down = false;
   }
   mouse_state.was_up = false;
   mouse_state.was_dragging = false;
-  mouse_state.over_offer = false;
+  mouse_state.offer_hover = false;
   mouse_state.over_machine_button = false;
 
   mouse_state.craft_over_any = false;
@@ -1213,13 +1016,17 @@ fn update_mouse_state(options: &mut Options, state: &mut State, config: &Config,
 
   if !mouse_state.is_dragging {
     // When already dragging do not update offer visual state, do not record the "over" state at all
-    // When dragging an offer, the offer_index will be set to the initial offer index (keep it!)
-    let (over_offer, offer_index) = hit_test_offers(factory, mouse_state.world_x, mouse_state.world_y);
-    if over_offer {
+    // When dragging an offer, the offer_down_offer_index will be set to the initial offer index (keep it!)
+    let (offer_hover, offer_hover_offer_index) = hit_test_offers(factory, mouse_state.world_x, mouse_state.world_y);
+    if offer_hover {
       // Do not consider offers that are not visible / interactive to be hoverable either
-      if factory.available_parts_rhs_menu[offer_index].1 {
-        mouse_state.over_offer = over_offer;
-        mouse_state.offer_index = offer_index;
+      if factory.available_parts_rhs_menu[offer_hover_offer_index].1 {
+        mouse_state.offer_hover = offer_hover;
+        mouse_state.offer_hover_offer_index = offer_hover_offer_index;
+        if mouse_state.is_down {
+          mouse_state.offer_down = true;
+          mouse_state.offer_down_offer_index = offer_hover_offer_index;
+        }
       }
     } else {
       let over_machine_button = hit_test_machine_button(mouse_state.world_x, mouse_state.world_y);
@@ -1268,17 +1075,6 @@ fn update_mouse_state(options: &mut Options, state: &mut State, config: &Config,
         if mouse_state.craft_down_ci != CraftInteractable::None && mouse_state.craft_down_ci != CraftInteractable::BackClose {
           log(format!("dragging craft interactable; {}-{} and {}-{}; dragging a {} at index {}", mouse_state.last_down_world_x, mouse_state.world_x, mouse_state.last_down_world_y, mouse_state.world_y, mouse_state.craft_down_ci_part_kind, mouse_state.craft_down_ci_index));
           mouse_state.craft_dragging_ci = true;
-
-          // If this was dragging from a machine cell, clear that machine input at this index
-          if mouse_state.craft_down_ci == CraftInteractable::InputCell {
-            let main_coord = factory.floor[cell_selection.coord].machine.main_coord;
-            let index = mouse_state.craft_down_ci_index as usize - 100;
-            log(format!("Clearing input @{} from machine @{} because drag start; has {} wants and {} haves", index, cell_selection.coord, factory.floor[main_coord].machine.wants.len(), factory.floor[main_coord].machine.haves.len()));
-
-            machine_change_want(options, state, config, factory, main_coord, index, part_none(config));
-            // Make sure the haves are cleared as well
-            factory.floor[main_coord].machine.haves[index] = part_none(config);
-          }
         }
       }
       else {
@@ -1307,7 +1103,11 @@ fn update_mouse_state(options: &mut Options, state: &mut State, config: &Config,
     mouse_state.craft_up_any = is_machine_selected && hit_test_machine_circle(factory, cell_selection.coord, mouse_state.last_up_world_x, mouse_state.last_up_world_y);
     if mouse_state.craft_up_any {
       let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_up_world_x, mouse_state.last_up_world_y);
-      log(format!("mouse up inside craft selection -> {:?} -> dropping {} ({:?})", what, mouse_state.craft_down_ci_part_kind, config.nodes[mouse_state.craft_down_ci_part_kind].raw_name));
+      if mouse_state.is_dragging {
+        log(format!("mouse up / drag end inside craft selection -> {:?} -> dropping {} ({:?})", what, mouse_state.craft_down_ci_part_kind, config.nodes[mouse_state.craft_down_ci_part_kind].raw_name));
+      } else {
+        log(format!("mouse up inside craft selection -> {:?}", what));
+      }
       mouse_state.craft_up_ci = what;
       mouse_state.craft_up_ci_wx = wx;
       mouse_state.craft_up_ci_wy = wy;
@@ -1319,59 +1119,134 @@ fn update_mouse_state(options: &mut Options, state: &mut State, config: &Config,
     }
   }
 }
-fn on_up_inside_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
-  log(format!("on_up_inside_floor()"));
 
-  if mouse_state.was_dragging {
-    if mouse_state.craft_down_any {
-      log(format!("on_up_inside_floor from craft popup"));
+// on over, out, hover, down, up, drag start, dragging, drag end. but not everything makes sense for all cases.
 
-      // If this was dragging from a machine cell or resource button and dropped on a machine
-      // cell then set that machine cell. Otherwise ignore it. This may cause an input to stay clear
-      if mouse_state.craft_down_ci == CraftInteractable::InputCell || mouse_state.craft_down_ci == CraftInteractable::Resource {
-        if mouse_state.craft_up_ci == CraftInteractable::InputCell {
-          let main_coord = factory.floor[cell_selection.coord].machine.main_coord;
-          let index = mouse_state.craft_up_ci_index as usize - 100;
-          log(format!("Setting input @{} from machine @{} because drag start; has {} wants and {} haves", index, cell_selection.coord, factory.floor[main_coord].machine.wants.len(), factory.floor[main_coord].machine.haves.len()));
-          machine_change_want(options, state, config, factory, main_coord, index, part_from_part_index(config, mouse_state.craft_down_ci_part_kind));
-          // Clear the haves to make sure it doesn't contain an incompatible part now
-          factory.floor[main_coord].machine.haves[index] = part_from_part_index(config, mouse_state.craft_down_ci_part_kind);
-        }
-      }
+fn on_drag_start_offer(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
+// Is that offer visible / interactive yet?
+  if factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].1 {
+    // Need to remember which offer we are currently dragging (-> offer_down_offer_index).
+    log(format!("is_drag_start from offer {} ({:?})", mouse_state.offer_down_offer_index, factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0));
+    mouse_state.dragging_offer = true;
+    mouse_state.dragging_machine = false;
+    state.mouse_mode_erasing = false;
+    state.mouse_mode_selecting = false;
+
+    let part_index = factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0;
+    if config.nodes[part_index].pattern_unique_icons.len() == 0 {
+      log(format!("closing machine craft menu because dragging offer without pattern"));
+      cell_selection.on = false;
     }
-    else if mouse_state.dragging_offer {
-      on_drag_end_offer_over_floor(options, state, config, factory, mouse_state);
-    }
-    else if mouse_state.dragging_machine {
-      on_drag_end_machine_over_floor(options, state, config, factory, mouse_state);
-    }
-    // Drag ended on the floor, did drag start on the floor?
-    else if bounds_check(mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X, mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y, 0.0,  0.0, FLOOR_WIDTH, FLOOR_HEIGHT) {
-      // Is the mouse currently on the floor?
-      on_drag_end_inside_floor(options, state, config, factory, cell_selection, mouse_state);
-    } else {
-      log(format!("Drag ended on floor but did not start there. noop"));
-    }
-  } else if mouse_state.craft_up_any {
-    on_click_inside_machine_selection_circle(options, state, config, factory, cell_selection, mouse_state);
-  } else {
-    on_click_inside_floor(options, state, config, factory, cell_selection, mouse_state);
   }
 }
-fn on_up_day_bar(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
-  if !bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_OFFSET_Y + UI_DAY_PROGRESS_HEIGHT) {
-    // Dragged onto this button but did not start on this button so ignore the up.
-    return;
+fn on_down_floor() {
+
+}
+fn on_up_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
+  log(format!("on_up_floor()"));
+  on_click_inside_floor(options, state, config, factory, cell_selection, mouse_state);
+}
+fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
+  log(format!("on_click_inside_floor()"));
+  let last_mouse_up_cell_x = ((mouse_state.last_up_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor();
+  let last_mouse_up_cell_y = ((mouse_state.last_up_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor();
+
+  if mouse_state.last_down_button == 2 {
+    // Clear the cell if that makes sense for it. Delete a belt with one or zero ports.
+    let coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
+
+    let mut ports = 0;
+    if factory.floor[coord].port_u != Port::None { ports += 1; }
+    if factory.floor[coord].port_r != Port::None { ports += 1; }
+    if factory.floor[coord].port_d != Port::None { ports += 1; }
+    if factory.floor[coord].port_l != Port::None { ports += 1; }
+    if ports <= 1 || factory.floor[coord].kind == CellKind::Machine {
+      log(format!("Deleting stub @{} after rmb click", coord));
+      floor_delete_cell_at_partial(options, state, config, factory, coord);
+      factory.changed = true;
+    }
+
+    // If this wasn't a belt (ports=999) or the belt had more than 1 ports, then just drop its part.
+    if ports > 1 {
+      log(format!("Clearing part from @{} after rmb click (ports={})", coord, ports));
+      clear_part_from_cell(options, state, config, factory, coord);
+    }
+  } else {
+    // De-/Select this cell
+    log(format!("clicked {} {} cell selection before: {:?}", last_mouse_up_cell_x, last_mouse_up_cell_y, cell_selection));
+
+    if cell_selection.on && cell_selection.x == last_mouse_up_cell_x && cell_selection.y == last_mouse_up_cell_y {
+      cell_selection.on = false;
+    } else {
+      cell_selection.on = true;
+      cell_selection.x = last_mouse_up_cell_x;
+      cell_selection.y = last_mouse_up_cell_y;
+      cell_selection.coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
+      // log(format!("Cell: {:?}", factory.floor[cell_selection.coord]));
+      // log(format!("- Belt: {:?}", factory.floor[cell_selection.coord].belt));
+      // log(format!("- Machine: {:?}", factory.floor[cell_selection.coord].machine));
+      // log(format!("- Supply: {:?}", factory.floor[cell_selection.coord].supply));
+      // log(format!("- Demand: {:?}", factory.floor[cell_selection.coord].demand));
+    }
   }
+}
+fn on_click_inside_machine_selection_circle(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
+  log(format!("Clicked in the selection bubble of a machine"));
+  // Figure out whether any of the interactables were clicked
 
-  log(format!("Resetting day... any time now!"));
+  match mouse_state.craft_up_ci {
+    CraftInteractable::BackClose => {
+      log(format!("Clicked the close button"));
+      cell_selection.on = false;
+    }
+    CraftInteractable::Resource => {
+      log(format!("Clicked a resource: {}", mouse_state.craft_up_ci_icon));
+    }
+    CraftInteractable::InputCell => {
+      log(format!("Clicked an input cell: {}", mouse_state.craft_up_ci_icon));
 
-  unpart(options, state, config, factory);
-  factory_reset_stats(options, state, factory);
-  factory.last_day_start = factory.ticks;
-  factory.modified_at = 0;
-  factory.finished_at = 0;
-  factory.finished_with = 0;
+      // Force-clear this cell of the machine
+      machine_change_want(options, state, config, factory, factory.floor[cell_selection.coord].machine.main_coord, mouse_state.craft_up_ci_index as usize - 100, part_none(config));
+    }
+    CraftInteractable::None => {
+      log(format!("Clicked inside selection craft menu but not on an interactable; ignoring"));
+    }
+  }
+}
+fn on_drag_end_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
+  log(format!("on_drag_end_floor()"));
+  if mouse_state.craft_down_any {
+    on_drag_end_craft_over_floor(options, state, config, factory, cell_selection, mouse_state);
+  }
+  else if mouse_state.dragging_offer {
+    on_drag_end_offer_over_floor(options, state, config, factory, mouse_state);
+  }
+  else if mouse_state.dragging_machine {
+    on_drag_end_machine_over_floor(options, state, config, factory, mouse_state);
+  }
+  // Drag ended on the floor, did drag start on the floor?
+  else if bounds_check(mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X, mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y, 0.0,  0.0, FLOOR_WIDTH, FLOOR_HEIGHT) {
+    // Is the mouse currently on the floor?
+    on_drag_end_floor_other(options, state, config, factory, cell_selection, mouse_state);
+  } else {
+    log(format!("Drag ended on floor but did not start there. noop"));
+  }
+}
+fn on_drag_end_craft_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
+  log(format!("on_drag_end_craft_over_floor()"));
+
+  // If this was dragging from a machine cell or resource button and dropped on a machine
+  // cell then set that machine cell. Otherwise ignore it. This may cause an input to stay clear
+  if mouse_state.craft_down_ci == CraftInteractable::InputCell || mouse_state.craft_down_ci == CraftInteractable::Resource {
+    if mouse_state.craft_up_ci == CraftInteractable::InputCell {
+      let main_coord = factory.floor[cell_selection.coord].machine.main_coord;
+      let index = mouse_state.craft_up_ci_index as usize - 100;
+      log(format!("Setting input @{} from machine @{} because drag start; has {} wants and {} haves", index, cell_selection.coord, factory.floor[main_coord].machine.wants.len(), factory.floor[main_coord].machine.haves.len()));
+      machine_change_want(options, state, config, factory, main_coord, index, part_from_part_index(config, mouse_state.craft_down_ci_part_kind));
+      // Clear the haves to make sure it doesn't contain an incompatible part now
+      factory.floor[main_coord].machine.haves[index] = part_from_part_index(config, mouse_state.craft_down_ci_part_kind);
+    }
+  }
 }
 fn on_drag_end_machine_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
   log(format!("on_drag_offer_into_floor()"));
@@ -1483,7 +1358,7 @@ fn on_drag_end_machine_over_floor(options: &mut Options, state: &mut State, conf
   }
 }
 fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
-  log(format!("on_drag_offer_into_floor()"));
+  log(format!("on_drag_end_offer_over_floor()"));
 
   let last_mouse_up_cell_x = ((mouse_state.last_up_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor();
   let last_mouse_up_cell_y = ((mouse_state.last_up_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor();
@@ -1491,11 +1366,11 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
   let last_mouse_up_inside_cell_x = ((mouse_state.last_up_world_x - UI_FLOOR_OFFSET_X) / CELL_W) - last_mouse_up_cell_x;
   let last_mouse_up_inside_cell_y = ((mouse_state.last_up_world_y - UI_FLOOR_OFFSET_Y) / CELL_H) - last_mouse_up_cell_y;
 
-  let dragged_part_index = factory.available_parts_rhs_menu[mouse_state.offer_index].0;
+  let dragged_part_index = factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0;
 
   if is_edge_not_corner(last_mouse_up_cell_x, last_mouse_up_cell_y) {
     log(format!("Dropped a supply on an edge cell that is not corner. Deploying... {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize));
-    log(format!("Drag started from offer {} ({:?})", mouse_state.offer_index, dragged_part_index));
+    log(format!("Drag started from offer {} ({:?})", mouse_state.offer_down_offer_index, dragged_part_index));
     let bools = ( last_mouse_up_cell_x == 0.0, last_mouse_up_cell_y == 0.0, last_mouse_up_cell_x as usize == FLOOR_CELLS_W - 1, last_mouse_up_cell_y as usize == FLOOR_CELLS_H - 1 );
     log(format!("wtf {} {:?} bools: {:?}", to_coord_right(last_mouse_up_cell_coord), factory.floor[to_coord_right(last_mouse_up_cell_coord)].port_l, bools));
     let prev_port = match bools {
@@ -1581,8 +1456,8 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
     log(format!("Dropped a supply offer ({:?}) without pattern on the floor, or any supply offer on a corner. Ignoring. {} {}", dragged_part_index, last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize));
   }
 }
-fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
-  log(format!("on_drag_end_inside_floor()"));
+fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
+  log(format!("on_drag_end_floor_other()"));
 
   // Finalize pathing, regenerate floor
   let track = ray_trace_dragged_line(
@@ -1824,30 +1699,255 @@ fn on_drag_end_inside_floor(options: &mut Options, state: &mut State, config: &C
 
   factory.changed = true;
 }
-fn on_click_inside_machine_selection_circle(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
-  log(format!("Clicked in the selection bubble of a machine"));
-  // Figure out whether any of the interactables were clicked
+fn on_drag_start_machine_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState) {
+  log(format!("is_drag_start from machine"));
+  mouse_state.dragging_machine = true;
+  mouse_state.dragging_offer = false;
+  state.mouse_mode_erasing = false;
+  state.mouse_mode_selecting = false;
+}
+fn on_down_menu() {
 
-  match mouse_state.craft_up_ci {
-    CraftInteractable::BackClose => {
-      log(format!("Clicked the close button"));
-      cell_selection.on = false;
+}
+fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
+  // Was one of the buttons below the floor clicked?
+  if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_MENU_BUTTONS_OFFSET_X, UI_MENU_BUTTONS_OFFSET_Y, UI_MENU_BUTTONS_OFFSET_X + UI_MENU_BUTTONS_WIDTH_MAX, UI_MENU_BUTTONS_OFFSET_Y + UI_MENU_BUTTONS_HEIGHT) {
+    let button_index = (mouse_state.last_up_world_x - UI_MENU_BUTTONS_OFFSET_X) / (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING);
+    if button_index % 1.0 < (UI_MENU_BUTTONS_WIDTH / (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING)) {
+      log(format!("clicked inside button {}", button_index));
+      match button_index.floor() as u8 {
+        0 => { // Empty
+          log(format!("Removing all cells from the factory..."));
+          for coord in 0..factory.floor.len() {
+            let (x, y) = to_xy(coord);
+            factory.floor[coord] = empty_cell(config, x, y);
+          }
+          factory.changed = true;
+        }
+        1 => { // Unbelt
+          log(format!("Removing all belts from the factory"));
+          for coord in 0..factory.floor.len() {
+            let (x, y) = to_xy(coord);
+            match factory.floor[coord].kind {
+              CellKind::Belt => factory.floor[coord] = empty_cell(config, x, y),
+              CellKind::Empty => (),
+              CellKind::Demand => (),
+              CellKind::Supply => (),
+              CellKind::Machine => {
+                factory.floor[coord].port_u = Port::None;
+                factory.floor[coord].port_r = Port::None;
+                factory.floor[coord].port_d = Port::None;
+                factory.floor[coord].port_l = Port::None;
+              },
+            }
+          }
+          factory.changed = true;
+        }
+        2 => { // Unpart
+          log(format!("Removing all part data from the factory"));
+          unpart(options, state, config, factory);
+        }
+        3 => { // Undir
+          log(format!("Applying undir..."));
+          for coord in 0..factory.floor.len() {
+            let (x, y) = to_xy(coord);
+            if factory.floor[coord].kind != CellKind::Supply && factory.floor[coord].kind != CellKind::Demand {
+              if factory.floor[coord].port_u != Port::None {
+                cell_set_port_u_to(factory, coord, Port::Unknown, to_coord_up(coord));
+              }
+              if factory.floor[coord].port_r != Port::None {
+                cell_set_port_r_to(factory, coord, Port::Unknown, to_coord_right(coord));
+              }
+              if factory.floor[coord].port_d != Port::None {
+                cell_set_port_d_to(factory, coord, Port::Unknown, to_coord_down(coord));
+              }
+              if factory.floor[coord].port_l != Port::None {
+                cell_set_port_l_to(factory, coord, Port::Unknown, to_coord_left(coord));
+              }
+            }
+          }
+          factory.changed = true;
+        }
+        4 => { // Dump
+          log(format!("Dumping factory..."));
+          log(format!("\n{}", generate_floor_dump(options, state, &factory, dnow()).join("\n")));
+        }
+        5 => {
+          log(format!("Restarting game at the start of next frame"));
+          state.reset_next_frame = true;
+        }
+        _ => panic!("Hit the panic button. Or another button without implementation."),
+      }
+    } else {
+      log(format!("clicked margin after button {}", button_index));
     }
-    CraftInteractable::Resource => {
-      log(format!("Clicked a resource: {}", mouse_state.craft_up_ci_icon));
+  }
+  // Second row of buttons?
+  else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_MENU_BUTTONS_OFFSET_X, UI_MENU_BUTTONS_OFFSET_Y2, UI_MENU_BUTTONS_OFFSET_X + UI_MENU_BUTTONS_WIDTH_MAX, UI_MENU_BUTTONS_OFFSET_Y2 + UI_MENU_BUTTONS_HEIGHT) {
+    log(format!("Second row of buttons"));
+    let button_index = (mouse_state.last_up_world_x - UI_MENU_BUTTONS_OFFSET_X) / (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING);
+    if button_index % 1.0 < (UI_MENU_BUTTONS_WIDTH / (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING)) {
+      log(format!("({}) clicked inside button {}", factory.ticks, button_index));
+      match button_index.floor() as u8 {
+        0 => { // Draw / Erase
+          log(format!("toggle draw/erase mode"));
+          state.mouse_mode_erasing = !state.mouse_mode_erasing;
+          state.mouse_mode_selecting = false;
+          cell_selection.area = false;
+          cell_selection.on = false;
+          state.selected_area_copy = vec!(); // Or retain this?
+        }
+        1 => { // Select
+          log(format!("Toggle selection mode"));
+          state.mouse_mode_selecting = !state.mouse_mode_selecting;
+          state.mouse_mode_erasing = false;
+          cell_selection.area = state.mouse_mode_selecting;
+          cell_selection.on = false;
+          state.selected_area_copy = vec!(); // Or retain this?
+        }
+        2 => { // Copy
+          log(format!("Copy selection"));
+          if state.mouse_mode_selecting && cell_selection.on {
+            // If there's no clipboard, fill it now. Otherwise clear the clipboard.
+            if state.selected_area_copy.len() == 0 {
+              // clone each cell in the area verbatim
+              // Store this copy in... state
+              let mut area = vec!();
+              // Only copy belts. Machines are too hard to deal with. Edge stuff is too tricky.
+              let cox = cell_selection.x.min(cell_selection.x2) as usize;
+              let coy = cell_selection.y.min(cell_selection.y2) as usize;
+              for y in 0..1 + (cell_selection.y - cell_selection.y2).abs() as usize {
+                area.push(vec!());
+                for x in 0..1 + (cell_selection.x - cell_selection.x2).abs() as usize {
+                  area[y].push(factory.floor[to_coord(cox + x, coy + y)].clone());
+                }
+              }
+              state.selected_area_copy = area;
+            }
+            else {
+              state.selected_area_copy = vec!();
+            }
+          }
+        }
+        3 => { // tbd
+          log(format!("(no button here)"));
+        }
+        4 => { // tbd
+          log(format!("(no button here)"));
+        }
+        5 => { // tbd
+          log(format!("(no button here)"));
+        }
+        6 => { // tbd
+          log(format!("(no button here)"));
+        }
+        _ => panic!("Hit a button2 without implementation."),
+      }
+    } else {
+      log(format!("clicked margin after button {}", button_index));
     }
-    CraftInteractable::InputCell => {
-      log(format!("Clicked an input cell: {}", mouse_state.craft_up_ci_icon));
+  }
+  // Any of the speed bubbles?
+  else if hit_check_speed_bubbles_any(options, state, mouse_state) {
+    on_click_speed_bubbles(options, state, mouse_state);
+  }
+}
+fn on_down_top_bar() {
 
-      // Force-clear this cell of the machine
-      machine_change_want(options, state, config, factory, factory.floor[cell_selection.coord].machine.main_coord, mouse_state.craft_up_ci_index as usize - 100, part_none(config));
-    }
-    CraftInteractable::None => {
-      log(format!("Clicked inside selection craft menu but not on an interactable; ignoring"));
+}
+fn on_up_top_bar(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
+  if !bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_OFFSET_Y + UI_DAY_PROGRESS_HEIGHT) {
+    // Dragged onto this button but did not start on this button so ignore the up.
+    return;
+  }
+
+  log(format!("Resetting day... any time now!"));
+
+  unpart(options, state, config, factory);
+  factory_reset_stats(options, state, factory);
+  factory.last_day_start = factory.ticks;
+  factory.modified_at = 0;
+  factory.finished_at = 0;
+  factory.finished_with = 0;
+}
+fn on_down_craft_menu() {
+
+}
+fn on_drag_start_craft_before(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState, cell_selection: &CellSelection) {
+  log(format!("is_drag_start from craft popup (before erase/selection check); kind={:?}", mouse_state.craft_down_ci_part_kind));
+
+  // If this was dragging from a machine cell, clear that machine input at this index
+  if mouse_state.craft_down_ci == CraftInteractable::InputCell {
+    let main_coord = factory.floor[cell_selection.coord].machine.main_coord;
+    let index = mouse_state.craft_down_ci_index as usize - 100;
+    log(format!("Clearing input @{} from machine @{} because drag start; has {} wants and {} haves", index, cell_selection.coord, factory.floor[main_coord].machine.wants.len(), factory.floor[main_coord].machine.haves.len()));
+
+    machine_change_want(options, state, config, factory, main_coord, index, part_none(config));
+    // Make sure the haves are cleared as well
+    factory.floor[main_coord].machine.haves[index] = part_none(config);
+  }
+}
+fn on_drag_start_craft_after(mouse_state: &MouseState) {
+  log(format!("Started dragging from craft popup (after erase/selection check; kind={:?}", mouse_state.craft_down_ci_part_kind));
+}
+fn on_down_erase(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState) {
+  if bounds_check(mouse_state.world_x, mouse_state.world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
+    // On the floor. Delete anything.
+    let coord = mouse_state.cell_coord;
+    if factory.floor[coord].kind != CellKind::Empty {
+      floor_delete_cell_at_partial(options, state, config, factory, coord);
+      factory.changed = true;
     }
   }
 }
-fn hit_test_get_craft_interactable_machine_at(options: &mut Options, state: &mut State, factory: &mut Factory, cell_selection: &mut CellSelection, mwx: f64, mwy: f64) -> ( CraftInteractable, f64, f64, f64, f64, char, PartKind, u8 ) {
+fn on_up_erase(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
+  // Still allow to use menu buttons while deleting, but ignore other hit boxes
+  log(format!("({}) on_up_menu from erasing", factory.ticks));
+  on_up_menu(cell_selection, mouse_state, options, state, config, factory);
+}
+fn on_up_selecting(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
+  log(format!("mouse up with selection mode enabled..."));
+  let down_cell_x = ((mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor();
+  let down_cell_y = ((mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor();
+  if mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && is_floor(mouse_state.cell_x, mouse_state.cell_y) {
+    log(format!("  was up on floor"));
+
+    // Moving while there's stuff on the clipboard? This mouse up is a paste / stamp.
+    if state.selected_area_copy.len() > 0 {
+      log(format!("    clipboard has data so we stamp it now"));
+      paste(options, state, config, factory, mouse_state.cell_x as usize, mouse_state.cell_y as usize);
+    }
+    // Dragging a selection?
+    else if down_cell_x >= 0.0 && down_cell_y >= 0.0 && is_floor(down_cell_x, down_cell_y) {
+      log(format!("  was down in floor, too. ok!"));
+      let now_cell_x = mouse_state.cell_x.floor();
+      let now_cell_y = mouse_state.cell_y.floor();
+
+      cell_selection.x = down_cell_x.min(now_cell_x);
+      cell_selection.y = down_cell_y.min(now_cell_y);
+      cell_selection.x2 = down_cell_x.max(now_cell_x);
+      cell_selection.y2 = down_cell_y.max(now_cell_y);
+      cell_selection.on = true;
+    } else {
+      log(format!("  not down in floor"));
+    }
+  } else {
+    // Still allow to use menu buttons while deleting, but ignore other hit boxes
+    log(format!("({}) on_up_menu() with selection mode enabled", factory.ticks));
+    on_up_menu(cell_selection, mouse_state, options, state, config, factory);
+  }
+}
+fn on_drag_start_floor() {
+  // Drag start on floor. Do nothing here.
+  // This is computed on the fly and state is already recorded through other means.
+  log(format!("Started dragging from floor"));
+}
+
+fn bounds_check(x: f64, y: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> bool {
+  return x >= x1 && x < x2 && y >= y1 && y < y2;
+}
+
+fn hit_test_get_craft_interactable_machine_at(options: &Options, state: &mut State, factory: &mut Factory, cell_selection: &mut CellSelection, mwx: f64, mwy: f64) -> ( CraftInteractable, f64, f64, f64, f64, char, PartKind, u8 ) {
   // Figure out whether any of the interactables were clicked
 
   let coord = cell_selection.coord;
@@ -1922,54 +2022,6 @@ fn hit_test_get_craft_interactable_machine_at_index(angle_step: f64, minr: f64, 
   }
 
   return None;
-}
-fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
-  log(format!("on_click_inside_floor()"));
-  let last_mouse_up_cell_x = ((mouse_state.last_up_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor();
-  let last_mouse_up_cell_y = ((mouse_state.last_up_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor();
-
-  if mouse_state.last_down_button == 2 {
-    // Clear the cell if that makes sense for it. Delete a belt with one or zero ports.
-    let coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
-
-    let mut ports = 0;
-    if factory.floor[coord].port_u != Port::None { ports += 1; }
-    if factory.floor[coord].port_r != Port::None { ports += 1; }
-    if factory.floor[coord].port_d != Port::None { ports += 1; }
-    if factory.floor[coord].port_l != Port::None { ports += 1; }
-    if ports <= 1 || factory.floor[coord].kind == CellKind::Machine {
-      log(format!("Deleting stub @{} after rmb click", coord));
-      floor_delete_cell_at_partial(options, state, config, factory, coord);
-      factory.changed = true;
-    }
-
-    // If this wasn't a belt (ports=999) or the belt had more than 1 ports, then just drop its part.
-    if ports > 1 {
-      log(format!("Clearing part from @{} after rmb click (ports={})", coord, ports));
-      clear_part_from_cell(options, state, config, factory, coord);
-    }
-  } else {
-    // De-/Select this cell
-    log(format!("clicked {} {} cell selection before: {:?}", last_mouse_up_cell_x, last_mouse_up_cell_y, cell_selection));
-
-    if cell_selection.on && cell_selection.x == last_mouse_up_cell_x && cell_selection.y == last_mouse_up_cell_y {
-      cell_selection.on = false;
-    } else {
-      cell_selection.on = true;
-      cell_selection.x = last_mouse_up_cell_x;
-      cell_selection.y = last_mouse_up_cell_y;
-      cell_selection.coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
-      // log(format!("Cell: {:?}", factory.floor[cell_selection.coord]));
-      // log(format!("- Belt: {:?}", factory.floor[cell_selection.coord].belt));
-      // log(format!("- Machine: {:?}", factory.floor[cell_selection.coord].machine));
-      // log(format!("- Supply: {:?}", factory.floor[cell_selection.coord].supply));
-      // log(format!("- Demand: {:?}", factory.floor[cell_selection.coord].demand));
-    }
-  }
-}
-
-fn bounds_check(x: f64, y: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> bool {
-  return x >= x1 && x < x2 && y >= y1 && y < y2;
 }
 fn hit_test_circle(x: f64, y: f64, cx: f64, cy: f64, r: f64) -> bool {
   // Hit test for a circle is testing whether the distance from the center of the circle to the
@@ -2692,7 +2744,7 @@ fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory
     if !mouse_state.craft_over_any {
       paint_mouse_cell_location_on_floor(&context, &factory, &cell_selection, &mouse_state, belt_tile_images);
     }
-    if mouse_state.is_dragging {
+    if mouse_state.was_dragging || mouse_state.is_dragging {
       if mouse_state.craft_down_any {
         // This drag stated in a craft popup so do not show a track preview; we're not doing that.
       }
@@ -2762,7 +2814,7 @@ fn paint_mouse_in_selection_mode(options: &Options, state: &State, factory: &Fac
             let y = cell_y + (j as f64);
             if is_middle(x, y) {
               let bt = state.selected_area_copy[j][i].belt.meta.btype;
-              paint_ghost_belt_of_type(x as usize, y as usize, bt, &context, &belt_tile_images);
+              paint_ghost_belt_of_type(x as usize, y as usize, bt, &context, &belt_tile_images, false);
             }
           }
         }
@@ -2847,8 +2899,8 @@ fn paint_mouse_while_dragging_offer(options: &Options, state: &State, config: &C
   // - the offer has a pattern; only allow to drag to machines. with debug setting can be both?
   // - the offer has no pattern; only allow to edge as supply
 
-  let part_index = factory.available_parts_rhs_menu[mouse_state.offer_index].0;
-  paint_ui_offer_droptarget_hint(options, state, config, context, factory, part_index);
+  let part_index = factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0;
+  paint_ui_offer_hover_droptarget_hint(options, state, config, context, factory, part_index);
 
   let len = config.nodes[part_index].pattern_unique_icons.len();
   if len > 0 {
@@ -2889,17 +2941,24 @@ fn paint_belt_drag_preview(context: &Rc<web_sys::CanvasRenderingContext2d>, fact
 
   for index in 0..track.len() {
     let ((cell_x, cell_y), bt, in_port_dir, out_port_dir) = track[index];
-    context.set_fill_style(&"#00770044".into());
-    context.fill_rect(UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H, CELL_W, CELL_H);
-    paint_ghost_belt_of_type(cell_x, cell_y, if mouse_state.last_down_button == 2 { BeltType::INVALID } else { bt }, &context, &belt_tile_images);
+    // context.set_fill_style(&"#00770044".into());
+    // context.fill_rect(UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H, CELL_W, CELL_H);
+    paint_ghost_belt_of_type(cell_x, cell_y, if mouse_state.last_down_button == 2 { BeltType::INVALID } else { bt }, &context, &belt_tile_images, factory.floor[to_coord(cell_x, cell_y)].kind == CellKind::Machine);
   }
 }
-fn paint_ghost_belt_of_type(cell_x: usize, cell_y: usize, belt_type: BeltType, context: &Rc<web_sys::CanvasRenderingContext2d>, belt_tile_images: &Vec<web_sys::HtmlImageElement>) {
+fn paint_ghost_belt_of_type(cell_x: usize, cell_y: usize, belt_type: BeltType, context: &Rc<web_sys::CanvasRenderingContext2d>, belt_tile_images: &Vec<web_sys::HtmlImageElement>, skip_tile: bool) {
   let img: &HtmlImageElement = &belt_tile_images[belt_type as usize];
 
-  context.set_global_alpha(0.5);
-  context.draw_image_with_html_image_element_and_dw_and_dh(&img, UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + 5.0, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + 5.0, CELL_W - 10.0, CELL_H - 10.0).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
-  context.set_global_alpha(1.0);
+  let tile_size_reduction = 1.0;
+
+  context.set_fill_style(&"#ffffff40".into());
+  context.fill_rect(UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + (1.0 - tile_size_reduction / 2.0), UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + (1.0 - tile_size_reduction / 2.0), CELL_W * tile_size_reduction, CELL_H * tile_size_reduction);
+
+  if !skip_tile {
+    context.set_global_alpha(0.7);
+    context.draw_image_with_html_image_element_and_dw_and_dh(&img, UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + 5.0, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + 5.0, CELL_W - 10.0, CELL_H - 10.0).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+    context.set_global_alpha(1.0);
+  }
 }
 fn paint_debug_selected_belt_cell(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
   if !cell_selection.on {
@@ -3212,8 +3271,8 @@ fn paint_left_quotes(options: &Options, state: &State, config: &Config, context:
 }
 fn paint_ui_offers(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) {
   let ( is_mouse_over_offer, offer_hover_index ) =
-    if mouse_state.is_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight offers
-    else { ( mouse_state.over_offer, mouse_state.offer_index ) };
+    if mouse_state.is_dragging || mouse_state.was_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight offers
+    else { ( mouse_state.offer_hover, mouse_state.offer_hover_offer_index ) };
 
   let mut inc = 0;
   for index in 0..factory.available_parts_rhs_menu.len() {
@@ -3224,10 +3283,10 @@ fn paint_ui_offers(options: &Options, state: &State, config: &Config, context: &
     }
   }
 }
-fn paint_ui_offer_droptarget_hint_conditionally(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) {
+fn paint_ui_offer_hover_droptarget_hint_conditionally(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) {
   let ( is_mouse_over_offer, offer_hover_index ) =
-    if mouse_state.is_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight offers
-    else { ( mouse_state.over_offer, mouse_state.offer_index ) };
+    if mouse_state.is_dragging || mouse_state.was_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight offers
+    else { ( mouse_state.offer_hover, mouse_state.offer_hover_offer_index ) };
 
   // While not dragging, paint colored overlays over machines to indicate current eligibility.
   // For example, if a part a requires part b a nd c in its pattern, mark only those machines
@@ -3243,10 +3302,10 @@ fn paint_ui_offer_droptarget_hint_conditionally(options: &Options, state: &State
     return;
   }
 
-  let hover_part_index: PartKind = factory.available_parts_rhs_menu[mouse_state.offer_index].0;
-  paint_ui_offer_droptarget_hint(options, state, config, context, factory, hover_part_index);
+  let hover_part_index: PartKind = factory.available_parts_rhs_menu[mouse_state.offer_hover_offer_index].0;
+  paint_ui_offer_hover_droptarget_hint(options, state, config, context, factory, hover_part_index);
 }
-fn paint_ui_offer_droptarget_hint(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, part_index: usize) {
+fn paint_ui_offer_hover_droptarget_hint(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, part_index: usize) {
   // Parts with patterns go to machines. Parts without patterns (or empty patterns) are suppliers.
   if config.nodes[part_index].pattern_by_index.len() > 0 {
     // Get all unique required parts

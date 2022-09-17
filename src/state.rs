@@ -64,12 +64,14 @@ pub struct MouseState {
   pub is_drag_start: bool,
 
   pub was_down: bool,
-  pub was_dragging: bool,
   pub was_up: bool,
+  pub was_dragging: bool,
 
-  pub over_offer: bool,
+  pub offer_hover: bool,
+  pub offer_hover_offer_index: usize, // Only relevant when offer_hover = true
+  pub offer_down: bool,
+  pub offer_down_offer_index: usize, // Kept until the next up, used for dragging
   pub dragging_offer: bool,
-  pub offer_index: usize, // Only relevant when over_offer = true
   pub over_machine_button: bool, // Is the mouse currently over the machine button?
   pub dragging_machine: bool,
 
