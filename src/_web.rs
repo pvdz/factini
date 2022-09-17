@@ -24,8 +24,9 @@
 // - paint the prepared parts of a machine while not selected?
 // - click offer to show pattern (not hover, mobile friendly)
 // - allow machine icon to be config defined. maybe box sizes / margins as well? output-icon-position/size?
-// - should machine craft menu close when dragging non-pattern offer?
 // - what's up with these assertion traps :(
+//   - `let (received_part_index, received_count) = factory.floor[coord].demand.received[i];` threw oob (1 while len=0)
+
 
 // This is required to export panic to the web
 use std::panic;
@@ -907,6 +908,14 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
           mouse_state.dragging_machine = false;
           state.mouse_mode_erasing = false;
           state.mouse_mode_selecting = false;
+
+          let part_index = factory.available_parts_rhs_menu[mouse_state.offer_index].0;
+          if config.nodes[part_index].pattern_unique_icons.len() == 0 {
+            log(format!("closing machine craft menu because dragging offer without pattern"));
+            cell_selection.on = false;
+          }
+
+
         }
       }
       else if mouse_state.over_machine_button {
