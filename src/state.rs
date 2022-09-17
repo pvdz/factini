@@ -59,13 +59,13 @@ pub struct MouseState {
   pub cell_rel_x: f64,
   pub cell_rel_y: f64,
 
-  pub is_down: bool,
+  pub is_down: bool, // Set if current frame handled a mouse down. It may be unset, unlike was_up.
+  pub was_down: bool, // Set if current frame handled a mouse down. Should not be unset.
   pub is_dragging: bool,
-  pub is_drag_start: bool,
-
-  pub was_down: bool,
-  pub was_up: bool,
   pub was_dragging: bool,
+  pub is_drag_start: bool,
+  pub is_up: bool, // Set if current frame handled a mouse up. It may be unset, unlike was_up.
+  pub was_up: bool, // Set if current frame handled a mouse up. Should not be unset.
 
   pub offer_hover: bool,
   pub offer_hover_offer_index: usize, // Only relevant when offer_hover = true

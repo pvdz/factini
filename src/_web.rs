@@ -446,6 +446,7 @@ pub fn start() -> Result<(), JsValue> {
       cell_rel_y: 0.0,
 
       is_down: false,
+      was_down: false,
       is_dragging: false,
       is_drag_start: false,
 
@@ -486,8 +487,8 @@ pub fn start() -> Result<(), JsValue> {
       craft_up_ci_part_kind: PARTKIND_NONE,
       craft_dragging_ci: false,
 
-      was_down: false,
       was_dragging: false,
+      is_up: false,
       was_up: false,
 
       last_down_button: 0,
@@ -892,13 +893,13 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
   // Reset
   mouse_state.moved_since_start = mouse_moved_since_app_start;
   mouse_state.is_drag_start = false;
-  mouse_state.was_down = false;
-  if mouse_state.was_up {
+  if mouse_state.is_up {
     mouse_state.craft_down_ci = CraftInteractable::None;
     mouse_state.craft_down_any = false;
     mouse_state.craft_dragging_ci = false;
     mouse_state.offer_down = false;
   }
+  mouse_state.is_up = false;
   mouse_state.was_up = false;
   mouse_state.was_dragging = false;
   mouse_state.offer_hover = false;
@@ -966,7 +967,7 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
     mouse_state.last_down_world_x = last_mouse_down_x / CANVAS_CSS_WIDTH * CANVAS_WIDTH;
     mouse_state.last_down_world_y = last_mouse_down_y / CANVAS_CSS_HEIGHT * CANVAS_HEIGHT;
     mouse_state.is_down = true;
-    mouse_state.was_down = true; // this frame, in case there's also an up event
+    mouse_state.was_down = true;
 
     mouse_state.craft_down_any = is_machine_selected && hit_test_machine_circle(factory, cell_selection.coord, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
     if mouse_state.craft_down_any {
@@ -1014,6 +1015,7 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
     mouse_state.last_up_world_x = last_mouse_up_x / CANVAS_CSS_WIDTH * CANVAS_WIDTH;
     mouse_state.last_up_world_y = last_mouse_up_y / CANVAS_CSS_HEIGHT * CANVAS_HEIGHT;
     mouse_state.is_down = false;
+    mouse_state.is_up = true;
     mouse_state.was_up = true;
     if mouse_state.is_drag_start {
       mouse_state.is_drag_start = false; // ignore :shrug:
@@ -1043,13 +1045,11 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
 }
 fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
   if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_OFFSET_Y + UI_DAY_PROGRESS_HEIGHT) {
-    if mouse_state.was_up {
-      if bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_OFFSET_Y + UI_DAY_PROGRESS_HEIGHT) {
-        on_up_top_bar(options, state, config, factory, mouse_state);
-        mouse_state.dragging_offer = false;
-        mouse_state.dragging_machine = false;
-        return;
-      }
+    if mouse_state.is_up {
+      on_up_top_bar(options, state, config, factory, mouse_state);
+      mouse_state.dragging_offer = false;
+      mouse_state.dragging_machine = false;
+      return;
     }
   }
 
@@ -1057,13 +1057,28 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
   if mouse_state.is_drag_start {
     if mouse_state.craft_down_any {
       on_drag_start_craft_before(options, state, config, factory, mouse_state, cell_selection);
-    } else {
-      if mouse_state.offer_down {
-        on_drag_start_offer(options, state, config, factory, mouse_state, cell_selection);
-      }
-      else if mouse_state.over_machine_button {
-        on_drag_start_machine_button(options, state, config, mouse_state);
-      }
+    }
+    else if mouse_state.offer_down {
+      on_drag_start_offer_before(options, state, config, factory, mouse_state, cell_selection);
+    }
+    else if mouse_state.over_machine_button {
+      on_drag_start_machine_button_before(options, state, config, mouse_state);
+    }
+    else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
+      on_drag_start_floor_before();
+    }
+  } else if mouse_state.is_down {
+    if mouse_state.craft_down_any {
+      on_down_craft_before();
+    }
+    else if mouse_state.offer_down {
+      on_down_offer_before();
+    }
+    else if mouse_state.over_machine_button {
+      on_down_machine_button_before();
+    }
+    else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
+      on_down_floor_before();
     }
   }
 
@@ -1071,14 +1086,14 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
     if mouse_state.is_down {
       on_down_erase(options, state, config, factory, mouse_state);
     }
-    else if mouse_state.was_up {
+    else if mouse_state.is_up {
       on_up_erase(options, state, config, factory, mouse_state, cell_selection);
     }
     return;
   }
 
   if state.mouse_mode_selecting {
-    if mouse_state.was_up {
+    if mouse_state.is_up {
       on_up_selecting(options, state, config, factory, mouse_state, cell_selection);
     }
     return;
@@ -1088,26 +1103,73 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
     if mouse_state.craft_down_any {
       on_drag_start_craft_after(mouse_state);
     }
-    else if bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
-      on_drag_start_floor();
+    else if mouse_state.offer_down {
+      on_drag_start_offer_after();
+    }
+    else if mouse_state.over_machine_button {
+      on_drag_start_machine_button_after();
+    }
+    else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
+      on_drag_start_floor_after();
+    }
+  } else if mouse_state.is_down {
+    if mouse_state.craft_down_any {
+      on_down_craft_after();
+    }
+    else if mouse_state.offer_down {
+      on_down_offer_after();
+    }
+    else if mouse_state.over_machine_button {
+      on_down_machine_button_after();
+    }
+    else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
+      on_down_floor_after();
     }
   }
 
-  if mouse_state.was_up {
+  if mouse_state.is_up {
     if mouse_state.was_dragging {
-      on_drag_end_floor(options, state, config, factory, cell_selection, mouse_state);
-    }
-    else if mouse_state.craft_up_any {
-      on_click_inside_machine_selection_circle(options, state, config, factory, cell_selection, mouse_state);
-    }
-    // Was the click inside the painted world?
-    // In that case we change/toggle the cell selection
-    else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
-      on_up_floor(options, state, config, factory, cell_selection, &mouse_state);
-    }
-    else {
-      log(format!("({}) on_up_menu from normal", factory.ticks));
-      on_up_menu(cell_selection, mouse_state, options, state, config, factory);
+      if mouse_state.craft_up_any {
+        on_drag_end_craft();
+        if mouse_state.craft_down_any {
+          on_drag_end_craft_over_floor(options, state, config, factory, cell_selection, mouse_state);
+        }
+      }
+      else if mouse_state.offer_down {
+        on_drag_end_offer();
+        if mouse_state.dragging_offer {
+          on_drag_end_offer_over_floor(options, state, config, factory, mouse_state);
+        }
+      }
+      else if mouse_state.over_machine_button {
+        on_drag_end_machine_button();
+        if mouse_state.dragging_machine {
+          on_drag_end_machine_over_floor(options, state, config, factory, mouse_state);
+        }
+      }
+      else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
+        on_drag_end_floor2();
+        // Is the mouse currently on the floor?
+        on_drag_end_floor_other(options, state, config, factory, cell_selection, mouse_state);
+      }
+    } else {
+      if mouse_state.craft_up_any {
+        on_up_craft(options, state, config, factory, cell_selection, mouse_state);
+      }
+      else if mouse_state.offer_down {
+        on_up_offer();
+      }
+      else if mouse_state.over_machine_button {
+        on_up_machine_button();
+      }
+      else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
+        on_up_floor(options, state, config, factory, cell_selection, &mouse_state);
+      }
+      else {
+        // Maybe. Bounds checked inside func.
+        log(format!("({}) on_up_menu from normal", factory.ticks));
+        on_up_menu(cell_selection, mouse_state, options, state, config, factory);
+      }
     }
 
     mouse_state.dragging_offer = false;
@@ -1117,7 +1179,13 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
 
 // on over, out, hover, down, up, drag start, dragging, drag end. but not everything makes sense for all cases.
 
-fn on_drag_start_offer(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
+fn on_down_offer_before() {
+  log(format!("on_down_offer_before()"));
+}
+fn on_down_offer_after() {
+  log(format!("on_down_offer_after()"));
+}
+fn on_drag_start_offer_before(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
 // Is that offer visible / interactive yet?
   if factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].1 {
     // Need to remember which offer we are currently dragging (-> offer_down_offer_index).
@@ -1134,8 +1202,32 @@ fn on_drag_start_offer(options: &mut Options, state: &mut State, config: &Config
     }
   }
 }
-fn on_down_floor() {
-
+fn on_drag_start_offer_after() {
+  log(format!("on_drag_start_offer_after()"));
+}
+fn on_drag_end_offer() {
+  log(format!("on_drag_end_offer()"));
+}
+fn on_down_floor_before() {
+  log(format!("on_down_floor_before()"));
+}
+fn on_down_floor_after() {
+  log(format!("on_down_floor_after()"));
+}
+fn on_up_offer() {
+  log(format!("on_up_offer()"));
+}
+fn on_drag_start_floor_before() {
+  log(format!("on_drag_start_floor_before()"));
+}
+fn on_drag_start_floor_after() {
+  // Drag start on floor. Do nothing here.
+  // This is computed on the fly and state is already recorded through other means.
+  // TODO: move that logic to these handlers
+  log(format!("on_drag_start_floor_after()"));
+}
+fn on_drag_end_floor2() {
+  log(format!("on_drag_end_floor2()"));
 }
 fn on_up_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
   log(format!("on_up_floor()"));
@@ -1185,7 +1277,9 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
     }
   }
 }
-fn on_click_inside_machine_selection_circle(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
+fn on_up_craft(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
+  log(format!("on_up_craft()"));
+
   log(format!("Clicked in the selection bubble of a machine"));
   // Figure out whether any of the interactables were clicked
 
@@ -1206,25 +1300,6 @@ fn on_click_inside_machine_selection_circle(options: &mut Options, state: &mut S
     CraftInteractable::None => {
       log(format!("Clicked inside selection craft menu but not on an interactable; ignoring"));
     }
-  }
-}
-fn on_drag_end_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
-  log(format!("on_drag_end_floor()"));
-  if mouse_state.craft_down_any {
-    on_drag_end_craft_over_floor(options, state, config, factory, cell_selection, mouse_state);
-  }
-  else if mouse_state.dragging_offer {
-    on_drag_end_offer_over_floor(options, state, config, factory, mouse_state);
-  }
-  else if mouse_state.dragging_machine {
-    on_drag_end_machine_over_floor(options, state, config, factory, mouse_state);
-  }
-  // Drag ended on the floor, did drag start on the floor?
-  else if bounds_check(mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X, mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y, 0.0,  0.0, FLOOR_WIDTH, FLOOR_HEIGHT) {
-    // Is the mouse currently on the floor?
-    on_drag_end_floor_other(options, state, config, factory, cell_selection, mouse_state);
-  } else {
-    log(format!("Drag ended on floor but did not start there. noop"));
   }
 }
 fn on_drag_end_craft_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
@@ -1694,17 +1769,34 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
 
   factory.changed = true;
 }
-fn on_drag_start_machine_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState) {
+fn on_down_machine_button_before() {
+  log(format!("on_down_machine_button_before()"));
+}
+fn on_down_machine_button_after() {
+  log(format!("on_down_machine_button_after()"));
+}
+fn on_drag_end_machine_button() {
+  log(format!("on_drag_end_machine_button()"));
+}
+fn on_up_machine_button() {
+  log(format!("on_up_machine_button()"));
+}
+fn on_drag_start_machine_button_before(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState) {
   log(format!("is_drag_start from machine"));
   mouse_state.dragging_machine = true;
   mouse_state.dragging_offer = false;
   state.mouse_mode_erasing = false;
   state.mouse_mode_selecting = false;
 }
+fn on_drag_start_machine_button_after() {
+  log(format!("on_drag_start_machine_button_after()"));
+}
 fn on_down_menu() {
 
 }
 fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
+  log(format!("on_up_menu() maybe?"));
+
   // Was one of the buttons below the floor clicked?
   if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_MENU_BUTTONS_OFFSET_X, UI_MENU_BUTTONS_OFFSET_Y, UI_MENU_BUTTONS_OFFSET_X + UI_MENU_BUTTONS_WIDTH_MAX, UI_MENU_BUTTONS_OFFSET_Y + UI_MENU_BUTTONS_HEIGHT) {
     let button_index = (mouse_state.last_up_world_x - UI_MENU_BUTTONS_OFFSET_X) / (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING);
@@ -1882,6 +1974,15 @@ fn on_drag_start_craft_before(options: &mut Options, state: &mut State, config: 
     factory.floor[main_coord].machine.haves[index] = part_none(config);
   }
 }
+fn on_drag_end_craft() {
+  log(format!("on_drag_end_craft()"));
+}
+fn on_down_craft_before() {
+  log(format!("on_down_craft_before()"));
+}
+fn on_down_craft_after() {
+  log(format!("on_down_craft_after()"));
+}
 fn on_drag_start_craft_after(mouse_state: &MouseState) {
   log(format!("Started dragging from craft popup (after erase/selection check; kind={:?}", mouse_state.craft_down_ci_part_kind));
 }
@@ -1931,11 +2032,6 @@ fn on_up_selecting(options: &mut Options, state: &mut State, config: &Config, fa
     log(format!("({}) on_up_menu() with selection mode enabled", factory.ticks));
     on_up_menu(cell_selection, mouse_state, options, state, config, factory);
   }
-}
-fn on_drag_start_floor() {
-  // Drag start on floor. Do nothing here.
-  // This is computed on the fly and state is already recorded through other means.
-  log(format!("Started dragging from floor"));
 }
 
 fn bounds_check(x: f64, y: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> bool {
@@ -3176,7 +3272,7 @@ fn paint_top_stats(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Fa
   context.fill_text(format!("Current time: {}, day start: {}, modified at: {}", factory.ticks, factory.last_day_start, factory.modified_at).as_str(), 20.0, 40.0).expect("to paint");
 }
 fn paint_top_bars(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  let hovering = !mouse_state.is_down && !mouse_state.was_up && bounds_check(mouse_state.world_x, mouse_state.world_y, UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_OFFSET_Y + UI_DAY_PROGRESS_HEIGHT);
+  let hovering = !mouse_state.is_down && !mouse_state.is_up && bounds_check(mouse_state.world_x, mouse_state.world_y, UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_OFFSET_Y + UI_DAY_PROGRESS_HEIGHT);
   let invalid = factory.finished_at == 0 && factory.modified_at > factory.last_day_start && factory.modified_at < factory.last_day_start + ONE_MS * 1000 * 60 * 60;
   let day_ticks = ONE_MS * 1000 * 60; // one day a minute (arbitrary)
 
