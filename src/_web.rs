@@ -885,87 +885,9 @@ fn world_y_to_top_left_cell_y_while_dragging_offer_machine(world_y: f64, offer_h
   return oy;
 }
 
-fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
-  if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_OFFSET_Y + UI_DAY_PROGRESS_HEIGHT) {
-    if mouse_state.was_up {
-      if bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_OFFSET_Y + UI_DAY_PROGRESS_HEIGHT) {
-        on_up_top_bar(options, state, config, factory, mouse_state);
-        mouse_state.dragging_offer = false;
-        mouse_state.dragging_machine = false;
-        return;
-      }
-    }
-  }
-
-  // Do these before the erasing/selecting. It may cancel those states even if active.
-  if mouse_state.is_drag_start {
-    if mouse_state.craft_down_any {
-      on_drag_start_craft_before(options, state, config, factory, mouse_state, cell_selection);
-    } else {
-      if mouse_state.offer_down {
-        on_drag_start_offer(options, state, config, factory, mouse_state, cell_selection);
-      }
-      else if mouse_state.over_machine_button {
-        on_drag_start_machine_button(options, state, config, mouse_state);
-      }
-    }
-  }
-
-  if state.mouse_mode_erasing {
-    if mouse_state.is_down {
-      on_down_erase(options, state, config, factory, mouse_state);
-    }
-    else if mouse_state.was_up {
-      on_up_erase(options, state, config, factory, mouse_state, cell_selection);
-    }
-    return;
-  }
-
-  if state.mouse_mode_selecting {
-    if mouse_state.was_up {
-      on_up_selecting(options, state, config, factory, mouse_state, cell_selection);
-    }
-    return;
-  }
-
-  if mouse_state.is_drag_start {
-    if mouse_state.craft_down_any {
-      on_drag_start_craft_after(mouse_state);
-    }
-    else if bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
-      on_drag_start_floor();
-    }
-  }
-
-  if mouse_state.was_up {
-    if mouse_state.was_dragging {
-      on_drag_end_floor(options, state, config, factory, cell_selection, mouse_state);
-    }
-    else if mouse_state.craft_up_any {
-      on_click_inside_machine_selection_circle(options, state, config, factory, cell_selection, mouse_state);
-    }
-    // Was the click inside the painted world?
-    // In that case we change/toggle the cell selection
-    else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
-      on_up_floor(options, state, config, factory, cell_selection, &mouse_state);
-    }
-    else {
-      log(format!("({}) on_up_menu from normal", factory.ticks));
-      on_up_menu(cell_selection, mouse_state, options, state, config, factory);
-    }
-
-    mouse_state.dragging_offer = false;
-    mouse_state.dragging_machine = false;
-  }
-}
-fn unpart(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
-  for coord in 0..factory.floor.len() {
-    clear_part_from_cell(options, state, config, factory, coord);
-  }
-  factory.changed = true;
-}
-fn update_mouse_state(options: &Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &mut MouseState, mouse_x: f64, mouse_y: f64, mouse_moved_since_app_start: bool, last_mouse_down_x: f64, last_mouse_down_y: f64, last_mouse_down_button: u16, last_mouse_up_x: f64, last_mouse_up_y: f64) {
+fn update_mouse_state(options: &Options, state: &State, config: &Config, factory: &Factory, cell_selection: &CellSelection, mouse_state: &mut MouseState, mouse_x: f64, mouse_y: f64, mouse_moved_since_app_start: bool, last_mouse_down_x: f64, last_mouse_down_y: f64, last_mouse_down_button: u16, last_mouse_up_x: f64, last_mouse_up_y: f64) {
   // Note: event handlers should not be called from here. This should only update mouse_state.
+  //       this is why only the mouse_state is mutable.
 
   // Reset
   mouse_state.moved_since_start = mouse_moved_since_app_start;
@@ -1117,6 +1039,79 @@ fn update_mouse_state(options: &Options, state: &mut State, config: &Config, fac
       mouse_state.craft_up_ci_part_kind = part_index;
       mouse_state.craft_up_ci_index = craft_index;
     }
+  }
+}
+fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
+  if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_OFFSET_Y + UI_DAY_PROGRESS_HEIGHT) {
+    if mouse_state.was_up {
+      if bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_OFFSET_Y + UI_DAY_PROGRESS_HEIGHT) {
+        on_up_top_bar(options, state, config, factory, mouse_state);
+        mouse_state.dragging_offer = false;
+        mouse_state.dragging_machine = false;
+        return;
+      }
+    }
+  }
+
+  // Do these before the erasing/selecting. It may cancel those states even if active.
+  if mouse_state.is_drag_start {
+    if mouse_state.craft_down_any {
+      on_drag_start_craft_before(options, state, config, factory, mouse_state, cell_selection);
+    } else {
+      if mouse_state.offer_down {
+        on_drag_start_offer(options, state, config, factory, mouse_state, cell_selection);
+      }
+      else if mouse_state.over_machine_button {
+        on_drag_start_machine_button(options, state, config, mouse_state);
+      }
+    }
+  }
+
+  if state.mouse_mode_erasing {
+    if mouse_state.is_down {
+      on_down_erase(options, state, config, factory, mouse_state);
+    }
+    else if mouse_state.was_up {
+      on_up_erase(options, state, config, factory, mouse_state, cell_selection);
+    }
+    return;
+  }
+
+  if state.mouse_mode_selecting {
+    if mouse_state.was_up {
+      on_up_selecting(options, state, config, factory, mouse_state, cell_selection);
+    }
+    return;
+  }
+
+  if mouse_state.is_drag_start {
+    if mouse_state.craft_down_any {
+      on_drag_start_craft_after(mouse_state);
+    }
+    else if bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
+      on_drag_start_floor();
+    }
+  }
+
+  if mouse_state.was_up {
+    if mouse_state.was_dragging {
+      on_drag_end_floor(options, state, config, factory, cell_selection, mouse_state);
+    }
+    else if mouse_state.craft_up_any {
+      on_click_inside_machine_selection_circle(options, state, config, factory, cell_selection, mouse_state);
+    }
+    // Was the click inside the painted world?
+    // In that case we change/toggle the cell selection
+    else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
+      on_up_floor(options, state, config, factory, cell_selection, &mouse_state);
+    }
+    else {
+      log(format!("({}) on_up_menu from normal", factory.ticks));
+      on_up_menu(cell_selection, mouse_state, options, state, config, factory);
+    }
+
+    mouse_state.dragging_offer = false;
+    mouse_state.dragging_machine = false;
   }
 }
 
@@ -1947,7 +1942,7 @@ fn bounds_check(x: f64, y: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> bool {
   return x >= x1 && x < x2 && y >= y1 && y < y2;
 }
 
-fn hit_test_get_craft_interactable_machine_at(options: &Options, state: &mut State, factory: &mut Factory, cell_selection: &mut CellSelection, mwx: f64, mwy: f64) -> ( CraftInteractable, f64, f64, f64, f64, char, PartKind, u8 ) {
+fn hit_test_get_craft_interactable_machine_at(options: &Options, state: &State, factory: &Factory, cell_selection: &CellSelection, mwx: f64, mwy: f64) -> ( CraftInteractable, f64, f64, f64, f64, char, PartKind, u8 ) {
   // Figure out whether any of the interactables were clicked
 
   let coord = cell_selection.coord;
@@ -3600,4 +3595,11 @@ fn body() -> web_sys::HtmlElement {
 fn ins_outs_to_str(list: &Vec<(Direction, usize, usize, Direction)>) -> String {
   let map = list.iter().map(|(d,..)| match d { Direction::Up => 'u', Direction::Right => 'r', Direction::Down => 'd', Direction::Left => 'l'});
   return map.collect::<String>();
+}
+
+fn unpart(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
+  for coord in 0..factory.floor.len() {
+    clear_part_from_cell(options, state, config, factory, coord);
+  }
+  factory.changed = true;
 }
