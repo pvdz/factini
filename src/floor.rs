@@ -19,6 +19,8 @@ use super::utils::*;
 
 // Edge cells can only be demand/supply/empty, other cells can only be belt/machine/empty
 pub fn floor_empty(config: &Config) -> [Cell; FLOOR_CELLS_WH] {
+  log(format!("floor_empty()"));
+
   // https://stackoverflow.com/questions/67822062/fixed-array-initialization-without-implementing-copy-or-default-trait/67824946#67824946
   // :shrug: okay
   return (0..FLOOR_CELLS_WH)
@@ -27,7 +29,7 @@ pub fn floor_empty(config: &Config) -> [Cell; FLOOR_CELLS_WH] {
       empty_cell(config, x, y)
     })
     .collect::<Vec<Cell>>()
-    .try_into() // runtime error if bad but this is fine
+    .try_into() // runtime error if bad but this is fine. this does block --dev mode apparently (https://stackoverflow.com/questions/41710952/allocate-array-onto-heap-with-size-known-at-runtime)
     .unwrap();
 }
 

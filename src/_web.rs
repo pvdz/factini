@@ -25,6 +25,8 @@
 // - what's up with these assertion traps :(
 //   - `let (received_part_index, received_count) = factory.floor[coord].demand.received[i];` threw oob (1 while len=0)
 // - make recipes be arbitrary? 2x2? let go of pattern?
+// - bouncer animation not bound to tick
+// - the later bouncers should fade faster
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -308,7 +310,7 @@ pub fn start() -> Result<(), JsValue> {
   let img_machine3: web_sys::HtmlImageElement = load_tile("./img/machine3.png")?;
   let img_machine4: web_sys::HtmlImageElement = load_tile("./img/machine4.png")?;
   let img_machine_1_1: web_sys::HtmlImageElement = load_tile("./img/machine_1_1.png")?;
-  let img_machine_2_1: web_sys::HtmlImageElement = load_tile("./img/machine_2_1.png")?;
+  let img_machine_2_1: web_sys::HtmlImageElement = load_tile("./img/machine_2_2.png")?;
   let img_machine_3_2: web_sys::HtmlImageElement = load_tile("./img/machine_3_2.png")?;
   let img_dumptruck: web_sys::HtmlImageElement = load_tile("./img/dumptruck.png")?;
   let img_loading_sand: web_sys::HtmlImageElement = load_tile("./img/sand.png")?;
@@ -553,9 +555,21 @@ pub fn start() -> Result<(), JsValue> {
       if !state.paused {
         for _ in 0..ticks_todo.min(MAX_TICKS_PER_FRAME) {
           tick_factory(&mut options, &mut state, &config, &mut factory);
-        }
 
-        // factory_collect_stats(&mut options, &mut state, &mut factory);
+          if !options.web_output_cli {
+            // factory_collect_stats(&mut options, &mut state, &mut factory);
+            for t in 0..state.trucks.len() {
+              // TODO: fix this hack
+              if state.trucks[t].delay > 0 {
+                state.trucks[t].delay -= 1;
+                if state.trucks[t].delay == 0 {
+                  log(format!("Okay! truck {} is now ready to go!", t));
+                  state.trucks[t].created_at = factory.ticks;
+                }
+              }
+            }
+          }
+        }
       }
 
       if options.web_output_cli {
@@ -671,14 +685,8 @@ pub fn start() -> Result<(), JsValue> {
         let end_x = GRID_X2 + 5.0;
         // paint dump truck so it starts under the factory
         for t in 0..state.trucks.len() {
-          // TODO: fix this hack
           if state.trucks[t].delay > 0 {
-            state.trucks[t].delay -= 1;
-            if state.trucks[t].delay == 0 {
-              state.trucks[t].created_at = factory.ticks;
-            } else {
-              continue;
-            }
+            continue;
           }
 
           // Draw dump truck at proper position // TODO: prevent overlapping of multiples etc
@@ -778,6 +786,7 @@ pub fn start() -> Result<(), JsValue> {
         // find bouncers that finished and create trucks with the new parts
         for b in 0..state.bouncers.len() {
           // Create an extra still frame of existing bouncers.
+          // TODO: this part should be done inside the factory tick loop. right now it's not bound to factory ticks which can cause different animations at different speeds.
           let framed = bouncer_step(&mut state.bouncers[b], factory.ticks);
           if framed {
             let x = state.bouncers[b].x;
@@ -840,9 +849,10 @@ pub fn start() -> Result<(), JsValue> {
             // We now have a set of available quests and any starting parts that they enabled.
             // Let's create quotes and trucks for them and add them to the lists.
             new_parts.iter().enumerate().for_each(|(index, &part_index)| {
+              log(format!("Adding truck {} for {}", index, part_index));
               state.trucks.push(truck_create(
                 factory.ticks,
-                index as u64 * 100,
+                (index + 1) as u64 * ONE_SECOND,
                 part_index,
                 factory.available_parts_rhs_menu.len(),
               ));
@@ -2532,19 +2542,19 @@ fn paint_background_tiles(
         // TODO: each machine size should have a unique, customized, sprite
         if factory.floor[coord].machine.main_coord == coord {
           let machine_img = match ( factory.floor[coord].machine.cell_width, factory.floor[coord].machine.cell_height ) {
-            ( 1, 1 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_1x1].file_canvas_cache_index],
-            ( 2, 2 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_2x2].file_canvas_cache_index],
-            ( 3, 3 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3x3].file_canvas_cache_index],
+            ( 1, 1 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_1X1].file_canvas_cache_index],
+            ( 2, 2 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_2X2].file_canvas_cache_index],
+            ( 3, 3 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].file_canvas_cache_index],
             ( 4, 4 ) => img_machine_1_1,
             ( 2, 1 ) => img_machine_2_1,
             ( 4, 2 ) => img_machine_2_1,
             ( 3, 2 ) => img_machine_3_2,
-            _ => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3x3].file_canvas_cache_index],
+            _ => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].file_canvas_cache_index],
           };
           context.draw_image_with_html_image_element_and_dw_and_dh(machine_img, ox, oy, factory.floor[coord].machine.cell_width as f64 * CELL_W, factory.floor[coord].machine.cell_height as f64 * CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
 
           // Paint tiny output part
-          paint_segment_part_from_config(options, state, config, context, factory.floor[coord].machine.output_want.kind, ox + config.nodes[CONFIG_NODE_MACHINE_3x3].x, oy + config.nodes[CONFIG_NODE_MACHINE_3x3].y, config.nodes[CONFIG_NODE_MACHINE_3x3].w, config.nodes[CONFIG_NODE_MACHINE_3x3].h);
+          paint_segment_part_from_config(options, state, config, context, factory.floor[coord].machine.output_want.kind, ox + config.nodes[CONFIG_NODE_MACHINE_3X3].x, oy + config.nodes[CONFIG_NODE_MACHINE_3X3].y, config.nodes[CONFIG_NODE_MACHINE_3X3].w, config.nodes[CONFIG_NODE_MACHINE_3X3].h);
         }
       },
       CellKind::Supply => {

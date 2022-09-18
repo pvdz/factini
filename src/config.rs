@@ -19,9 +19,9 @@ pub const CONFIG_NODE_DOCK_UP: usize = 10;
 pub const CONFIG_NODE_DOCK_RIGHT: usize = 11;
 pub const CONFIG_NODE_DOCK_DOWN: usize = 12;
 pub const CONFIG_NODE_DOCK_LEFT: usize = 13;
-pub const CONFIG_NODE_MACHINE_1X1: usize = 13;
-pub const CONFIG_NODE_MACHINE_2X2: usize = 14;
-pub const CONFIG_NODE_MACHINE_3X3: usize = 15;
+pub const CONFIG_NODE_MACHINE_1X1: usize = 14;
+pub const CONFIG_NODE_MACHINE_2X2: usize = 15;
+pub const CONFIG_NODE_MACHINE_3X3: usize = 16;
 
 #[derive(Debug)]
 pub struct Config {
@@ -476,7 +476,7 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
       current_state: ConfigNodeState::Available,
     },
     ConfigNode {
-      index: CONFIG_NODE_MACHINE_1x1,
+      index: CONFIG_NODE_MACHINE_1X1,
       kind: ConfigNodeKind::Machine,
       name: "Machine".to_string(),
       raw_name: "Machine_1x1".to_string(),
@@ -499,61 +499,59 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
       w: 5.0,
       h: 5.0,
       current_state: ConfigNodeState::Available,
+    },
+    ConfigNode {
+      index: CONFIG_NODE_MACHINE_2X2,
+      kind: ConfigNodeKind::Machine,
+      name: "Machine".to_string(),
+      raw_name: "Machine_2x2".to_string(),
+      unlocks_after_by_name: vec!(),
+      unlocks_after_by_index: vec!(),
+      unlocks_todo_by_index: vec!(),
+      starting_part_by_name: vec!(),
+      starting_part_by_index: vec!(),
+      pattern_unique_icons: vec!(),
+      production_target_by_name: vec!(),
+      production_target_by_index: vec!(),
+      pattern_by_index: vec!(),
+      pattern_by_name: vec!(),
+      icon: '?',
+      file: "./img/machine_2_2.png".to_string(),
+      file_canvas_cache_index: 0,
+      // this is for the output part icon
+      x: 5.0,
+      y: 5.0,
+      w: 5.0,
+      h: 5.0,
+      current_state: ConfigNodeState::Available,
+    },
+    ConfigNode {
+      index: CONFIG_NODE_MACHINE_3X3,
+      kind: ConfigNodeKind::Machine,
+      name: "Machine".to_string(),
+      raw_name: "Machine_3x3".to_string(),
+      unlocks_after_by_name: vec!(),
+      unlocks_after_by_index: vec!(),
+      unlocks_todo_by_index: vec!(),
+      starting_part_by_name: vec!(),
+      starting_part_by_index: vec!(),
+      pattern_unique_icons: vec!(),
+      production_target_by_name: vec!(),
+      production_target_by_index: vec!(),
+      pattern_by_index: vec!(),
+      pattern_by_name: vec!(),
+      icon: '?',
+      file: "./img/machine_1_1.png".to_string(),
+      file_canvas_cache_index: 0,
+      // this is for the output part icon
+      x: 0.0,
+      y: 0.0,
+      w: 30.0,
+      h: 30.0,
+      current_state: ConfigNodeState::Available,
     }
-  ),
-  ConfigNode {
-    index: CONFIG_NODE_MACHINE_2x2,
-    kind: ConfigNodeKind::Machine,
-    name: "Machine".to_string(),
-    raw_name: "Machine_1x1".to_string(),
-    unlocks_after_by_name: vec!(),
-    unlocks_after_by_index: vec!(),
-    unlocks_todo_by_index: vec!(),
-    starting_part_by_name: vec!(),
-    starting_part_by_index: vec!(),
-    pattern_unique_icons: vec!(),
-    production_target_by_name: vec!(),
-    production_target_by_index: vec!(),
-    pattern_by_index: vec!(),
-    pattern_by_name: vec!(),
-    icon: '?',
-    file: "./img/machine_2_2.png".to_string(),
-    file_canvas_cache_index: 0,
-    // this is for the output part icon
-    x: 5.0,
-    y: 5.0,
-    w: 5.0,
-    h: 5.0,
-    current_state: ConfigNodeState::Available,
-  }
-  ),
-  ConfigNode {
-    index: CONFIG_NODE_MACHINE_3x3,
-    kind: ConfigNodeKind::Machine,
-    name: "Machine".to_string(),
-    raw_name: "Machine_3x3".to_string(),
-    unlocks_after_by_name: vec!(),
-    unlocks_after_by_index: vec!(),
-    unlocks_todo_by_index: vec!(),
-    starting_part_by_name: vec!(),
-    starting_part_by_index: vec!(),
-    pattern_unique_icons: vec!(),
-    production_target_by_name: vec!(),
-    production_target_by_index: vec!(),
-    pattern_by_index: vec!(),
-    pattern_by_name: vec!(),
-    icon: '?',
-    file: "./img/machine_1_1.png".to_string(),
-    file_canvas_cache_index: 0,
-    // this is for the output part icon
-    x: 0.0,
-    y: 0.0,
-    w: 30.0,
-    h: 30.0,
-    current_state: ConfigNodeState::Available,
-  }
   );
-  assert!(nodes.iter().enumerate().all(|(i, n)| n.index == i), "config.nodes should start with a set of nodes where each index is set correctly");
+  nodes.iter().enumerate().for_each(|(i, n)| assert!(n.index == i, "config.nodes should start with a set of nodes where each index is set correctly, index {} was not {}", n.index, i));
   // Indirect references to nodes. Can't share direct references so these index the nodes vec.
   let mut quest_nodes: Vec<usize> = vec!();
   let mut part_nodes: Vec<usize> = vec!(0, 1);
@@ -590,7 +588,7 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
               "Dock_Right" => CONFIG_NODE_DOCK_RIGHT,
               "Dock_Down" => CONFIG_NODE_DOCK_DOWN,
               "Dock_Left" => CONFIG_NODE_DOCK_LEFT,
-              "Machine_3x3" => CONFIG_NODE_MACHINE_3x3,
+              "Machine_3x3" => CONFIG_NODE_MACHINE_3X3,
               _ => nodes.len(),
             };
           let current_node = ConfigNode {

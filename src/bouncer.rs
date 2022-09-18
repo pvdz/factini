@@ -38,7 +38,6 @@ pub struct Bouncer {
    * x, y, added at tick
    */
   pub frames: VecDeque<( f64, f64, u64 )>,
-  pub dump_trucked_at: u64,
 }
 
 pub fn bouncer_create(x: f64, y: f64, max_y: f64, quest_index: PartKind, part_index: usize, init_speed: f64, created_at: u64, delay: u64) -> Bouncer {
@@ -54,7 +53,6 @@ pub fn bouncer_create(x: f64, y: f64, max_y: f64, quest_index: PartKind, part_in
     dy: 0.0,
     last_time: 0,
     frames: VecDeque::new(),
-    dump_trucked_at: 0,
   };
 }
 
