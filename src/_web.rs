@@ -21,7 +21,6 @@
 // - let trash be a joker part
 // - animate machines at work
 // - paint the prepared parts of a machine while not selected?
-// - click offer to show pattern (not hover, mobile friendly)
 // - what's up with these assertion traps :(
 //   - `let (received_part_index, received_count) = factory.floor[coord].demand.received[i];` threw oob (1 while len=0)
 // - make recipes be arbitrary? 2x2? let go of pattern?
@@ -985,7 +984,8 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
           mouse_state.offer_down_offer_index = offer_hover_offer_index;
         }
       }
-    } else {
+    }
+    else {
       let over_machine_button = hit_test_machine_button(mouse_state.world_x, mouse_state.world_y);
       if over_machine_button {
         mouse_state.over_machine_button = true;
@@ -1168,7 +1168,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         on_up_craft(options, state, config, factory, cell_selection, mouse_state);
       }
       else if mouse_state.offer_down {
-        on_up_offer();
+        on_up_offer(options, state, config, factory, mouse_state);
       }
       else if mouse_state.over_machine_button {
         on_up_machine_button();
@@ -1225,8 +1225,27 @@ fn on_down_floor_before() {
 fn on_down_floor_after() {
   log(format!("on_down_floor_after()"));
 }
-fn on_up_offer() {
-  log(format!("on_up_offer()"));
+fn on_up_offer(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
+  log(format!("on_up_offer({} -> {})", mouse_state.offer_down_offer_index, mouse_state.offer_hover_offer_index));
+
+  let ( _part_index, visible ) = factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index];
+  if !visible {
+    // Invisible offers are not interactive
+    return;
+  }
+  if mouse_state.offer_down_offer_index != mouse_state.offer_hover_offer_index {
+    // Did not pointer up on the same offer as we did the pointer down
+    return;
+  }
+
+  if mouse_state.offer_selected && mouse_state.offer_selected_index == mouse_state.offer_hover_offer_index{
+    log(format!("Deselecting offer {}", mouse_state.offer_hover_offer_index));
+    mouse_state.offer_selected = false;
+  } else {
+    log(format!("Selecting offer {}", mouse_state.offer_hover_offer_index));
+    mouse_state.offer_selected = true;
+    mouse_state.offer_selected_index = mouse_state.offer_hover_offer_index;
+  }
 }
 fn on_drag_start_floor_before() {
   log(format!("on_drag_start_floor_before()"));
@@ -3377,10 +3396,11 @@ fn paint_ui_offers(options: &Options, state: &State, config: &Config, context: &
     else { ( mouse_state.offer_hover, mouse_state.offer_hover_offer_index ) };
 
   let mut inc = 0;
-  for index in 0..factory.available_parts_rhs_menu.len() {
-    let ( part_index, part_interactable ) = factory.available_parts_rhs_menu[index];
+  for offer_index in 0..factory.available_parts_rhs_menu.len() {
+    let ( part_index, part_interactable ) = factory.available_parts_rhs_menu[offer_index];
     if part_interactable {
-      paint_ui_offer(options, state, config, context, factory, cell_selection, part_index, inc, is_mouse_over_offer && index == offer_hover_index, if config.nodes[part_index].pattern_unique_icons.len() > 0 { "#c99110" } else { "pink" });
+      let highlight = (is_mouse_over_offer && offer_index == offer_hover_index) || (mouse_state.offer_selected && mouse_state.offer_selected_index == offer_index);
+      paint_ui_offer(options, state, config, context, factory, mouse_state, cell_selection, offer_index, part_index, inc, highlight, if config.nodes[part_index].pattern_unique_icons.len() > 0 { "#c99110" } else { "pink" });
       inc += 1;
     }
   }
@@ -3458,19 +3478,34 @@ fn paint_ui_offer_hover_droptarget_hint(options: &Options, state: &State, config
     context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y + (FLOOR_CELLS_H as f64 - 1.0) * CELL_H, (FLOOR_CELLS_W as f64 - 2.0) * CELL_W, CELL_H);
   }
 }
-fn paint_ui_offer(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, part_index: usize, inc: usize, hovering: bool, color: &str) {
+fn paint_ui_offer(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection, offer_index: usize, part_index: usize, inc: usize, highlight: bool, color: &str) {
   context.set_fill_style(&color.into());
   let ( x, y ) = get_offer_xy(inc);
   context.fill_rect(x, y, UI_OFFERS_WIDTH, UI_OFFERS_HEIGHT);
-  if hovering {
-    context.set_stroke_style(&"black".into());
-    context.stroke_rect(x, y, UI_OFFERS_WIDTH, UI_OFFERS_HEIGHT);
-  }
   let px = x + (UI_OFFERS_WIDTH / 2.0) - (CELL_W / 2.0);
   let py = y + (UI_OFFERS_HEIGHT / 2.0) - (CELL_H / 2.0);
   paint_segment_part_from_config(options, state, config, context, part_index, px, py, CELL_W, CELL_H);
 
-  context.set_stroke_style(&"white".into());
+  if highlight {
+    context.set_stroke_style(&"black".into());
+    if config.nodes[part_index].pattern_unique_icons.len() > 0 {
+      // Draw tiny machine (with arrow?)
+      // Draw tiny parts
+
+      let x = GRID_X2 + 15.0;
+      let y = GRID_Y0 + 10.0;
+
+      let machine_img = &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].file_canvas_cache_index];
+      context.draw_image_with_html_image_element_and_dw_and_dh(machine_img, x, y, 0.75 * CELL_W, 0.75 * CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+
+      for i in 0..config.nodes[part_index].pattern_unique_icons.len() {
+        // Paint tiny output part
+        paint_segment_part_from_config(options, state, config, context, config.nodes[part_index].pattern_unique_icons[i], x + CELL_W + (CELL_W * 0.5 + 5.0) * i as f64, y + CELL_H * 0.125, 0.5 * CELL_W, 0.5 * CELL_H);
+      }
+    }
+  } else {
+    context.set_stroke_style(&"white".into());
+  }
   context.stroke_rect(x, y, UI_OFFERS_WIDTH, UI_OFFERS_HEIGHT);
 
   let div = 50;
