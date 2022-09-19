@@ -21,6 +21,14 @@ use super::utils::*;
 pub fn floor_empty(config: &Config) -> [Cell; FLOOR_CELLS_WH] {
   log(format!("floor_empty()"));
 
+
+  // // error[E0658]: use of unstable library feature 'array_map'
+  // let mut coord = 0;
+  // return [(); FLOOR_CELLS_WH].map(|_| {
+  //   let (x, y) = to_xy(coord);
+  //   empty_cell(config, x, y)
+  // });
+
   // https://stackoverflow.com/questions/67822062/fixed-array-initialization-without-implementing-copy-or-default-trait/67824946#67824946
   // :shrug: okay
   return (0..FLOOR_CELLS_WH)
