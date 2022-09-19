@@ -73,12 +73,12 @@ use super::truck::*;
 use super::utils::*;
 
 // These are the actual pixels we can paint to
-const CANVAS_WIDTH: f64 = 1200.0;
-const CANVAS_HEIGHT: f64 = 1210.0;
+const CANVAS_WIDTH: f64 = 1100.0;
+const CANVAS_HEIGHT: f64 = 1100.0;
 
 // Need this for mouse2world coord conversion. Rest of the coords/sizes are in world (canvas) pixels.
-const CANVAS_CSS_WIDTH: f64 = 1200.0;
-const CANVAS_CSS_HEIGHT: f64 = 1210.0;
+const CANVAS_CSS_WIDTH: f64 = 1100.0;
+const CANVAS_CSS_HEIGHT: f64 = 1100.0;
 
 const GRID_SPACING: f64 = 5.0; // Spacing of grid blocks from edge and between grid blocks
 
@@ -93,7 +93,7 @@ const PART_H: f64 = 20.0;
 // Size of the floor determines dimensions of all other grid items and depends on cell size and cell count.
 const FLOOR_WIDTH: f64 = FLOOR_CELLS_W as f64 * CELL_W;
 const FLOOR_HEIGHT: f64 = FLOOR_CELLS_H as f64 * CELL_H;
-const GRID_TOP_HEIGHT: f64 = 150.0;
+const GRID_TOP_HEIGHT: f64 = 50.0;
 const GRID_RIGHT_WIDTH: f64 = 400.0;
 const GRID_BOTTOM_HEIGHT: f64 = 150.0;
 const GRID_BOTTOM_DEBUG_HEIGHT: f64 = 400.0;
@@ -118,10 +118,12 @@ const UI_FLOOR_WIDTH: f64 = FLOOR_WIDTH;
 const UI_FLOOR_HEIGHT: f64 = FLOOR_HEIGHT;
 
 // Achievements on the left
-const UI_ACHIEVEMENT_OFFSET_X: f64 = GRID_X0;
-const UI_ACHIEVEMENT_OFFSET_Y: f64 = GRID_Y1;
-const UI_ACHIEVEMENT_WIDTH: f64 = GRID_LEFT_WIDTH;
-const UI_ACHIEVEMENT_HEIGHT: f64 = FLOOR_HEIGHT; // TODO: include footer space? or ..
+const UI_QUOTES_OFFSET_X: f64 = GRID_X0;
+const UI_QUOTES_OFFSET_Y: f64 = GRID_Y1;
+const UI_QUOTES_WIDTH: f64 = GRID_LEFT_WIDTH;
+const UI_QUOTES_HEIGHT: f64 = FLOOR_HEIGHT; // TODO: include footer space? or ..
+const UI_QUOTE_X: f64 = 15.0;
+const UI_QUOTE_WIDTH: f64 = GRID_LEFT_WIDTH - (2.0 * UI_QUOTE_X);
 const UI_QUOTE_HEIGHT: f64 = CELL_H + 4.0;
 const UI_QUOTE_MARGIN: f64 = 5.0;
 
@@ -133,40 +135,33 @@ const UI_TOP_HEIGHT: f64 = GRID_TOP_HEIGHT;
 
 const UI_DAY_BAR_ICON_WIDTH: f64 = 30.0;
 const UI_DAY_BAR_OFFSET_X: f64 = UI_TOP_OFFSET_X;
-const UI_DAY_BAR_OFFSET_Y: f64 = UI_TOP_OFFSET_Y + 60.0;
+const UI_DAY_BAR_OFFSET_Y: f64 = UI_TOP_OFFSET_Y + 10.0;
 const UI_DAY_PROGRESS_OFFSET_X: f64 = UI_DAY_BAR_OFFSET_X + UI_DAY_BAR_ICON_WIDTH + 5.0;
 const UI_DAY_PROGRESS_OFFSET_Y: f64 = UI_DAY_BAR_OFFSET_Y;
 const UI_DAY_PROGRESS_WIDTH: f64 = UI_TOP_WIDTH - (UI_DAY_BAR_ICON_WIDTH + 5.0 + 5.0 + UI_DAY_BAR_ICON_WIDTH);
 const UI_DAY_PROGRESS_HEIGHT: f64 = 30.0;
 
-const UI_BOTTOM_OFFSET_X: f64 = GRID_X1;
-const UI_BOTTOM_OFFSET_Y: f64 = GRID_Y2;
-const UI_BOTTOM_WIDTH: f64 = FLOOR_WIDTH;
-const UI_BOTTOM_HEIGHT: f64 = GRID_BOTTOM_HEIGHT;
+const UI_BOTTOM_OFFSET_X: f64 = GRID_X1 + 15.0;
+const UI_BOTTOM_OFFSET_Y: f64 = GRID_Y2 + 10.0;
 
-const UI_SPEED_BUBBLE_OFFSET_X: f64 = GRID_X1 + 5.0;
-const UI_SPEED_BUBBLE_OFFSET_Y: f64 = GRID_Y2 + 5.0;
+const UI_SPEED_BUBBLE_OFFSET_X: f64 = UI_BOTTOM_OFFSET_X + 5.0;
+const UI_SPEED_BUBBLE_OFFSET_Y: f64 = UI_BOTTOM_OFFSET_Y + 5.0;
 const UI_SPEED_BUBBLE_RADIUS: f64 = 20.0; // half the diameter...
 const UI_SPEED_BUBBLE_SPACING: f64 = 15.0;
 
 const UI_MENU_BUTTONS_COUNT_WIDTH_MAX: f64 = 7.0; // Update after adding new button
-const UI_MENU_BUTTONS_OFFSET_X: f64 = GRID_X1 + 2.0;
-const UI_MENU_BUTTONS_OFFSET_Y: f64 = GRID_Y2 + 55.0;
-const UI_MENU_BUTTONS_OFFSET_Y2: f64 = GRID_Y2 + 85.0;
+const UI_MENU_BUTTONS_OFFSET_X: f64 = UI_BOTTOM_OFFSET_X + 2.0;
+const UI_MENU_BUTTONS_OFFSET_Y: f64 = UI_BOTTOM_OFFSET_Y + 55.0;
+const UI_MENU_BUTTONS_OFFSET_Y2: f64 = UI_BOTTOM_OFFSET_Y + 85.0;
 const UI_MENU_BUTTONS_WIDTH: f64 = 50.0;
 const UI_MENU_BUTTONS_HEIGHT: f64 = 20.0;
 const UI_MENU_BUTTONS_SPACING: f64 = 10.0;
 const UI_MENU_BUTTONS_WIDTH_MAX: f64 = UI_MENU_BUTTONS_COUNT_WIDTH_MAX * (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING);
 
 const UI_MENU_BOTTOM_MACHINE_X: f64 = UI_MENU_BUTTONS_OFFSET_X +UI_MENU_BUTTONS_WIDTH_MAX + 5.0;
-const UI_MENU_BOTTOM_MACHINE_Y: f64 = GRID_Y2 + 5.0;
+const UI_MENU_BOTTOM_MACHINE_Y: f64 = UI_BOTTOM_OFFSET_Y + 5.0;
 const UI_MENU_BOTTOM_MACHINE_WIDTH: f64 = 70.0;
 const UI_MENU_BOTTOM_MACHINE_HEIGHT: f64 = 70.0;
-
-const UI_RIGHT_OFFSET_X: f64 = GRID_X2;
-const UI_RIGHT_OFFSET_Y: f64 = GRID_Y0; // Start at top
-const UI_RIGHT_WIDTH: f64 = GRID_RIGHT_WIDTH;
-const UI_RIGHT_HEIGHT: f64 = GRID_TOP_HEIGHT + GRID_SPACING + FLOOR_HEIGHT + GRID_SPACING + GRID_BOTTOM_HEIGHT; // Most of the viewport height
 
 const UI_DEBUG_OFFSET_X: f64 = GRID_X0;
 const UI_DEBUG_OFFSET_Y: f64 = GRID_Y3;
@@ -188,8 +183,8 @@ const UI_DEBUG_CELL_HEIGHT: f64 = 250.0;
 const UI_DEBUG_CELL_MARGIN: f64 = 5.0;
 const UI_DEBUG_CELL_FONT_HEIGHT: f64 = 16.0; // at 12px + bottom spacing
 
-const UI_OFFERS_OFFSET_X: f64 = GRID_X2;
-const UI_OFFERS_OFFSET_Y: f64 = GRID_Y0;
+const UI_OFFERS_OFFSET_X: f64 = GRID_X2 + 10.0;
+const UI_OFFERS_OFFSET_Y: f64 = GRID_Y1;
 const UI_OFFERS_WIDTH: f64 = 50.0;
 const UI_OFFERS_HEIGHT: f64 = 50.0;
 const UI_OFFERS_PER_ROW: f64 = 3.0;
@@ -649,12 +644,12 @@ pub fn start() -> Result<(), JsValue> {
         context.set_fill_style(&"#00000077".into());
         context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y + CELL_H, (FLOOR_CELLS_W - 2) as f64 * CELL_W, (FLOOR_CELLS_H - 2) as f64 * CELL_H);
 
-        paint_top_stats(&context, &mut factory);
+        // paint_top_stats(&context, &mut factory);
         paint_top_bars(&options, &state, &mut factory, &context, &mouse_state);
         paint_left_quotes(&options, &state, &config, &context, &mut factory, &mouse_state);
         paint_ui_offers(&options, &state, &config, &context, &mut factory, &mouse_state, &cell_selection);
 
-        // Paint quotes (left menu)
+        // Paint quote lasers (parts that are received draw a line to the left menu)
         let mut i = state.lasers.len();
         while i > 0 {
           i -= 1;
@@ -667,7 +662,7 @@ pub fn start() -> Result<(), JsValue> {
           context.set_stroke_style(&color.into());
           context.begin_path();
           context.move_to(GRID_X1 + x as f64 * CELL_W + CELL_W / 2.0, GRID_Y1 + y as f64 * CELL_H + CELL_H / 2.0);
-          context.line_to(GRID_X0 as f64 + UI_ACHIEVEMENT_WIDTH as f64 / 2.0, GRID_Y1 + (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) as f64 * quote_pos as f64 + (UI_QUOTE_HEIGHT as f64) / 2.0);
+          context.line_to(GRID_X0 as f64 + UI_QUOTES_WIDTH as f64 / 2.0, GRID_Y1 + (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) as f64 * quote_pos as f64 + (UI_QUOTE_HEIGHT as f64) / 2.0);
           context.stroke();
 
           state.lasers[i].ttl -= 1;
@@ -2354,43 +2349,43 @@ fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::Canva
 
   context.set_fill_style(&"lightgreen".into());
   context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
-  context.set_fill_style(&"grey".into());
+  context.set_fill_style(&"black".into());
   context.fill_text(format!("fps: {}", fps.len()).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"lightgreen".into());
   context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
-  context.set_fill_style(&"grey".into());
+  context.set_fill_style(&"black".into());
   context.fill_text(format!("App time  : {}", (now / 1000.0).floor()).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"lightgreen".into());
   context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
-  context.set_fill_style(&"grey".into());
+  context.set_fill_style(&"black".into());
   context.fill_text(format!("Since prev: {} (@{})", since_prev.floor(), estimated_fps).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"lightgreen".into());
   context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
-  context.set_fill_style(&"grey".into());
+  context.set_fill_style(&"black".into());
   context.fill_text(format!("Ticks todo: {} (r? {})", ticks_todo, rounded_fps).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"lightgreen".into());
   context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
-  context.set_fill_style(&"grey".into());
+  context.set_fill_style(&"black".into());
   context.fill_text(format!("Speed: {}", options.speed_modifier).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"lightgreen".into());
   context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
-  context.set_fill_style(&"grey".into());
+  context.set_fill_style(&"black".into());
   // context.fill_text(format!("$ / 10s    : {}", factory.stats.3).as_str(), UI_OX + UI_ML, UI_OY + (ui_lines * UI_LINE_H) + UI_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"lightgreen".into());
   context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
-  context.set_fill_style(&"grey".into());
+  context.set_fill_style(&"black".into());
   context.fill_text(
     format!(
       "mouse abs  : {} x {} {} {}",
@@ -2403,13 +2398,13 @@ fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::Canva
   ui_lines += 1.0;
   context.set_fill_style(&"lightgreen".into());
   context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
-  context.set_fill_style(&"grey".into());
+  context.set_fill_style(&"black".into());
   context.fill_text(format!("mouse world: {} x {}", mouse_state.cell_x, mouse_state.cell_y).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"lightgreen".into());
   context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
-  context.set_fill_style(&"grey".into());
+  context.set_fill_style(&"black".into());
   context.fill_text(format!("mouse cell : {:.2} x {:.2}", mouse_state.cell_rel_x, mouse_state.cell_rel_y).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   assert_eq!(ui_lines, UI_DEBUG_LINES, "keep these in sync for simplicity");
@@ -3322,8 +3317,8 @@ fn paint_top_bars(options: &Options, state: &State, factory: &Factory, context: 
 }
 fn get_quote_xy(index: usize, height_so_far: f64) -> ( f64, f64 ) {
   // TODO: take io into account when it is not in sync with index
-  let x = UI_ACHIEVEMENT_OFFSET_X;
-  let y = UI_ACHIEVEMENT_OFFSET_Y + height_so_far;
+  let x = UI_QUOTES_OFFSET_X + UI_QUOTE_X;
+  let y = UI_QUOTES_OFFSET_Y + height_so_far;
 
   return ( x, y );
 }
@@ -3344,11 +3339,11 @@ fn paint_left_quotes(options: &Options, state: &State, config: &Config, context:
     let m = add_progress * (1.0 - remove_progress) * UI_QUOTE_MARGIN;
 
     context.set_fill_style(&"grey".into()); // 100% background
-    context.fill_rect(x, y, UI_ACHIEVEMENT_WIDTH, h);
+    context.fill_rect(x, y, UI_QUOTE_WIDTH, h);
     context.set_fill_style(&"lightgreen".into()); // progress green
-    context.fill_rect(x, y, UI_ACHIEVEMENT_WIDTH * (factory.quotes[quote_index].current_count as f64 / factory.quotes[quote_index].target_count as f64).min(1.0), h);
+    context.fill_rect(x, y, UI_QUOTE_WIDTH * (factory.quotes[quote_index].current_count as f64 / factory.quotes[quote_index].target_count as f64).min(1.0), h);
     context.set_stroke_style(&"black".into());
-    context.stroke_rect(x, y, UI_ACHIEVEMENT_WIDTH, h);
+    context.stroke_rect(x, y, UI_QUOTE_WIDTH, h);
 
     // Paint the icon(s), the required count, the progress
 
@@ -3368,7 +3363,7 @@ fn paint_left_quotes(options: &Options, state: &State, config: &Config, context:
   // // Clear the rect below the last item in case it was the bottom item and only partially painted
   // let ( x, y ) = get_quote_xy(factory.quotes.len(), height);
   // context.set_fill_style(&"#E86A17".into()); // This will be more annoying later but for now it'll do
-  // context.fill_rect(x, y, UI_ACHIEVEMENT_WIDTH, UI_QUOTE_HEIGHT);
+  // context.fill_rect(x, y, UI_QUOTES_WIDTH, UI_QUOTE_HEIGHT);
 }
 fn paint_ui_offers(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) {
   let ( is_mouse_over_offer, offer_hover_index ) =
