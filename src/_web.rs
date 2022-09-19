@@ -451,6 +451,8 @@ pub fn start() -> Result<(), JsValue> {
       offer_down_offer_index: 0,
       offer_hover: false,
       offer_hover_offer_index: 0,
+      offer_selected: false,
+      offer_selected_index: 0, // Offer index, not part index
       dragging_offer: false,
       over_machine_button: false,
       dragging_machine: false,
@@ -903,7 +905,9 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
     mouse_state.craft_down_any = false;
     mouse_state.craft_dragging_ci = false;
     mouse_state.offer_down = false;
+    mouse_state.is_down = false;
   }
+  mouse_state.was_down = false;
   mouse_state.is_up = false;
   mouse_state.was_up = false;
   mouse_state.was_dragging = false;
@@ -942,28 +946,6 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
     mouse_state.craft_over_ci_index = craft_index;
   }
 
-  if !mouse_state.is_dragging {
-    // When already dragging do not update offer visual state, do not record the "over" state at all
-    // When dragging an offer, the offer_down_offer_index will be set to the initial offer index (keep it!)
-    let (offer_hover, offer_hover_offer_index) = hit_test_offers(factory, mouse_state.world_x, mouse_state.world_y);
-    if offer_hover {
-      // Do not consider offers that are not visible / interactive to be hoverable either
-      if factory.available_parts_rhs_menu[offer_hover_offer_index].1 {
-        mouse_state.offer_hover = offer_hover;
-        mouse_state.offer_hover_offer_index = offer_hover_offer_index;
-        if mouse_state.is_down {
-          mouse_state.offer_down = true;
-          mouse_state.offer_down_offer_index = offer_hover_offer_index;
-        }
-      }
-    } else {
-      let over_machine_button = hit_test_machine_button(mouse_state.world_x, mouse_state.world_y);
-      if over_machine_button {
-        mouse_state.over_machine_button = true;
-      }
-    }
-  }
-
   // on mouse down
   if last_mouse_down_x > 0.0 || last_mouse_down_y > 0.0 {
     mouse_state.last_down_button = last_mouse_down_button;
@@ -971,8 +953,8 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
     mouse_state.last_down_canvas_y = last_mouse_down_y;
     mouse_state.last_down_world_x = last_mouse_down_x / CANVAS_CSS_WIDTH * CANVAS_WIDTH;
     mouse_state.last_down_world_y = last_mouse_down_y / CANVAS_CSS_HEIGHT * CANVAS_HEIGHT;
-    mouse_state.is_down = true;
-    mouse_state.was_down = true;
+    mouse_state.is_down = true; // Unset after on_up
+    mouse_state.was_down = true; // Unset after this frame
 
     mouse_state.craft_down_any = is_machine_selected && hit_test_machine_circle(factory, cell_selection.coord, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
     if mouse_state.craft_down_any {
@@ -986,6 +968,28 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
       mouse_state.craft_down_ci_icon = icon;
       mouse_state.craft_down_ci_part_kind = part_index;
       mouse_state.craft_down_ci_index = craft_index;
+    }
+  }
+
+  if !mouse_state.is_dragging {
+    // When already dragging do not update offer visual state, do not record the "over" state at all
+    // When dragging an offer, the offer_down_offer_index will be set to the initial offer index (keep it!)
+    let (offer_hover, offer_hover_offer_index) = hit_test_offers(factory, mouse_state.world_x, mouse_state.world_y);
+    if offer_hover {
+      // Do not consider offers that are not visible / interactive to be hoverable either
+      if factory.available_parts_rhs_menu[offer_hover_offer_index].1 {
+        mouse_state.offer_hover = offer_hover;
+        mouse_state.offer_hover_offer_index = offer_hover_offer_index;
+        if mouse_state.was_down {
+          mouse_state.offer_down = true;
+          mouse_state.offer_down_offer_index = offer_hover_offer_index;
+        }
+      }
+    } else {
+      let over_machine_button = hit_test_machine_button(mouse_state.world_x, mouse_state.world_y);
+      if over_machine_button {
+        mouse_state.over_machine_button = true;
+      }
     }
   }
 
@@ -1072,7 +1076,8 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
     else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
       on_drag_start_floor_before();
     }
-  } else if mouse_state.is_down {
+  }
+  else if mouse_state.was_down {
     if mouse_state.craft_down_any {
       on_down_craft_before();
     }
@@ -1088,7 +1093,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
   }
 
   if state.mouse_mode_erasing {
-    if mouse_state.is_down {
+    if mouse_state.was_down {
       on_down_erase(options, state, config, factory, mouse_state);
     }
     else if mouse_state.is_up {
@@ -1117,7 +1122,8 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
     else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
       on_drag_start_floor_after();
     }
-  } else if mouse_state.is_down {
+  }
+  else if mouse_state.was_down {
     if mouse_state.craft_down_any {
       on_down_craft_after();
     }

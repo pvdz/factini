@@ -59,8 +59,8 @@ pub struct MouseState {
   pub cell_rel_x: f64,
   pub cell_rel_y: f64,
 
-  pub is_down: bool, // Set if current frame handled a mouse down. It may be unset, unlike was_up.
-  pub was_down: bool, // Set if current frame handled a mouse down. Should not be unset.
+  pub is_down: bool, // Set if pointer is currently down. Unset when the pointer is released.
+  pub was_down: bool, // Set if current frame handled a pointer down. Should unset after the frame.
   pub is_dragging: bool,
   pub was_dragging: bool,
   pub is_drag_start: bool,
@@ -71,6 +71,8 @@ pub struct MouseState {
   pub offer_hover_offer_index: usize, // Only relevant when offer_hover = true
   pub offer_down: bool,
   pub offer_down_offer_index: usize, // Kept until the next up, used for dragging
+  pub offer_selected: bool,
+  pub offer_selected_index: usize, // Offer index, not part index
   pub dragging_offer: bool,
   pub over_machine_button: bool, // Is the mouse currently over the machine button?
   pub dragging_machine: bool,
