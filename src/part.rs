@@ -76,6 +76,8 @@ pub fn part_kind_to_icon(config: &Config, kind: PartKind) -> char {
 }
 pub fn part_to_sprite_coord_from_config(config: &Config, kind: PartKind) -> ( f64, f64, f64, f64, &web_sys::HtmlImageElement ) {
   assert!((kind as usize) < config.nodes.len(), "part kind should be a node index: {} < {}", kind, config.nodes.len());
-  let node = &config.nodes[kind];
-  return ( node.x as f64, node.y as f64, node.w as f64, node.h as f64, &config.sprite_cache_canvas[node.file_canvas_cache_index] );
+
+  return config_get_sprite_details(config, kind as usize);
+  // let node = &config.nodes[kind];
+  // return ( node.x as f64, node.y as f64, node.w as f64, node.h as f64, &config.sprite_cache_canvas[node.file_canvas_cache_index] );
 }

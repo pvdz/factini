@@ -26,6 +26,7 @@
 // - make recipes be arbitrary? 2x2? let go of pattern?
 // - bouncer animation not bound to tick
 // - the later bouncers should fade faster
+// - crash: placing down machines crashes the game
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -265,8 +266,6 @@ pub fn start() -> Result<(), JsValue> {
     .dyn_into::<web_sys::CanvasRenderingContext2d>()?;
   let context = Rc::new(context);
 
-  let todo = load_tile("./img/todo.png").expect("can'tpub const BELT_NONE.src");
-
   // Load game "level" and part content config dynamic so we don't have to recompile it for
   // ingame changes relating to parts and unlock order of them. This config includes sprite details.
   let def_options = create_options(0.0);
@@ -281,23 +280,6 @@ pub fn start() -> Result<(), JsValue> {
     return load_tile(src.clone().as_str()).expect("worky worky");
   }).collect();
   log(format!("Loading {} sprite maps for the parts: {:?}", config.sprite_cache_canvas.len(), config.sprite_cache_lookup));
-
-  // Preload the belt tiles. Create an array with a to-do image for every slot. Then create img tags
-  let mut belt_tile_images: Vec<web_sys::HtmlImageElement> = vec![todo; BELT_TYPE_COUNT]; // Prefill with todo images
-  belt_tile_images[BeltType::NONE as usize] = load_tile(BELT_NONE.src)?;
-  belt_tile_images[BeltType::RU as usize] = load_tile(BELT_RU.src)?;
-  belt_tile_images[BeltType::DR as usize] = load_tile(BELT_DR.src)?;
-  belt_tile_images[BeltType::DL as usize] = load_tile(BELT_DL.src)?;
-  belt_tile_images[BeltType::LU as usize] = load_tile(BELT_LU.src)?;
-  belt_tile_images[BeltType::DU as usize] = load_tile(BELT_DU.src)?;
-  belt_tile_images[BeltType::LR as usize] = load_tile(BELT_LR.src)?;
-  belt_tile_images[BeltType::LRU as usize] = load_tile(BELT_LRU.src)?;
-  belt_tile_images[BeltType::DRU as usize] = load_tile(BELT_DRU.src)?;
-  belt_tile_images[BeltType::DLR as usize] = load_tile(BELT_DLR.src)?;
-  belt_tile_images[BeltType::DLU as usize] = load_tile(BELT_DLU.src)?;
-  belt_tile_images[BeltType::DLRU as usize] = load_tile(BELT_DLRU.src)?;
-  belt_tile_images[BeltType::UNKNOWN as usize] = load_tile(BELT_UNKNOWN.src)?;
-  belt_tile_images[BeltType::INVALID as usize] = load_tile(BELT_INVALID.src)?;
 
   let img_machine1: web_sys::HtmlImageElement = load_tile("./img/machine1.png")?;
   let img_machine2: web_sys::HtmlImageElement = load_tile("./img/machine2.png")?;
@@ -750,14 +732,14 @@ pub fn start() -> Result<(), JsValue> {
         paint_bottom_menu(&options, &state, &context, &img_machine_1_1, &mouse_state);
 
         // TODO: wait for tiles to be loaded because first few frames won't paint anything while the tiles are loading...
-        paint_background_tiles(&options, &state, &config, &context, &factory, &belt_tile_images, &img_machine4, &img_machine_1_1, &img_machine_2_1, &img_machine_3_2);
-        paint_ports(&context, &factory);
+        paint_background_tiles(&options, &state, &config, &context, &factory, &img_machine4, &img_machine_1_1, &img_machine_2_1, &img_machine_3_2);
+        paint_port_arrows(&options, &state, &context, &factory);
         paint_belt_items(&options, &state, &config, &context, &factory);
         paint_machine_selection_and_craft(&options, &state, &config, &context, &factory, &cell_selection, &mouse_state);
         paint_ui_offer_hover_droptarget_hint_conditionally(&options, &state, &config, &context, &mut factory, &mouse_state, &cell_selection);
 
         paint_mouse_cursor(&context, &mouse_state);
-        paint_mouse_action(&options, &state, &config, &factory, &context, &belt_tile_images, &mouse_state, &cell_selection);
+        paint_mouse_action(&options, &state, &config, &factory, &context, &mouse_state, &cell_selection);
 
         paint_debug_app(&options, &state, &context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
         paint_debug_selected_belt_cell(&context, &factory, &cell_selection, &mouse_state);
@@ -2511,7 +2493,6 @@ fn paint_background_tiles(
   config: &Config,
   context: &Rc<web_sys::CanvasRenderingContext2d>,
   factory: &Factory,
-  belt_tile_images: &Vec<web_sys::HtmlImageElement>,
   img_machine2: &web_sys::HtmlImageElement,
   img_machine_1_1: &web_sys::HtmlImageElement,
   img_machine_2_1: &web_sys::HtmlImageElement,
@@ -2554,8 +2535,8 @@ fn paint_background_tiles(
       },
       CellKind::Belt => {
         let belt_meta = &factory.floor[coord].belt.meta;
-        let img: &HtmlImageElement = &belt_tile_images[belt_meta.btype as usize];
-        context.draw_image_with_html_image_element_and_dw_and_dh(&img, ox, oy, CELL_W, CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+
+        draw_belt(options, state, config, context, belt_meta.btype, ox, oy, CELL_W, CELL_H);
       },
       CellKind::Machine => {
         // For machines, paint the top-left cell only but make the painted area cover the whole machine
@@ -2615,7 +2596,12 @@ fn paint_background_tiles(
     }
   }
 }
-fn paint_ports(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory) {
+fn paint_port_arrows(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory) {
+  if !options.draw_port_arrows {
+    return;
+  }
+
+  // "draw arrows"
   context.set_stroke_style(&"gray".into());
 
   // Adjust for font size such that it gets centered. API falls a little short in this regard.
@@ -2845,7 +2831,7 @@ fn paint_mouse_cursor(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_sta
   context.ellipse(mouse_state.world_x, mouse_state.world_y, PART_W / 2.0, PART_H / 2.0, 3.14, 0.0, 6.28).expect("to paint a circle");
   context.fill();
 }
-fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, belt_tile_images: &Vec<web_sys::HtmlImageElement>, mouse_state: &MouseState, cell_selection: &CellSelection) {
+fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, cell_selection: &CellSelection) {
   if mouse_state.craft_dragging_ci {
     paint_mouse_dragging_craft_interactable(options, state, config, factory, context, mouse_state, cell_selection);
   }
@@ -2853,7 +2839,7 @@ fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory
     paint_mouse_in_erasing_mode(options, state, factory, context, mouse_state);
   }
   else if state.mouse_mode_selecting {
-    paint_mouse_in_selection_mode(options, state, factory, context, belt_tile_images, mouse_state, cell_selection);
+    paint_mouse_in_selection_mode(options, state, config, factory, context, mouse_state, cell_selection);
   }
   else if mouse_state.dragging_offer {
     paint_mouse_while_dragging_offer(options, state, config, factory, context, mouse_state);
@@ -2863,14 +2849,14 @@ fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory
   }
   else if mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && mouse_state.cell_x < FLOOR_CELLS_W as f64 && mouse_state.cell_y < FLOOR_CELLS_H as f64 {
     if !mouse_state.craft_over_any {
-      paint_mouse_cell_location_on_floor(&context, &factory, &cell_selection, &mouse_state, belt_tile_images);
+      paint_mouse_cell_location_on_floor(&context, &factory, &cell_selection, &mouse_state);
     }
     if mouse_state.was_dragging || mouse_state.is_dragging {
       if mouse_state.craft_down_any {
         // This drag stated in a craft popup so do not show a track preview; we're not doing that.
       }
       else if mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X >= 0.0 && mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X < FLOOR_WIDTH && mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y >= 0.0 && mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y < FLOOR_HEIGHT {
-        paint_belt_drag_preview(context, factory, cell_selection, mouse_state, belt_tile_images);
+        paint_belt_drag_preview(options, state, config, context, factory, cell_selection, mouse_state);
       }
     }
   }
@@ -2901,7 +2887,7 @@ fn paint_mouse_in_erasing_mode(options: &Options, state: &State, factory: &Facto
     context.stroke_rect(UI_FLOOR_OFFSET_X + mouse_state.cell_x * CELL_W, UI_FLOOR_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
   }
 }
-fn paint_mouse_in_selection_mode(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, belt_tile_images: &Vec<web_sys::HtmlImageElement>, mouse_state: &MouseState, cell_selection: &CellSelection) {
+fn paint_mouse_in_selection_mode(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, cell_selection: &CellSelection) {
   // When mouse is down and clipboard is empty; select the area to potentially copy. With clipboard, still show the ghost. Do not change the selection area.
   if mouse_state.is_down && state.selected_area_copy.len() == 0 {
     let down_cell_x = ((mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor();
@@ -2935,7 +2921,7 @@ fn paint_mouse_in_selection_mode(options: &Options, state: &State, factory: &Fac
             let y = cell_y + (j as f64);
             if is_middle(x, y) {
               let bt = state.selected_area_copy[j][i].belt.meta.btype;
-              paint_ghost_belt_of_type(x as usize, y as usize, bt, &context, &belt_tile_images, false);
+              paint_ghost_belt_of_type(options, state, config, x as usize, y as usize, bt, &context, false);
             }
           }
         }
@@ -3044,13 +3030,13 @@ fn paint_mouse_while_dragging_offer(options: &Options, state: &State, config: &C
     }
   }
 }
-fn paint_mouse_cell_location_on_floor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState, belt_tile_images: &Vec<web_sys::HtmlImageElement>) {
+fn paint_mouse_cell_location_on_floor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
   if mouse_state.cell_x != cell_selection.x || mouse_state.cell_y != cell_selection.y {
     context.set_stroke_style(&"red".into());
     context.stroke_rect(UI_FLOOR_OFFSET_X + mouse_state.cell_x * CELL_W, UI_FLOOR_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
   }
 }
-fn paint_belt_drag_preview(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState, belt_tile_images: &Vec<web_sys::HtmlImageElement>) {
+fn paint_belt_drag_preview(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
   let track = ray_trace_dragged_line(
     factory,
     ((mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor(),
@@ -3064,12 +3050,10 @@ fn paint_belt_drag_preview(context: &Rc<web_sys::CanvasRenderingContext2d>, fact
     let ((cell_x, cell_y), bt, in_port_dir, out_port_dir) = track[index];
     // context.set_fill_style(&"#00770044".into());
     // context.fill_rect(UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H, CELL_W, CELL_H);
-    paint_ghost_belt_of_type(cell_x, cell_y, if mouse_state.last_down_button == 2 { BeltType::INVALID } else { bt }, &context, &belt_tile_images, factory.floor[to_coord(cell_x, cell_y)].kind == CellKind::Machine);
+    paint_ghost_belt_of_type(options, state, config, cell_x, cell_y, if mouse_state.last_down_button == 2 { BeltType::INVALID } else { bt }, &context, factory.floor[to_coord(cell_x, cell_y)].kind == CellKind::Machine);
   }
 }
-fn paint_ghost_belt_of_type(cell_x: usize, cell_y: usize, belt_type: BeltType, context: &Rc<web_sys::CanvasRenderingContext2d>, belt_tile_images: &Vec<web_sys::HtmlImageElement>, skip_tile: bool) {
-  let img: &HtmlImageElement = &belt_tile_images[belt_type as usize];
-
+fn paint_ghost_belt_of_type(options: &Options, state: &State, config: &Config, cell_x: usize, cell_y: usize, belt_type: BeltType, context: &Rc<web_sys::CanvasRenderingContext2d>, skip_tile: bool) {
   let tile_size_reduction = 1.0;
 
   context.set_fill_style(&"#ffffff40".into());
@@ -3077,7 +3061,7 @@ fn paint_ghost_belt_of_type(cell_x: usize, cell_y: usize, belt_type: BeltType, c
 
   if !skip_tile {
     context.set_global_alpha(0.7);
-    context.draw_image_with_html_image_element_and_dw_and_dh(&img, UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + 5.0, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + 5.0, CELL_W - 10.0, CELL_H - 10.0).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+    draw_belt(options, state, config, context, belt_type, UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + 5.0, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + 5.0, CELL_W - 10.0, CELL_H - 10.0);
     context.set_global_alpha(1.0);
   }
 }
@@ -3714,6 +3698,83 @@ fn paint_segment_part_from_config_bug(options: &Options, state: &State, config: 
   }
 
   return true;
+}
+
+fn draw_belt(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, belt_type: BeltType, dx: f64, dy: f64, dw: f64, dh: f64) {
+  let (spx, spy, spw, sph, canvas) = match belt_type {
+    BeltType::D_U => config_get_sprite_details(config, CONFIG_NODE_BELT_D_U),
+    BeltType::U_D => config_get_sprite_details(config, CONFIG_NODE_BELT_U_D),
+    BeltType::DU => config_get_sprite_details(config, CONFIG_NODE_BELT_DU),
+    BeltType::L_R => config_get_sprite_details(config, CONFIG_NODE_BELT_L_R),
+    BeltType::R_L => config_get_sprite_details(config, CONFIG_NODE_BELT_R_L),
+    BeltType::LR => config_get_sprite_details(config, CONFIG_NODE_BELT_LR),
+    BeltType::L_U => config_get_sprite_details(config, CONFIG_NODE_BELT_L_U),
+    BeltType::U_L => config_get_sprite_details(config, CONFIG_NODE_BELT_U_L),
+    BeltType::LU => config_get_sprite_details(config, CONFIG_NODE_BELT_LU),
+    BeltType::R_U => config_get_sprite_details(config, CONFIG_NODE_BELT_R_U),
+    BeltType::U_R => config_get_sprite_details(config, CONFIG_NODE_BELT_U_R),
+    BeltType::RU => config_get_sprite_details(config, CONFIG_NODE_BELT_RU),
+    BeltType::D_R => config_get_sprite_details(config, CONFIG_NODE_BELT_D_R),
+    BeltType::R_D => config_get_sprite_details(config, CONFIG_NODE_BELT_R_D),
+    BeltType::DR => config_get_sprite_details(config, CONFIG_NODE_BELT_DR),
+    BeltType::D_L => config_get_sprite_details(config, CONFIG_NODE_BELT_D_L),
+    BeltType::L_D => config_get_sprite_details(config, CONFIG_NODE_BELT_L_D),
+    BeltType::DL => config_get_sprite_details(config, CONFIG_NODE_BELT_DL), 
+    BeltType::DU_R => config_get_sprite_details(config, CONFIG_NODE_BELT_DU_R),
+    BeltType::DR_U => config_get_sprite_details(config, CONFIG_NODE_BELT_DR_U),
+    BeltType::D_RU => config_get_sprite_details(config, CONFIG_NODE_BELT_D_RU),
+    BeltType::RU_D => config_get_sprite_details(config, CONFIG_NODE_BELT_RU_D),
+    BeltType::R_DU => config_get_sprite_details(config, CONFIG_NODE_BELT_R_DU),
+    BeltType::U_DR => config_get_sprite_details(config, CONFIG_NODE_BELT_U_DR),
+    BeltType::DRU => config_get_sprite_details(config, CONFIG_NODE_BELT_DRU),
+    BeltType::LU_R => config_get_sprite_details(config, CONFIG_NODE_BELT_LU_R),
+    BeltType::LR_U => config_get_sprite_details(config, CONFIG_NODE_BELT_LR_U),
+    BeltType::L_RU => config_get_sprite_details(config, CONFIG_NODE_BELT_L_RU),
+    BeltType::RU_L => config_get_sprite_details(config, CONFIG_NODE_BELT_RU_L),
+    BeltType::R_LU => config_get_sprite_details(config, CONFIG_NODE_BELT_R_LU),
+    BeltType::U_LR => config_get_sprite_details(config, CONFIG_NODE_BELT_U_LR),
+    BeltType::LRU => config_get_sprite_details(config, CONFIG_NODE_BELT_LRU),
+    BeltType::DL_R => config_get_sprite_details(config, CONFIG_NODE_BELT_DL_R),
+    BeltType::DR_L => config_get_sprite_details(config, CONFIG_NODE_BELT_DR_L),
+    BeltType::D_LR => config_get_sprite_details(config, CONFIG_NODE_BELT_D_LR),
+    BeltType::LR_D => config_get_sprite_details(config, CONFIG_NODE_BELT_LR_D),
+    BeltType::R_DL => config_get_sprite_details(config, CONFIG_NODE_BELT_R_DL),
+    BeltType::L_DR => config_get_sprite_details(config, CONFIG_NODE_BELT_L_DR),
+    BeltType::DLR => config_get_sprite_details(config, CONFIG_NODE_BELT_DLR),
+    BeltType::DL_U => config_get_sprite_details(config, CONFIG_NODE_BELT_DL_U),
+    BeltType::DU_L => config_get_sprite_details(config, CONFIG_NODE_BELT_DU_L),
+    BeltType::D_LU => config_get_sprite_details(config, CONFIG_NODE_BELT_D_LU),
+    BeltType::LU_D => config_get_sprite_details(config, CONFIG_NODE_BELT_LU_D),
+    BeltType::U_DL => config_get_sprite_details(config, CONFIG_NODE_BELT_U_DL),
+    BeltType::L_DU => config_get_sprite_details(config, CONFIG_NODE_BELT_L_DU),
+    BeltType::DLU => config_get_sprite_details(config, CONFIG_NODE_BELT_DLU),
+    BeltType::DLR_U => config_get_sprite_details(config, CONFIG_NODE_BELT_DLR_U),
+    BeltType::DLU_R => config_get_sprite_details(config, CONFIG_NODE_BELT_DLU_R),
+    BeltType::DRU_L => config_get_sprite_details(config, CONFIG_NODE_BELT_DRU_L),
+    BeltType::LRU_D => config_get_sprite_details(config, CONFIG_NODE_BELT_LRU_D),
+    BeltType::DL_RU => config_get_sprite_details(config, CONFIG_NODE_BELT_DL_RU),
+    BeltType::DR_LU => config_get_sprite_details(config, CONFIG_NODE_BELT_DR_LU),
+    BeltType::DU_LR => config_get_sprite_details(config, CONFIG_NODE_BELT_DU_LR),
+    BeltType::LR_DU => config_get_sprite_details(config, CONFIG_NODE_BELT_LR_DU),
+    BeltType::LU_DR => config_get_sprite_details(config, CONFIG_NODE_BELT_LU_DR),
+    BeltType::RU_DL => config_get_sprite_details(config, CONFIG_NODE_BELT_RU_DL),
+    BeltType::D_LRU => config_get_sprite_details(config, CONFIG_NODE_BELT_D_LRU),
+    BeltType::L_DRU => config_get_sprite_details(config, CONFIG_NODE_BELT_L_DRU),
+    BeltType::R_DLU => config_get_sprite_details(config, CONFIG_NODE_BELT_R_DLU),
+    BeltType::U_DLR => config_get_sprite_details(config, CONFIG_NODE_BELT_U_DLR),
+    BeltType::DLRU => config_get_sprite_details(config, CONFIG_NODE_BELT_DLRU),
+    BeltType::NONE => config_get_sprite_details(config, CONFIG_NODE_BELT_NONE),
+    BeltType::UNKNOWN => config_get_sprite_details(config, CONFIG_NODE_BELT_UNKNOWN),
+    BeltType::INVALID => config_get_sprite_details(config, CONFIG_NODE_BELT_INVALID),
+  };
+
+  context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+    &canvas,
+    // Sprite position
+    spx, spy, spw, sph,
+    // Paint onto canvas at
+    dx, dy, dw, dh,
+  ).expect("draw_belt() something error draw_image"); // requires web_sys HtmlImageElement feature
 }
 
 fn request_animation_frame(f: &Closure<dyn FnMut()>) {

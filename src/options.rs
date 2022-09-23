@@ -24,6 +24,7 @@ pub struct Options {
   pub draw_part_borders: bool, // Draw a border around Parts? Helps debugging invisible parts due to sprite problems
   pub draw_part_char_icon: bool, // Draw the char icon representation for a part on top of it
   pub draw_part_kind: bool, // Draw the part kind id representation for a part on top of it
+  pub draw_port_arrows: bool, // Draw the port directional arrows?
 
   pub draw_ui_section_border: bool, // Draw a guide around each grid section of the ui?
   pub ui_section_border_color: &'static str, // the color of this border
@@ -62,6 +63,7 @@ pub fn create_options(speed_modifier: f64) -> Options {
     draw_part_borders: false,
     draw_part_char_icon: false,
     draw_part_kind: false,
+    draw_port_arrows: true,
     draw_ui_section_border: false,
     ui_section_border_color: "white",
     short_term_window: 10000,
