@@ -75,6 +75,7 @@ pub struct MouseState {
   pub offer_selected_index: usize, // Offer index, not part index
   pub dragging_offer: bool,
   pub over_machine_button: bool, // Is the mouse currently over the machine button?
+  pub down_machine_button: bool,
   pub dragging_machine: bool,
 
   pub craft_over_any: bool, // Was the over anywhere inside the craft circle? Prevemts actions underneath it.

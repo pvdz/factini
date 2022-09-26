@@ -28,7 +28,6 @@
 // - make recipes be arbitrary? 2x2? let go of pattern?
 // - bouncer animation not bound to tick
 // - the later bouncers should fade faster
-// - crash: placing down machines crashes the game
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -176,7 +175,7 @@ const UI_DEBUG_APP_WIDTH: f64 = 250.0;
 const UI_DEBUG_APP_LINE_H: f64 = 25.0;
 const UI_DEBUG_APP_FONT_H: f64 = 16.0;
 const UI_DEBUG_APP_SPACING: f64 = 6.0;
-const UI_DEBUG_LINES: f64 = 8.0; // Update after adding more lines
+const UI_DEBUG_LINES: f64 = 9.0; // Update after adding more lines
 // Selected cell/machine details
 const UI_DEBUG_CELL_OFFSET_X: f64 = UI_DEBUG_OFFSET_X;
 const UI_DEBUG_CELL_OFFSET_Y: f64 = UI_DEBUG_OFFSET_Y;
@@ -438,6 +437,7 @@ pub fn start() -> Result<(), JsValue> {
       offer_selected_index: 0, // Offer index, not part index
       dragging_offer: false,
       over_machine_button: false,
+      down_machine_button: false,
       dragging_machine: false,
 
       craft_over_any: false,
@@ -888,6 +888,7 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
     mouse_state.craft_down_any = false;
     mouse_state.craft_dragging_ci = false;
     mouse_state.offer_down = false;
+    mouse_state.down_machine_button = false;
     mouse_state.is_down = false;
   }
   mouse_state.was_down = false;
@@ -973,6 +974,9 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
       let over_machine_button = hit_test_machine_button(mouse_state.world_x, mouse_state.world_y);
       if over_machine_button {
         mouse_state.over_machine_button = true;
+        if mouse_state.was_down {
+          mouse_state.down_machine_button = true;
+        }
       }
     }
   }
@@ -1054,7 +1058,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
     else if mouse_state.offer_down {
       on_drag_start_offer_before(options, state, config, factory, mouse_state, cell_selection);
     }
-    else if mouse_state.over_machine_button {
+    else if mouse_state.down_machine_button {
       on_drag_start_machine_button_before(options, state, config, mouse_state);
     }
     else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
@@ -1068,7 +1072,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
     else if mouse_state.offer_down {
       on_down_offer_before();
     }
-    else if mouse_state.over_machine_button {
+    else if mouse_state.down_machine_button {
       on_down_machine_button_before();
     }
     else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
@@ -1100,7 +1104,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
     else if mouse_state.offer_down {
       on_drag_start_offer_after();
     }
-    else if mouse_state.over_machine_button {
+    else if mouse_state.down_machine_button {
       on_drag_start_machine_button_after();
     }
     else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
@@ -1114,7 +1118,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
     else if mouse_state.offer_down {
       on_down_offer_after();
     }
-    else if mouse_state.over_machine_button {
+    else if mouse_state.down_machine_button {
       on_down_machine_button_after();
     }
     else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
@@ -1136,7 +1140,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
           on_drag_end_offer_over_floor(options, state, config, factory, mouse_state);
         }
       }
-      else if mouse_state.over_machine_button {
+      else if mouse_state.down_machine_button {
         on_drag_end_machine_button();
         if mouse_state.dragging_machine {
           on_drag_end_machine_over_floor(options, state, config, factory, mouse_state);
@@ -1154,7 +1158,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
       else if mouse_state.offer_down {
         on_up_offer(options, state, config, factory, mouse_state);
       }
-      else if mouse_state.over_machine_button {
+      else if mouse_state.down_machine_button {
         on_up_machine_button();
       }
       else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
@@ -2415,6 +2419,12 @@ fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::Canva
   context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
   context.set_fill_style(&"black".into());
   context.fill_text(format!("mouse cell : {:.2} x {:.2}", mouse_state.cell_rel_x, mouse_state.cell_rel_y).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+
+  ui_lines += 1.0;
+  context.set_fill_style(&"lightgreen".into());
+  context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
+  context.set_fill_style(&"black".into());
+  context.fill_text(format!("mouse coord : {}", if mouse_state.cell_x < 0.0 || mouse_state.cell_y < 0.0 || mouse_state.cell_x >= FLOOR_CELLS_W as f64 || mouse_state.cell_y >= FLOOR_CELLS_W as f64 { "oob".to_string() } else { format!("{}", mouse_state.cell_coord) }).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   assert_eq!(ui_lines, UI_DEBUG_LINES, "keep these in sync for simplicity");
 }
