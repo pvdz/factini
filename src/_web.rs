@@ -1133,6 +1133,9 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         if mouse_state.craft_down_any {
           on_drag_end_craft_over_floor(options, state, config, factory, cell_selection, mouse_state);
         }
+        if mouse_state.dragging_offer {
+          on_drag_end_offer_over_floor(options, state, config, factory, mouse_state);
+        }
       }
       else if mouse_state.offer_down {
         on_drag_end_offer();
