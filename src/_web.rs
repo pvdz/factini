@@ -27,7 +27,6 @@
 // - make recipes be arbitrary? 2x2? let go of pattern?
 // - bouncer animation not bound to tick
 // - the later bouncers should fade faster
-// - load initial map throuh snapshot stack
 // - corners of floor edge are still highlighting
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
@@ -527,14 +526,12 @@ pub fn start() -> Result<(), JsValue> {
         };
 
       if state.reset_next_frame {
-        let ( options1, mut state1, factory1 ) = init(&config, getGameMap());
-        // Copy snapshot state over to the fresh state object
-        state1.snapshot_stack = state.snapshot_stack.clone();
-        state1.snapshot_pointer = state.snapshot_pointer;
-        state1.snapshot_undo_pointer = state.snapshot_undo_pointer;
-        options = options1;
-        state = state1;
-        factory = factory1;
+        let snap = getGameMap();
+        log(format!("Pushing getGameMap() snapshot to the front of the stack; size: {} bytes, undo pointer: {}, pointer: {}", snap.len(), state.snapshot_undo_pointer, state.snapshot_pointer));
+        state.snapshot_pointer += 1;
+        state.snapshot_undo_pointer = state.snapshot_pointer;
+        state.snapshot_stack[state.snapshot_pointer % UNDO_STACK_SIZE] = snap;
+        state.load_snapshot_next_frame = true;
       }
       if state.load_snapshot_next_frame {
         let map = state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].clone();

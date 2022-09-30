@@ -54,7 +54,7 @@ pub fn create_options(speed_modifier: f64) -> Options {
     print_factory_interval: 5000,
     print_stats_interval: 100000,
     print_auto_layout_debug: false,
-    print_fmd_trace: true,
+    print_fmd_trace: false,
     trace_priority_step: false,
     trace_porting_step: false,
     trace_map_parsing: false,
