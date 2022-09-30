@@ -27,6 +27,10 @@
 // - make recipes be arbitrary? 2x2? let go of pattern?
 // - bouncer animation not bound to tick
 // - the later bouncers should fade faster
+// - make offers for edge get the yellow stripes
+// - create prefab buttons with some examples
+// - create tutorial
+// - options through JS so it is dynamic
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 

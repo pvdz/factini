@@ -564,7 +564,7 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt_LU
-- file: ./img/lu_cb.png
+- file: ./img/lu_cb2.png
 - x: 0
 - y: 0
 - w: 160
@@ -585,7 +585,7 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt_RU
-- file: ./img/ru_cb.png
+- file: ./img/ru_cb2.png
 - x: 0
 - y: 0
 - w: 160
@@ -606,14 +606,14 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt_DR
-- file: ./img/dr_cb.png
+- file: ./img/dr_cb2.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
 # Belt_D_L
-- file: ./img/d_l_cb.png
+- file: ./img/d_l_cb2.png
 - x: 0
 - y: 0
 - w: 160
@@ -627,7 +627,7 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt_DL
-- file: ./img/dl_cb.png
+- file: ./img/dl_cb2.png
 - x: 0
 - y: 0
 - w: 160
