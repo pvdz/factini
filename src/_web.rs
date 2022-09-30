@@ -27,7 +27,6 @@
 // - make recipes be arbitrary? 2x2? let go of pattern?
 // - bouncer animation not bound to tick
 // - the later bouncers should fade faster
-// - corners of floor edge are still highlighting
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -2112,10 +2111,6 @@ fn on_up_selecting(options: &mut Options, state: &mut State, config: &Config, fa
   }
 }
 
-fn bounds_check(x: f64, y: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> bool {
-  return x >= x1 && x < x2 && y >= y1 && y < y2;
-}
-
 fn hit_test_get_craft_interactable_machine_at(options: &Options, state: &State, factory: &Factory, cell_selection: &CellSelection, mwx: f64, mwy: f64) -> ( CraftInteractable, f64, f64, f64, f64, char, PartKind, u8 ) {
   // Figure out whether any of the interactables were clicked
 
@@ -2953,7 +2948,14 @@ fn paint_mouse_dragging_craft_interactable(options: &Options, state: &State, con
 }
 fn paint_mouse_in_erasing_mode(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   // Don't paint anything or paint the invalid belt stub
-  if bounds_check(mouse_state.cell_x, mouse_state.cell_y, 0.0, 0.0, FLOOR_CELLS_W as f64, FLOOR_CELLS_H as f64) {
+  if
+    bounds_check(mouse_state.cell_x, mouse_state.cell_y, 0.0, 0.0, FLOOR_CELLS_W as f64, FLOOR_CELLS_H as f64) &&
+    // Ignore the corners as well
+    (
+      line_check(mouse_state.cell_x, 1.0, FLOOR_CELLS_W as f64 - 1.0) ||
+      line_check(mouse_state.cell_y, 1.0, FLOOR_CELLS_H as f64 - 1.0)
+    )
+  {
     // Rectangle around current cell (generic)
     context.set_stroke_style(&"red".into());
     context.stroke_rect(UI_FLOOR_OFFSET_X + mouse_state.cell_x * CELL_W, UI_FLOOR_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
@@ -2999,7 +3001,14 @@ fn paint_mouse_in_selection_mode(options: &Options, state: &State, config: &Conf
         }
       }
     }
-    if bounds_check(mouse_state.cell_x, mouse_state.cell_y, 0.0, 0.0, FLOOR_CELLS_W as f64, FLOOR_CELLS_H as f64) {
+    if
+      bounds_check(mouse_state.cell_x, mouse_state.cell_y, 0.0, 0.0, FLOOR_CELLS_W as f64, FLOOR_CELLS_H as f64) &&
+      // Ignore the corners as well
+      (
+        line_check(mouse_state.cell_x, 1.0, FLOOR_CELLS_W as f64 - 1.0) ||
+        line_check(mouse_state.cell_y, 1.0, FLOOR_CELLS_H as f64 - 1.0)
+      )
+    {
       // Rectangle around current cell (generic)
       context.set_stroke_style(&"red".into());
       context.stroke_rect(UI_FLOOR_OFFSET_X + mouse_state.cell_x * CELL_W, UI_FLOOR_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
@@ -3104,8 +3113,14 @@ fn paint_mouse_while_dragging_offer(options: &Options, state: &State, config: &C
 }
 fn paint_mouse_cell_location_on_floor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
   if mouse_state.cell_x != cell_selection.x || mouse_state.cell_y != cell_selection.y {
-    context.set_stroke_style(&"red".into());
-    context.stroke_rect(UI_FLOOR_OFFSET_X + mouse_state.cell_x * CELL_W, UI_FLOOR_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
+    if
+      // Ignore the corners as well
+      line_check(mouse_state.cell_x, 1.0, FLOOR_CELLS_W as f64 - 1.0) ||
+      line_check(mouse_state.cell_y, 1.0, FLOOR_CELLS_H as f64 - 1.0)
+    {
+      context.set_stroke_style(&"red".into());
+      context.stroke_rect(UI_FLOOR_OFFSET_X + mouse_state.cell_x * CELL_W, UI_FLOOR_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
+    }
   }
 }
 fn paint_belt_drag_preview(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {

@@ -59,8 +59,8 @@ pub struct MouseState {
   pub world_y: f64,
   pub moved_since_start: bool, // The worldxy will be zero until the mouse moves at app start.
 
-  pub cell_x: f64,
-  pub cell_y: f64,
+  pub cell_x: f64, // floored
+  pub cell_y: f64, // floored
   pub cell_coord: usize,
 
   pub cell_rel_x: f64,

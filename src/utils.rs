@@ -17,3 +17,11 @@ pub fn log(s: String) {
 pub fn get_time_now() -> u64{
   return js_sys::Date::now() as u64;
 }
+
+pub fn bounds_check(x: f64, y: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> bool {
+  return x >= x1 && x < x2 && y >= y1 && y < y2;
+}
+
+pub fn line_check(n: f64, a: f64, b: f64) -> bool {
+  return n >= a && n < b;
+}
