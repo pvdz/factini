@@ -4,7 +4,6 @@
 // - import/export
 //   - import/export with clipboard
 //   - when importing the machine output is ignored so we should remove it from the template
-//   - undo/redo? could store export snapshots after each change. Not sure if that's super expensive.
 //   - save/load snapshots of the factory
 // - small problem with tick_belt_take_from_belt when a belt crossing is next to a supply and another belt; it will ignore the other belt as input. because the belt will not let a part proceed to the next port unless it's free and the processing order will process the neighbor belt first and then the crossing so by the time it's free, the part will still be at 50% whereas the supply part is always ready. fix is probably to make supply parts take a tick to be ready, or whatever.
 //  - affects machine speed so should be fixed
@@ -28,6 +27,8 @@
 // - make recipes be arbitrary? 2x2? let go of pattern?
 // - bouncer animation not bound to tick
 // - the later bouncers should fade faster
+// - load initial map throuh snapshot stack
+// - corners of floor edge are still highlighting
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -526,9 +527,25 @@ pub fn start() -> Result<(), JsValue> {
         };
 
       if state.reset_next_frame {
-        let ( options1, state1, factory1 ) = init(&config, getGameMap());
+        let ( options1, mut state1, factory1 ) = init(&config, getGameMap());
+        // Copy snapshot state over to the fresh state object
+        state1.snapshot_stack = state.snapshot_stack.clone();
+        state1.snapshot_pointer = state.snapshot_pointer;
+        state1.snapshot_undo_pointer = state.snapshot_undo_pointer;
         options = options1;
         state = state1;
+        factory = factory1;
+      }
+      if state.load_snapshot_next_frame {
+        let map = state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].clone();
+        let ( options1, mut state1, factory1 ) = init(&config, map);
+        // Copy snapshot state over to the fresh state object
+        state1.snapshot_stack = state.snapshot_stack.clone();
+        state1.snapshot_pointer = state.snapshot_pointer;
+        state1.snapshot_undo_pointer = state.snapshot_undo_pointer;
+        options = options1;
+        state = state1;
+        state.load_snapshot_next_frame = true; // resets with factory.changed check
         factory = factory1;
       }
 
@@ -565,6 +582,16 @@ pub fn start() -> Result<(), JsValue> {
         handle_input(&mut cell_selection, &mut mouse_state, &mut options, &mut state, &config, &mut factory);
 
         if factory.changed {
+          // If currently looking at a historic snapshot, then now copy that
+          // snapshot to the front of the stack before adding a new state to it
+          if !state.load_snapshot_next_frame && state.snapshot_pointer != state.snapshot_undo_pointer {
+            let snap = state.snapshot_stack[state.snapshot_undo_pointer].clone();
+            log(format!("Pushing current undo snapshot to the front of the stack; size: {} bytes, undo pointer: {}, pointer: {}", snap.len(), state.snapshot_undo_pointer, state.snapshot_pointer));
+            state.snapshot_pointer += 1;
+            state.snapshot_undo_pointer = state.snapshot_pointer;
+            state.snapshot_stack[state.snapshot_pointer % UNDO_STACK_SIZE] = snap;
+          }
+
           log(format!("Auto porting after modification. options.trace_porting_step = {}", options.trace_porting_step));
           keep_auto_porting(&mut options, &mut state, &mut factory);
 
@@ -572,6 +599,17 @@ pub fn start() -> Result<(), JsValue> {
           let prio: Vec<usize> = create_prio_list(&mut options, &config, &mut factory.floor);
           log(format!("Updated prio list: {:?}", prio));
           factory.prio = prio;
+
+          if !state.load_snapshot_next_frame {
+            // Create snapshot in history, except for unredo
+            let snap = generate_floor_dump(&mut options, &mut state, &factory, dnow()).join("\n");
+            // log(format!("Snapshot:\n{}", snap));
+            log(format!("Pushed snapshot to the front of the stack; size: {} bytes, undo pointer: {}, pointer: {}", snap.len(), state.snapshot_undo_pointer, state.snapshot_pointer));
+
+            state.snapshot_pointer += 1;
+            state.snapshot_undo_pointer = state.snapshot_pointer;
+            state.snapshot_stack[state.snapshot_pointer % UNDO_STACK_SIZE] = snap;
+          }
 
           factory.modified_at = factory.ticks;
           if factory.last_day_start == 0 {
@@ -584,6 +622,7 @@ pub fn start() -> Result<(), JsValue> {
           factory.produced = 0;
           factory.trashed = 0;
           factory.supplied = 0;
+          state.load_snapshot_next_frame = false;
         }
 
         // TODO: fix finished quote mechanism
@@ -1937,11 +1976,32 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
             }
           }
         }
-        3 => { // tbd
-          log(format!("(no button here)"));
+        3 => { // Undo
+          log(format!("undo button"));
+
+          // keep stack of n snapshots
+          // when undoing, put pointer backwards on the existing stack
+          // when redoing, move it forward
+          // when making a change and the pointer is not last, copy the current snapshot to last and then add the new snapshot
+          // this way you can still go back in time even after an undo and new change
+          // perhaps a "normal" undo mode would be preferable though.
+          // pointer rolls over after the max snap count. undo just rolls to the front if at zero
+          // means we have to track an undo pointer as well, which is a temporary pointer as long as it is not equal to the real pointer
+
+          if state.snapshot_undo_pointer > 0 {
+            state.snapshot_undo_pointer -= 1;
+            state.load_snapshot_next_frame = true;
+          }
         }
-        4 => { // tbd
-          log(format!("(no button here)"));
+        4 => { // Redo
+          log(format!("redo button"));
+
+          // if state.snapshot_undo_pointer is not equal to state.snapshot_pointer
+          // move the pointer forward. otherwise assume that you can't go forward
+          if state.snapshot_undo_pointer != state.snapshot_pointer {
+            state.snapshot_undo_pointer += 1;
+            state.load_snapshot_next_frame = true;
+          }
         }
         5 => { // tbd
           log(format!("(no button here)"));
@@ -3596,20 +3656,22 @@ fn paint_ui_button(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state:
   context.fill_text(text, x + 5.0, y + 14.0).expect("to paint");
 }
 fn paint_ui_buttons2(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  paint_ui_button2(context, mouse_state, 0.0, if state.mouse_mode_erasing { "erase" } else { "draw" }, state.mouse_mode_erasing);
-  paint_ui_button2(context, mouse_state, 1.0, "select", state.mouse_mode_selecting);
-  paint_ui_button2(context, mouse_state, 2.0, if state.selected_area_copy.len() > 0{ "stamp" } else { "copy" },     state.selected_area_copy.len() > 0);
-  // paint_ui_button2(context, mouse_state, 3.0, "paste", false);
-  // paint_ui_button2(context, mouse_state, 4.0, "nodir", false);
+  paint_ui_button2(context, mouse_state, 0.0, if state.mouse_mode_erasing { "erase" } else { "draw" }, state.mouse_mode_erasing, true);
+  paint_ui_button2(context, mouse_state, 1.0, "select", state.mouse_mode_selecting, true);
+  paint_ui_button2(context, mouse_state, 2.0, if state.selected_area_copy.len() > 0{ "stamp" } else { "copy" }, state.selected_area_copy.len() > 0, true);
+  paint_ui_button2(context, mouse_state, 3.0, "undo", false, state.snapshot_undo_pointer > 0); // should it be 1 for initial map? or dont care?
+  paint_ui_button2(context, mouse_state, 4.0, "redo", false, state.snapshot_undo_pointer != state.snapshot_pointer);
   // paint_ui_button2(context, mouse_state, 5.0, "togoal"); // fast forward to goal
   // paint_ui_button2(context, mouse_state, 6.0, "Panic");
   assert!(UI_MENU_BUTTONS_COUNT_WIDTH_MAX == 7.0, "Update after adding new buttons");
 }
-fn paint_ui_button2(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, index: f64, text: &str, on: bool) {
+fn paint_ui_button2(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, index: f64, text: &str, on: bool, enabled: bool) {
   let x = UI_MENU_BUTTONS_OFFSET_X + index * (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING);
   let y = UI_MENU_BUTTONS_OFFSET_Y2;
 
-  if on {
+  if !enabled {
+    context.set_fill_style(&"#777".into());
+  } else if on {
     context.set_fill_style(&"lightgreen".into());
   } else if bounds_check(mouse_state.world_x, mouse_state.world_y, x, y, x + UI_MENU_BUTTONS_WIDTH, y + UI_MENU_BUTTONS_HEIGHT) {
     context.set_fill_style(&"#eee".into());
@@ -3619,7 +3681,11 @@ fn paint_ui_button2(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state
   context.fill_rect(x, y, UI_MENU_BUTTONS_WIDTH, UI_MENU_BUTTONS_HEIGHT);
   context.set_stroke_style(&"black".into());
   context.stroke_rect(x, y, UI_MENU_BUTTONS_WIDTH, UI_MENU_BUTTONS_HEIGHT);
-  context.set_fill_style(&"black".into());
+  if enabled {
+    context.set_fill_style(&"black".into());
+  } else {
+    context.set_fill_style(&"#ccc".into());
+  }
   context.fill_text(text, x + 5.0, y + 14.0).expect("to paint");
 }
 fn paint_ui_time_control(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {

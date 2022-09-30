@@ -19,6 +19,8 @@ use super::prio::*;
 use super::truck::*;
 use super::utils::*;
 
+pub const UNDO_STACK_SIZE: usize = 100;
+
 pub struct State {
   pub paused: bool,
   pub reset_next_frame: bool,
@@ -30,6 +32,11 @@ pub struct State {
   pub trucks: Vec<Truck>,
   pub finished_quotes: Vec<usize>,
   pub lasers: Vec<Laser>,
+
+  pub snapshot_stack: [String; UNDO_STACK_SIZE],
+  pub load_snapshot_next_frame: bool,
+  pub snapshot_pointer: usize,
+  pub snapshot_undo_pointer: usize,
 }
 
 #[derive(Debug)]

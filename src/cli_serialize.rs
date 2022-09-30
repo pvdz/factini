@@ -275,6 +275,9 @@ pub fn print_floor_without_views(options: &mut Options, state: &mut State, facto
     log(format!("{}", line));
   }
 }
+pub fn snapshot(options: &mut Options, state: &mut State, factory: &Factory) -> String {
+  return serialize(options, state, factory, false);
+}
 pub fn generate_floor_without_views(options: &mut Options, state: &mut State, factory: &Factory) -> Vec<String> {
   let aa = serialize(options, state, factory, false);
   let mut a = aa.split('\n');
