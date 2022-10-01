@@ -30,7 +30,6 @@
 // - make offers for edge get the yellow stripes
 // - create prefab buttons with some examples
 // - create tutorial
-// - options through JS so it is dynamic
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -210,6 +209,7 @@ const COLOR_MACHINE_SEMI: &str = "#aaaa0099";
 extern {
   pub fn getGameConfig() -> String; // GAME_CONFIG
   pub fn getGameMap() -> String; // GAME_MAP
+  pub fn getGameOptions() -> String; // GAME_OPTIONS
   // pub fn log(s: &str); // -> console.log(s)
   // pub fn print_world(s: &str);
   // pub fn print_options(options: &str);
@@ -377,6 +377,8 @@ pub fn start() -> Result<(), JsValue> {
   }
 
   let ( mut options, mut state, mut factory ) = init(&config, getGameMap());
+
+  parse_options_into(getGameOptions(), &mut options);
 
   if options.print_initial_table {
     print_floor_with_views(&mut options, &mut state, &mut factory);
@@ -789,7 +791,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_debug_selected_demand_cell(&context, &factory, &cell_selection, &mouse_state);
 
         if options.draw_ui_section_border {
-          context.set_stroke_style(&options.ui_section_border_color.into());
+          context.set_stroke_style(&options.ui_section_border_color.clone().into());
           context.stroke_rect(GRID_X0, GRID_Y0, GRID_LEFT_WIDTH, GRID_TOP_HEIGHT);
           context.stroke_rect(GRID_X1, GRID_Y0, FLOOR_WIDTH, GRID_TOP_HEIGHT);
           context.stroke_rect(GRID_X2, GRID_Y0, GRID_RIGHT_WIDTH, GRID_TOP_HEIGHT + GRID_SPACING + FLOOR_HEIGHT + GRID_SPACING + GRID_BOTTOM_HEIGHT);

@@ -1,3 +1,6 @@
+use super::utils::*;
+
+
 pub struct Options {
   pub print_choices: bool,
   pub print_choices_belt: bool,
@@ -27,7 +30,7 @@ pub struct Options {
   pub draw_port_arrows: bool, // Draw the port directional arrows?
 
   pub draw_ui_section_border: bool, // Draw a guide around each grid section of the ui?
-  pub ui_section_border_color: &'static str, // the color of this border
+  pub ui_section_border_color: String, // the color of this border
 
   pub short_term_window: u64, // For stats; average over this many ticks
   pub long_term_window: u64, // For stats; average over this many ticks
@@ -65,12 +68,113 @@ pub fn create_options(speed_modifier: f64) -> Options {
     draw_part_kind: false,
     draw_port_arrows: true,
     draw_ui_section_border: false,
-    ui_section_border_color: "white",
+    ui_section_border_color: "white".to_string(),
     short_term_window: 10000,
     long_term_window: 600000,
     speed_modifier,
     web_output_cli: false,
   };
+}
+
+fn parse_bool(value: &str, key: &str) -> bool {
+  match value {
+    "true" => true,
+    "false" => false,
+    _ => panic!("Invalid value for options.{}; expecting a boolean, received `{}`", key, value),
+  }
+}
+
+fn parse_f64(value: &str, key: &str) -> f64 {
+  let b =
+    if !value.contains(".") {
+      format!("{}.0", value)
+    } else {
+      value.to_string()
+    };
+
+  return b.parse::<f64>().expect(format!("The value for options.{} must be a number, received `{}`", key, b).as_str());
+}
+
+fn parse_string(value: &str, key: &str) -> String {
+  if value.starts_with("\"") {
+    if !value.ends_with("\"") {
+      panic!("Missing double quote at end of value; options.{}, value = `{}`", key, value);
+    }
+  }
+  else if value.starts_with("'") {
+    if !value.ends_with("'") {
+      panic!("Missing single quote at end of value; options.{}, value = `{}`", key, value);
+    }
+  }
+  else {
+    panic!("Unable to parse string for options.{}; value was `{}`", key, value);
+  }
+  return format!("{}", value)[1..value.len()-1].to_string();
+}
+
+pub fn parse_options_into(input: String, options: &mut Options) {
+  log(format!("parse_options_into()"));
+
+  let trimmed = input.trim().clone().split('\n');
+  trimmed.for_each(|line| {
+    // Drop the list prefix ('-')
+    let line = line.trim();
+    if line.starts_with('-') {
+      // Get the name and the value
+      match line[1..].trim().split_once(':') {
+        Some((name, value)) => {
+          let name = name.trim();
+          let value = value.trim();
+          log(format!("- updating options.{} to `{}`", name, value));
+
+          match name {
+            "print_choices" => options.print_choices = parse_bool(value, name),
+            "print_choices_belt" => options.print_choices_belt = parse_bool(value, name),
+            "print_choices_machine" => options.print_choices_machine = parse_bool(value, name),
+            "print_choices_supply" => options.print_choices_supply = parse_bool(value, name),
+            "print_choices_demand" => options.print_choices_demand = parse_bool(value, name),
+            "print_moves" => options.print_moves = parse_bool(value, name),
+            "print_moves_belt" => options.print_moves_belt = parse_bool(value, name),
+            "print_moves_machine" => options.print_moves_machine = parse_bool(value, name),
+            "print_moves_supply" => options.print_moves_supply = parse_bool(value, name),
+            "print_moves_demand" => options.print_moves_demand = parse_bool(value, name),
+            "print_price_deltas" => options.print_price_deltas = parse_bool(value, name),
+            "print_machine_actions" => options.print_machine_actions = parse_bool(value, name),
+            "print_factory_interval" => options.print_factory_interval = parse_f64(value, name) as u64,
+            "print_stats_interval" => options.print_stats_interval = parse_f64(value, name) as u64,
+            "print_auto_layout_debug" => options.print_auto_layout_debug = parse_bool(value, name),
+            "print_fmd_trace" => options.print_fmd_trace = parse_bool(value, name),
+            "trace_priority_step" => options.trace_priority_step = parse_bool(value, name),
+            "trace_porting_step" => options.trace_porting_step = parse_bool(value, name),
+            "trace_map_parsing" => options.trace_map_parsing = parse_bool(value, name),
+            "print_priority_tile_order" => options.print_priority_tile_order = parse_bool(value, name),
+            "print_initial_table" => options.print_initial_table = parse_bool(value, name),
+
+            "draw_part_borders" => options.draw_part_borders = parse_bool(value, name),
+            "draw_part_char_icon" => options.draw_part_char_icon = parse_bool(value, name),
+            "draw_part_kind" => options.draw_part_kind = parse_bool(value, name),
+            "draw_port_arrows" => options.draw_port_arrows = parse_bool(value, name),
+
+            "draw_ui_section_border" => options.draw_ui_section_border = parse_bool(value, name),
+            "ui_section_border_color" => options.ui_section_border_color = parse_string(value, name),
+
+            "short_term_window" => options.short_term_window = parse_f64(value, name) as u64,
+            "long_term_window" => options.long_term_window = parse_f64(value, name) as u64,
+
+            "speed_modifier" => options.speed_modifier = parse_f64(value, name),
+
+            "web_output_cli" => options.web_output_cli = parse_bool(value, name),
+            _ => {
+              log(format!("  - ignoring `{}` because it is an unknown option or because it needs to be added to the options parser", name));
+            }
+          }
+        }
+        None => {
+          // Ignore parts of the md that do not have a colon
+        }
+      }
+    }
+  })
 }
 
 // Design is for the default speed to run 10k ticks per real world second

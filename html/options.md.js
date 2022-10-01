@@ -1,0 +1,33 @@
+const GAME_OPTIONS = `
+- print_choices: false
+- print_choices_belt: false
+- print_choices_machine: false
+- print_choices_supply: false
+- print_choices_demand: false
+- print_moves: false
+- print_moves_belt: false
+- print_moves_machine: false
+- print_moves_supply: false
+- print_moves_demand: false
+- print_price_deltas: false
+- print_machine_actions: false
+- print_factory_interval: 5000
+- print_stats_interval: 100000
+- print_auto_layout_debug: false
+- print_fmd_trace: false
+- trace_priority_step: false
+- trace_porting_step: false
+- trace_map_parsing: false
+- print_priority_tile_order: false
+- print_initial_table: false
+- draw_part_borders: false
+- draw_part_char_icon: false
+- draw_part_kind: false
+- draw_port_arrows: true
+- draw_ui_section_border: false
+- ui_section_border_color: "white"
+- short_term_window: 10000
+- long_term_window: 600000
+- speed_modifier: 1.0
+- web_output_cli: false
+`;
