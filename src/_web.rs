@@ -27,7 +27,6 @@
 // - make recipes be arbitrary? 2x2? let go of pattern?
 // - bouncer animation not bound to tick
 // - the later bouncers should fade faster
-// - make offers for edge get the yellow stripes
 // - create prefab buttons with some examples
 // - create tutorial
 
@@ -2502,7 +2501,7 @@ fn paint_world_cli(context: &Rc<web_sys::CanvasRenderingContext2d>, options: &mu
     context.fill_text(format!("{}", lines[n]).as_str(), 50.0, (n as f64) * 24.0 + 50.0).expect("something lower error fill_text");
   }
 }
-fn paint_supply_and_part_at_edge(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, cx: usize, cy: usize, part_index: PartKind) {
+fn paint_supply_and_part_for_edge(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, cx: usize, cy: usize, part_index: PartKind) {
   let ox = UI_FLOOR_OFFSET_X + CELL_W * (cx as f64);
   let oy = UI_FLOOR_OFFSET_Y + CELL_H * (cy as f64);
   let dock_target =
@@ -2560,6 +2559,27 @@ fn paint_part_and_pattern_at_middle(options: &Options, state: &State, config: &C
 fn paint_supply_and_part_not_floor(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, ox: f64, oy: f64, part_index: PartKind) {
   paint_segment_part_from_config(options, state, config, context, part_index, ox + CELL_W*0.13, oy + CELL_H*0.13, CELL_W*0.75, CELL_H*0.75);
 }
+fn paint_dock_stripes(
+  options: &Options,
+  state: &State,
+  config: &Config,
+  context: &Rc<web_sys::CanvasRenderingContext2d>,
+  dock_target: usize,
+  ox: f64,
+  oy: f64,
+  w: f64,
+  h: f64,
+) {
+  // Paint the loading docks, which is where the suppliers and demanders can go
+  context.set_global_alpha(0.5); // TODO: the alpha should probably be governed by the image (semi-trans) or a configurable setting...
+  // Paint the dock image for non-corner edge cells
+  context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+    &config.sprite_cache_canvas[config.nodes[dock_target].file_canvas_cache_index],
+    config.nodes[dock_target].x, config.nodes[dock_target].y, config.nodes[dock_target].w, config.nodes[dock_target].h,
+    ox, oy, w, h
+  ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+  context.set_global_alpha(1.0);
+}
 fn paint_background_tiles(
   options: &Options,
   state: &State,
@@ -2581,8 +2601,12 @@ fn paint_background_tiles(
     // This is cheating since we defer the loading stuff to the browser. Sue me.
     match factory.floor[coord].kind {
       CellKind::Empty => {
-        if (cx == 0 || cx == FLOOR_CELLS_W - 1) && (cy == 0 || cy == FLOOR_CELLS_H - 1) { continue; }
+        if (cx == 0 || cx == FLOOR_CELLS_W - 1) && (cy == 0 || cy == FLOOR_CELLS_H - 1) {
+          // corners
+          continue;
+        }
 
+        // edge?
         let dock_target =
           if cy == 0 {
             CONFIG_NODE_DOCK_UP
@@ -2596,15 +2620,7 @@ fn paint_background_tiles(
             continue;
           };
 
-        // Paint the loading docks, which is where the suppliers and demanders can go
-        context.set_global_alpha(0.5); // TODO: the alpha should probably be governed by the image (semi-trans) or a configurable setting...
-        // Paint the dock image for non-corner edge cells
-        context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-          &config.sprite_cache_canvas[config.nodes[dock_target].file_canvas_cache_index],
-          config.nodes[dock_target].x, config.nodes[dock_target].y, config.nodes[dock_target].w, config.nodes[dock_target].h,
-          ox, oy, CELL_W, CELL_H
-        ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
-        context.set_global_alpha(1.0);
+        paint_dock_stripes(options, state, config, context, dock_target, ox, oy, CELL_W, CELL_H);
       },
       CellKind::Belt => {
         let belt_meta = &factory.floor[coord].belt.meta;
@@ -2632,7 +2648,7 @@ fn paint_background_tiles(
         }
       },
       CellKind::Supply => {
-        paint_supply_and_part_at_edge(options, state, config, context, cx, cy, factory.floor[coord].supply.gives.kind);
+        paint_supply_and_part_for_edge(options, state, config, context, cx, cy, factory.floor[coord].supply.gives.kind);
       }
       CellKind::Demand => {
         let dock_target =
@@ -3111,7 +3127,7 @@ fn paint_mouse_while_dragging_offer(options: &Options, state: &State, config: &C
   else {
     // Only edge. No point in dumping into machine, I guess? Maybe as an expensive supply? Who cares?
     if is_edge_not_corner(mouse_state.cell_x, mouse_state.cell_y) {
-      paint_supply_and_part_at_edge(options, state, config, context, mouse_state.cell_x as usize, mouse_state.cell_y as usize, part_index);
+      paint_supply_and_part_for_edge(options, state, config, context, mouse_state.cell_x as usize, mouse_state.cell_y as usize, part_index);
     } else {
       paint_supply_and_part_not_edge(options, state, config, context, mouse_state.world_x - ((CELL_W as f64) / 2.0), mouse_state.world_y - ((CELL_H as f64) / 2.0), part_index);
     }
@@ -3477,7 +3493,7 @@ fn paint_ui_offers(options: &Options, state: &State, config: &Config, context: &
     let ( part_index, part_interactable ) = factory.available_parts_rhs_menu[offer_index];
     if part_interactable {
       let highlight = (is_mouse_over_offer && offer_index == offer_hover_index) || (mouse_state.offer_selected && mouse_state.offer_selected_index == offer_index);
-      paint_ui_offer(options, state, config, context, factory, mouse_state, cell_selection, offer_index, part_index, inc, highlight, if config.nodes[part_index].pattern_unique_icons.len() > 0 { "#c99110" } else { "pink" });
+      paint_ui_offer(options, state, config, context, factory, mouse_state, cell_selection, offer_index, part_index, inc, highlight, config.nodes[part_index].pattern_unique_icons.len() > 0);
       inc += 1;
     }
   }
@@ -3555,10 +3571,19 @@ fn paint_ui_offer_hover_droptarget_hint(options: &Options, state: &State, config
     context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y + (FLOOR_CELLS_H as f64 - 1.0) * CELL_H, (FLOOR_CELLS_W as f64 - 2.0) * CELL_W, CELL_H);
   }
 }
-fn paint_ui_offer(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection, offer_index: usize, part_index: usize, inc: usize, highlight: bool, color: &str) {
-  context.set_fill_style(&color.into());
+fn paint_ui_offer(
+  options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection,
+  offer_index: usize, part_index: usize, inc: usize, highlight: bool, is_machine_part: bool
+) {
   let ( x, y ) = get_offer_xy(inc);
-  context.fill_rect(x, y, UI_OFFERS_WIDTH, UI_OFFERS_HEIGHT);
+
+  if is_machine_part {
+    context.set_fill_style(&"#c99110".into());
+    context.fill_rect(x, y, UI_OFFERS_WIDTH, UI_OFFERS_HEIGHT);
+  } else {
+    paint_dock_stripes(options, state, config, context, CONFIG_NODE_DOCK_UP, x, y, UI_OFFERS_WIDTH, UI_OFFERS_HEIGHT);
+  }
+
   let px = x + (UI_OFFERS_WIDTH / 2.0) - (CELL_W / 2.0);
   let py = y + (UI_OFFERS_HEIGHT / 2.0) - (CELL_H / 2.0);
   paint_segment_part_from_config(options, state, config, context, part_index, px, py, CELL_W, CELL_H);
