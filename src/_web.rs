@@ -1986,14 +1986,12 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
           }
           factory.changed = true;
         }
-        4 => { // Dump
-          log(format!("Dumping factory..."));
-          let dump = generate_floor_dump(options, state, &factory, dnow()).join("\n");
-          log(format!("\n{}", dump));
-          web_sys::window().unwrap().document().unwrap().get_element_by_id("tdb").unwrap().dyn_into::<web_sys::HtmlElement>().unwrap().set_text_content(Some(dump.as_str()));
+        4 => { // Sample
+          log(format!("pressed sample button"));
+          state.load_example_next_frame = true;
         }
-        5 => { // Panic
-          panic!("Hit the panic button. Or another button without implementation.")
+        5 => {
+          log(format!("(no button here)"));
         }
         6 => {
           log(format!("(no button here)"));
@@ -2078,9 +2076,8 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
             state.load_snapshot_next_frame = true;
           }
         }
-        5 => { // Sample
-          log(format!("pressed sample button"));
-          state.load_example_next_frame = true;
+        5 => { // Panic
+          panic!("Hit the panic button. Or another button without implementation.")
         }
         6 => { // tbd
           log(format!("(no button here)"));
@@ -3757,8 +3754,7 @@ fn paint_ui_buttons(options: &Options, state: &State, context: &Rc<web_sys::Canv
   paint_ui_button(context, mouse_state, 1.0, "Unbelt");
   paint_ui_button(context, mouse_state, 2.0, "Unpart");
   paint_ui_button(context, mouse_state, 3.0, "Undir");
-  paint_ui_button(context, mouse_state, 4.0, "Dump");
-  paint_ui_button(context, mouse_state, 5.0, "Panic");
+  paint_ui_button(context, mouse_state, 4.0, "Sample");
   assert!(UI_MENU_BUTTONS_COUNT_WIDTH_MAX == 7.0, "Update after adding new buttons");
 
   paint_ui_time_control(options, state, context, mouse_state);
@@ -3784,7 +3780,7 @@ fn paint_ui_buttons2(options: &Options, state: &State, context: &Rc<web_sys::Can
   paint_ui_button2(context, mouse_state, 2.0, if state.selected_area_copy.len() > 0{ "Stamp" } else { "Copy" }, state.selected_area_copy.len() > 0, true);
   paint_ui_button2(context, mouse_state, 3.0, "Undo", false, state.snapshot_undo_pointer > 0); // should it be 1 for initial map? or dont care?
   paint_ui_button2(context, mouse_state, 4.0, "Redo", false, state.snapshot_undo_pointer != state.snapshot_pointer);
-  paint_ui_button2(context, mouse_state, 5.0, "Sample", false, true);
+  paint_ui_button2(context, mouse_state, 5.0, "Panic", false, true);
   // paint_ui_button2(context, mouse_state, 6.0, "Panic");
   assert!(UI_MENU_BUTTONS_COUNT_WIDTH_MAX == 7.0, "Update after adding new buttons");
 }
