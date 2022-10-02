@@ -22,29 +22,18 @@ pub fn init(config: &Config, map_str: String) -> ( Options, State, Factory ) {
   let mut options = create_options(1.0);
 
   // General app state
-  let mut state = State {
-    paused: false,
-    reset_next_frame: false,
-    mouse_mode_erasing: false,
-    mouse_mode_selecting: false,
-    selected_area_copy: vec!(),
-    test: false,
-    trucks: vec!() as Vec<Truck>, // Why is the cast necessary? :shrug:
-    bouncers: VecDeque::new(),
-    finished_quotes: vec!(),
-    lasers: vec!(),
-    manual_open: false,
-    snapshot_stack: [(); 100].map(|_| "".to_string()),
-    load_snapshot_next_frame: false, // TODO: could do this for init too...?
-    snapshot_pointer: 0,
-    snapshot_undo_pointer: 0,
-  };
+  let mut state = state_create();
 
-  let parts = config_get_available_parts(config);
-  let mut factory = create_factory(&mut options, &mut state, config, map_str, parts);
-  factory.changed = true;
+  let factory = load_map(&mut options, &mut state, &config, map_str);
 
   return ( options, state, factory );
+}
+
+pub fn load_map(options: &mut Options, state: &mut State, config: &Config, map_str: String) -> Factory {
+  let parts = config_get_available_parts(config);
+  let mut factory = create_factory(options, state, config, map_str, parts);
+  factory.changed = true;
+  return factory;
 }
 
 // @deprecated

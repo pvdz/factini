@@ -27,7 +27,7 @@
 // - make recipes be arbitrary? 2x2? let go of pattern?
 // - bouncer animation not bound to tick
 // - the later bouncers should fade faster
-// - create prefab buttons with some examples
+// - changing machine configuration does not trigger factory.change and undo stack
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -213,6 +213,7 @@ extern {
   pub fn getGameConfig() -> String; // GAME_CONFIG
   pub fn getGameMap() -> String; // GAME_MAP
   pub fn getGameOptions() -> String; // GAME_OPTIONS
+  pub fn getExamples() -> js_sys::Array; // GAME_EXAMPLES, array of string
   // pub fn log(s: &str); // -> console.log(s)
   // pub fn print_world(s: &str);
   // pub fn print_options(options: &str);
@@ -385,6 +386,7 @@ pub fn start() -> Result<(), JsValue> {
   let ( mut options, mut state, mut factory ) = init(&config, getGameMap());
 
   parse_options_into(getGameOptions(), &mut options);
+  state_add_examples(getExamples(), &mut state);
 
   if options.print_initial_table {
     print_floor_with_views(&mut options, &mut state, &mut factory);
@@ -539,25 +541,26 @@ pub fn start() -> Result<(), JsValue> {
           ( ticks_todo, 0u64 )
         };
 
+      if state.load_example_next_frame {
+        state.load_example_next_frame = false;
+        let map = state.examples[state.example_pointer % state.examples.len()].clone();
+        log(format!("Loading example[{}]; size: {} bytes", state.example_pointer, map.len()));
+        let factory1 = load_map(&mut options, &mut state, &config, map);
+        factory = factory1;
+        state.example_pointer += 1;
+      }
       if state.reset_next_frame {
-        let snap = getGameMap();
-        log(format!("Pushing getGameMap() snapshot to the front of the stack; size: {} bytes, undo pointer: {}, pointer: {}", snap.len(), state.snapshot_undo_pointer, state.snapshot_pointer));
-        state.snapshot_pointer += 1;
-        state.snapshot_undo_pointer = state.snapshot_pointer;
-        state.snapshot_stack[state.snapshot_pointer % UNDO_STACK_SIZE] = snap;
-        state.load_snapshot_next_frame = true;
+        let map = getGameMap();
+        log(format!("Loading getGameMap(); size: {} bytes", map.len()));
+        let factory1 = load_map(&mut options, &mut state, &config, map);
+        factory = factory1;
       }
       if state.load_snapshot_next_frame {
         let map = state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].clone();
-        let ( options1, mut state1, factory1 ) = init(&config, map);
-        // Copy snapshot state over to the fresh state object
-        state1.snapshot_stack = state.snapshot_stack.clone();
-        state1.snapshot_pointer = state.snapshot_pointer;
-        state1.snapshot_undo_pointer = state.snapshot_undo_pointer;
-        options = options1;
-        state = state1;
-        state.load_snapshot_next_frame = true; // resets with factory.changed check
+        log(format!("Loading snapshot[{} / {}]; size: {} bytes", state.snapshot_undo_pointer, state.snapshot_pointer, map.len()));
+        let factory1 = load_map(&mut options, &mut state, &config, map);
         factory = factory1;
+        // Note: state.load_snapshot_next_frame remains true because factory.changed has special undo-stack behavior for it
       }
 
       if !state.paused {
@@ -2055,8 +2058,9 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
             state.load_snapshot_next_frame = true;
           }
         }
-        5 => { // tbd
-          log(format!("(no button here)"));
+        5 => { // Sample
+          log(format!("pressed sample button"));
+          state.load_example_next_frame = true;
         }
         6 => { // tbd
           log(format!("(no button here)"));
@@ -3756,12 +3760,12 @@ fn paint_ui_button(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state:
   context.fill_text(text, x + 5.0, y + 14.0).expect("to paint");
 }
 fn paint_ui_buttons2(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  paint_ui_button2(context, mouse_state, 0.0, if state.mouse_mode_erasing { "erase" } else { "draw" }, state.mouse_mode_erasing, true);
-  paint_ui_button2(context, mouse_state, 1.0, "select", state.mouse_mode_selecting, true);
-  paint_ui_button2(context, mouse_state, 2.0, if state.selected_area_copy.len() > 0{ "stamp" } else { "copy" }, state.selected_area_copy.len() > 0, true);
-  paint_ui_button2(context, mouse_state, 3.0, "undo", false, state.snapshot_undo_pointer > 0); // should it be 1 for initial map? or dont care?
-  paint_ui_button2(context, mouse_state, 4.0, "redo", false, state.snapshot_undo_pointer != state.snapshot_pointer);
-  // paint_ui_button2(context, mouse_state, 5.0, "togoal"); // fast forward to goal
+  paint_ui_button2(context, mouse_state, 0.0, if state.mouse_mode_erasing { "Erase" } else { "Draw" }, state.mouse_mode_erasing, true);
+  paint_ui_button2(context, mouse_state, 1.0, "Select", state.mouse_mode_selecting, true);
+  paint_ui_button2(context, mouse_state, 2.0, if state.selected_area_copy.len() > 0{ "Stamp" } else { "Copy" }, state.selected_area_copy.len() > 0, true);
+  paint_ui_button2(context, mouse_state, 3.0, "Undo", false, state.snapshot_undo_pointer > 0); // should it be 1 for initial map? or dont care?
+  paint_ui_button2(context, mouse_state, 4.0, "Redo", false, state.snapshot_undo_pointer != state.snapshot_pointer);
+  paint_ui_button2(context, mouse_state, 5.0, "Sample", false, true);
   // paint_ui_button2(context, mouse_state, 6.0, "Panic");
   assert!(UI_MENU_BUTTONS_COUNT_WIDTH_MAX == 7.0, "Update after adding new buttons");
 }

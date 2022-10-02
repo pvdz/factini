@@ -3,6 +3,7 @@ name = "factini"
 version = "0.1.0"
 edition = "2018"
 
+# TODO: copy compilation flags from https://betterprogramming.pub/how-to-pass-arrays-between-javascript-and-wasm-in-rust-9f2eeee7f2b6
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 futures = "*"
 wasm-bindgen = { version = "0.2", features = [] }

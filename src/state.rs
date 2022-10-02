@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use js_sys::{Array};
 
 use super::belt::*;
 use super::bouncer::*;
@@ -23,7 +24,6 @@ pub const UNDO_STACK_SIZE: usize = 100;
 
 pub struct State {
   pub paused: bool,
-  pub reset_next_frame: bool,
   pub mouse_mode_erasing: bool,
   pub mouse_mode_selecting: bool,
   pub selected_area_copy: Vec<Vec<Cell>>,
@@ -33,11 +33,15 @@ pub struct State {
   pub finished_quotes: Vec<usize>,
   pub lasers: Vec<Laser>,
   pub manual_open: bool,
-
   pub snapshot_stack: [String; UNDO_STACK_SIZE],
-  pub load_snapshot_next_frame: bool,
   pub snapshot_pointer: usize,
   pub snapshot_undo_pointer: usize,
+  pub examples: Vec<String>,
+  pub example_pointer: usize,
+
+  pub reset_next_frame: bool,
+  pub load_snapshot_next_frame: bool,
+  pub load_example_next_frame: bool,
 }
 
 #[derive(Debug)]
@@ -143,4 +147,35 @@ pub struct Laser {
   pub quote_pos: usize,
   pub ttl: u32,
   pub color: String,
+}
+
+pub fn state_create() -> State {
+  return State {
+    paused: false,
+    reset_next_frame: false,
+    mouse_mode_erasing: false,
+    mouse_mode_selecting: false,
+    selected_area_copy: vec!(),
+    test: false,
+    trucks: vec!() as Vec<Truck>, // Why is the cast necessary? :shrug:
+    bouncers: VecDeque::new(),
+    finished_quotes: vec!(),
+    lasers: vec!(),
+    manual_open: false,
+    snapshot_stack: [(); 100].map(|_| "".to_string()),
+    load_snapshot_next_frame: false, // TODO: could do this for init too...?
+    snapshot_pointer: 0,
+    snapshot_undo_pointer: 0,
+    load_example_next_frame: false,
+    examples: vec!(),
+    example_pointer: 0,
+  };
+}
+
+pub fn state_add_examples(examples: Array, state: &mut State) {
+  let mut result: Vec<String> = vec!();
+  for maybe_str in examples.iter() {
+    result.push(maybe_str.as_string().unwrap_or_else(| | panic!("Unable to parse element as string. Expecting an array of strings")));
+  }
+  state.examples = result;
 }
