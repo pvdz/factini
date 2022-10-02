@@ -547,21 +547,18 @@ pub fn start() -> Result<(), JsValue> {
         state.load_example_next_frame = false;
         let map = state.examples[state.example_pointer % state.examples.len()].clone();
         log(format!("Loading example[{}]; size: {} bytes", state.example_pointer, map.len()));
-        let factory1 = load_map(&mut options, &mut state, &config, map);
-        factory = factory1;
+        factory_load_map(&mut options, &mut state, &config, &mut factory, map);
         state.example_pointer += 1;
       }
       if state.reset_next_frame {
         let map = getGameMap();
         log(format!("Loading getGameMap(); size: {} bytes", map.len()));
-        let factory1 = load_map(&mut options, &mut state, &config, map);
-        factory = factory1;
+        factory_load_map(&mut options, &mut state, &config, &mut factory, map);
       }
       if state.load_snapshot_next_frame {
         let map = state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].clone();
         log(format!("Loading snapshot[{} / {}]; size: {} bytes", state.snapshot_undo_pointer, state.snapshot_pointer, map.len()));
-        let factory1 = load_map(&mut options, &mut state, &config, map);
-        factory = factory1;
+        factory_load_map(&mut options, &mut state, &config, &mut factory, map);
         // Note: state.load_snapshot_next_frame remains true because factory.changed has special undo-stack behavior for it
       }
 
@@ -649,9 +646,7 @@ pub fn start() -> Result<(), JsValue> {
           state.load_snapshot_next_frame = false;
         }
 
-        // TODO: fix finished quote mechanism
         if state.finished_quotes.len() > 0 {
-          log(format!("TODO: state.finished_quotes.len() > 0"));
           loop {
             let quote_index = state.finished_quotes.pop();
             if let Some(quote_index) = quote_index {

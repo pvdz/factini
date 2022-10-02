@@ -28,9 +28,6 @@ pub struct State {
   pub mouse_mode_selecting: bool,
   pub selected_area_copy: Vec<Vec<Cell>>,
   pub test: bool,
-  pub bouncers: VecDeque<Bouncer>,
-  pub trucks: Vec<Truck>,
-  pub finished_quotes: Vec<usize>,
   pub lasers: Vec<Laser>,
   pub manual_open: bool,
   pub snapshot_stack: [String; UNDO_STACK_SIZE],
@@ -38,6 +35,11 @@ pub struct State {
   pub snapshot_undo_pointer: usize,
   pub examples: Vec<String>,
   pub example_pointer: usize,
+
+  // TODO: move the rest below to factory
+  pub bouncers: VecDeque<Bouncer>,
+  pub trucks: Vec<Truck>,
+  pub finished_quotes: Vec<usize>,
 
   pub reset_next_frame: bool,
   pub load_snapshot_next_frame: bool,

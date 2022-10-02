@@ -45,14 +45,14 @@ pub struct Factory {
   pub trashed: u64,
 }
 
-pub fn create_factory(options: &mut Options, state: &mut State, config: &Config, floor_str: String, parts: Vec<PartKind>) -> Factory {
+pub fn create_factory(options: &mut Options, state: &mut State, config: &Config, floor_str: String) -> Factory {
   let floor = floor_from_str(options, state, config, floor_str);
   let mut factory = Factory {
     ticks: 0,
     floor,
     prio: vec!(),
     quotes: quotes_get_available(config, 0),
-    available_parts_rhs_menu: parts.iter().map(|&p| ( p, true )).collect::<Vec<(PartKind, bool)>>(),
+    available_parts_rhs_menu: vec!(),
     changed: true,
     last_day_start: 0,
     modified_at: 0,
@@ -196,4 +196,16 @@ pub fn factory_reset_stats(options: &mut Options, state: &mut State, factory: &m
   factory.trashed = 0;
 
   factory.quotes.iter_mut().for_each(|quote| quote.current_count = 0);
+}
+
+pub fn factory_load_map(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, floor_str: String) {
+  let floor = floor_from_str(options, state, config, floor_str);
+  log(format!("available quotes: {:?}", factory.quotes));
+  factory.floor = floor;
+  auto_layout(options, state, config, factory);
+  auto_ins_outs(options, state, factory);
+  // TODO: I think we can move this (and other steps) to the factory.changed steps but there's some time between this place and the changed place
+  let prio = create_prio_list(options, config, &mut factory.floor);
+  factory.prio = prio;
+  factory.changed = true;
 }

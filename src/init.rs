@@ -24,16 +24,11 @@ pub fn init(config: &Config, map_str: String) -> ( Options, State, Factory ) {
   // General app state
   let mut state = state_create();
 
-  let factory = load_map(&mut options, &mut state, &config, map_str);
+  let mut factory = create_factory(&mut options, &mut state, &config, map_str);
+  let parts = config_get_available_parts(config);
+  factory.available_parts_rhs_menu = parts.iter().map(|&p| ( p, true )).collect::<Vec<(PartKind, bool)>>();
 
   return ( options, state, factory );
-}
-
-pub fn load_map(options: &mut Options, state: &mut State, config: &Config, map_str: String) -> Factory {
-  let parts = config_get_available_parts(config);
-  let mut factory = create_factory(options, state, config, map_str, parts);
-  factory.changed = true;
-  return factory;
 }
 
 // @deprecated
