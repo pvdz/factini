@@ -568,13 +568,13 @@ pub fn start() -> Result<(), JsValue> {
 
           if !options.web_output_cli {
             // factory_collect_stats(&mut options, &mut state, &mut factory);
-            for t in 0..state.trucks.len() {
+            for t in 0..factory.trucks.len() {
               // TODO: fix this hack
-              if state.trucks[t].delay > 0 {
-                state.trucks[t].delay -= 1;
-                if state.trucks[t].delay == 0 {
+              if factory.trucks[t].delay > 0 {
+                factory.trucks[t].delay -= 1;
+                if factory.trucks[t].delay == 0 {
                   log(format!("Okay! truck {} is now ready to go!", t));
-                  state.trucks[t].created_at = factory.ticks;
+                  factory.trucks[t].created_at = factory.ticks;
                 }
               }
             }
@@ -646,9 +646,9 @@ pub fn start() -> Result<(), JsValue> {
           state.load_snapshot_next_frame = false;
         }
 
-        if state.finished_quotes.len() > 0 {
+        if factory.finished_quotes.len() > 0 {
           loop {
-            let quote_index = state.finished_quotes.pop();
+            let quote_index = factory.finished_quotes.pop();
             if let Some(quote_index) = quote_index {
               // - get the quote and icon to paint
               // - get the location to start painting
@@ -656,7 +656,7 @@ pub fn start() -> Result<(), JsValue> {
               let icon = config.nodes[completed_part_index].icon; // TODO: multiple parts
               let ( x, y ) = get_quote_xy(quote_index, (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) * quote_index as f64); // Height is incorrect if a quote is fading but that's acceptable
 
-              state.bouncers.push_back(bouncer_create(x, y, GRID_Y2 + 20.0, factory.quotes[quote_index].quest_index, completed_part_index, 8.7, factory.ticks, 0));
+              factory.bouncers.push_back(bouncer_create(x, y, GRID_Y2 + 20.0, factory.quotes[quote_index].quest_index, completed_part_index, 8.7, factory.ticks, 0));
 
               // From this point onward the Quote will fade out and then reduce its height till zero
               factory.quotes[quote_index].completed_at = factory.ticks;
@@ -723,15 +723,15 @@ pub fn start() -> Result<(), JsValue> {
         let start_x = UI_MENU_BOTTOM_MACHINE_X + UI_MENU_BOTTOM_MACHINE_WIDTH - (truck_size + 5.0);
         let end_x = GRID_X2 + 5.0;
         // paint dump truck so it starts under the factory
-        for t in 0..state.trucks.len() {
-          if state.trucks[t].delay > 0 {
+        for t in 0..factory.trucks.len() {
+          if factory.trucks[t].delay > 0 {
             continue;
           }
 
           // Draw dump truck at proper position // TODO: prevent overlapping of multiples etc
           // The first n seconds are spent driving under the floor to the right and then a corner
           // The rest is however long it takes to reach the final location where the button is created
-          let ticks_since_truck = factory.ticks - state.trucks[t].created_at;
+          let ticks_since_truck = factory.ticks - factory.trucks[t].created_at;
           let time_since_truck = ticks_since_truck as f64 / ONE_SECOND as f64;
           if time_since_truck < truck_dur_1 {
             let truck_x = start_x + (time_since_truck / truck_dur_1).min(1.0).max(0.0) * (end_x - start_x);
@@ -748,7 +748,7 @@ pub fn start() -> Result<(), JsValue> {
             // The truck starts _inside_ the factory and drives to the right (maybe slanted)
             context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, 0.0, 0.0, truck_size, truck_size).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
             // Paint the part icon on the back of the trick (x-centered, y-bottom)
-            paint_segment_part_from_config(&options, &state, &config, &context, state.trucks[t].part_index, 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
+            paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_index, 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
             context.restore();
           } else if time_since_truck < (truck_dur_1 + truck_dur_2) {
             let progress = ((time_since_truck - truck_dur_1) / truck_dur_2).min(1.0).max(0.0);
@@ -766,11 +766,11 @@ pub fn start() -> Result<(), JsValue> {
             // The truck starts _inside_ the factory and drives to the right (maybe slanted)
             context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, 0.0, 0.0, truck_size, truck_size).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
             // Paint the part icon on the back of the trick (x-centered, y-bottom)
-            paint_segment_part_from_config(&options, &state, &config, &context, state.trucks[t].part_index, 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
+            paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_index, 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
             context.restore();
           } else if time_since_truck < (truck_dur_1 + truck_dur_2 + truck_dur_3) {
             // Get target coordinate where this part will be permanently drawn so we know where the truck has to move to
-            let ( target_x, target_y ) = get_offer_xy(state.trucks[t].target_menu_part_position);
+            let ( target_x, target_y ) = get_offer_xy(factory.trucks[t].target_menu_part_position);
 
             let progress = ((time_since_truck - (truck_dur_1 + truck_dur_2)) / truck_dur_3).min(1.0).max(0.0);
             let truck_x = end_x + 20.0;
@@ -781,12 +781,12 @@ pub fn start() -> Result<(), JsValue> {
 
             context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, x, y, truck_size, truck_size).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
             // Paint the part icon on the back of the trick (x-centered, y-bottom)
-            paint_segment_part_from_config(&options, &state, &config, &context, state.trucks[t].part_index, x + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), y + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
+            paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_index, x + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), y + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
           } else {
             // Truck reached its destiny.
             // - Enable the button
             // - Drop the truck
-            factory.available_parts_rhs_menu[state.trucks[t].target_menu_part_position].1 = true;
+            factory.available_parts_rhs_menu[factory.trucks[t].target_menu_part_position].1 = true;
           }
         }
 
@@ -827,18 +827,18 @@ pub fn start() -> Result<(), JsValue> {
         let trail_time = 2;
         let fade_time = 2;
         // find bouncers that finished and create trucks with the new parts
-        for b in 0..state.bouncers.len() {
+        for b in 0..factory.bouncers.len() {
           // Create an extra still frame of existing bouncers.
           // TODO: this part should be done inside the factory tick loop. right now it's not bound to factory ticks which can cause different animations at different speeds.
-          let framed = bouncer_step(&mut state.bouncers[b], factory.ticks);
+          let framed = bouncer_step(&mut factory.bouncers[b], factory.ticks);
           if framed {
-            let x = state.bouncers[b].x;
-            let y = state.bouncers[b].y;
-            state.bouncers[b].frames.push_back( ( x, y, factory.ticks ) );
+            let x = factory.bouncers[b].x;
+            let y = factory.bouncers[b].y;
+            factory.bouncers[b].frames.push_back( ( x, y, factory.ticks ) );
           }
 
           // Paint all bouncer shadow/trail frames
-          for ( x, y, added ) in state.bouncers[b].frames.iter() {
+          for ( x, y, added ) in factory.bouncers[b].frames.iter() {
             // Leave trail on screen for 10 seconds. Then fade out in 5 seconds.
             let existing = factory.ticks - added;
             let tens = existing > ONE_SECOND * trail_time;
@@ -846,16 +846,16 @@ pub fn start() -> Result<(), JsValue> {
               let alpha = 1.0 - ((existing - ONE_SECOND * trail_time) as f64 / ((ONE_SECOND * fade_time) as f64)).max(0.0).min(1.0);
               context.set_global_alpha(alpha);
             }
-            paint_segment_part_from_config(&options, &state, &config, &context, state.bouncers[b].part_index, *x, *y, CELL_W, CELL_H);
+            paint_segment_part_from_config(&options, &state, &config, &context, factory.bouncers[b].part_index, *x, *y, CELL_W, CELL_H);
             if tens {
               context.set_global_alpha(1.0);
             }
           }
 
           // Drop expired quote bouncer frames (the ghosts that form the trail)
-          while state.bouncers[b].frames.len() > 0 {
-            if factory.ticks - state.bouncers[b].frames[0].2 > (ONE_SECOND * (trail_time + fade_time)) {
-              state.bouncers[b].frames.pop_front();
+          while factory.bouncers[b].frames.len() > 0 {
+            if factory.ticks - factory.bouncers[b].frames[0].2 > (ONE_SECOND * (trail_time + fade_time)) {
+              factory.bouncers[b].frames.pop_front();
             } else {
               break;
             }
@@ -863,12 +863,12 @@ pub fn start() -> Result<(), JsValue> {
 
           // If completely faded. Start dump truck with resources that were unlocked by quests
           // that were unlocked by finishing this one.
-          if state.bouncers[b].frames.len() == 0 {
+          if factory.bouncers[b].frames.len() == 0 {
             // - Find out which quests were unlocked by finishing this one
             // - Find out which parts are newly available by unlocking that quest
             // - Create a dump truck with those parts
             // - Start them with some delay from each other
-            let finished_quest_index = state.bouncers[b].quest_index;
+            let finished_quest_index = factory.bouncers[b].quest_index;
             let mut new_quests: Vec<usize> = vec!();
             let mut new_parts: Vec<PartKind> = vec!();
 
@@ -893,7 +893,7 @@ pub fn start() -> Result<(), JsValue> {
             // Let's create quotes and trucks for them and add them to the lists.
             new_parts.iter().enumerate().for_each(|(index, &part_index)| {
               log(format!("Adding truck {} for {}", index, part_index));
-              state.trucks.push(truck_create(
+              factory.trucks.push(truck_create(
                 factory.ticks,
                 (index + 1) as u64 * ONE_SECOND,
                 part_index,

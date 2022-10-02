@@ -36,11 +36,6 @@ pub struct State {
   pub examples: Vec<String>,
   pub example_pointer: usize,
 
-  // TODO: move the rest below to factory
-  pub bouncers: VecDeque<Bouncer>,
-  pub trucks: Vec<Truck>,
-  pub finished_quotes: Vec<usize>,
-
   pub reset_next_frame: bool,
   pub load_snapshot_next_frame: bool,
   pub load_example_next_frame: bool,
@@ -159,9 +154,6 @@ pub fn state_create() -> State {
     mouse_mode_selecting: false,
     selected_area_copy: vec!(),
     test: false,
-    trucks: vec!() as Vec<Truck>, // Why is the cast necessary? :shrug:
-    bouncers: VecDeque::new(),
-    finished_quotes: vec!(),
     lasers: vec!(),
     manual_open: false,
     snapshot_stack: [(); 100].map(|_| "".to_string()),

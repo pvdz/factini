@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use crate::port::Port;
 
 use super::belt::*;
+use super::bouncer::*;
 use super::cell::*;
 use super::cli_serialize::*;
 use super::cli_deserialize::*;
@@ -17,6 +18,7 @@ use super::prio::*;
 use super::quote::*;
 use super::state::*;
 use super::supply::*;
+use super::truck::*;
 use super::utils::*;
 
 pub struct Factory {
@@ -43,6 +45,10 @@ pub struct Factory {
   pub produced: u64,
   pub accepted: u64,
   pub trashed: u64,
+
+  pub bouncers: VecDeque<Bouncer>,
+  pub trucks: Vec<Truck>,
+  pub finished_quotes: Vec<usize>,
 }
 
 pub fn create_factory(options: &mut Options, state: &mut State, config: &Config, floor_str: String) -> Factory {
@@ -63,6 +69,9 @@ pub fn create_factory(options: &mut Options, state: &mut State, config: &Config,
     produced: 0,
     accepted: 0,
     trashed: 0,
+    trucks: vec!(),
+    bouncers: VecDeque::new(),
+    finished_quotes: vec!(),
   };
   log(format!("available quotes: {:?}", factory.quotes));
   auto_layout(options, state, config, &mut factory);
@@ -151,7 +160,7 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
                 log(format!("finished quote {} with {} of {}", factory.quotes[j].name, factory.quotes[j].current_count, factory.quotes[j].target_count));
                 // This quote is finished so end the day // TODO: multiple parts one quote
                 factory.finished_at = factory.ticks;
-                state.finished_quotes.push(j); // Start visual candy for this quote in next frame
+                factory.finished_quotes.push(j); // Start visual candy for this quote in next frame
               }
               break;
             }
