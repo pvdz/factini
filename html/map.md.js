@@ -1,3 +1,4 @@
+// This is the initial map. See also the examples for more maps
 const GAME_MAP = `
 # Created 1662585141449
 d=17x17

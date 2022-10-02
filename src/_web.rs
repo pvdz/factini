@@ -6,8 +6,9 @@
 //   - when importing the machine output is ignored so we should remove it from the template
 //   - save/load snapshots of the factory
 // - small problem with tick_belt_take_from_belt when a belt crossing is next to a supply and another belt; it will ignore the other belt as input. because the belt will not let a part proceed to the next port unless it's free and the processing order will process the neighbor belt first and then the crossing so by the time it's free, the part will still be at 50% whereas the supply part is always ready. fix is probably to make supply parts take a tick to be ready, or whatever.
-//  - affects machine speed so should be fixed
+//   - affects machine speed so should be fixed
 // - machines
+//   - change machine recipes to be like margo suggested; ditch form and just use counts in arbitrary order
 //   - investigate different machine speeds at different configs
 //   - allow smaller machines still?
 //   - throughput problem. part has to wait at 50% for next part to clear, causing delays. if there's enough outputs there's always room and no such delay. if supply-to-machine is one belt there's also no queueing so it's faster
@@ -20,6 +21,7 @@
 //   - first/last part of belt preview while dragging should be fixed, or be hardcoded dead ends
 //   - a part that reaches 100% of a cell but can't be moved to the side should not block the next part from entering the cell until all ports are taken like that. the part can sit in the port and a belt can only take parts if it has an available port.
 //   - prepare belt animations?
+//   - when dragging, can the corners be evenly spread rather than current behavior? and equal horizontal and vertical bending behavior?
 // - make sun move across the day bar? in a sort of rainbow path?
 // - let trash be a joker part
 // - what's up with these assertion traps :(
@@ -29,6 +31,10 @@
 // - the later bouncers should fade faster
 // - changing machine configuration does not trigger factory.change and undo stack
 // - config editor in web
+//   - tile editor
+//   - part editor
+//   - quest editor
+//   - prep for animations
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -551,15 +557,16 @@ pub fn start() -> Result<(), JsValue> {
         state.example_pointer += 1;
       }
       if state.reset_next_frame {
+        state.reset_next_frame = false;
         let map = getGameMap();
         log(format!("Loading getGameMap(); size: {} bytes", map.len()));
         factory_load_map(&mut options, &mut state, &config, &mut factory, map);
       }
       if state.load_snapshot_next_frame {
+        // Note: state.load_snapshot_next_frame remains true because factory.changed has special undo-stack behavior for it
         let map = state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].clone();
         log(format!("Loading snapshot[{} / {}]; size: {} bytes", state.snapshot_undo_pointer, state.snapshot_pointer, map.len()));
         factory_load_map(&mut options, &mut state, &config, &mut factory, map);
-        // Note: state.load_snapshot_next_frame remains true because factory.changed has special undo-stack behavior for it
       }
 
       if !state.paused {
@@ -589,6 +596,7 @@ pub fn start() -> Result<(), JsValue> {
         if queued_action != "" { log(format!("getAction() had `{}`", queued_action)); }
         match queued_action.as_str() {
           "apply_options" => parse_options_into(getGameOptions(), &mut options, false),
+          "load_map" => state.reset_next_frame = true, // implicitly will call getGameMap() which loads the map from UI indirectly
           "" => {},
           _ => panic!("getAction() returned an unsupported value: `{}`", queued_action),
         }
@@ -644,6 +652,9 @@ pub fn start() -> Result<(), JsValue> {
           factory.trashed = 0;
           factory.supplied = 0;
           state.load_snapshot_next_frame = false;
+
+          // Dump current map to debug UI
+          web_sys::window().unwrap().document().unwrap().get_element_by_id("game_map").unwrap().dyn_into::<web_sys::HtmlTextAreaElement>().unwrap().set_value(state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].as_str());
         }
 
         if factory.finished_quotes.len() > 0 {
@@ -1981,11 +1992,13 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
           log(format!("\n{}", dump));
           web_sys::window().unwrap().document().unwrap().get_element_by_id("tdb").unwrap().dyn_into::<web_sys::HtmlElement>().unwrap().set_text_content(Some(dump.as_str()));
         }
-        5 => {
-          log(format!("Restarting game at the start of next frame"));
-          state.reset_next_frame = true;
+        5 => { // Panic
+          panic!("Hit the panic button. Or another button without implementation.")
         }
-        _ => panic!("Hit the panic button. Or another button without implementation."),
+        6 => {
+          log(format!("(no button here)"));
+        }
+        _ => panic!("what button was clicked?"),
       }
     } else {
       log(format!("clicked margin after button {}", button_index));
@@ -3745,8 +3758,7 @@ fn paint_ui_buttons(options: &Options, state: &State, context: &Rc<web_sys::Canv
   paint_ui_button(context, mouse_state, 2.0, "Unpart");
   paint_ui_button(context, mouse_state, 3.0, "Undir");
   paint_ui_button(context, mouse_state, 4.0, "Dump");
-  paint_ui_button(context, mouse_state, 5.0, "Reset");
-  paint_ui_button(context, mouse_state, 6.0, "Panic");
+  paint_ui_button(context, mouse_state, 5.0, "Panic");
   assert!(UI_MENU_BUTTONS_COUNT_WIDTH_MAX == 7.0, "Update after adding new buttons");
 
   paint_ui_time_control(options, state, context, mouse_state);

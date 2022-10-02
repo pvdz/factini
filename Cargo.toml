@@ -44,5 +44,6 @@ features = [
     'MouseEvent',
     'Node',
     'Performance',
+    'HtmlTextAreaElement',
     'Window',
 ]
