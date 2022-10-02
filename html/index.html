@@ -26,7 +26,7 @@
   console.log('(html) after import');
 </script>
 <style>#tdb img { border: 1px solid green; }</style>
-<div id="tdb" style="float: right; border: 1px solid black;">the debug box</div>
+<textarea id="tdb" style="float: right; border: 1px solid black; white-space: pre; font-family: monospace;" onClick="this.select();">the debug box</textarea>
 <textarea id="options" style="float: right; clear: right; width: 300px; height: 600px; margin-top: 5px; margin-right: 5px;" autocomplete="off" spellcheck="false">hello</textarea>
 <script>document.getElementById('options').value = GAME_OPTIONS.trim();</script>
 <button style="float: right; clear: right; margin-top: 5px; margin-right: 5px;" onClick="queuedAction = 'apply_options';">Apply options</button>

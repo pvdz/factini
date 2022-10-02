@@ -1977,7 +1977,9 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
         }
         4 => { // Dump
           log(format!("Dumping factory..."));
-          log(format!("\n{}", generate_floor_dump(options, state, &factory, dnow()).join("\n")));
+          let dump = generate_floor_dump(options, state, &factory, dnow()).join("\n");
+          log(format!("\n{}", dump));
+          web_sys::window().unwrap().document().unwrap().get_element_by_id("tdb").unwrap().dyn_into::<web_sys::HtmlElement>().unwrap().set_text_content(Some(dump.as_str()));
         }
         5 => {
           log(format!("Restarting game at the start of next frame"));
