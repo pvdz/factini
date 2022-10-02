@@ -35,6 +35,7 @@
 //   - part editor
 //   - quest editor
 //   - prep for animations
+// - save/load map to save states, like examples but with visual tile "somewhere".
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
