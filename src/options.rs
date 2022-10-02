@@ -76,15 +76,22 @@ pub fn create_options(speed_modifier: f64) -> Options {
   };
 }
 
-fn parse_bool(value: &str, key: &str) -> bool {
+fn parse_bool(value: &str, key: &str, strict: bool, def: bool) -> bool {
   match value {
     "true" => true,
     "false" => false,
-    _ => panic!("Invalid value for options.{}; expecting a boolean, received `{}`", key, value),
+    _ => {
+      if strict {
+        panic!("Invalid value for options.{}; expecting a boolean, received `{}`", key, value)
+      } else {
+        log(format!("Invalid value for options.{}; expecting a boolean, received `{}`", key, value));
+        def
+      }
+    },
   }
 }
 
-fn parse_f64(value: &str, key: &str) -> f64 {
+fn parse_f64(value: &str, key: &str, strict: bool, def: f64) -> f64 {
   let b =
     if !value.contains(".") {
       format!("{}.0", value)
@@ -92,27 +99,52 @@ fn parse_f64(value: &str, key: &str) -> f64 {
       value.to_string()
     };
 
-  return b.parse::<f64>().expect(format!("The value for options.{} must be a number, received `{}`", key, b).as_str());
+  let t = b.parse::<f64>();
+  if strict {
+    return t.expect(format!("The value for options.{} must be a number, received `{}`", key, b).as_str());
+  } else {
+    return t.or::<f64>(Ok(def)).unwrap();
+  }
 }
 
-fn parse_string(value: &str, key: &str) -> String {
+fn parse_u64(value: &str, key: &str, strict: bool, def: u64) -> u64 {
+  return parse_f64(value, key, strict, def as f64) as u64;
+}
+
+fn parse_string(value: &str, key: &str, strict: bool, def: &String) -> String {
   if value.starts_with("\"") {
     if !value.ends_with("\"") {
-      panic!("Missing double quote at end of value; options.{}, value = `{}`", key, value);
+      if strict {
+        panic!("Missing double quote at end of value; options.{}, value = `{}`", key, value);
+      } else {
+        log(format!("Missing double quote at end of value; options.{}, value = `{}`", key, value));
+        return def.clone();
+      }
     }
   }
   else if value.starts_with("'") {
     if !value.ends_with("'") {
-      panic!("Missing single quote at end of value; options.{}, value = `{}`", key, value);
+      if strict {
+        panic!("Missing single quote at end of value; options.{}, value = `{}`", key, value);
+      } else {
+        log(format!("Missing single quote at end of value; options.{}, value = `{}`", key, value));
+        return def.clone();
+      }
     }
   }
   else {
-    panic!("Unable to parse string for options.{}; value was `{}`", key, value);
+    if strict {
+      panic!("Unable to parse string for options.{}; value was `{}`", key, value);
+    } else {
+      log(format!("Unable to parse string for options.{}; value was `{}`", key, value));
+      return def.clone();
+    }
   }
+
   return format!("{}", value)[1..value.len()-1].to_string();
 }
 
-pub fn parse_options_into(input: String, options: &mut Options) {
+pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
   log(format!("parse_options_into()"));
 
   let trimmed = input.trim().clone().split('\n');
@@ -128,42 +160,37 @@ pub fn parse_options_into(input: String, options: &mut Options) {
           log(format!("- updating options.{} to `{}`", name, value));
 
           match name {
-            "print_choices" => options.print_choices = parse_bool(value, name),
-            "print_choices_belt" => options.print_choices_belt = parse_bool(value, name),
-            "print_choices_machine" => options.print_choices_machine = parse_bool(value, name),
-            "print_choices_supply" => options.print_choices_supply = parse_bool(value, name),
-            "print_choices_demand" => options.print_choices_demand = parse_bool(value, name),
-            "print_moves" => options.print_moves = parse_bool(value, name),
-            "print_moves_belt" => options.print_moves_belt = parse_bool(value, name),
-            "print_moves_machine" => options.print_moves_machine = parse_bool(value, name),
-            "print_moves_supply" => options.print_moves_supply = parse_bool(value, name),
-            "print_moves_demand" => options.print_moves_demand = parse_bool(value, name),
-            "print_price_deltas" => options.print_price_deltas = parse_bool(value, name),
-            "print_machine_actions" => options.print_machine_actions = parse_bool(value, name),
-            "print_factory_interval" => options.print_factory_interval = parse_f64(value, name) as u64,
-            "print_stats_interval" => options.print_stats_interval = parse_f64(value, name) as u64,
-            "print_auto_layout_debug" => options.print_auto_layout_debug = parse_bool(value, name),
-            "print_fmd_trace" => options.print_fmd_trace = parse_bool(value, name),
-            "trace_priority_step" => options.trace_priority_step = parse_bool(value, name),
-            "trace_porting_step" => options.trace_porting_step = parse_bool(value, name),
-            "trace_map_parsing" => options.trace_map_parsing = parse_bool(value, name),
-            "print_priority_tile_order" => options.print_priority_tile_order = parse_bool(value, name),
-            "print_initial_table" => options.print_initial_table = parse_bool(value, name),
-
-            "draw_part_borders" => options.draw_part_borders = parse_bool(value, name),
-            "draw_part_char_icon" => options.draw_part_char_icon = parse_bool(value, name),
-            "draw_part_kind" => options.draw_part_kind = parse_bool(value, name),
-            "draw_port_arrows" => options.draw_port_arrows = parse_bool(value, name),
-
-            "draw_ui_section_border" => options.draw_ui_section_border = parse_bool(value, name),
-            "ui_section_border_color" => options.ui_section_border_color = parse_string(value, name),
-
-            "short_term_window" => options.short_term_window = parse_f64(value, name) as u64,
-            "long_term_window" => options.long_term_window = parse_f64(value, name) as u64,
-
-            "speed_modifier" => options.speed_modifier = parse_f64(value, name),
-
-            "web_output_cli" => options.web_output_cli = parse_bool(value, name),
+            "print_choices" => options.print_choices = parse_bool(value, name, strict, options.print_choices),
+            "print_choices_belt" => options.print_choices_belt = parse_bool(value, name, strict, options.print_choices_belt),
+            "print_choices_machine" => options.print_choices_machine = parse_bool(value, name, strict, options.print_choices_machine),
+            "print_choices_supply" => options.print_choices_supply = parse_bool(value, name, strict, options.print_choices_supply),
+            "print_choices_demand" => options.print_choices_demand = parse_bool(value, name, strict, options.print_choices_demand),
+            "print_moves" => options.print_moves = parse_bool(value, name, strict, options.print_moves),
+            "print_moves_belt" => options.print_moves_belt = parse_bool(value, name, strict, options.print_moves_belt),
+            "print_moves_machine" => options.print_moves_machine = parse_bool(value, name, strict, options.print_moves_machine),
+            "print_moves_supply" => options.print_moves_supply = parse_bool(value, name, strict, options.print_moves_supply),
+            "print_moves_demand" => options.print_moves_demand = parse_bool(value, name, strict, options.print_moves_demand),
+            "print_price_deltas" => options.print_price_deltas = parse_bool(value, name, strict, options.print_price_deltas),
+            "print_machine_actions" => options.print_machine_actions = parse_bool(value, name, strict, options.print_machine_actions),
+            "print_factory_interval" => options.print_factory_interval = parse_u64(value, name, strict, options.print_factory_interval),
+            "print_stats_interval" => options.print_stats_interval = parse_u64(value, name, strict, options.print_stats_interval),
+            "print_auto_layout_debug" => options.print_auto_layout_debug = parse_bool(value, name, strict, options.print_auto_layout_debug),
+            "print_fmd_trace" => options.print_fmd_trace = parse_bool(value, name, strict, options.print_fmd_trace),
+            "trace_priority_step" => options.trace_priority_step = parse_bool(value, name, strict, options.trace_priority_step),
+            "trace_porting_step" => options.trace_porting_step = parse_bool(value, name, strict, options.trace_porting_step),
+            "trace_map_parsing" => options.trace_map_parsing = parse_bool(value, name, strict, options.trace_map_parsing),
+            "print_priority_tile_order" => options.print_priority_tile_order = parse_bool(value, name, strict, options.print_priority_tile_order),
+            "print_initial_table" => options.print_initial_table = parse_bool(value, name, strict, options.print_initial_table),
+            "draw_part_borders" => options.draw_part_borders = parse_bool(value, name, strict, options.draw_part_borders),
+            "draw_part_char_icon" => options.draw_part_char_icon = parse_bool(value, name, strict, options.draw_part_char_icon),
+            "draw_part_kind" => options.draw_part_kind = parse_bool(value, name, strict, options.draw_part_kind),
+            "draw_port_arrows" => options.draw_port_arrows = parse_bool(value, name, strict, options.draw_port_arrows),
+            "draw_ui_section_border" => options.draw_ui_section_border = parse_bool(value, name, strict, options.draw_ui_section_border),
+            "ui_section_border_color" => options.ui_section_border_color = parse_string(value, name, strict, &options.ui_section_border_color),
+            "short_term_window" => options.short_term_window = parse_u64(value, name, strict, options.short_term_window),
+            "long_term_window" => options.long_term_window = parse_u64(value, name, strict, options.long_term_window),
+            "speed_modifier" => options.speed_modifier = parse_f64(value, name, strict, options.speed_modifier),
+            "web_output_cli" => options.web_output_cli = parse_bool(value, name, strict, options.web_output_cli),
             _ => {
               log(format!("  - ignoring `{}` because it is an unknown option or because it needs to be added to the options parser", name));
             }

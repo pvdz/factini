@@ -9,10 +9,10 @@
 //  - affects machine speed so should be fixed
 // - machines
 //   - investigate different machine speeds at different configs
+//   - allow smaller machines still?
 //   - throughput problem. part has to wait at 50% for next part to clear, causing delays. if there's enough outputs there's always room and no such delay. if supply-to-machine is one belt there's also no queueing so it's faster
 //   - putting machine down next to two dead end belts will only connect one?
 //   - make the menu-machine "process" the finished parts before generating trucks
-//   - allow smaller machines still?
 //   - animate machines at work
 //   - paint the prepared parts of a machine while not selected?
 // - belts
@@ -28,6 +28,7 @@
 // - bouncer animation not bound to tick
 // - the later bouncers should fade faster
 // - changing machine configuration does not trigger factory.change and undo stack
+// - config editor in web
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -214,6 +215,7 @@ extern {
   pub fn getGameMap() -> String; // GAME_MAP
   pub fn getGameOptions() -> String; // GAME_OPTIONS
   pub fn getExamples() -> js_sys::Array; // GAME_EXAMPLES, array of string
+  pub fn getAction() -> String; // queuedAction, polled every frame
   // pub fn log(s: &str); // -> console.log(s)
   // pub fn print_world(s: &str);
   // pub fn print_options(options: &str);
@@ -385,7 +387,7 @@ pub fn start() -> Result<(), JsValue> {
 
   let ( mut options, mut state, mut factory ) = init(&config, getGameMap());
 
-  parse_options_into(getGameOptions(), &mut options);
+  parse_options_into(getGameOptions(), &mut options, true);
   state_add_examples(getExamples(), &mut state);
 
   if options.print_initial_table {
@@ -586,6 +588,14 @@ pub fn start() -> Result<(), JsValue> {
       if options.web_output_cli {
         paint_world_cli(&context, &mut options, &mut state, &factory);
       } else {
+        let queued_action = getAction();
+        if queued_action != "" { log(format!("getAction() had `{}`", queued_action)); }
+        match queued_action.as_str() {
+          "apply_options" => parse_options_into(getGameOptions(), &mut options, false),
+          "" => {},
+          _ => panic!("getAction() returned an unsupported value: `{}`", queued_action),
+        }
+
         update_mouse_state(&mut options, &mut state, &config, &mut factory, &mut cell_selection, &mut mouse_state, mouse_x.get(), mouse_y.get(), mouse_moved.get(), last_mouse_down_x.get(), last_mouse_down_y.get(), last_mouse_down_button.get(), last_mouse_up_x.get(), last_mouse_up_y.get());
         last_mouse_down_x.set(0.0);
         last_mouse_down_y.set(0.0);
