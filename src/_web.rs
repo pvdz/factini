@@ -28,7 +28,6 @@
 // - bouncer animation not bound to tick
 // - the later bouncers should fade faster
 // - create prefab buttons with some examples
-// - create tutorial
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -134,6 +133,11 @@ const UI_TOP_OFFSET_X: f64 = GRID_X1;
 const UI_TOP_OFFSET_Y: f64 = GRID_Y0;
 const UI_TOP_WIDTH: f64 = FLOOR_WIDTH;
 const UI_TOP_HEIGHT: f64 = GRID_TOP_HEIGHT;
+
+const UI_HELP_X: f64 = GRID_X0 + 40.0;
+const UI_HELP_Y: f64 = GRID_Y0 + 8.0;
+const UI_HELP_WIDTH: f64 = 50.0;
+const UI_HELP_HEIGHT: f64 = 40.0;
 
 const UI_DAY_BAR_ICON_WIDTH: f64 = 30.0;
 const UI_DAY_BAR_OFFSET_X: f64 = UI_TOP_OFFSET_X;
@@ -293,6 +297,9 @@ pub fn start() -> Result<(), JsValue> {
   let img_machine_3_2: web_sys::HtmlImageElement = load_tile("./img/machine_3_2.png")?;
   let img_dumptruck: web_sys::HtmlImageElement = load_tile("./img/dumptruck.png")?;
   let img_loading_sand: web_sys::HtmlImageElement = load_tile("./img/sand.png")?;
+  let img_help_black: web_sys::HtmlImageElement = load_tile("./img/help.png")?;
+  let img_help_red: web_sys::HtmlImageElement = load_tile("./img/help_red.png")?;
+  let img_manual: web_sys::HtmlImageElement = load_tile("./img/manual.png")?;
 
   // https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/createPattern
   // https://rustwasm.github.io/wasm-bindgen/api/web_sys/struct.CanvasRenderingContext2d.html#method.create_pattern_with_html_image_element
@@ -432,6 +439,9 @@ pub fn start() -> Result<(), JsValue> {
       was_down: false,
       is_dragging: false,
       is_drag_start: false,
+
+      help_hover: false,
+      help_down: false,
 
       offer_down: false,
       offer_down_offer_index: 0,
@@ -670,6 +680,7 @@ pub fn start() -> Result<(), JsValue> {
         context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y + CELL_H, (FLOOR_CELLS_W - 2) as f64 * CELL_W, (FLOOR_CELLS_H - 2) as f64 * CELL_H);
 
         // paint_top_stats(&context, &mut factory);
+        paint_corner_help_icon(&options, &state, &mut factory, &context, if mouse_state.help_hover { &img_help_red } else { &img_help_black});
         paint_top_bars(&options, &state, &mut factory, &context, &mouse_state);
         paint_left_quotes(&options, &state, &config, &context, &mut factory, &mouse_state);
         paint_ui_offers(&options, &state, &config, &context, &mut factory, &mouse_state, &cell_selection);
@@ -801,6 +812,10 @@ pub fn start() -> Result<(), JsValue> {
           context.stroke_rect(GRID_X0, GRID_Y3, GRID_LEFT_WIDTH + GRID_SPACING + FLOOR_WIDTH + GRID_SPACING + GRID_RIGHT_WIDTH, GRID_BOTTOM_DEBUG_HEIGHT);
         }
 
+        if state.manual_open {
+          context.draw_image_with_html_image_element_and_dw_and_dh(&img_manual, 100.0, 20.0, 740.0, 740.0).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+        }
+
         let trail_time = 2;
         let fade_time = 2;
         // find bouncers that finished and create trucks with the new parts
@@ -929,6 +944,7 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
     mouse_state.craft_dragging_ci = false;
     mouse_state.offer_down = false;
     mouse_state.down_machine_button = false;
+    mouse_state.help_down = false;
     mouse_state.is_down = false;
   }
   mouse_state.was_down = false;
@@ -937,6 +953,7 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
   mouse_state.was_dragging = false;
   mouse_state.offer_hover = false;
   mouse_state.over_machine_button = false;
+  mouse_state.help_hover = false;
 
   mouse_state.craft_over_any = false;
   mouse_state.craft_over_ci = CraftInteractable::None;
@@ -1011,11 +1028,16 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
       }
     }
     else {
-      let over_machine_button = hit_test_machine_button(mouse_state.world_x, mouse_state.world_y);
-      if over_machine_button {
+      if hit_test_machine_button(mouse_state.world_x, mouse_state.world_y) {
         mouse_state.over_machine_button = true;
         if mouse_state.was_down {
           mouse_state.down_machine_button = true;
+        }
+      }
+      else if hit_test_help_button(mouse_state.world_x, mouse_state.world_y) {
+        mouse_state.help_hover = true;
+        if mouse_state.was_down {
+          mouse_state.help_down = true;
         }
       }
     }
@@ -1054,33 +1076,43 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
     mouse_state.is_down = false;
     mouse_state.is_up = true;
     mouse_state.was_up = true;
-    if mouse_state.is_drag_start {
-      mouse_state.is_drag_start = false; // ignore :shrug:
-    }
-    if mouse_state.is_dragging {
-      mouse_state.is_dragging = false;
-      mouse_state.was_dragging = true;
-    }
-    mouse_state.craft_up_any = is_machine_selected && hit_test_machine_circle(factory, cell_selection.coord, mouse_state.last_up_world_x, mouse_state.last_up_world_y);
-    if mouse_state.craft_up_any {
-      let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_up_world_x, mouse_state.last_up_world_y);
-      if mouse_state.is_dragging {
-        log(format!("mouse up / drag end inside craft selection -> {:?} -> dropping {} ({:?})", what, mouse_state.craft_down_ci_part_kind, config.nodes[mouse_state.craft_down_ci_part_kind].raw_name));
-      } else {
-        log(format!("mouse up inside craft selection -> {:?}", what));
+    if !state.manual_open {
+      if mouse_state.is_drag_start {
+        mouse_state.is_drag_start = false; // ignore :shrug:
       }
-      mouse_state.craft_up_ci = what;
-      mouse_state.craft_up_ci_wx = wx;
-      mouse_state.craft_up_ci_wy = wy;
-      mouse_state.craft_up_ci_wx = ww;
-      mouse_state.craft_up_ci_wy = wh;
-      mouse_state.craft_up_ci_icon = icon;
-      mouse_state.craft_up_ci_part_kind = part_index;
-      mouse_state.craft_up_ci_index = craft_index;
+      if mouse_state.is_dragging {
+        mouse_state.is_dragging = false;
+        mouse_state.was_dragging = true;
+      }
+      mouse_state.craft_up_any = is_machine_selected && hit_test_machine_circle(factory, cell_selection.coord, mouse_state.last_up_world_x, mouse_state.last_up_world_y);
+      if mouse_state.craft_up_any {
+        let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_up_world_x, mouse_state.last_up_world_y);
+        if mouse_state.is_dragging {
+          log(format!("mouse up / drag end inside craft selection -> {:?} -> dropping {} ({:?})", what, mouse_state.craft_down_ci_part_kind, config.nodes[mouse_state.craft_down_ci_part_kind].raw_name));
+        } else {
+          log(format!("mouse up inside craft selection -> {:?}", what));
+        }
+        mouse_state.craft_up_ci = what;
+        mouse_state.craft_up_ci_wx = wx;
+        mouse_state.craft_up_ci_wy = wy;
+        mouse_state.craft_up_ci_wx = ww;
+        mouse_state.craft_up_ci_wy = wh;
+        mouse_state.craft_up_ci_icon = icon;
+        mouse_state.craft_up_ci_part_kind = part_index;
+        mouse_state.craft_up_ci_index = craft_index;
+      }
     }
   }
 }
 fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
+  if state.manual_open {
+    // If the manual is open, ignore all other events
+    if mouse_state.is_up {
+      state.manual_open = false;
+    }
+    return;
+  }
+
   if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_OFFSET_Y + UI_DAY_PROGRESS_HEIGHT) {
     if mouse_state.is_up {
       on_up_top_bar(options, state, config, factory, mouse_state);
@@ -1111,6 +1143,9 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
     }
     else if mouse_state.offer_down {
       on_down_offer_before();
+    }
+    else if mouse_state.help_down {
+      on_down_help_before();
     }
     else if mouse_state.down_machine_button {
       on_down_machine_button_before();
@@ -1158,6 +1193,9 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
     else if mouse_state.offer_down {
       on_down_offer_after();
     }
+    else if mouse_state.help_down {
+      on_down_help_after();
+    }
     else if mouse_state.down_machine_button {
       on_down_machine_button_after();
     }
@@ -1200,6 +1238,9 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
       }
       else if mouse_state.offer_down {
         on_up_offer(options, state, config, factory, mouse_state);
+      }
+      else if mouse_state.help_down {
+        on_click_help(options, state, config);
       }
       else if mouse_state.down_machine_button {
         on_up_machine_button();
@@ -1249,6 +1290,16 @@ fn on_drag_start_offer_after() {
 }
 fn on_drag_end_offer() {
   log(format!("on_drag_end_offer()"));
+}
+fn on_down_help_before() {
+  log(format!("on_down_help_before()"));
+}
+fn on_down_help_after() {
+  log(format!("on_down_help_after()"));
+}
+fn on_click_help(options: &Options, state: &mut State, config: &Config) {
+  log(format!("on_click_help()"));
+  state.manual_open = !state.manual_open;
 }
 fn on_down_floor_before() {
   log(format!("on_down_floor_before()"));
@@ -2234,6 +2285,9 @@ fn hit_test_offers(factory: &Factory, mx: f64, my: f64) -> (bool, usize ) {
 }
 fn hit_test_machine_button(mx: f64, my: f64) -> bool {
   return bounds_check(mx, my, UI_MENU_BOTTOM_MACHINE_X, UI_MENU_BOTTOM_MACHINE_Y, UI_MENU_BOTTOM_MACHINE_X + UI_MENU_BOTTOM_MACHINE_WIDTH, UI_MENU_BOTTOM_MACHINE_Y + UI_MENU_BOTTOM_MACHINE_HEIGHT);
+}
+fn hit_test_help_button(mx: f64, my: f64) -> bool {
+  return bounds_check(mx, my, UI_HELP_X, UI_HELP_Y, UI_HELP_X + UI_HELP_WIDTH, UI_HELP_Y + UI_HELP_HEIGHT);
 }
 fn ray_trace_dragged_line(factory: &Factory, x0: f64, y0: f64, x1: f64, y1: f64, for_preview: bool) -> Vec<((usize, usize), BeltType, Direction, Direction)> {
   // We raytracing
@@ -3393,6 +3447,9 @@ fn paint_top_stats(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Fa
   context.set_fill_style(&"black".into());
   context.fill_text(format!("Ticks: {}, Supplied: {}, Produced: {}, Received: {}, Trashed: {}", factory.ticks, factory.supplied, factory.produced, factory.accepted, factory.trashed).as_str(), 20.0, 20.0).expect("to paint");
   context.fill_text(format!("Current time: {}, day start: {}, modified at: {}", factory.ticks, factory.last_day_start, factory.modified_at).as_str(), 20.0, 40.0).expect("to paint");
+}
+fn paint_corner_help_icon(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, img_help: &web_sys::HtmlImageElement) {
+  context.draw_image_with_html_image_element_and_dw_and_dh(img_help, UI_HELP_X, UI_HELP_Y, UI_HELP_WIDTH, UI_HELP_HEIGHT).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
 }
 fn paint_top_bars(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   let hovering = !mouse_state.is_down && !mouse_state.is_up && bounds_check(mouse_state.world_x, mouse_state.world_y, UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_OFFSET_Y + UI_DAY_PROGRESS_HEIGHT);

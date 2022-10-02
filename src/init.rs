@@ -33,6 +33,7 @@ pub fn init(config: &Config, map_str: String) -> ( Options, State, Factory ) {
     bouncers: VecDeque::new(),
     finished_quotes: vec!(),
     lasers: vec!(),
+    manual_open: false,
     snapshot_stack: [(); 100].map(|_| "".to_string()),
     load_snapshot_next_frame: false, // TODO: could do this for init too...?
     snapshot_pointer: 0,

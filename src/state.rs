@@ -32,6 +32,7 @@ pub struct State {
   pub trucks: Vec<Truck>,
   pub finished_quotes: Vec<usize>,
   pub lasers: Vec<Laser>,
+  pub manual_open: bool,
 
   pub snapshot_stack: [String; UNDO_STACK_SIZE],
   pub load_snapshot_next_frame: bool,
@@ -73,6 +74,11 @@ pub struct MouseState {
   pub is_drag_start: bool,
   pub is_up: bool, // Set if current frame handled a mouse up. It may be unset, unlike was_up.
   pub was_up: bool, // Set if current frame handled a mouse up. Should not be unset.
+
+  // TODO: change the hover/down state/location to an enum rather than individual down states for each part of the UI
+
+  pub help_hover: bool,
+  pub help_down: bool,
 
   pub offer_hover: bool,
   pub offer_hover_offer_index: usize, // Only relevant when offer_hover = true
