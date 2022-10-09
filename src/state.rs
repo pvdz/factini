@@ -63,6 +63,8 @@ pub struct MouseState {
 
   pub cell_x: f64, // floored
   pub cell_y: f64, // floored
+  pub cell_x_f: f64, // unfloored
+  pub cell_y_f: f64, // unfloored
   pub cell_coord: usize,
 
   pub cell_rel_x: f64,
@@ -136,6 +138,8 @@ pub struct MouseState {
   pub last_up_canvas_y: f64,
   pub last_up_world_x: f64,
   pub last_up_world_y: f64,
+  pub last_up_cell_x: f64, // Can be negative (oob), is not floored
+  pub last_up_cell_y: f64, // Can be negative (oob), is not floored
 }
 
 #[derive(Debug)]

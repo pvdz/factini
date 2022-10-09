@@ -469,6 +469,8 @@ pub fn start() -> Result<(), JsValue> {
 
       cell_x: 0.0,
       cell_y: 0.0,
+      cell_x_f: 0.0,
+      cell_y_f: 0.0,
       cell_coord: 0,
 
       cell_rel_x: 0.0,
@@ -539,6 +541,9 @@ pub fn start() -> Result<(), JsValue> {
 
       last_up_world_x: 0.0,
       last_up_world_y: 0.0,
+
+      last_up_cell_x: 0.0,
+      last_up_cell_y: 0.0,
     };
 
     // From https://rustwasm.github.io/wasm-bindgen/examples/request-animation-frame.html
@@ -969,15 +974,15 @@ pub fn start() -> Result<(), JsValue> {
   Ok(())
 }
 
-fn world_x_to_top_left_cell_x_while_dragging_offer_machine(world_x: f64, offer_width: usize) -> f64 {
+fn get_x_while_dragging_offer_machine(cell_x: f64, offer_width: usize) -> f64 {
   // Abstracted this to make sure the preview and actual action use the same computation
   let compx = if offer_width % 2 == 1 { 0.0 } else { 0.5 };
-  let ox = ((world_x + -UI_FLOOR_OFFSET_X).floor() / CELL_W + compx).floor() - (offer_width / 2) as f64;
+  let ox = (cell_x + compx).floor() - (offer_width / 2) as f64;
   return ox;
 }
-fn world_y_to_top_left_cell_y_while_dragging_offer_machine(world_y: f64, offer_height: usize) -> f64 {
+fn world_y_to_top_left_cell_y_while_dragging_offer_machine(cell_y: f64, offer_height: usize) -> f64 {
   let compy = if offer_height % 2 == 1 { 0.0 } else { 0.5 };
-  let oy = ((world_y + -UI_FLOOR_OFFSET_Y).floor() / CELL_H + compy).floor() - (offer_height / 2) as f64;
+  let oy = (cell_y + compy).floor() - (offer_height / 2) as f64;
   return oy;
 }
 
@@ -1016,8 +1021,10 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
   mouse_state.canvas_y = mouse_y;
   mouse_state.world_x = mouse_x / CANVAS_CSS_WIDTH * CANVAS_WIDTH;
   mouse_state.world_y = mouse_y / CANVAS_CSS_HEIGHT * CANVAS_HEIGHT;
-  mouse_state.cell_x = ((mouse_x - UI_FLOOR_OFFSET_X) / CELL_W).floor();
-  mouse_state.cell_y = ((mouse_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor();
+  mouse_state.cell_x_f = (mouse_x - UI_FLOOR_OFFSET_X) / CELL_W;
+  mouse_state.cell_y_f = (mouse_y - UI_FLOOR_OFFSET_Y) / CELL_H;
+  mouse_state.cell_x = mouse_state.cell_x_f.floor();
+  mouse_state.cell_y = mouse_state.cell_y_f.floor();
   mouse_state.cell_coord = to_coord(mouse_state.cell_x as usize, mouse_state.cell_y as usize);
   mouse_state.cell_rel_x = ((mouse_x - UI_FLOOR_OFFSET_X) / CELL_W) - mouse_state.cell_x;
   mouse_state.cell_rel_y = ((mouse_y - UI_FLOOR_OFFSET_Y) / CELL_H) - mouse_state.cell_y;
@@ -1123,6 +1130,8 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
     mouse_state.last_up_canvas_y = last_mouse_up_y;
     mouse_state.last_up_world_x = last_mouse_up_x / CANVAS_CSS_WIDTH * CANVAS_WIDTH;
     mouse_state.last_up_world_y = last_mouse_up_y / CANVAS_CSS_HEIGHT * CANVAS_HEIGHT;
+    mouse_state.last_up_cell_x = (mouse_state.last_up_world_x - UI_FLOOR_OFFSET_X) / CELL_W;
+    mouse_state.last_up_cell_y = (mouse_state.last_up_world_y - UI_FLOOR_OFFSET_Y) / CELL_H;
     mouse_state.is_down = false;
     mouse_state.is_up = true;
     mouse_state.was_up = true;
@@ -1481,21 +1490,16 @@ fn on_drag_end_craft_over_floor(options: &mut Options, state: &mut State, config
   }
 }
 fn on_drag_end_machine_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
-  log(format!("on_drag_offer_into_floor()"));
-
-  let last_mouse_up_cell_x = ((mouse_state.last_up_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor();
-  let last_mouse_up_cell_y = ((mouse_state.last_up_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor();
-  let last_mouse_up_cell_coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
-  let last_mouse_up_inside_cell_x = ((mouse_state.last_up_world_x - UI_FLOOR_OFFSET_X) / CELL_W) - last_mouse_up_cell_x;
-  let last_mouse_up_inside_cell_y = ((mouse_state.last_up_world_y - UI_FLOOR_OFFSET_Y) / CELL_H) - last_mouse_up_cell_y;
+  log(format!("on_drag_offer_into_floor({}, {})", mouse_state.last_up_cell_x, mouse_state.last_up_cell_y));
+  assert!(mouse_state.last_up_cell_x >= 0.0 && mouse_state.last_up_cell_y >= 0.0, "should not call this when mouse is oob. usize cant be negative");
 
   // Was dragging a machine and released it on the floor
 
   // First check eligibility: Would every part of the machine be on a middle cell, not edge?
   let ocw = 3; // Fixing to 3x3 for now
   let och = 3;
-  let cx = world_x_to_top_left_cell_x_while_dragging_offer_machine(mouse_state.last_up_world_x, ocw);
-  let cy = world_y_to_top_left_cell_y_while_dragging_offer_machine(mouse_state.last_up_world_y, och);
+  let cx = get_x_while_dragging_offer_machine(mouse_state.last_up_cell_x, ocw);
+  let cy = world_y_to_top_left_cell_y_while_dragging_offer_machine(mouse_state.last_up_cell_y, och);
   // Make sure the entire machine fits, not just the center or topleft cell
   if bounds_check(cx, cy, 1.0, 1.0, FLOOR_CELLS_W as f64 - (ocw as f64), FLOOR_CELLS_H as f64 - (och as f64)) {
     let ccoord = to_coord(cx as usize, cy as usize);
@@ -1586,7 +1590,7 @@ fn on_drag_end_machine_over_floor(options: &mut Options, state: &mut State, conf
 
     factory.changed = true;
   } else {
-    log(format!("Dropped a machine on the edge. Ignoring. {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize));
+    log(format!("Dropped a machine on the edge. Ignoring. {} {}", mouse_state.last_up_cell_x, mouse_state.last_up_cell_y as usize));
   }
 }
 fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
@@ -3148,7 +3152,6 @@ fn paint_mouse_while_dragging_machine(options: &Options, state: &State, factory:
   let machine_cells_width = 3;
   let machine_cells_height = 3;
 
-
   // Paint drop zone over the edge cells
   context.set_fill_style(&"#00004444".into());
 
@@ -3159,8 +3162,8 @@ fn paint_mouse_while_dragging_machine(options: &Options, state: &State, factory:
   context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT - CELL_H, FLOOR_WIDTH - CELL_W, CELL_H);
 
   // Note that mouse cell x is not where the top-left most cell of the machine would be
-  let top_left_machine_cell_x = world_x_to_top_left_cell_x_while_dragging_offer_machine(mouse_state.world_x, machine_cells_width);
-  let top_left_machine_cell_y = world_y_to_top_left_cell_y_while_dragging_offer_machine(mouse_state.world_y, machine_cells_height);
+  let top_left_machine_cell_x = get_x_while_dragging_offer_machine(mouse_state.cell_x_f, machine_cells_width);
+  let top_left_machine_cell_y = world_y_to_top_left_cell_y_while_dragging_offer_machine(mouse_state.cell_y_f, machine_cells_height);
 
   // Make sure the entire machine fits, not just the center or topleft cell
   let legal = bounds_check(top_left_machine_cell_x, top_left_machine_cell_y, 1.0, 1.0, FLOOR_CELLS_W as f64 - (machine_cells_width as f64), FLOOR_CELLS_H as f64 - (machine_cells_height as f64));
