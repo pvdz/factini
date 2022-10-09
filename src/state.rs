@@ -133,6 +133,8 @@ pub struct MouseState {
   pub last_down_canvas_y: f64,
   pub last_down_world_x: f64,
   pub last_down_world_y: f64,
+  pub last_down_cell_x: f64,
+  pub last_down_cell_y: f64,
 
   pub last_up_canvas_x: f64,
   pub last_up_canvas_y: f64,

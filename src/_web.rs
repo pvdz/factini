@@ -532,16 +532,15 @@ pub fn start() -> Result<(), JsValue> {
 
       last_down_canvas_x: 0.0,
       last_down_canvas_y: 0.0,
-
       last_down_world_x: 0.0,
       last_down_world_y: 0.0,
+      last_down_cell_x: 0.0,
+      last_down_cell_y: 0.0,
 
       last_up_canvas_x: 0.0,
       last_up_canvas_y: 0.0,
-
       last_up_world_x: 0.0,
       last_up_world_y: 0.0,
-
       last_up_cell_x: 0.0,
       last_up_cell_y: 0.0,
     };
@@ -1051,6 +1050,9 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
     mouse_state.last_down_canvas_y = last_mouse_down_y;
     mouse_state.last_down_world_x = last_mouse_down_x / CANVAS_CSS_WIDTH * CANVAS_WIDTH;
     mouse_state.last_down_world_y = last_mouse_down_y / CANVAS_CSS_HEIGHT * CANVAS_HEIGHT;
+    mouse_state.last_down_cell_x = (mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X) / CELL_W;
+    mouse_state.last_down_cell_y = (mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y) / CELL_H;
+
     mouse_state.is_down = true; // Unset after on_up
     mouse_state.was_down = true; // Unset after this frame
 
@@ -1698,8 +1700,8 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
   // Finalize pathing, regenerate floor
   let track = ray_trace_dragged_line(
     factory,
-    ((mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor(),
-    ((mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor(),
+    mouse_state.last_down_cell_x.floor(),
+    mouse_state.last_down_cell_y.floor(),
     mouse_state.cell_x_floored.floor(),
     mouse_state.cell_y_floored.floor(),
     false
@@ -2192,8 +2194,8 @@ fn on_up_erase(options: &mut Options, state: &mut State, config: &Config, factor
 }
 fn on_up_selecting(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
   log(format!("mouse up with selection mode enabled..."));
-  let down_cell_x = ((mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor();
-  let down_cell_y = ((mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor();
+  let down_cell_x = mouse_state.last_down_cell_x.floor();
+  let down_cell_y = mouse_state.last_down_cell_y.floor();
   if mouse_state.cell_x_floored >= 0.0 && mouse_state.cell_y_floored >= 0.0 && is_floor(mouse_state.cell_x_floored, mouse_state.cell_y_floored) {
     log(format!("  was up on floor"));
 
@@ -3054,7 +3056,7 @@ fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory
       if mouse_state.craft_down_any {
         // This drag stated in a craft popup so do not show a track preview; we're not doing that.
       }
-      else if mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X >= 0.0 && mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X < FLOOR_WIDTH && mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y >= 0.0 && mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y < FLOOR_HEIGHT {
+      else if mouse_state.last_down_cell_x >= 0.0 && mouse_state.last_down_cell_x < FLOOR_WIDTH && mouse_state.last_down_cell_y >= 0.0 && mouse_state.last_down_cell_y < FLOOR_HEIGHT {
         paint_belt_drag_preview(options, state, config, context, factory, cell_selection, mouse_state);
       }
     }
@@ -3096,8 +3098,8 @@ fn paint_mouse_in_erasing_mode(options: &Options, state: &State, factory: &Facto
 fn paint_mouse_in_selection_mode(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, cell_selection: &CellSelection) {
   // When mouse is down and clipboard is empty; select the area to potentially copy. With clipboard, still show the ghost. Do not change the selection area.
   if mouse_state.is_down && state.selected_area_copy.len() == 0 {
-    let down_cell_x = ((mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor();
-    let down_cell_y = ((mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor();
+    let down_cell_x = mouse_state.last_down_cell_x.floor();
+    let down_cell_y = mouse_state.last_down_cell_y.floor();
     if down_cell_x >= 0.0 && down_cell_y >= 0.0 && is_floor(down_cell_x, down_cell_y) && mouse_state.cell_x_floored >= 0.0 && mouse_state.cell_y_floored >= 0.0 && is_floor(mouse_state.cell_x_floored, mouse_state.cell_y_floored) {
       // Draw dotted stroke rect around cells from mouse down cell to current cell
       context.set_stroke_style(&"blue".into());
@@ -3255,8 +3257,8 @@ fn paint_mouse_cell_location_on_floor(context: &Rc<web_sys::CanvasRenderingConte
 fn paint_belt_drag_preview(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
   let track = ray_trace_dragged_line(
     factory,
-    ((mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor(),
-    ((mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor(),
+    mouse_state.last_down_cell_x.floor(),
+    mouse_state.last_down_cell_y.floor(),
     mouse_state.cell_x_floored,
     mouse_state.cell_y_floored,
     true, // if we dont then the preview will show only broken belt cells
