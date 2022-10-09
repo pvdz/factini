@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use wasm_bindgen::{JsValue} ;
+
 use super::options::*;
 use super::part::*;
 use super::state::*;
@@ -117,6 +119,7 @@ pub struct ConfigNode {
   // Part
   pub pattern_by_index: Vec<PartKind>, // Machine pattern that generates this part (part_index)
   pub pattern_by_name: Vec<String>, // Machine pattern that generates this part (actual names)
+  pub pattern_by_icon: Vec<char>, // Machine pattern that generates this part
   pub pattern_unique_icons: Vec<PartKind>, // String of unique non-empty part icons. We can use this to quickly find machines that have received these parts.
   pub icon: char, // Single (unique) character that also represents this part internally
   pub file: String, // Sprite image location
@@ -166,9 +169,9 @@ pub fn config_get_available_parts(config: &Config) -> Vec<PartKind>{
   return parts;
 }
 
-pub fn parse_fmd(options: &Options, config: String) -> Config {
+pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   // Parse Fake MD config
-  log(format!("parse_fmd(options.print_fmd_trace={})", options.print_fmd_trace));
+  log(format!("parse_fmd(print_fmd_trace={})", print_fmd_trace));
 
   // This pseudo-md config file is a series of node definitions.
   // Names are case insensitive.
@@ -218,13 +221,13 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
         Some('#') => {
           seen_header = true;
 
-          if options.print_fmd_trace { log(format!("Next header. Previous was: {:?}", nodes[nodes.len()-1])); }
+          if print_fmd_trace { log(format!("Next header. Previous was: {:?}", nodes[nodes.len()-1])); }
           let rest = trimmed[1..].trim();
           let mut split = rest.split('_');
           let kind = split.next().or(Some("Quest")).unwrap().trim(); // first
           let name = split.next_back().or(Some("MissingName")).unwrap().trim(); // last
           let icon = if rest == "Part_None" { ' ' } else { '?' };
-          if options.print_fmd_trace { log(format!("- raw: `{}`, kind: `{}`, name: `{}`", rest, kind, name)); }
+          if print_fmd_trace { log(format!("- raw: `{}`, kind: `{}`, name: `{}`", rest, kind, name)); }
           let node_index: usize =
             match rest {
               "Part_None" => PARTKIND_NONE,
@@ -332,6 +335,7 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
             production_target_by_index: vec!(),
             pattern_by_index: vec!(),
             pattern_by_name: vec!(),
+            pattern_by_icon: vec!(),
             pattern_unique_icons: vec!(),
             icon,
             file: "".to_string(),
@@ -479,7 +483,7 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
       }
     }
   );
-  if options.print_fmd_trace { log(format!("Last node was: {:?}", nodes[nodes.len()-1])); }
+  if print_fmd_trace { log(format!("Last node was: {:?}", nodes[nodes.len()-1])); }
 
   // So now we have a serial list of nodes but we need to create a hierarchical tree from them
   // We create two models; one is a tree and the other a hashmap
@@ -499,10 +503,12 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
     }
   });
 
+  if print_fmd_trace { log(format!("+ create part pattern_by_index tables")); }
+  for i in 0..nodes.len() {
+    let node = &mut nodes[i];
 
-  if options.print_fmd_trace { log(format!("+ create part pattern_by_index tables")); }
-  nodes.iter_mut().for_each(|node| {
-    node.pattern_by_index = node.pattern_by_name.iter().map(|name| {
+    // First resolve the target index, regardless of whether the name or icon was used
+    nodes[i].pattern_by_index = nodes[i].pattern_by_name.iter().map(|name| {
       let mut t = name.as_str().clone();
       if t == "." || t == "_"{
         // In patterns we use . or _ to represent nothing, which translates to the empty/none part
@@ -511,12 +517,20 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
       return *node_name_to_index.get(t).unwrap_or_else(| | panic!("pattern_by_name to index: what happened here: unlock name=`{}` of names=`{:?}`", name, node_name_to_index.keys()))
     }).collect::<Vec<PartKind>>();
 
+    // Fetch all the icons
+    nodes[i].pattern_by_icon = nodes[i].pattern_by_index.iter().map(|&index| nodes[index].icon).collect::<Vec<char>>();
+
+    // Normalize to name (could be icon)
+    nodes[i].pattern_by_name = nodes[i].pattern_by_index.iter().map(|&index| nodes[index].name.clone()).collect::<Vec<String>>();
+
     // If the pattern was defined with empty nodes then clear it
-    if node.pattern_by_index.iter().all(|&part_index| part_index == PARTKIND_NONE) {
-      node.pattern_by_index = vec!();
-      node.pattern_by_name = vec!();
+    if nodes[i].pattern_by_index.iter().all(|&part_index| part_index == PARTKIND_NONE) {
+      nodes[i].pattern_by_index = vec!();
+      nodes[i].pattern_by_name = vec!();
+      nodes[i].pattern_by_icon = vec!();
     }
-  });
+  // });
+  }
 
   for i in 0..nodes.len() {
     // Get all unique required parts, convert them to their icon, order them, create a string
@@ -527,9 +541,9 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
     nodes[i].pattern_unique_icons = icons;
   }
 
-  if options.print_fmd_trace { log(format!("+ create quest unlocks_after_by_index and starting_part_by_index pointers")); }
+  if print_fmd_trace { log(format!("+ create quest unlocks_after_by_index and starting_part_by_index pointers")); }
   quest_nodes.iter().for_each(|&node_index| {
-    if options.print_fmd_trace { log(format!("++ quest node index = {}, name = {}, unlocks after = `{:?}`", node_index, nodes[node_index].name, nodes[node_index].unlocks_after_by_name)); }
+    if print_fmd_trace { log(format!("++ quest node index = {}, name = {}, unlocks after = `{:?}`", node_index, nodes[node_index].name, nodes[node_index].unlocks_after_by_name)); }
 
     let mut indices: Vec<usize> = vec!();
     nodes[node_index].unlocks_after_by_name.iter().for_each(|name| {
@@ -553,7 +567,7 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
 
   });
 
-  if options.print_fmd_trace { log(format!("+ prepare unique sprite map pointers")); }
+  if print_fmd_trace { log(format!("+ prepare unique sprite map pointers")); }
   nodes.iter_mut().enumerate().for_each(|(i, node)| {
     if i == 0 || node.name == "None" {
       // Do not add a sprite map for the None part; we should never be painting it.
@@ -577,18 +591,18 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
     }
   });
 
-  if options.print_fmd_trace { log(format!("+ initialize the quest node states")); }
+  if print_fmd_trace { log(format!("+ initialize the quest node states")); }
   quest_nodes.iter().for_each(|&quest_index| {
-    if options.print_fmd_trace { log(format!("++ state loop")); }
+    if print_fmd_trace { log(format!("++ state loop")); }
     // If the config specified an initial state then just roll with that
     let mut changed = true;
     while changed {
-      if options.print_fmd_trace { log(format!("+++ state inner loop")); }
+      if print_fmd_trace { log(format!("+++ state inner loop")); }
       // Repeat the process until there's no further changes. This loop is guaranteed to halt.
       changed = false;
       if nodes[quest_index].current_state == ConfigNodeState::Waiting {
         if nodes[quest_index].unlocks_after_by_index.iter().all(|&other_index| nodes[other_index].current_state == ConfigNodeState::Finished) {
-          if options.print_fmd_trace { log(format!("+++ Quest `{}` is available because `{:?}` are all finished", nodes[quest_index].name, nodes[quest_index].unlocks_after_by_name)); }
+          if print_fmd_trace { log(format!("+++ Quest `{}` is available because `{:?}` are all finished", nodes[quest_index].name, nodes[quest_index].unlocks_after_by_name)); }
           nodes[quest_index].current_state = ConfigNodeState::Available;
           changed = true;
         }
@@ -596,19 +610,19 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
     }
   });
 
-  if options.print_fmd_trace { log(format!("+ initialize the part node states")); }
+  if print_fmd_trace { log(format!("+ initialize the part node states")); }
   quest_nodes.iter().for_each(|&quest_index| {
     // Clone the list of numbers because otherwise it moves. So be it.
-    if options.print_fmd_trace { log(format!("++ Quest Part {} is {:?} and would enable parts {:?} ({:?})", nodes[quest_index].name, nodes[quest_index].current_state, nodes[quest_index].starting_part_by_name, nodes[quest_index].starting_part_by_index)); }
+    if print_fmd_trace { log(format!("++ Quest Part {} is {:?} and would enable parts {:?} ({:?})", nodes[quest_index].name, nodes[quest_index].current_state, nodes[quest_index].starting_part_by_name, nodes[quest_index].starting_part_by_index)); }
     if nodes[quest_index].current_state != ConfigNodeState::Waiting {
       nodes[quest_index].starting_part_by_index.clone().iter().for_each(|&part_index| {
-        if options.print_fmd_trace { log(format!("+++ Part {} is available because Quest {} is available", nodes[part_index].name, nodes[quest_index].name)); }
+        if print_fmd_trace { log(format!("+++ Part {} is available because Quest {} is available", nodes[part_index].name, nodes[quest_index].name)); }
         nodes[part_index].current_state = ConfigNodeState::Available;
       });
     }
   });
 
-  if options.print_fmd_trace { log(format!("Available Quests and Parts from the start:")); }
+  if print_fmd_trace { log(format!("Available Quests and Parts from the start:")); }
   nodes.iter().for_each(|node| {
     if node.current_state != ConfigNodeState::Waiting {
       match node.kind {
@@ -624,7 +638,7 @@ pub fn parse_fmd(options: &Options, config: String) -> Config {
   });
 
   // log(format!("parsed nodes: {:?}", &nodes[1..]));
-  if options.print_fmd_trace { log(format!("parsed map: {:?}", node_name_to_index)); }
+  if print_fmd_trace { log(format!("parsed map: {:?}", node_name_to_index)); }
 
   return Config { nodes, quest_nodes, part_nodes, node_name_to_index, sprite_cache_lookup, sprite_cache_order, sprite_cache_canvas: vec!() };
 }
@@ -737,6 +751,7 @@ fn config_node_part(index: PartKind, name: String, icon: char) -> ConfigNode {
     production_target_by_index: vec!(),
     pattern_by_index: vec!(),
     pattern_by_name: vec!(),
+    pattern_by_icon: vec!(),
     pattern_unique_icons: vec!(),
     icon,
     file: "".to_string(),
@@ -765,6 +780,7 @@ fn config_node_supply(index: PartKind, name: String) -> ConfigNode {
     production_target_by_index: vec!(),
     pattern_by_index: vec!(),
     pattern_by_name: vec!(),
+    pattern_by_icon: vec!(),
     icon: '?',
     file: "./img/supply.png".to_string(),
     file_canvas_cache_index: 0,
@@ -792,6 +808,7 @@ fn config_node_demand(index: PartKind, name: String) -> ConfigNode {
     production_target_by_index: vec!(),
     pattern_by_index: vec!(),
     pattern_by_name: vec!(),
+    pattern_by_icon: vec!(),
     icon: '?',
     file: "./img/demand.png".to_string(),
     file_canvas_cache_index: 0,
@@ -819,6 +836,7 @@ fn config_node_dock(index: PartKind, name: String) -> ConfigNode {
     production_target_by_index: vec!(),
     pattern_by_index: vec!(),
     pattern_by_name: vec!(),
+    pattern_by_icon: vec!(),
     icon: '?',
     file: "./img/dock.png".to_string(),
     file_canvas_cache_index: 0,
@@ -846,6 +864,7 @@ fn config_node_machine(index: PartKind, name: String, file: String) -> ConfigNod
     production_target_by_index: vec!(),
     pattern_by_index: vec!(),
     pattern_by_name: vec!(),
+    pattern_by_icon: vec!(),
     icon: '?',
     file,
     file_canvas_cache_index: 0,
@@ -874,6 +893,7 @@ fn config_node_belt(index: PartKind, name: String, file: String) -> ConfigNode {
     production_target_by_index: vec!(),
     pattern_by_index: vec!(),
     pattern_by_name: vec!(),
+    pattern_by_icon: vec!(),
     icon: '?',
     file,
     file_canvas_cache_index: 0,
@@ -892,6 +912,64 @@ pub fn config_get_sprite_details(config: &Config, kind: usize) -> ( f64, f64, f6
   return ( node.x as f64, node.y as f64, node.w as f64, node.h as f64, &config.sprite_cache_canvas[node.file_canvas_cache_index] );
 }
 
+// Convert a config node to jsvalue (sorta) so we can send it to the html for debug/editor
+fn convert_vec_string_to_jsvalue(v: &Vec<String>) -> JsValue {
+  return v.iter().cloned().map(|x| JsValue::from(x)).collect::<js_sys::Array>().into();
+}
+fn convert_vec_char_to_jsvalue(v: &Vec<char>) -> JsValue {
+  return v.iter().cloned().map(|x| JsValue::from(format!("{}", x))).collect::<js_sys::Array>().into();
+}
+fn convert_vec_usize_to_jsvalue(v: &Vec<usize>) -> JsValue {
+  return v.iter().cloned().map(|x| JsValue::from(x)).collect::<js_sys::Array>().into();
+}
+fn convert_string_to_pair(a: &str, b: &str) -> js_sys::Array {
+  return convert_js_to_pair(a, JsValue::from(b));
+}
+fn convert_js_to_pair(a: &str, b: JsValue) -> js_sys::Array {
+  return js_sys::Array::of2(&JsValue::from(a), &b);
+}
+fn config_node_to_jsvalue(node: &ConfigNode) -> JsValue {
+  return vec!(
+    convert_js_to_pair("index", JsValue::from(node.index)),
+    convert_string_to_pair("kind", format!("{:?}", node.kind).as_str()),
+    convert_string_to_pair("name", &node.name),
+    convert_string_to_pair("raw_name", &node.raw_name),
+
+    convert_js_to_pair("unlocks_after_by_name", convert_vec_string_to_jsvalue(&node.unlocks_after_by_name)),
+    convert_js_to_pair("unlocks_after_by_index", convert_vec_usize_to_jsvalue(&node.unlocks_after_by_index)),
+    convert_js_to_pair("unlocks_todo_by_index", convert_vec_usize_to_jsvalue(&node.unlocks_todo_by_index)),
+    convert_js_to_pair("starting_part_by_name", convert_vec_string_to_jsvalue(&node.starting_part_by_name)),
+    convert_js_to_pair("starting_part_by_index", convert_vec_usize_to_jsvalue(&node.starting_part_by_index)),
+    vec!(
+      JsValue::from("production_target_by_name"),
+      node.production_target_by_name.iter().cloned().map(|(index, name)| vec!(JsValue::from(index), JsValue::from(name)).iter().collect::<js_sys::Array>()).collect::<js_sys::Array>().into()
+    ).iter().collect::<js_sys::Array>(),
+    vec!(
+      JsValue::from("production_target_by_index"),
+      node.production_target_by_index.iter().cloned().map(|(index, name)| vec!(JsValue::from(index), JsValue::from(name)).iter().collect::<js_sys::Array>()).collect::<js_sys::Array>().into()
+    ).iter().collect::<js_sys::Array>(),
+
+    convert_js_to_pair("pattern_by_index", convert_vec_usize_to_jsvalue(&node.pattern_by_index)),
+    convert_js_to_pair("pattern_by_name", convert_vec_string_to_jsvalue(&node.pattern_by_name)),
+    convert_js_to_pair("pattern_by_icon", convert_vec_char_to_jsvalue(&node.pattern_by_icon)),
+    convert_js_to_pair("pattern_unique_icons", convert_vec_usize_to_jsvalue(&node.pattern_unique_icons)),
+    convert_string_to_pair("icon", format!("{}", node.icon).as_str()),
+    convert_string_to_pair("file", &node.file),
+    convert_js_to_pair("file_canvas_cache_index", JsValue::from(node.file_canvas_cache_index)),
+    convert_js_to_pair("x", JsValue::from(node.x)),
+    convert_js_to_pair("y", JsValue::from(node.y)),
+    convert_js_to_pair("w", JsValue::from(node.w)),
+    convert_js_to_pair("h", JsValue::from(node.h)),
+    convert_js_to_pair("current_state", JsValue::from(format!("{:?}", node.current_state))),
+  ).iter().collect::<js_sys::Array>().into();
+}
+pub fn config_to_jsvalue(config: &Config) -> JsValue {
+  return config.nodes.iter().map(|node| {
+    let key: JsValue = node.raw_name.clone().into();
+    let value = config_node_to_jsvalue(node);
+    return vec!(key, value).iter().collect::<js_sys::Array>();
+  }).collect::<js_sys::Array>().into();
+}
 
 pub const EXAMPLE_CONFIG: &str = "
   # Part_DirtWhite

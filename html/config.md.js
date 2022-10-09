@@ -928,7 +928,7 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt_DLRU
-- file: ./img/dlru_cb.png
+- file: ./img/dlru_cb1.png
 - x: 0
 - y: 0
 - w: 160

@@ -1,7 +1,6 @@
 <!doctype html>
 <html>
 <head>
-
 </head>
 <body>
 <script src="config.md.js" charset="UTF-8"></script>
@@ -10,11 +9,313 @@
 <script src="examples.md.js" charset="UTF-8"></script>
 <script>
   var queuedAction = '';
-  function getGameConfig() { return GAME_CONFIG; }
-  function getGameMap() { return document.getElementById('game_map').value /*GAME_MAP*/; }
-  function getGameOptions() { return document.getElementById('game_options').value /*GAME_OPTIONS*/; }
+  function getGameConfig() { return $game_config.value; /*GAME_CONFIG*/ }
+  function getGameMap() { return $game_map.value /*GAME_MAP*/; }
+  function getGameOptions() { return $game_options.value /*GAME_OPTIONS*/; }
   function getExamples() { return GAME_EXAMPLES; }
   function getAction() { let x = queuedAction; queuedAction = ''; return x; }
+  function receiveConfigNode(name, pairs) {
+    //console.log(name, '->', pairs);
+
+    const nodeKinds = new Set;
+    const nodes = new Map;
+    pairs.forEach(([key, value]) => {
+      switch (key) {
+        case "kinds": {
+          value.forEach(name => nodeKinds.add(name));
+          break;
+        }
+
+        case "nodes": {
+          console.log('raw nodes:', value);
+          value.forEach(([raw_name, pairs]) => {
+            const node = pairs.reduce((node, [prop, value]) => { node[prop] = value; return node; }, {});
+            node.parents = [];
+            node.children = [];
+            nodes.set(raw_name, node);
+          });
+          break;
+        }
+      }
+    });
+
+    nodes.forEach(node => {
+      if (node.kind === 'Quest') {
+        node.unlocks_after_by_name.forEach(parentRawName => {
+          const parent = nodes.get(parentRawName);
+          node.parents.push(parent.raw_name);
+          parent.children.push(node.raw_name);
+        });
+      }
+    });
+
+    console.log('-->', nodeKinds);
+    console.log('-->', nodes);
+
+    nodes.forEach(node => {
+      if (node.kind === 'Quest') {
+        console.log('Quest', node.raw_name, '->', node);
+      }
+    });
+
+    function updateKinds() {
+      const titles = [];
+      $config_node_titles.length = 0;
+      nodeKinds.forEach((name) => {
+        const option = document.createElement('option');
+        option.innerText = name;
+        option.value = name;
+        titles.push(option);
+      });
+      titles.sort((a, b) => a.value < b.value ? -1 : a.value > b.value ? 1 : 0);
+      titles.forEach(option => $config_node_titles.appendChild(option));
+      updateNodes();
+    }
+    $config_node_titles.onchange = $config_node_titles.onupdate = updateNodes;
+
+    function updateNodes() {
+      const current = $config_node_titles.children[$config_node_titles.selectedIndex].value;
+      const cnodes = [];
+      $config_node_list.length = 0;
+      nodes.forEach((node, name) => {
+        if (node.kind === current) {
+          const option = document.createElement('option');
+          option.innerText = name;
+          option.value = name;
+          cnodes.push(option);
+        }
+      });
+      cnodes.sort((a, b) => a.value < b.value ? -1 : a.value > b.value ? 1 : 0);
+      cnodes.forEach(option => $config_node_list.appendChild(option));
+
+      showNode();
+    }
+    $config_node_list.onchange = $config_node_list.onupdate = showNode;
+
+    function show(prop, value) {
+      console.log('->', prop);
+      document.getElementById('$config_node_' + prop).innerText = value;
+      document.getElementById('$p_config_node_' + prop).style.display = 'block';
+    }
+    function hide(prop) {
+      document.getElementById('$p_config_node_' + prop).style.display = 'none';
+    }
+    function showNode() {
+      const rawName = $config_node_list.children[$config_node_list.selectedIndex].value;
+      const node = nodes.get(rawName);
+
+      $config_node_index.innerText = node.index;
+      $config_node_kind.innerText = node.kind;
+      $config_node_name.innerText = node.name;
+      $config_node_raw_name.innerText = node.raw_name;
+
+      $sprite_preview.innerHTML = '(no sprite)';
+      function showSprite() {
+        show('icon', node.icon);
+        show('file', node.file);
+        show('file_canvas_cache_index', node.file_canvas_cache_index);
+        show('x', node.x);
+        show('y', node.y);
+        show('w', node.w);
+        show('h', node.h);
+
+        const finalWidth = 64;
+        const finalHeight = 64;
+        const scalex = finalWidth / node.w;
+        const scaley = finalHeight / node.h;
+
+        $sprite_preview.innerHTML = '';
+
+        // The outer gives a viewport on the inner, scaled, div. Cutting away the overflow.
+        const outer = $sprite_preview.appendChild(document.createElement('div'));
+        // The inner has the image as background with a zoom factor to scale the sprite
+        const inner = outer.appendChild(document.createElement('img'));
+        inner.src = node.file;
+        outer.style = `position: relative; width: ${finalWidth}px; height: ${finalHeight}px; overflow: hidden; float: right; border: 1px solid black;`;
+        inner.style = `position: absolute; left: -${Math.round(scalex * node.x)}px; top: -${Math.round(scaley * node.y)}px; transform: scale(${scalex}, ${scaley}); transform-origin: top left;`;
+      }
+
+      switch (node.kind) {
+        case 'Part':
+          hide('unlocks_after_by_name');
+          hide('unlocks_after_by_index');
+          hide('unlocks_todo_by_index');
+          hide('starting_part_by_name');
+          hide('starting_part_by_index');
+          hide('production_target_by_name');
+          hide('production_target_by_index');
+          show('pattern_by_index', node.pattern_by_index.join(', '));
+          show('pattern_by_name', node.pattern_by_name.join(', '));
+          show('pattern_by_icon', node.pattern_by_icon.join(', '));
+          show('pattern_unique_icons', node.pattern_unique_icons.join(', '));
+
+          showSprite();
+          break;
+        case 'Quest':
+          show('unlocks_after_by_name', node.unlocks_after_by_name);
+          show('unlocks_after_by_index', node.unlocks_after_by_index);
+          show('unlocks_todo_by_index', node.unlocks_todo_by_index);
+          show('starting_part_by_name', node.starting_part_by_name);
+          show('starting_part_by_index', node.starting_part_by_index);
+          show('production_target_by_name', node.production_target_by_name);
+          show('production_target_by_index', node.production_target_by_index);
+          show('pattern_by_index', node.pattern_by_index);
+          show('pattern_by_name', node.pattern_by_name.join(', '));
+          show('pattern_by_icon', node.pattern_by_icon.join(', '));
+          show('pattern_unique_icons', node.pattern_unique_icons.join(', '));
+          hide('icon');
+          hide('file');
+          hide('file_canvas_cache_index');
+          hide('x');
+          hide('y');
+          hide('w');
+          hide('h');
+          break;
+        case 'Supply':
+          hide('unlocks_after_by_name', node.unlocks_after_by_name);
+          hide('unlocks_after_by_index', node.unlocks_after_by_index);
+          hide('unlocks_todo_by_index', node.unlocks_todo_by_index);
+          hide('starting_part_by_name', node.starting_part_by_name);
+          hide('starting_part_by_index', node.starting_part_by_index);
+          hide('production_target_by_name', node.production_target_by_name);
+          hide('production_target_by_index', node.production_target_by_index);
+          hide('pattern_by_index', node.pattern_by_index);
+          hide('pattern_by_name', node.pattern_by_name);
+          hide('pattern_by_icon', node.pattern_by_icon);
+          hide('pattern_unique_icons', node.pattern_unique_icons);
+          showSprite();
+          break;
+        case 'Demand':
+          hide('unlocks_after_by_name', node.unlocks_after_by_name);
+          hide('unlocks_after_by_index', node.unlocks_after_by_index);
+          hide('unlocks_todo_by_index', node.unlocks_todo_by_index);
+          hide('starting_part_by_name', node.starting_part_by_name);
+          hide('starting_part_by_index', node.starting_part_by_index);
+          hide('production_target_by_name', node.production_target_by_name);
+          hide('production_target_by_index', node.production_target_by_index);
+          hide('pattern_by_index', node.pattern_by_index);
+          hide('pattern_by_name', node.pattern_by_name);
+          hide('pattern_by_icon', node.pattern_by_icon);
+          hide('pattern_unique_icons', node.pattern_unique_icons);
+          showSprite();
+          break;
+        case 'Dock':
+          hide('unlocks_after_by_name', node.unlocks_after_by_name);
+          hide('unlocks_after_by_index', node.unlocks_after_by_index);
+          hide('unlocks_todo_by_index', node.unlocks_todo_by_index);
+          hide('starting_part_by_name', node.starting_part_by_name);
+          hide('starting_part_by_index', node.starting_part_by_index);
+          hide('production_target_by_name', node.production_target_by_name);
+          hide('production_target_by_index', node.production_target_by_index);
+          hide('pattern_by_index', node.pattern_by_index);
+          hide('pattern_by_name', node.pattern_by_name);
+          hide('pattern_by_icon', node.pattern_by_icon);
+          hide('pattern_unique_icons', node.pattern_unique_icons);
+          showSprite();
+          break;
+        case 'Machine':
+          hide('unlocks_after_by_name', node.unlocks_after_by_name);
+          hide('unlocks_after_by_index', node.unlocks_after_by_index);
+          hide('unlocks_todo_by_index', node.unlocks_todo_by_index);
+          hide('starting_part_by_name', node.starting_part_by_name);
+          hide('starting_part_by_index', node.starting_part_by_index);
+          hide('production_target_by_name', node.production_target_by_name);
+          hide('production_target_by_index', node.production_target_by_index);
+          hide('pattern_by_index', node.pattern_by_index);
+          hide('pattern_by_name', node.pattern_by_name);
+          hide('pattern_by_icon', node.pattern_by_icon);
+          hide('pattern_unique_icons', node.pattern_unique_icons);
+          showSprite();
+          break;
+        case 'Belt':
+          hide('unlocks_after_by_name', node.unlocks_after_by_name);
+          hide('unlocks_after_by_index', node.unlocks_after_by_index);
+          hide('unlocks_todo_by_index', node.unlocks_todo_by_index);
+          hide('starting_part_by_name', node.starting_part_by_name);
+          hide('starting_part_by_index', node.starting_part_by_index);
+          hide('production_target_by_name', node.production_target_by_name);
+          hide('production_target_by_index', node.production_target_by_index);
+          hide('pattern_by_index', node.pattern_by_index);
+          hide('pattern_by_name', node.pattern_by_name);
+          hide('pattern_by_icon', node.pattern_by_icon);
+          hide('pattern_unique_icons', node.pattern_unique_icons);
+          showSprite();
+          break;
+      }
+
+      $config_node_current_state.innerText = node.current_state;
+    }
+
+    updateKinds();
+
+    {
+      // flowchart.fun syntax:
+      //  [Quest_Start] Start; 10x_IngotWhite
+      //    (Quest_Shield)
+      //    (Quest_BlueBottle)
+      //    (Quest_WhiteBook)
+      //  [Quest_Shield] Shield; 10x_ShieldWood
+      //    (Quest_BlueShield)
+      //  [Quest_BlueBottle] BlueBottle; 10x_PotionBlue
+      //    (Quest_BlueShield)
+      //    (Quest_BlueBook)
+      //  [Quest_BlueShield] BlueShield; 10x_ShieldBlue
+      //    (Quest_BookShield)
+      //  [Quest_WhiteBook] WhiteBook; 10x_BookWhite
+      //    (Quest_BlueBook)
+      //  [Quest_BlueBook] BlueBook; 10x_BookBlue
+      //    (Quest_BookShield)
+
+      const arr = [];
+      nodes.forEach(node => {
+        if (node.kind === 'Quest') {
+          arr.push(`[${node.raw_name}] ${node.name}; ${node.production_target_by_name.map(([count, qname]) => `${count}x_${qname.split('_')[1]}`).join(' ')}`);
+          node.production_target_by_name.forEach(([count, name]) => {
+            node.children.forEach(childName => {
+              arr.push(`\t(${childName})`);
+            })
+          });
+        }
+      });
+      console.log('flowchart.fun code:\n' + arr.join('\n'));
+    }
+
+    updateMermaid(nodes);
+  }
+  function updateMermaid(nodes) {
+    // mermaid:
+    //   graph TD;
+    //    A-->B;
+    //    A-->C;
+    //    B-->D;
+    //    C-->D;
+    //    B[Line breaks <br />work in<br />decision nodes]
+
+    const arr = [
+      'graph LR'
+    ];
+    nodes.forEach(node => {
+      if (node.kind === 'Quest') {
+        node.children.forEach(childName => {
+          arr.push(`  ${node.raw_name}-->${childName};`);
+        });
+
+        arr.push(`
+            ${node.raw_name}[
+              ${node.name}<br/>
+              <small><b>Enables:</b></small><br/>
+              ${node.starting_part_by_name.map((qname) => `<span style=&quot;cursor:help&quot; title=&quot;Components:${nodes.get(qname).pattern_by_name.join(',')||'resource'}&quot;>${qname.split('_')[1]}</span>`).join(' <br/> ')}<br/>
+              <small><b>Targets:</b></small><br/>
+              ${node.production_target_by_name.map(([count, qname]) => `${count}x ${qname.split('_')[1]}`).join(' <br/> ')}
+            ]
+          `.replace(/\n/g, ''));
+      }
+    });
+    console.log('mermaid.live code (may need to remove special descs):\n' + arr.join('\n'));
+    $mermaid.removeAttribute('data-processed'); // :facepalm: not obvious but ok. ht https://stackoverflow.com/questions/73056709/mermaid-in-react-turns-into-plaintext-when-re-rendered
+    $mermaid.innerHTML = arr.join('\n');
+    mermaid.init();
+  }
 </script>
 <script type="module">
   Error.stackTraceLimit = Infinity;
@@ -25,17 +326,72 @@
   }, (e) => console.error(e));
   console.log('(html) after import');
 </script>
+<!-- for flow graphs of the quests -->
+
+<div id="$main_game" style="float: left; clear: both;"></div>
 
 <style>#tdb img { border: 1px solid green; }</style>
-<div id="tdb" style="float: right; border: 1px solid black; white-space: pre; font-family: monospace;">the debug box</div>
+<div id="$tdb" style="float: right; border: 1px solid black; white-space: pre; font-family: monospace;">the debug box</div>
 
-<textarea id="game_options" style="float: right; clear: right; min-width: 50px; min-height: 50px; width: 300px; height: 600px; margin-top: 5px; margin-right: 5px;" autocomplete="off" spellcheck="false"></textarea>
-<script>document.getElementById('game_options').value = GAME_OPTIONS.trim();</script>
+<div style="float: right; clear: right; margin-top: 5px;"><hr/>Options:</div>
+<textarea id="$game_options" style="float: right; clear: right; min-width: 50px; min-height: 50px; width: 300px; height: 600px; margin-top: 5px; margin-right: 5px;" autocomplete="off" spellcheck="false"></textarea>
+<script>$game_options.value = GAME_OPTIONS.trim();</script>
 <button style="float: right; clear: right; margin-top: 5px; margin-right: 5px;" onClick="queuedAction = 'apply_options';">Apply options</button>
 
-<textarea id="game_map" style="float: right; clear: right; min-width: 50px; min-height: 50px; width: 400px; height: 100px; margin-top: 5px; margin-right: 5px;" autocomplete="off" spellcheck="false" onClick="this.select();"></textarea>
-<script>document.getElementById('game_map').value = GAME_MAP.trim();</script>
-<button style="float: right; clear: right; margin-top: 5px; margin-right: 5px;" onClick="queuedAction = 'load_map';">Load map</button>
+<div style="float: right; clear: right; margin-top: 5px;"><hr/>Current map:</div>
+<textarea id="$game_map" style="float: right; clear: right; min-width: 50px; min-height: 50px; width: 400px; height: 100px; margin-top: 5px; margin-right: 5px;" autocomplete="off" spellcheck="false" onClick="this.select();"></textarea>
+<script>$game_map.value = GAME_MAP.trim();</script>
+<button style="float: right; clear: right; margin-top: 5px; margin-right: 5px;" onClick="queuedAction = 'load_map';">Set as map</button>
+
+<div style="clear: both;">
+  <div><hr/>Config:</div>
+  <div>
+    <div>Quest Tree:</div>
+    <div style="float: right;">
+      <textarea id="$game_config" style="min-width: 50px; min-height: 50px; width: 400px; height: 100px; margin-top: 5px; margin-right: 5px;" autocomplete="off" spellcheck="false"></textarea>
+      <script>$game_config.value = GAME_CONFIG.trim();</script>
+      <div id="$sprite_preview"></div>
+      <div style="margin-bottom: 15px;"><button style="margin-top: 5px; margin-right: 5px;" onClick="queuedAction = 'load_config';">Set as config</button></div>
+      <div id="$config_editor">
+        <div id="$config_node_kinds"></div>
+        <div><select id="$config_node_titles" style="margin-bottom: 5px;"></select></div>
+        <div><select id="$config_node_list" style="margin-bottom: 5px;"></select></div>
+        <div id="$config_node_editor" style="text-align: right;">
+          <style>
+              .key { font-weight: bold; font-size: 12px; margin: 0 5px 0 5px; }
+              .value { padding-left: 10px; }
+          </style>
+          <div id="$p_config_node_index" style="white-space: pre;"><span class="key">index:</span><span id="$config_node_index" class="value"></span></div>
+          <div id="$p_config_node_kind" style="white-space: pre;"><span class="key">kind:</span><span id="$config_node_kind" class="value"></span></div>
+          <div id="$p_config_node_name" style="white-space: pre;"><span class="key">name:</span><span id="$config_node_name" class="value"></span></div>
+          <div id="$p_config_node_raw_name" style="white-space: pre;"><span class="key">raw_name:</span><span id="$config_node_raw_name" class="value"></span></div>
+          <div id="$p_config_node_unlocks_after_by_name"><span class="key">unlocks_after_by_name:</span><span id="$config_node_unlocks_after_by_name" class="value"></span></div>
+          <div id="$p_config_node_unlocks_after_by_index" style="white-space: pre;"><span class="key">unlocks_after_by_index:</span><span id="$config_node_unlocks_after_by_index" class="value"></span></div>
+          <div id="$p_config_node_unlocks_todo_by_index" style="white-space: pre;"><span class="key">unlocks_todo_by_index:</span><span id="$config_node_unlocks_todo_by_index" class="value"></span></div>
+          <div id="$p_config_node_starting_part_by_name"><span class="key">starting_part_by_name:</span><span id="$config_node_starting_part_by_name" class="value"></span></div>
+          <div id="$p_config_node_starting_part_by_index" style="white-space: pre;"><span class="key">starting_part_by_index:</span><span id="$config_node_starting_part_by_index" class="value"></span></div>
+          <div id="$p_config_node_production_target_by_name"><span class="key">production_target_by_name:</span><span id="$config_node_production_target_by_name" class="value"></span></div>
+          <div id="$p_config_node_production_target_by_index" style="white-space: pre;"><span class="key">production_target_by_index:</span><span id="$config_node_production_target_by_index" class="value"></span></div>
+          <div id="$p_config_node_pattern_by_index" style="white-space: pre;"><span class="key">pattern_by_index:</span><span id="$config_node_pattern_by_index" class="value"></span></div>
+          <div id="$p_config_node_pattern_by_name"><span class="key">pattern_by_name:</span><span id="$config_node_pattern_by_name" class="value"></span></div>
+          <div id="$p_config_node_pattern_by_icon" style="white-space: pre;"><span class="key">pattern_by_icon:</span><span id="$config_node_pattern_by_icon" class="value"></span></div>
+          <div id="$p_config_node_pattern_unique_icons" style="white-space: pre;"><span class="key">pattern_unique_icons:</span><span id="$config_node_pattern_unique_icons" class="value"></span></div>
+          <div id="$p_config_node_icon" style="white-space: pre;"><span class="key">icon:</span><span id="$config_node_icon" class="value"></span></div>
+          <div id="$p_config_node_file"><span class="key">file:</span><span id="$config_node_file" class="value"></span></div>
+          <div id="$p_config_node_file_canvas_cache_index" style="white-space: pre;"><span class="key">file_canvas_cache_index:</span><span id="$config_node_file_canvas_cache_index" class="value"></span></div>
+          <div id="$p_config_node_x" style="white-space: pre;"><span class="key">x:</span><span id="$config_node_x" class="value"></span></div>
+          <div id="$p_config_node_y" style="white-space: pre;"><span class="key">y:</span><span id="$config_node_y" class="value"></span></div>
+          <div id="$p_config_node_w" style="white-space: pre;"><span class="key">w:</span><span id="$config_node_w" class="value"></span></div>
+          <div id="$p_config_node_h" style="white-space: pre;"><span class="key">h:</span><span id="$config_node_h" class="value"></span></div>
+          <div id="$p_config_node_current_state" style="white-space: pre;"><span class="key">current_state:</span><span id="$config_node_current_state" class="value"></span></div>
+        </div>
+      </div>
+    </div>
+    <script src="./lib/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad: false});</script>
+    <div class="mermaid" id="$mermaid" style="white-space:pre;"></div>
+  </div>
+</div>
 
 </body>
 </html>

@@ -30,6 +30,7 @@
 // - bouncer animation not bound to tick
 // - the later bouncers should fade faster
 // - changing machine configuration does not trigger factory.change and undo stack
+// - hover over craftable should highlight inputs
 // - config editor in web
 //   - tile editor
 //   - part editor
@@ -53,11 +54,9 @@ use std::cell::Cell;
 use std::cell::RefCell;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
-use wasm_bindgen::prelude::*;
 
 use std::collections::HashMap;
 use std::collections::VecDeque;
-use web_sys::{HtmlCanvasElement, HtmlImageElement};
 
 use super::belt::*;
 use super::bouncer::*;
@@ -223,6 +222,7 @@ extern {
   pub fn getGameOptions() -> String; // GAME_OPTIONS
   pub fn getExamples() -> js_sys::Array; // GAME_EXAMPLES, array of string
   pub fn getAction() -> String; // queuedAction, polled every frame
+  pub fn receiveConfigNode(name: JsValue, node: JsValue);
   // pub fn log(s: &str); // -> console.log(s)
   // pub fn print_world(s: &str);
   // pub fn print_options(options: &str);
@@ -254,7 +254,7 @@ fn load_tile(src: &str) -> Result<web_sys::HtmlImageElement, JsValue> {
   img.set_src(src);
 
   // // let body = document.body().expect("body should exist");
-  // let div = document.get_element_by_id("tdb").unwrap().dyn_into::<web_sys::HtmlElement>().unwrap();
+  // let div = document.get_element_by_id("$tdb").unwrap().dyn_into::<web_sys::HtmlElement>().unwrap();
   // div.append_child(&img).expect("to work");
 
   return Ok(img);
@@ -271,7 +271,7 @@ pub fn start() -> Result<(), JsValue> {
   let canvas = document
     .create_element("canvas")?
     .dyn_into::<web_sys::HtmlCanvasElement>()?;
-  document.body().unwrap().append_child(&canvas)?;
+  document.get_element_by_id("$main_game").unwrap().append_child(&canvas)?;
   canvas.set_width(CANVAS_WIDTH as u32);
   canvas.set_height(CANVAS_HEIGHT as u32);
   canvas.style().set_property("border", "solid")?;
@@ -283,20 +283,47 @@ pub fn start() -> Result<(), JsValue> {
     .dyn_into::<web_sys::CanvasRenderingContext2d>()?;
   let context = Rc::new(context);
 
+  pub fn load_config(print_fmd_trace: bool, config_str: String) -> Config {
+    let mut config = parse_fmd(print_fmd_trace, config_str);
+
+    config.nodes.iter().for_each(|node| log(format!("node `{}` wants to load `{}`", node.raw_name, node.file)));
+
+    // Load sprite maps. Once per image.
+    config.sprite_cache_canvas = config.sprite_cache_order.iter().enumerate().map(|(_index, src)| {
+      // log(format!("Canvas {} src {}", _index, src));
+      return load_tile(src.clone().as_str()).expect("worky worky");
+    }).collect();
+    log(format!("Loading {} sprite maps for the parts: {:?}", config.sprite_cache_canvas.len(), config.sprite_cache_lookup));
+
+
+    {
+      let kinds: JsValue = [ConfigNodeKind::Part, ConfigNodeKind::Quest, ConfigNodeKind::Supply, ConfigNodeKind::Demand, ConfigNodeKind::Dock, ConfigNodeKind::Machine, ConfigNodeKind::Belt].iter().map(|&kind| {
+        return JsValue::from(match kind {
+          ConfigNodeKind::Part => "Part",
+          ConfigNodeKind::Quest => "Quest",
+          ConfigNodeKind::Supply => "Supply",
+          ConfigNodeKind::Demand => "Demand",
+          ConfigNodeKind::Dock => "Dock",
+          ConfigNodeKind::Machine => "Machine",
+          ConfigNodeKind::Belt => "Belt",
+        });
+      }).collect::<js_sys::Array>().into();
+
+      let nodes: JsValue = config_to_jsvalue(&config);
+
+      receiveConfigNode("wat".into(), vec!(
+        vec!(JsValue::from("kinds"), kinds).iter().collect::<js_sys::Array>(),
+        vec!(JsValue::from("nodes"), nodes).iter().collect::<js_sys::Array>(),
+      ).iter().collect::<js_sys::Array>().into());
+    }
+
+    return config;
+  }
+
   // Load game "level" and part content config dynamic so we don't have to recompile it for
   // ingame changes relating to parts and unlock order of them. This config includes sprite details.
   let def_options = create_options(0.0);
-  let mut config = parse_fmd(&def_options, getGameConfig());
-
-
-  config.nodes.iter().for_each(|node| log(format!("node `{}` wants to load `{}`", node.raw_name, node.file)));
-
-  // Load sprite maps. Once per image.
-  config.sprite_cache_canvas = config.sprite_cache_order.iter().enumerate().map(|(_index, src)| {
-    // log(format!("Canvas {} src {}", _index, src));
-    return load_tile(src.clone().as_str()).expect("worky worky");
-  }).collect();
-  log(format!("Loading {} sprite maps for the parts: {:?}", config.sprite_cache_canvas.len(), config.sprite_cache_lookup));
+  let mut config = load_config(def_options.print_fmd_trace, getGameConfig());
 
   let img_machine1: web_sys::HtmlImageElement = load_tile("./img/machine1.png")?;
   let img_machine2: web_sys::HtmlImageElement = load_tile("./img/machine2.png")?;
@@ -598,6 +625,7 @@ pub fn start() -> Result<(), JsValue> {
         match queued_action.as_str() {
           "apply_options" => parse_options_into(getGameOptions(), &mut options, false),
           "load_map" => state.reset_next_frame = true, // implicitly will call getGameMap() which loads the map from UI indirectly
+          "load_config" => config = load_config(options.print_fmd_trace, getGameConfig()), // Might crash the game
           "" => {},
           _ => panic!("getAction() returned an unsupported value: `{}`", queued_action),
         }
@@ -655,7 +683,9 @@ pub fn start() -> Result<(), JsValue> {
           state.load_snapshot_next_frame = false;
 
           // Dump current map to debug UI
-          web_sys::window().unwrap().document().unwrap().get_element_by_id("game_map").unwrap().dyn_into::<web_sys::HtmlTextAreaElement>().unwrap().set_value(state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].as_str());
+          let document = web_sys::window().unwrap().document().unwrap();
+          let game_map = document.get_element_by_id("$game_map").unwrap();
+          game_map.dyn_into::<web_sys::HtmlTextAreaElement>().unwrap().set_value(state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].as_str());
         }
 
         if factory.finished_quotes.len() > 0 {
@@ -3732,12 +3762,12 @@ fn paint_green_pixel(context: &Rc<web_sys::CanvasRenderingContext2d>, ticks: u64
     context.stroke_rect(fx, fy + UI_OFFERS_HEIGHT - (pos - (UI_OFFERS_WIDTH + UI_OFFERS_HEIGHT + UI_OFFERS_WIDTH)), 1.0, 1.0);
   }
 }
-fn paint_bottom_menu(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, img_machine_1_1: &HtmlImageElement, mouse_state: &MouseState) {
+fn paint_bottom_menu(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, img_machine_1_1: &web_sys::HtmlImageElement, mouse_state: &MouseState) {
   paint_machine_icon(options, state, context, img_machine_1_1, mouse_state);
   paint_ui_buttons(options, state, context, mouse_state);
   paint_ui_buttons2(options, state, context, mouse_state);
 }
-fn paint_machine_icon (options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, img_machine_1_1: &HtmlImageElement, mouse_state: &MouseState) {
+fn paint_machine_icon (options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, img_machine_1_1: &web_sys::HtmlImageElement, mouse_state: &MouseState) {
   context.set_fill_style(&"#aaa".into());
   context.fill_rect(UI_MENU_BOTTOM_MACHINE_X, UI_MENU_BOTTOM_MACHINE_Y, UI_MENU_BOTTOM_MACHINE_WIDTH, UI_MENU_BOTTOM_MACHINE_HEIGHT);
 
@@ -3871,7 +3901,7 @@ fn paint_segment_part_from_config_bug(options: &Options, state: &State, config: 
   if bug { log(format!("meh? {} {} {} {}: {:?} --> {:?}", spx, spy, spw, sph, segment_part_index, config.nodes[segment_part_index])); }
 
   // log(format!("wat: {} {} {} {}     {} {} {} {}", spx, spy, spw, sph , dx, dy, dw, dh,));
-  // web_sys::window().unwrap().document().unwrap().get_element_by_id("tdb").unwrap().dyn_into::<web_sys::HtmlElement>().unwrap().append_child(&canvas).expect("to work");
+  // web_sys::window().unwrap().document().unwrap().get_element_by_id("$tdb").unwrap().dyn_into::<web_sys::HtmlElement>().unwrap().append_child(&canvas).expect("to work");
 
   context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
     &canvas,
