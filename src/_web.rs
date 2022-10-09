@@ -37,6 +37,7 @@
 //   - quest editor
 //   - prep for animations
 // - save/load map to save states, like examples but with visual tile "somewhere".
+// - belt preview while dragging should handle edges more gracefully
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -602,7 +603,6 @@ pub fn start() -> Result<(), JsValue> {
           tick_factory(&mut options, &mut state, &config, &mut factory);
 
           if !options.web_output_cli {
-            // factory_collect_stats(&mut options, &mut state, &mut factory);
             for t in 0..factory.trucks.len() {
               // TODO: fix this hack
               if factory.trucks[t].delay > 0 {
