@@ -467,10 +467,10 @@ pub fn start() -> Result<(), JsValue> {
       world_y: 0.0,
       moved_since_start: false,
 
+      cell_x_floored: 0.0,
+      cell_y_floored: 0.0,
       cell_x: 0.0,
       cell_y: 0.0,
-      cell_x_f: 0.0,
-      cell_y_f: 0.0,
       cell_coord: 0,
 
       cell_rel_x: 0.0,
@@ -1021,13 +1021,13 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
   mouse_state.canvas_y = mouse_y;
   mouse_state.world_x = mouse_x / CANVAS_CSS_WIDTH * CANVAS_WIDTH;
   mouse_state.world_y = mouse_y / CANVAS_CSS_HEIGHT * CANVAS_HEIGHT;
-  mouse_state.cell_x_f = (mouse_x - UI_FLOOR_OFFSET_X) / CELL_W;
-  mouse_state.cell_y_f = (mouse_y - UI_FLOOR_OFFSET_Y) / CELL_H;
-  mouse_state.cell_x = mouse_state.cell_x_f.floor();
-  mouse_state.cell_y = mouse_state.cell_y_f.floor();
-  mouse_state.cell_coord = to_coord(mouse_state.cell_x as usize, mouse_state.cell_y as usize);
-  mouse_state.cell_rel_x = ((mouse_x - UI_FLOOR_OFFSET_X) / CELL_W) - mouse_state.cell_x;
-  mouse_state.cell_rel_y = ((mouse_y - UI_FLOOR_OFFSET_Y) / CELL_H) - mouse_state.cell_y;
+  mouse_state.cell_x = (mouse_x - UI_FLOOR_OFFSET_X) / CELL_W;
+  mouse_state.cell_y = (mouse_y - UI_FLOOR_OFFSET_Y) / CELL_H;
+  mouse_state.cell_x_floored = mouse_state.cell_x.floor();
+  mouse_state.cell_y_floored = mouse_state.cell_y.floor();
+  mouse_state.cell_coord = to_coord(mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize);
+  mouse_state.cell_rel_x = ((mouse_x - UI_FLOOR_OFFSET_X) / CELL_W) - mouse_state.cell_x_floored;
+  mouse_state.cell_rel_y = ((mouse_y - UI_FLOOR_OFFSET_Y) / CELL_H) - mouse_state.cell_y_floored;
 
   let is_machine_selected = cell_selection.on && factory.floor[cell_selection.coord].kind == CellKind::Machine;
 
@@ -1700,8 +1700,8 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
     factory,
     ((mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor(),
     ((mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor(),
-    mouse_state.cell_x.floor(),
-    mouse_state.cell_y.floor(),
+    mouse_state.cell_x_floored.floor(),
+    mouse_state.cell_y_floored.floor(),
     false
   );
 
@@ -2194,19 +2194,19 @@ fn on_up_selecting(options: &mut Options, state: &mut State, config: &Config, fa
   log(format!("mouse up with selection mode enabled..."));
   let down_cell_x = ((mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor();
   let down_cell_y = ((mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor();
-  if mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && is_floor(mouse_state.cell_x, mouse_state.cell_y) {
+  if mouse_state.cell_x_floored >= 0.0 && mouse_state.cell_y_floored >= 0.0 && is_floor(mouse_state.cell_x_floored, mouse_state.cell_y_floored) {
     log(format!("  was up on floor"));
 
     // Moving while there's stuff on the clipboard? This mouse up is a paste / stamp.
     if state.selected_area_copy.len() > 0 {
       log(format!("    clipboard has data so we stamp it now"));
-      paste(options, state, config, factory, mouse_state.cell_x as usize, mouse_state.cell_y as usize);
+      paste(options, state, config, factory, mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize);
     }
     // Dragging a selection?
     else if down_cell_x >= 0.0 && down_cell_y >= 0.0 && is_floor(down_cell_x, down_cell_y) {
       log(format!("  was down in floor, too. ok!"));
-      let now_cell_x = mouse_state.cell_x.floor();
-      let now_cell_y = mouse_state.cell_y.floor();
+      let now_cell_x = mouse_state.cell_x_floored;
+      let now_cell_y = mouse_state.cell_y_floored;
 
       cell_selection.x = down_cell_x.min(now_cell_x);
       cell_selection.y = down_cell_y.min(now_cell_y);
@@ -2582,7 +2582,7 @@ fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::Canva
   context.set_fill_style(&"lightgreen".into());
   context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("mouse world: {} x {}", mouse_state.cell_x, mouse_state.cell_y).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("mouse world: {} x {}", mouse_state.cell_x_floored, mouse_state.cell_y_floored).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"lightgreen".into());
@@ -2594,7 +2594,7 @@ fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::Canva
   context.set_fill_style(&"lightgreen".into());
   context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("mouse coord : {}", if mouse_state.cell_x < 0.0 || mouse_state.cell_y < 0.0 || mouse_state.cell_x >= FLOOR_CELLS_W as f64 || mouse_state.cell_y >= FLOOR_CELLS_W as f64 { "oob".to_string() } else { format!("{}", mouse_state.cell_coord) }).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("mouse coord : {}", if mouse_state.cell_x_floored < 0.0 || mouse_state.cell_y_floored < 0.0 || mouse_state.cell_x_floored >= FLOOR_CELLS_W as f64 || mouse_state.cell_y_floored >= FLOOR_CELLS_W as f64 { "oob".to_string() } else { format!("{}", mouse_state.cell_coord) }).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   assert_eq!(ui_lines, UI_DEBUG_LINES, "keep these in sync for simplicity");
 }
@@ -3046,7 +3046,7 @@ fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory
   else if mouse_state.dragging_machine {
     paint_mouse_while_dragging_machine(options, state, factory, context, mouse_state);
   }
-  else if mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && mouse_state.cell_x < FLOOR_CELLS_W as f64 && mouse_state.cell_y < FLOOR_CELLS_H as f64 {
+  else if mouse_state.cell_x_floored >= 0.0 && mouse_state.cell_y_floored >= 0.0 && mouse_state.cell_x_floored < FLOOR_CELLS_W as f64 && mouse_state.cell_y_floored < FLOOR_CELLS_H as f64 {
     if !mouse_state.craft_over_any {
       paint_mouse_cell_location_on_floor(&context, &factory, &cell_selection, &mouse_state);
     }
@@ -3081,16 +3081,16 @@ fn paint_mouse_dragging_craft_interactable(options: &Options, state: &State, con
 fn paint_mouse_in_erasing_mode(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   // Don't paint anything or paint the invalid belt stub
   if
-    bounds_check(mouse_state.cell_x, mouse_state.cell_y, 0.0, 0.0, FLOOR_CELLS_W as f64, FLOOR_CELLS_H as f64) &&
+    bounds_check(mouse_state.cell_x_floored, mouse_state.cell_y_floored, 0.0, 0.0, FLOOR_CELLS_W as f64, FLOOR_CELLS_H as f64) &&
     // Ignore the corners as well
     (
-      line_check(mouse_state.cell_x, 1.0, FLOOR_CELLS_W as f64 - 1.0) ||
-      line_check(mouse_state.cell_y, 1.0, FLOOR_CELLS_H as f64 - 1.0)
+      line_check(mouse_state.cell_x_floored, 1.0, FLOOR_CELLS_W as f64 - 1.0) ||
+      line_check(mouse_state.cell_y_floored, 1.0, FLOOR_CELLS_H as f64 - 1.0)
     )
   {
     // Rectangle around current cell (generic)
     context.set_stroke_style(&"red".into());
-    context.stroke_rect(UI_FLOOR_OFFSET_X + mouse_state.cell_x * CELL_W, UI_FLOOR_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
+    context.stroke_rect(UI_FLOOR_OFFSET_X + mouse_state.cell_x_floored * CELL_W, UI_FLOOR_OFFSET_Y + mouse_state.cell_y_floored * CELL_H, CELL_W, CELL_H);
   }
 }
 fn paint_mouse_in_selection_mode(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, cell_selection: &CellSelection) {
@@ -3098,12 +3098,10 @@ fn paint_mouse_in_selection_mode(options: &Options, state: &State, config: &Conf
   if mouse_state.is_down && state.selected_area_copy.len() == 0 {
     let down_cell_x = ((mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor();
     let down_cell_y = ((mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor();
-    if down_cell_x >= 0.0 && down_cell_y >= 0.0 && is_floor(down_cell_x, down_cell_y) && mouse_state.cell_x >= 0.0 && mouse_state.cell_y >= 0.0 && is_floor(mouse_state.cell_x, mouse_state.cell_y) {
+    if down_cell_x >= 0.0 && down_cell_y >= 0.0 && is_floor(down_cell_x, down_cell_y) && mouse_state.cell_x_floored >= 0.0 && mouse_state.cell_y_floored >= 0.0 && is_floor(mouse_state.cell_x_floored, mouse_state.cell_y_floored) {
       // Draw dotted stroke rect around cells from mouse down cell to current cell
       context.set_stroke_style(&"blue".into());
-      let now_cell_x = mouse_state.cell_x.floor();
-      let now_cell_y = mouse_state.cell_y.floor();
-      context.stroke_rect(UI_FLOOR_OFFSET_X + down_cell_x.min(now_cell_x) * CELL_W, UI_FLOOR_OFFSET_Y + down_cell_y.min(now_cell_y) * CELL_H, (1.0 + (down_cell_x - now_cell_x).abs()) * CELL_W, (1.0 + (down_cell_y - now_cell_y).abs()) * CELL_H);
+      context.stroke_rect(UI_FLOOR_OFFSET_X + down_cell_x.min(mouse_state.cell_x_floored) * CELL_W, UI_FLOOR_OFFSET_Y + down_cell_y.min(mouse_state.cell_y_floored) * CELL_H, (1.0 + (down_cell_x - mouse_state.cell_x_floored).abs()) * CELL_W, (1.0 + (down_cell_y - mouse_state.cell_y_floored).abs()) * CELL_H);
     }
   }
   else {
@@ -3119,8 +3117,8 @@ fn paint_mouse_in_selection_mode(options: &Options, state: &State, config: &Conf
         context.set_stroke_style(&"green".into());
         context.stroke_rect(UI_FLOOR_OFFSET_X + cell_selection.x * CELL_W, UI_FLOOR_OFFSET_Y + cell_selection.y * CELL_H, w as f64 * CELL_W, h as f64 * CELL_H);
 
-        let cell_x = mouse_state.cell_x;
-        let cell_y = mouse_state.cell_y;
+        let cell_x = mouse_state.cell_x_floored;
+        let cell_y = mouse_state.cell_y_floored;
         for j in 0..state.selected_area_copy.len() {
           for i in 0..state.selected_area_copy[j].len() {
             let x = cell_x + (i as f64);
@@ -3134,16 +3132,16 @@ fn paint_mouse_in_selection_mode(options: &Options, state: &State, config: &Conf
       }
     }
     if
-      bounds_check(mouse_state.cell_x, mouse_state.cell_y, 0.0, 0.0, FLOOR_CELLS_W as f64, FLOOR_CELLS_H as f64) &&
+      bounds_check(mouse_state.cell_x_floored, mouse_state.cell_y_floored, 0.0, 0.0, FLOOR_CELLS_W as f64, FLOOR_CELLS_H as f64) &&
       // Ignore the corners as well
       (
-        line_check(mouse_state.cell_x, 1.0, FLOOR_CELLS_W as f64 - 1.0) ||
-        line_check(mouse_state.cell_y, 1.0, FLOOR_CELLS_H as f64 - 1.0)
+        line_check(mouse_state.cell_x_floored, 1.0, FLOOR_CELLS_W as f64 - 1.0) ||
+        line_check(mouse_state.cell_y_floored, 1.0, FLOOR_CELLS_H as f64 - 1.0)
       )
     {
       // Rectangle around current cell (generic)
       context.set_stroke_style(&"red".into());
-      context.stroke_rect(UI_FLOOR_OFFSET_X + mouse_state.cell_x * CELL_W, UI_FLOOR_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
+      context.stroke_rect(UI_FLOOR_OFFSET_X + mouse_state.cell_x_floored * CELL_W, UI_FLOOR_OFFSET_Y + mouse_state.cell_y_floored * CELL_H, CELL_W, CELL_H);
     }
   }
 }
@@ -3162,8 +3160,8 @@ fn paint_mouse_while_dragging_machine(options: &Options, state: &State, factory:
   context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT - CELL_H, FLOOR_WIDTH - CELL_W, CELL_H);
 
   // Note that mouse cell x is not where the top-left most cell of the machine would be
-  let top_left_machine_cell_x = get_x_while_dragging_offer_machine(mouse_state.cell_x_f, machine_cells_width);
-  let top_left_machine_cell_y = world_y_to_top_left_cell_y_while_dragging_offer_machine(mouse_state.cell_y_f, machine_cells_height);
+  let top_left_machine_cell_x = get_x_while_dragging_offer_machine(mouse_state.cell_x, machine_cells_width);
+  let top_left_machine_cell_y = world_y_to_top_left_cell_y_while_dragging_offer_machine(mouse_state.cell_y, machine_cells_height);
 
   // Make sure the entire machine fits, not just the center or topleft cell
   let legal = bounds_check(top_left_machine_cell_x, top_left_machine_cell_y, 1.0, 1.0, FLOOR_CELLS_W as f64 - (machine_cells_width as f64), FLOOR_CELLS_H as f64 - (machine_cells_height as f64));
@@ -3227,30 +3225,30 @@ fn paint_mouse_while_dragging_offer(options: &Options, state: &State, config: &C
     // When over a machine, preview the pattern over the machine? Or snap the offer to its center?
 
     // Mouse position determines actual cell that we check
-    if is_middle(mouse_state.cell_x, mouse_state.cell_y) && factory.floor[mouse_state.cell_coord].kind == CellKind::Machine {
-      paint_part_and_pattern_at_middle(options, state, config, context, factory, mouse_state.cell_x as usize, mouse_state.cell_y as usize, part_index);
+    if is_middle(mouse_state.cell_x_floored, mouse_state.cell_y_floored) && factory.floor[mouse_state.cell_coord].kind == CellKind::Machine {
+      paint_part_and_pattern_at_middle(options, state, config, context, factory, mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize, part_index);
     } else {
       paint_supply_and_part_not_floor(options, state, config, context, mouse_state.world_x - ((CELL_W as f64) / 2.0), mouse_state.world_y - ((CELL_H as f64) / 2.0), part_index);
     }
   }
   else {
     // Only edge. No point in dumping into machine, I guess? Maybe as an expensive supply? Who cares?
-    if is_edge_not_corner(mouse_state.cell_x, mouse_state.cell_y) {
-      paint_supply_and_part_for_edge(options, state, config, context, mouse_state.cell_x as usize, mouse_state.cell_y as usize, part_index);
+    if is_edge_not_corner(mouse_state.cell_x_floored, mouse_state.cell_y_floored) {
+      paint_supply_and_part_for_edge(options, state, config, context, mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize, part_index);
     } else {
       paint_supply_and_part_not_edge(options, state, config, context, mouse_state.world_x - ((CELL_W as f64) / 2.0), mouse_state.world_y - ((CELL_H as f64) / 2.0), part_index);
     }
   }
 }
 fn paint_mouse_cell_location_on_floor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
-  if mouse_state.cell_x != cell_selection.x || mouse_state.cell_y != cell_selection.y {
+  if mouse_state.cell_x_floored != cell_selection.x || mouse_state.cell_y_floored != cell_selection.y {
     if
       // Ignore the corners as well
-      line_check(mouse_state.cell_x, 1.0, FLOOR_CELLS_W as f64 - 1.0) ||
-      line_check(mouse_state.cell_y, 1.0, FLOOR_CELLS_H as f64 - 1.0)
+      line_check(mouse_state.cell_x_floored, 1.0, FLOOR_CELLS_W as f64 - 1.0) ||
+      line_check(mouse_state.cell_y_floored, 1.0, FLOOR_CELLS_H as f64 - 1.0)
     {
       context.set_stroke_style(&"red".into());
-      context.stroke_rect(UI_FLOOR_OFFSET_X + mouse_state.cell_x * CELL_W, UI_FLOOR_OFFSET_Y + mouse_state.cell_y * CELL_H, CELL_W, CELL_H);
+      context.stroke_rect(UI_FLOOR_OFFSET_X + mouse_state.cell_x_floored * CELL_W, UI_FLOOR_OFFSET_Y + mouse_state.cell_y_floored * CELL_H, CELL_W, CELL_H);
     }
   }
 }
@@ -3259,8 +3257,8 @@ fn paint_belt_drag_preview(options: &Options, state: &State, config: &Config, co
     factory,
     ((mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor(),
     ((mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor(),
-    mouse_state.cell_x.floor(),
-    mouse_state.cell_y.floor(),
+    mouse_state.cell_x_floored,
+    mouse_state.cell_y_floored,
     true, // if we dont then the preview will show only broken belt cells
   );
 
