@@ -37,7 +37,7 @@
 //   - quest editor
 //   - prep for animations
 // - save/load map to save states, like examples but with visual tile "somewhere".
-// - draw button should invert mouse button (draw/delete) so it works on tablets
+// - when delete-dragging the edge should be red boxes too, not demanders/suppliers
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -1256,16 +1256,6 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
     }
   }
 
-  if state.mouse_mode_erasing {
-    if mouse_state.was_down {
-      on_down_erase(options, state, config, factory, mouse_state);
-    }
-    else if mouse_state.is_up {
-      on_up_erase(options, state, config, factory, mouse_state, cell_selection);
-    }
-    return;
-  }
-
   if state.mouse_mode_selecting {
     if mouse_state.is_up {
       on_up_selecting(options, state, config, factory, mouse_state, cell_selection);
@@ -1374,7 +1364,6 @@ fn on_drag_start_offer_before(options: &mut Options, state: &mut State, config: 
     log(format!("is_drag_start from offer {} ({:?})", mouse_state.offer_down_offer_index, factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0));
     mouse_state.dragging_offer = true;
     mouse_state.dragging_machine = false;
-    state.mouse_mode_erasing = false;
     state.mouse_mode_selecting = false;
 
     let part_index = factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0;
@@ -1451,7 +1440,7 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
   let last_mouse_up_cell_x = ((mouse_state.last_up_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor();
   let last_mouse_up_cell_y = ((mouse_state.last_up_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor();
 
-  if mouse_state.last_down_button == 2 {
+  if mouse_state.last_down_button == if state.mouse_mode_erasing { 1 } else { 2 } {
     // Clear the cell if that makes sense for it. Delete a belt with one or zero ports.
     let coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
 
@@ -1780,9 +1769,9 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
   let len = track.len();
 
   if len == 1 {
-    if mouse_state.last_down_button == 1 {
+    if mouse_state.last_down_button == if state.mouse_mode_erasing { 2 } else { 1 } {
       // Ignore for a drag. Allows you to cancel a drag.
-    } else if mouse_state.last_down_button == 2 {
+    } else if mouse_state.last_down_button == if state.mouse_mode_erasing { 1 } else { 2 } {
       // Clear the cell if that makes sense for it
       // Do not delete a cell, not even stubs, because this would be a drag-cancel
       // (Regular click would delete stubs)
@@ -1795,7 +1784,7 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
       // I think this allows you to cancel a drag by pressing the rmb
     }
   } else if len == 2 {
-    log(format!("two cell path with button {}", mouse_state.last_down_button));
+    log(format!("two cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_erasing));
     let ((cell_x1, cell_y1), belt_type1, _unused, _port_out_dir1) = track[0]; // First element has no inbound port here
     let coord1 = to_coord(cell_x1, cell_y1);
     let ((cell_x2, cell_y2), belt_type2, _port_in_dir2, _unused) = track[1]; // LAst element has no outbound port here
@@ -1806,7 +1795,7 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
     assert!((dx == 0) != (dy == 0), "one and only one of dx or dy is zero");
     assert!(dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1, "since they are adjacent they must be -1, 0, or 1");
 
-    if mouse_state.last_down_button == 1 {
+    if mouse_state.last_down_button == if state.mouse_mode_erasing { 2 } else { 1 } {
       // Convert empty cells to belt cells.
       // Create a port between these two cells, but none of the other cells.
 
@@ -1835,7 +1824,7 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
 
         cell_connect_if_possible(options, state, factory, coord1, coord2, dx, dy);
       }
-    } else if mouse_state.last_down_button == 2 {
+    } else if mouse_state.last_down_button == if state.mouse_mode_erasing { 1 } else { 2 } {
       // Delete the port between the two cells but leave everything else alone.
       // The coords must be adjacent to one side.
 
@@ -1868,7 +1857,7 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
     fix_belt_meta(factory, coord1);
     fix_belt_meta(factory, coord2);
 
-    if mouse_state.last_down_button == 2 {
+    if mouse_state.last_down_button == if state.mouse_mode_erasing { 1 } else { 2 } {
       if factory.floor[coord1].kind == CellKind::Belt && factory.floor[coord1].port_u == Port::None && factory.floor[coord1].port_r == Port::None && factory.floor[coord1].port_d == Port::None && factory.floor[coord1].port_l == Port::None {
         floor_delete_cell_at_partial(options, state, config, factory, coord1);
       } else {
@@ -1894,7 +1883,7 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
       log(format!("- track {} at {} {} isa {:?}", index, cell_x, cell_y, belt_type));
       let coord = to_coord(cell_x, cell_y);
 
-      if mouse_state.last_down_button == 1 {
+      if mouse_state.last_down_button == if state.mouse_mode_erasing { 2 } else { 1 } {
         if still_starting_on_edge {
           // Note: if the first cell is in the middle then the track does not start on the edge
           if index == 0 {
@@ -1964,7 +1953,7 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
           // (First element has no inbound)
           cell_connect_if_possible(options, state, factory, pcoord, coord, (cell_x as i8) - (px as i8), (cell_y as i8) - (py as i8));
         }
-      } else if mouse_state.last_down_button == 2 {
+      } else if mouse_state.last_down_button == if state.mouse_mode_erasing { 1 } else { 2 } {
         // Delete the cell if it is a belt, and in that case any port to it
         // Do not delete machines, suppliers, or demanders. No need to delete empty cells
         if factory.floor[coord].kind == CellKind::Belt {
@@ -1999,7 +1988,6 @@ fn on_drag_start_machine_button_before(options: &mut Options, state: &mut State,
   log(format!("is_drag_start from machine"));
   mouse_state.dragging_machine = true;
   mouse_state.dragging_offer = false;
-  state.mouse_mode_erasing = false;
   state.mouse_mode_selecting = false;
 }
 fn on_drag_start_machine_button_after() {
@@ -2103,7 +2091,6 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
         1 => { // Select
           log(format!("Toggle selection mode"));
           state.mouse_mode_selecting = !state.mouse_mode_selecting;
-          state.mouse_mode_erasing = false;
           cell_selection.area = state.mouse_mode_selecting;
           cell_selection.on = false;
           state.selected_area_copy = vec!(); // Or retain this?
@@ -2222,21 +2209,6 @@ fn on_down_craft_after() {
 }
 fn on_drag_start_craft_after(mouse_state: &MouseState) {
   log(format!("Started dragging from craft popup (after erase/selection check; kind={:?}", mouse_state.craft_down_ci_part_kind));
-}
-fn on_down_erase(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState) {
-  if bounds_check(mouse_state.world_x, mouse_state.world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
-    // On the floor. Delete anything.
-    let coord = mouse_state.cell_coord;
-    if factory.floor[coord].kind != CellKind::Empty {
-      floor_delete_cell_at_partial(options, state, config, factory, coord);
-      factory.changed = true;
-    }
-  }
-}
-fn on_up_erase(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
-  // Still allow to use menu buttons while deleting, but ignore other hit boxes
-  log(format!("({}) on_up_menu from erasing", factory.ticks));
-  on_up_menu(cell_selection, mouse_state, options, state, config, factory);
 }
 fn on_up_selecting(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
   log(format!("mouse up with selection mode enabled..."));
@@ -3106,9 +3078,6 @@ fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory
   if mouse_state.craft_dragging_ci {
     paint_mouse_dragging_craft_interactable(options, state, config, factory, context, mouse_state, cell_selection);
   }
-  else if state.mouse_mode_erasing {
-    paint_mouse_in_erasing_mode(options, state, factory, context, mouse_state);
-  }
   else if state.mouse_mode_selecting {
     paint_mouse_in_selection_mode(options, state, config, factory, context, mouse_state, cell_selection);
   }
@@ -3148,21 +3117,6 @@ fn paint_mouse_dragging_craft_interactable(options: &Options, state: &State, con
     context.stroke_rect(mwx, mwy, w, h);
 
     paint_segment_part_from_config(options, state, config, context, mouse_state.craft_down_ci_part_kind, mwx, mwy, w, h);
-  }
-}
-fn paint_mouse_in_erasing_mode(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  // Don't paint anything or paint the invalid belt stub
-  if
-    bounds_check(mouse_state.cell_x_floored, mouse_state.cell_y_floored, 0.0, 0.0, FLOOR_CELLS_W as f64, FLOOR_CELLS_H as f64) &&
-    // Ignore the corners as well
-    (
-      line_check(mouse_state.cell_x_floored, 1.0, FLOOR_CELLS_W as f64 - 1.0) ||
-      line_check(mouse_state.cell_y_floored, 1.0, FLOOR_CELLS_H as f64 - 1.0)
-    )
-  {
-    // Rectangle around current cell (generic)
-    context.set_stroke_style(&"red".into());
-    context.stroke_rect(UI_FLOOR_OFFSET_X + mouse_state.cell_x_floored * CELL_W, UI_FLOOR_OFFSET_Y + mouse_state.cell_y_floored * CELL_H, CELL_W, CELL_H);
   }
 }
 fn paint_mouse_in_selection_mode(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, cell_selection: &CellSelection) {
@@ -3372,7 +3326,7 @@ fn paint_belt_drag_preview(options: &Options, state: &State, config: &Config, co
         continue;
       }
     }
-    paint_ghost_belt_of_type(options, state, config, cell_x, cell_y, if mouse_state.last_down_button == 2 { BeltType::INVALID } else { bt }, &context,
+    paint_ghost_belt_of_type(options, state, config, cell_x, cell_y, if mouse_state.last_down_button == if state.mouse_mode_erasing { 1 } else { 2 } { BeltType::INVALID } else { bt }, &context,
       // Skip over factory cells or if you're dragging straight on one edge (note that the first/last cell will take an earlier path above so this must be middle-path-cells)
       factory.floor[to_coord(cell_x, cell_y)].kind == CellKind::Machine || cell_x == 0 || cell_x == FLOOR_CELLS_W - 1 || cell_y == 0 || cell_y == FLOOR_CELLS_H - 1
     );
