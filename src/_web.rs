@@ -37,7 +37,6 @@
 //   - quest editor
 //   - prep for animations
 // - save/load map to save states, like examples but with visual tile "somewhere".
-// - when delete-dragging the edge should be red boxes too, not demanders/suppliers
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -1440,7 +1439,7 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
   let last_mouse_up_cell_x = ((mouse_state.last_up_world_x - UI_FLOOR_OFFSET_X) / CELL_W).floor();
   let last_mouse_up_cell_y = ((mouse_state.last_up_world_y - UI_FLOOR_OFFSET_Y) / CELL_H).floor();
 
-  if mouse_state.last_down_button == if state.mouse_mode_erasing { 1 } else { 2 } {
+  if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
     // Clear the cell if that makes sense for it. Delete a belt with one or zero ports.
     let coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
 
@@ -1769,9 +1768,9 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
   let len = track.len();
 
   if len == 1 {
-    if mouse_state.last_down_button == if state.mouse_mode_erasing { 2 } else { 1 } {
+    if mouse_state.last_down_button == if state.mouse_mode_mirrored { 2 } else { 1 } {
       // Ignore for a drag. Allows you to cancel a drag.
-    } else if mouse_state.last_down_button == if state.mouse_mode_erasing { 1 } else { 2 } {
+    } else if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
       // Clear the cell if that makes sense for it
       // Do not delete a cell, not even stubs, because this would be a drag-cancel
       // (Regular click would delete stubs)
@@ -1784,7 +1783,7 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
       // I think this allows you to cancel a drag by pressing the rmb
     }
   } else if len == 2 {
-    log(format!("two cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_erasing));
+    log(format!("two cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_mirrored));
     let ((cell_x1, cell_y1), belt_type1, _unused, _port_out_dir1) = track[0]; // First element has no inbound port here
     let coord1 = to_coord(cell_x1, cell_y1);
     let ((cell_x2, cell_y2), belt_type2, _port_in_dir2, _unused) = track[1]; // LAst element has no outbound port here
@@ -1795,7 +1794,7 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
     assert!((dx == 0) != (dy == 0), "one and only one of dx or dy is zero");
     assert!(dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1, "since they are adjacent they must be -1, 0, or 1");
 
-    if mouse_state.last_down_button == if state.mouse_mode_erasing { 2 } else { 1 } {
+    if mouse_state.last_down_button == if state.mouse_mode_mirrored { 2 } else { 1 } {
       // Convert empty cells to belt cells.
       // Create a port between these two cells, but none of the other cells.
 
@@ -1824,7 +1823,7 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
 
         cell_connect_if_possible(options, state, factory, coord1, coord2, dx, dy);
       }
-    } else if mouse_state.last_down_button == if state.mouse_mode_erasing { 1 } else { 2 } {
+    } else if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
       // Delete the port between the two cells but leave everything else alone.
       // The coords must be adjacent to one side.
 
@@ -1857,7 +1856,7 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
     fix_belt_meta(factory, coord1);
     fix_belt_meta(factory, coord2);
 
-    if mouse_state.last_down_button == if state.mouse_mode_erasing { 1 } else { 2 } {
+    if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
       if factory.floor[coord1].kind == CellKind::Belt && factory.floor[coord1].port_u == Port::None && factory.floor[coord1].port_r == Port::None && factory.floor[coord1].port_d == Port::None && factory.floor[coord1].port_l == Port::None {
         floor_delete_cell_at_partial(options, state, config, factory, coord1);
       } else {
@@ -1883,7 +1882,7 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
       log(format!("- track {} at {} {} isa {:?}", index, cell_x, cell_y, belt_type));
       let coord = to_coord(cell_x, cell_y);
 
-      if mouse_state.last_down_button == if state.mouse_mode_erasing { 2 } else { 1 } {
+      if mouse_state.last_down_button == if state.mouse_mode_mirrored { 2 } else { 1 } {
         if still_starting_on_edge {
           // Note: if the first cell is in the middle then the track does not start on the edge
           if index == 0 {
@@ -1953,7 +1952,7 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
           // (First element has no inbound)
           cell_connect_if_possible(options, state, factory, pcoord, coord, (cell_x as i8) - (px as i8), (cell_y as i8) - (py as i8));
         }
-      } else if mouse_state.last_down_button == if state.mouse_mode_erasing { 1 } else { 2 } {
+      } else if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
         // Delete the cell if it is a belt, and in that case any port to it
         // Do not delete machines, suppliers, or demanders. No need to delete empty cells
         if factory.floor[coord].kind == CellKind::Belt {
@@ -2082,7 +2081,7 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
       match button_index.floor() as u8 {
         0 => { // Draw / Erase
           log(format!("toggle draw/erase mode"));
-          state.mouse_mode_erasing = !state.mouse_mode_erasing;
+          state.mouse_mode_mirrored = !state.mouse_mode_mirrored;
           state.mouse_mode_selecting = false;
           cell_selection.area = false;
           cell_selection.on = false;
@@ -3294,39 +3293,44 @@ fn paint_belt_drag_preview(options: &Options, state: &State, config: &Config, co
     true, // if we dont then the preview will show only broken belt cells
   );
 
+  let deleting = mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 };
+
   for index in 0..track.len() {
     let ((cell_x, cell_y), bt, in_port_dir, out_port_dir) = track[index];
-    // Correct for the edges
-    if index == 0 {
-      if cell_x == 0 {
-        paint_ghost_supplier(options, state, config, cell_x, cell_y, Direction::Left, context, false);
-        continue;
-      } else if cell_y == 0 {
-        paint_ghost_supplier(options, state, config, cell_x, cell_y, Direction::Up, context, false);
-        continue;
-      } else if cell_x == FLOOR_CELLS_W - 1 {
-        paint_ghost_supplier(options, state, config, cell_x, cell_y, Direction::Right, context, false);
-        continue;
-      } else if cell_y == FLOOR_CELLS_H - 1 {
-        paint_ghost_supplier(options, state, config, cell_x, cell_y, Direction::Down, context, false);
-        continue;
-      }
-    } else if index == track.len() - 1 {
-      if cell_x == 0 {
-        paint_ghost_demander(options, state, config, cell_x, cell_y, Direction::Left, context, false);
-        continue;
-      } else if cell_y == 0 {
-        paint_ghost_demander(options, state, config, cell_x, cell_y, Direction::Up, context, false);
-        continue;
-      } else if cell_x == FLOOR_CELLS_W - 1 {
-        paint_ghost_demander(options, state, config, cell_x, cell_y, Direction::Right, context, false);
-        continue;
-      } else if cell_y == FLOOR_CELLS_H - 1 {
-        paint_ghost_demander(options, state, config, cell_x, cell_y, Direction::Down, context, false);
-        continue;
+    // Correct for the edges, except when the track would be removed, cause then it's just red boxes
+    if !deleting {
+      if index == 0 {
+        if cell_x == 0 {
+          paint_ghost_supplier(options, state, config, cell_x, cell_y, Direction::Left, context, false);
+          continue;
+        } else if cell_y == 0 {
+          paint_ghost_supplier(options, state, config, cell_x, cell_y, Direction::Up, context, false);
+          continue;
+        } else if cell_x == FLOOR_CELLS_W - 1 {
+          paint_ghost_supplier(options, state, config, cell_x, cell_y, Direction::Right, context, false);
+          continue;
+        } else if cell_y == FLOOR_CELLS_H - 1 {
+          paint_ghost_supplier(options, state, config, cell_x, cell_y, Direction::Down, context, false);
+          continue;
+        }
+      } else if index == track.len() - 1 {
+        if cell_x == 0 {
+          paint_ghost_demander(options, state, config, cell_x, cell_y, Direction::Left, context, false);
+          continue;
+        } else if cell_y == 0 {
+          paint_ghost_demander(options, state, config, cell_x, cell_y, Direction::Up, context, false);
+          continue;
+        } else if cell_x == FLOOR_CELLS_W - 1 {
+          paint_ghost_demander(options, state, config, cell_x, cell_y, Direction::Right, context, false);
+          continue;
+        } else if cell_y == FLOOR_CELLS_H - 1 {
+          paint_ghost_demander(options, state, config, cell_x, cell_y, Direction::Down, context, false);
+          continue;
+        }
       }
     }
-    paint_ghost_belt_of_type(options, state, config, cell_x, cell_y, if mouse_state.last_down_button == if state.mouse_mode_erasing { 1 } else { 2 } { BeltType::INVALID } else { bt }, &context,
+
+    paint_ghost_belt_of_type(options, state, config, cell_x, cell_y, if deleting { BeltType::INVALID } else { bt }, &context,
       // Skip over factory cells or if you're dragging straight on one edge (note that the first/last cell will take an earlier path above so this must be middle-path-cells)
       factory.floor[to_coord(cell_x, cell_y)].kind == CellKind::Machine || cell_x == 0 || cell_x == FLOOR_CELLS_W - 1 || cell_y == 0 || cell_y == FLOOR_CELLS_H - 1
     );
@@ -3894,7 +3898,7 @@ fn paint_ui_button(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state:
   context.fill_text(text, x + 5.0, y + 14.0).expect("to paint");
 }
 fn paint_ui_buttons2(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  paint_ui_button2(context, mouse_state, 0.0, if state.mouse_mode_erasing { "Erase" } else { "Draw" }, state.mouse_mode_erasing, true);
+  paint_ui_button2(context, mouse_state, 0.0, if state.mouse_mode_mirrored { "Erase" } else { "Draw" }, state.mouse_mode_mirrored, true);
   paint_ui_button2(context, mouse_state, 1.0, "Select", state.mouse_mode_selecting, true);
   paint_ui_button2(context, mouse_state, 2.0, if state.selected_area_copy.len() > 0{ "Stamp" } else { "Copy" }, state.selected_area_copy.len() > 0, true);
   paint_ui_button2(context, mouse_state, 3.0, "Undo", false, state.snapshot_undo_pointer > 0); // should it be 1 for initial map? or dont care?

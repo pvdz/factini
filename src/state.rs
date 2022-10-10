@@ -24,7 +24,7 @@ pub const UNDO_STACK_SIZE: usize = 100;
 
 pub struct State {
   pub paused: bool,
-  pub mouse_mode_erasing: bool, // Note: all this really does is flip the lmb and rmb actions but we need this toggle for touch-only mode
+  pub mouse_mode_mirrored: bool, // Note: all this really does is flip the lmb and rmb actions but we need this toggle for touch-only mode
   pub mouse_mode_selecting: bool,
   pub selected_area_copy: Vec<Vec<Cell>>,
   pub test: bool,
@@ -163,7 +163,7 @@ pub fn state_create() -> State {
   return State {
     paused: false,
     reset_next_frame: false,
-    mouse_mode_erasing: false,
+    mouse_mode_mirrored: false,
     mouse_mode_selecting: false,
     selected_area_copy: vec!(),
     test: false,
