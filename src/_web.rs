@@ -19,25 +19,25 @@
 // - belts
 //   - does snaking bother me when a belt should move all at once or not at all? should we change the algo? probably not that hard to move all connected cells between intersections/entry/exit points at once. if one moves, all move, etc.
 //   - first/last part of belt preview while dragging should be fixed, or be hardcoded dead ends
+//     - first part is always "up". last piece is always "invalid". should just mimic the final state by the same abstracted func.
 //   - a part that reaches 100% of a cell but can't be moved to the side should not block the next part from entering the cell until all ports are taken like that. the part can sit in the port and a belt can only take parts if it has an available port.
 //   - prepare belt animations?
-//   - when dragging, can the corners be evenly spread rather than current behavior? and equal horizontal and vertical bending behavior?
 // - make sun move across the day bar? in a sort of rainbow path?
 // - let trash be a joker part
 // - what's up with these assertion traps :(
-//   - `let (received_part_index, received_count) = factory.floor[coord].demand.received[i];` threw oob (1 while len=0)
+//   - `let (received_part_index, received_count) = factory.floor[coord].demand.received[i];` threw oob (1 while len=0). i thin it's somehow related to dropping a demander on the edge
 // - make recipes be arbitrary? 2x2? let go of pattern?
 // - bouncer animation not bound to tick
 // - the later bouncers should fade faster
 // - changing machine configuration does not trigger factory.change and undo stack
-// - hover over craftable should highlight inputs
+// - hover over craftable should highlight craft-inputs (offers)
 // - config editor in web
 //   - tile editor
 //   - part editor
 //   - quest editor
 //   - prep for animations
 // - save/load map to save states, like examples but with visual tile "somewhere".
-// - belt preview while dragging should handle edges more gracefully
+// - draw button should invert mouse button (draw/delete) so it works on tablets
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -347,23 +347,26 @@ pub fn start() -> Result<(), JsValue> {
   let mouse_x = Rc::new(Cell::new(0.0));
   let mouse_y = Rc::new(Cell::new(0.0));
   let mouse_moved = Rc::new(Cell::new(false));
-  let is_mouse_down = Rc::new(Cell::new(false));
+  let last_mouse_was_down = Rc::new(Cell::new(false));
   let last_mouse_down_x = Rc::new(Cell::new(0.0));
   let last_mouse_down_y = Rc::new(Cell::new(0.0));
   let last_mouse_down_button = Rc::new(Cell::new(0));
+  let last_mouse_was_up = Rc::new(Cell::new(false));
   let last_mouse_up_x = Rc::new(Cell::new(0.0));
   let last_mouse_up_y = Rc::new(Cell::new(0.0));
+  let last_mouse_up_button = Rc::new(Cell::new(0));
 
   // mousedown
   {
-    let is_mouse_down = is_mouse_down.clone();
+    let last_mouse_was_down = last_mouse_was_down.clone();
     let last_mouse_down_x = last_mouse_down_x.clone();
     let last_mouse_down_y = last_mouse_down_y.clone();
     let last_mouse_down_button = last_mouse_down_button.clone();
     let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
       let mx = event.offset_x() as f64;
       let my = event.offset_y() as f64;
-      is_mouse_down.set(true);
+      last_mouse_was_down.set(true);
+      last_mouse_was_down.set(true);
       last_mouse_down_x.set(mx);
       last_mouse_down_y.set(my);
       last_mouse_down_button.set(event.buttons()); // 1=left, 2=right, 3=left-then-also-right (but right-then-also-left is still 2)
@@ -394,15 +397,17 @@ pub fn start() -> Result<(), JsValue> {
   }
   // mouseup
   {
-    let is_mouse_down = is_mouse_down.clone();
+    let last_mouse_was_up = last_mouse_was_up.clone();
     let last_mouse_up_x = last_mouse_up_x.clone();
     let last_mouse_up_y = last_mouse_up_y.clone();
+    let last_mouse_up_button = last_mouse_up_button.clone();
     let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
       let mx = event.offset_x() as f64;
       let my = event.offset_y() as f64;
-      is_mouse_down.set(false);
+      last_mouse_was_up.set(true);
       last_mouse_up_x.set(mx);
       last_mouse_up_y.set(my);
+      last_mouse_up_button.set(event.buttons()); // 1=left, 2=right, 3=left-then-also-right (but right-then-also-left is still 2)
 
       event.stop_propagation();
       event.prevent_default();
@@ -481,6 +486,11 @@ pub fn start() -> Result<(), JsValue> {
       is_dragging: false,
       is_drag_start: false,
 
+      over_floor_not_corner: false,
+      over_floor_not_craft_or_corner: false,
+      down_floor_not_corner: false,
+      down_floor_not_craft_or_corner: false,
+
       help_hover: false,
       help_down: false,
 
@@ -536,6 +546,8 @@ pub fn start() -> Result<(), JsValue> {
       last_down_world_y: 0.0,
       last_down_cell_x: 0.0,
       last_down_cell_y: 0.0,
+      last_down_cell_x_floored: 0.0,
+      last_down_cell_y_floored: 0.0,
 
       last_up_canvas_x: 0.0,
       last_up_canvas_y: 0.0,
@@ -634,11 +646,9 @@ pub fn start() -> Result<(), JsValue> {
           _ => panic!("getAction() returned an unsupported value: `{}`", queued_action),
         }
 
-        update_mouse_state(&mut options, &mut state, &config, &mut factory, &mut cell_selection, &mut mouse_state, mouse_x.get(), mouse_y.get(), mouse_moved.get(), last_mouse_down_x.get(), last_mouse_down_y.get(), last_mouse_down_button.get(), last_mouse_up_x.get(), last_mouse_up_y.get());
-        last_mouse_down_x.set(0.0);
-        last_mouse_down_y.set(0.0);
-        last_mouse_up_x.set(0.0);
-        last_mouse_up_y.set(0.0);
+        update_mouse_state(&mut options, &mut state, &config, &mut factory, &mut cell_selection, &mut mouse_state, mouse_x.get(), mouse_y.get(), mouse_moved.get(), last_mouse_was_down.get(), last_mouse_down_x.get(), last_mouse_down_y.get(), last_mouse_down_button.get(), last_mouse_was_up.get(), last_mouse_up_x.get(), last_mouse_up_y.get(), last_mouse_up_button.get());
+        last_mouse_was_down.set(false);
+        last_mouse_was_up.set(false);
 
         // Handle drag-end or click
         handle_input(&mut cell_selection, &mut mouse_state, &mut options, &mut state, &config, &mut factory);
@@ -985,7 +995,13 @@ fn world_y_to_top_left_cell_y_while_dragging_offer_machine(cell_y: f64, offer_he
   return oy;
 }
 
-fn update_mouse_state(options: &Options, state: &State, config: &Config, factory: &Factory, cell_selection: &CellSelection, mouse_state: &mut MouseState, mouse_x: f64, mouse_y: f64, mouse_moved_since_app_start: bool, last_mouse_down_x: f64, last_mouse_down_y: f64, last_mouse_down_button: u16, last_mouse_up_x: f64, last_mouse_up_y: f64) {
+fn update_mouse_state(
+  options: &Options, state: &State, config: &Config, factory: &Factory,
+  cell_selection: &CellSelection, mouse_state: &mut MouseState,
+  mouse_x: f64, mouse_y: f64, mouse_moved_since_app_start: bool,
+  last_mouse_was_down: bool, last_mouse_down_x: f64, last_mouse_down_y: f64, last_mouse_down_button: u16,
+  last_mouse_was_up: bool, last_mouse_up_x: f64, last_mouse_up_y: f64, last_mouse_up_button: u16,
+) {
   // Note: event handlers should not be called from here. This should only update mouse_state.
   //       this is why only the mouse_state is mutable.
 
@@ -1000,6 +1016,8 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
     mouse_state.down_machine_button = false;
     mouse_state.help_down = false;
     mouse_state.is_down = false;
+    mouse_state.down_floor_not_corner = false;
+    mouse_state.down_floor_not_craft_or_corner = false;
   }
   mouse_state.was_down = false;
   mouse_state.is_up = false;
@@ -1010,6 +1028,8 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
   mouse_state.help_hover = false;
 
   mouse_state.craft_over_any = false;
+  mouse_state.over_floor_not_corner = false;
+  mouse_state.over_floor_not_craft_or_corner = false;
   mouse_state.craft_over_ci = CraftInteractable::None;
   mouse_state.craft_up_any = false;
   mouse_state.craft_up_ci = CraftInteractable::None;
@@ -1031,6 +1051,14 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
   let is_machine_selected = cell_selection.on && factory.floor[cell_selection.coord].kind == CellKind::Machine;
 
   mouse_state.craft_over_any = is_machine_selected && hit_test_machine_circle(factory, cell_selection.coord, mouse_state.world_x, mouse_state.world_y);
+  mouse_state.over_floor_not_corner =
+    // Over floor cells
+    mouse_state.cell_x >= 0.0 && mouse_state.cell_x < (FLOOR_CELLS_W as f64) && mouse_state.cell_y >= 0.0 && mouse_state.cell_y < (FLOOR_CELLS_H as f64) &&
+    // Not corner
+    !((mouse_state.cell_x_floored == 0.0 || mouse_state.cell_x_floored == (FLOOR_CELLS_W - 1) as f64) && (mouse_state.cell_y_floored == 0.0 || mouse_state.cell_y_floored == (FLOOR_CELLS_H - 1) as f64));
+  mouse_state.over_floor_not_craft_or_corner =
+    // Forget it if we already know this is over a craft menu
+    !mouse_state.craft_over_any && mouse_state.over_floor_not_corner;
   if mouse_state.craft_over_any && !mouse_state.is_dragging {
     let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.world_x, mouse_state.world_y);
     mouse_state.craft_over_ci = what;
@@ -1044,7 +1072,7 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
   }
 
   // on mouse down
-  if last_mouse_down_x > 0.0 || last_mouse_down_y > 0.0 {
+  if last_mouse_was_down {
     mouse_state.last_down_button = last_mouse_down_button;
     mouse_state.last_down_canvas_x = last_mouse_down_x;
     mouse_state.last_down_canvas_y = last_mouse_down_y;
@@ -1052,11 +1080,23 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
     mouse_state.last_down_world_y = last_mouse_down_y / CANVAS_CSS_HEIGHT * CANVAS_HEIGHT;
     mouse_state.last_down_cell_x = (mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X) / CELL_W;
     mouse_state.last_down_cell_y = (mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y) / CELL_H;
+    mouse_state.last_down_cell_x_floored = mouse_state.last_down_cell_x.floor();
+    mouse_state.last_down_cell_y_floored = mouse_state.last_down_cell_y.floor();
 
     mouse_state.is_down = true; // Unset after on_up
     mouse_state.was_down = true; // Unset after this frame
 
     mouse_state.craft_down_any = is_machine_selected && hit_test_machine_circle(factory, cell_selection.coord, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
+
+    mouse_state.down_floor_not_corner =
+      // Over floor cells
+      mouse_state.last_down_cell_x >= 0.0 && mouse_state.last_down_cell_x < (FLOOR_CELLS_W as f64) && mouse_state.last_down_cell_y >= 0.0 && mouse_state.last_down_cell_y < (FLOOR_CELLS_H as f64) &&
+      // Not corner
+      !((mouse_state.last_down_cell_x_floored == 0.0 || mouse_state.last_down_cell_x_floored == (FLOOR_CELLS_W - 1) as f64) && (mouse_state.last_down_cell_y_floored == 0.0 || mouse_state.last_down_cell_y_floored == (FLOOR_CELLS_H - 1) as f64));
+    mouse_state.down_floor_not_craft_or_corner =
+      // Forget it if we already know this is over a craft menu
+      !mouse_state.craft_over_any && mouse_state.down_floor_not_corner;
+
     if mouse_state.craft_down_any {
       let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
       log(format!("mouse down inside craft selection -> {:?} {:?} {} at craft index {}", what, part_index, config.nodes[part_index].raw_name, craft_index));
@@ -1127,7 +1167,7 @@ fn update_mouse_state(options: &Options, state: &State, config: &Config, factory
   }
 
   // on mouse up
-  if last_mouse_up_x > 0.0 || last_mouse_up_y > 0.0 {
+  if last_mouse_was_up {
     mouse_state.last_up_canvas_x = last_mouse_up_x;
     mouse_state.last_up_canvas_y = last_mouse_up_y;
     mouse_state.last_up_world_x = last_mouse_up_x / CANVAS_CSS_WIDTH * CANVAS_WIDTH;
@@ -1289,9 +1329,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         }
       }
       else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT) {
-        on_drag_end_floor2();
-        // Is the mouse currently on the floor?
-        on_drag_end_floor_other(options, state, config, factory, cell_selection, mouse_state);
+        on_drag_end_floor(options, state, config, factory, cell_selection, mouse_state);
       }
     } else {
       if mouse_state.craft_up_any {
@@ -1399,8 +1437,10 @@ fn on_drag_start_floor_after() {
   // TODO: move that logic to these handlers
   log(format!("on_drag_start_floor_after()"));
 }
-fn on_drag_end_floor2() {
+fn on_drag_end_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
   log(format!("on_drag_end_floor2()"));
+  // Is the mouse currently on the floor?
+  on_drag_end_floor_other(options, state, config, factory, cell_selection, mouse_state);
 }
 fn on_up_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
   log(format!("on_up_floor()"));
@@ -1697,13 +1737,19 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
 fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
   log(format!("on_drag_end_floor_other()"));
 
+  // If both x and y are on the edge then they're in a corner
+  if !mouse_state.over_floor_not_craft_or_corner || !mouse_state.down_floor_not_craft_or_corner {
+    // Corner cell of the floor. Consider oob and ignore.
+    return;
+  }
+
   // Finalize pathing, regenerate floor
-  let track = ray_trace_dragged_line(
+  let track = ray_trace_dragged_line_expensive(
     factory,
-    mouse_state.last_down_cell_x.floor(),
-    mouse_state.last_down_cell_y.floor(),
-    mouse_state.cell_x_floored.floor(),
-    mouse_state.cell_y_floored.floor(),
+    mouse_state.last_down_cell_x_floored,
+    mouse_state.last_down_cell_y_floored,
+    mouse_state.cell_x_floored,
+    mouse_state.cell_y_floored,
     false
   );
 
@@ -2194,9 +2240,9 @@ fn on_up_erase(options: &mut Options, state: &mut State, config: &Config, factor
 }
 fn on_up_selecting(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
   log(format!("mouse up with selection mode enabled..."));
-  let down_cell_x = mouse_state.last_down_cell_x.floor();
-  let down_cell_y = mouse_state.last_down_cell_y.floor();
   if mouse_state.cell_x_floored >= 0.0 && mouse_state.cell_y_floored >= 0.0 && is_floor(mouse_state.cell_x_floored, mouse_state.cell_y_floored) {
+    let down_cell_x = mouse_state.last_down_cell_x_floored;
+    let down_cell_y = mouse_state.last_down_cell_y_floored;
     log(format!("  was up on floor"));
 
     // Moving while there's stuff on the clipboard? This mouse up is a paste / stamp.
@@ -2205,7 +2251,7 @@ fn on_up_selecting(options: &mut Options, state: &mut State, config: &Config, fa
       paste(options, state, config, factory, mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize);
     }
     // Dragging a selection?
-    else if down_cell_x >= 0.0 && down_cell_y >= 0.0 && is_floor(down_cell_x, down_cell_y) {
+    else if down_cell_x >= 0.0 && down_cell_y >= 0.0 && is_floor(down_cell_x, down_cell_y) { // TODO: cant this be collapsed?
       log(format!("  was down in floor, too. ok!"));
       let now_cell_x = mouse_state.cell_x_floored;
       let now_cell_y = mouse_state.cell_y_floored;
@@ -2347,7 +2393,7 @@ fn hit_test_machine_button(mx: f64, my: f64) -> bool {
 fn hit_test_help_button(mx: f64, my: f64) -> bool {
   return bounds_check(mx, my, UI_HELP_X, UI_HELP_Y, UI_HELP_X + UI_HELP_WIDTH, UI_HELP_Y + UI_HELP_HEIGHT);
 }
-fn ray_trace_dragged_line(factory: &Factory, x0: f64, y0: f64, x1: f64, y1: f64, for_preview: bool) -> Vec<((usize, usize), BeltType, Direction, Direction)> {
+fn ray_trace_dragged_line_expensive(factory: &Factory, ix0: f64, iy0: f64, ix1: f64, iy1: f64, for_preview: bool) -> Vec<((usize, usize), BeltType, Direction, Direction)> {
   // We raytracing
   // The dragged line becomes a ray that we trace through cells of the floor
   // We then generate a belt track such that it fits in with the existing belts, if any
@@ -2355,9 +2401,37 @@ fn ray_trace_dragged_line(factory: &Factory, x0: f64, y0: f64, x1: f64, y1: f64,
   // - If the ray crosses existing belts, generate the belt type as if the original was modified to support the new path (the pathing would not destroy existing ports)
   // - If the ray only spans one cell, force it to be invalid
   // - The first and last cells in the ray also auto-connect to any neighbor belts. Sections in the middle of the ray do not.
+  // - Special case: if the line starts on an edge but finishes away from that same edge, force the second step to be away from that edge. there's some manual logic to make that work.
 
-  let covered = get_cells_from_a_to_b(x0, y0, x1, y1);
+  // Check start of path and compensate if on edge
+  let x_left0 = ix0 == 0.0 && ix1 != 0.0;
+  let y_top0 = iy0 == 0.0 && iy1 != 0.0;
+  let x_right0 = ix0 == ((FLOOR_CELLS_W - 1) as f64) && ix1 != ((FLOOR_CELLS_W - 1) as f64);
+  let y_bottom0 = iy0 == ((FLOOR_CELLS_H - 1) as f64) && iy1 != ((FLOOR_CELLS_H - 1) as f64);
+  let x0 = if x_left0 { ix0 + 1.0 } else if x_right0 { ix0 - 1.0 } else { ix0 };
+  let y0 = if y_top0 { iy0 + 1.0 } else if y_bottom0 { iy0 - 1.0 } else { iy0 };
+
+  // Check end of path and compensate if on edge
+  let x_left1 = ix1 == 0.0 && x0 != 0.0;
+  let y_top1 = iy1 == 0.0 && y0 != 0.0;
+  let x_right1 = ix1 == ((FLOOR_CELLS_W - 1) as f64) && x0 != ((FLOOR_CELLS_W - 1) as f64);
+  let y_bottom1 = iy1 == ((FLOOR_CELLS_H - 1) as f64) && y0 != ((FLOOR_CELLS_H - 1) as f64);
+  let x1 = if x_left1 { ix1 + 1.0 } else if x_right1 { ix1 - 1.0 } else { ix1 };
+  let y1 = if y_top1 { iy1 + 1.0 } else if y_bottom1 { iy1 - 1.0 } else { iy1 };
+
+  let mut covered = get_cells_from_a_to_b(x0, y0, x1, y1);
   assert!(covered.len() >= 1, "Should always record at least one cell coord");
+
+  // Now put the start/end of path back if it was moved. This way the path will never have more than one edge cell on the same side
+  if x_left0 || y_top0 || x_right0 || y_bottom0 {
+    // "push_front"
+    let mut t = vec!((ix0 as usize, iy0 as usize));
+    t.append(&mut covered);
+    covered = t;
+  }
+  if x_left1 || y_top1 || x_right1 || y_bottom1 {
+    covered.push((ix1 as usize, iy1 as usize));
+  }
 
   if covered.len() == 1 {
     return vec!((covered[0], BeltType::INVALID, Direction::Up, Direction::Up));
@@ -2366,14 +2440,15 @@ fn ray_trace_dragged_line(factory: &Factory, x0: f64, y0: f64, x1: f64, y1: f64,
   // Note: in order of (dragging) appearance
   let mut track: Vec<((usize, usize), BeltType, Direction, Direction)> = vec!(); // ((x, y), new_bt)
 
+  let (mut lx, mut ly) = covered[0];
+  let mut last_from = Direction::Up; // first one ignores this value
+
   // Draw example tiles of the path you're drawing.
   // Take the existing cell and add one or two ports to it;
   // - first one only gets the "to" port added to it
   // - last one only gets the "from" port added to it
   // - middle parts get the "from" and "to" port added to them
   // let mut is_first = true;
-  let (mut lx, mut ly) = covered[0];
-  let mut last_from = Direction::Up; // first one ignores this value
   for index in 1..covered.len() {
     let (x, y) = covered[index];
     // Always set the previous one.
@@ -2381,7 +2456,7 @@ fn ray_trace_dragged_line(factory: &Factory, x0: f64, y0: f64, x1: f64, y1: f64,
     let last_to = direction_reverse(new_from);
     // For the first one, pass on the same "to" port since there is no "from" port (it'll be a noop)
     let bt =
-      if !for_preview || x == 0 {
+      if !for_preview {
         // add_one_ports_to_cell(factory, to_coord(lx, ly), last_to)
         BeltType::INVALID
       } else {
@@ -2763,24 +2838,19 @@ fn paint_background_tiles(
         paint_supply_and_part_for_edge(options, state, config, context, cx, cy, factory.floor[coord].supply.gives.kind);
       }
       CellKind::Demand => {
-        let dock_target =
+        let dir =
           if cy == 0 {
-            CONFIG_NODE_DEMAND_UP
+            Direction::Up
           } else if cx == FLOOR_CELLS_W-1 {
-            CONFIG_NODE_DEMAND_RIGHT
+            Direction::Right
           } else if cy == FLOOR_CELLS_H-1 {
-            CONFIG_NODE_DEMAND_DOWN
+            Direction::Down
           } else if cx == 0 {
-            CONFIG_NODE_DEMAND_LEFT
+            Direction::Left
           } else {
             panic!("no");
           };
-        // TODO: should we offer the option to draw the dock behind in case of semi-transparent supply imgs?
-        context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-          &config.sprite_cache_canvas[config.nodes[dock_target].file_canvas_cache_index],
-          config.nodes[dock_target].x, config.nodes[dock_target].y, config.nodes[dock_target].w, config.nodes[dock_target].h,
-          ox, oy, CELL_W, CELL_H
-        ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+        draw_demander(options, state, config, context, dir, ox, oy, CELL_W, CELL_H);
       }
     }
   }
@@ -3048,7 +3118,7 @@ fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory
   else if mouse_state.dragging_machine {
     paint_mouse_while_dragging_machine(options, state, factory, context, mouse_state);
   }
-  else if mouse_state.cell_x_floored >= 0.0 && mouse_state.cell_y_floored >= 0.0 && mouse_state.cell_x_floored < FLOOR_CELLS_W as f64 && mouse_state.cell_y_floored < FLOOR_CELLS_H as f64 {
+  else if mouse_state.over_floor_not_corner {
     if !mouse_state.craft_over_any {
       paint_mouse_cell_location_on_floor(&context, &factory, &cell_selection, &mouse_state);
     }
@@ -3056,7 +3126,7 @@ fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory
       if mouse_state.craft_down_any {
         // This drag stated in a craft popup so do not show a track preview; we're not doing that.
       }
-      else if mouse_state.last_down_cell_x >= 0.0 && mouse_state.last_down_cell_x < FLOOR_WIDTH && mouse_state.last_down_cell_y >= 0.0 && mouse_state.last_down_cell_y < FLOOR_HEIGHT {
+      else if mouse_state.down_floor_not_corner {
         paint_belt_drag_preview(options, state, config, context, factory, cell_selection, mouse_state);
       }
     }
@@ -3098,8 +3168,8 @@ fn paint_mouse_in_erasing_mode(options: &Options, state: &State, factory: &Facto
 fn paint_mouse_in_selection_mode(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, cell_selection: &CellSelection) {
   // When mouse is down and clipboard is empty; select the area to potentially copy. With clipboard, still show the ghost. Do not change the selection area.
   if mouse_state.is_down && state.selected_area_copy.len() == 0 {
-    let down_cell_x = mouse_state.last_down_cell_x.floor();
-    let down_cell_y = mouse_state.last_down_cell_y.floor();
+    let down_cell_x = mouse_state.last_down_cell_x_floored;
+    let down_cell_y = mouse_state.last_down_cell_y_floored;
     if down_cell_x >= 0.0 && down_cell_y >= 0.0 && is_floor(down_cell_x, down_cell_y) && mouse_state.cell_x_floored >= 0.0 && mouse_state.cell_y_floored >= 0.0 && is_floor(mouse_state.cell_x_floored, mouse_state.cell_y_floored) {
       // Draw dotted stroke rect around cells from mouse down cell to current cell
       context.set_stroke_style(&"blue".into());
@@ -3255,10 +3325,16 @@ fn paint_mouse_cell_location_on_floor(context: &Rc<web_sys::CanvasRenderingConte
   }
 }
 fn paint_belt_drag_preview(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
-  let track = ray_trace_dragged_line(
+  // If both x and y are on the edge then they're in a corner
+  if !mouse_state.over_floor_not_craft_or_corner {
+    // Corner cell of the floor. Consider oob and ignore.
+    return;
+  }
+
+  let track = ray_trace_dragged_line_expensive(
     factory,
-    mouse_state.last_down_cell_x.floor(),
-    mouse_state.last_down_cell_y.floor(),
+    mouse_state.last_down_cell_x_floored,
+    mouse_state.last_down_cell_y_floored,
     mouse_state.cell_x_floored,
     mouse_state.cell_y_floored,
     true, // if we dont then the preview will show only broken belt cells
@@ -3266,9 +3342,40 @@ fn paint_belt_drag_preview(options: &Options, state: &State, config: &Config, co
 
   for index in 0..track.len() {
     let ((cell_x, cell_y), bt, in_port_dir, out_port_dir) = track[index];
-    // context.set_fill_style(&"#00770044".into());
-    // context.fill_rect(UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H, CELL_W, CELL_H);
-    paint_ghost_belt_of_type(options, state, config, cell_x, cell_y, if mouse_state.last_down_button == 2 { BeltType::INVALID } else { bt }, &context, factory.floor[to_coord(cell_x, cell_y)].kind == CellKind::Machine);
+    // Correct for the edges
+    if index == 0 {
+      if cell_x == 0 {
+        paint_ghost_supplier(options, state, config, cell_x, cell_y, Direction::Left, context, false);
+        continue;
+      } else if cell_y == 0 {
+        paint_ghost_supplier(options, state, config, cell_x, cell_y, Direction::Up, context, false);
+        continue;
+      } else if cell_x == FLOOR_CELLS_W - 1 {
+        paint_ghost_supplier(options, state, config, cell_x, cell_y, Direction::Right, context, false);
+        continue;
+      } else if cell_y == FLOOR_CELLS_H - 1 {
+        paint_ghost_supplier(options, state, config, cell_x, cell_y, Direction::Down, context, false);
+        continue;
+      }
+    } else if index == track.len() - 1 {
+      if cell_x == 0 {
+        paint_ghost_demander(options, state, config, cell_x, cell_y, Direction::Left, context, false);
+        continue;
+      } else if cell_y == 0 {
+        paint_ghost_demander(options, state, config, cell_x, cell_y, Direction::Up, context, false);
+        continue;
+      } else if cell_x == FLOOR_CELLS_W - 1 {
+        paint_ghost_demander(options, state, config, cell_x, cell_y, Direction::Right, context, false);
+        continue;
+      } else if cell_y == FLOOR_CELLS_H - 1 {
+        paint_ghost_demander(options, state, config, cell_x, cell_y, Direction::Down, context, false);
+        continue;
+      }
+    }
+    paint_ghost_belt_of_type(options, state, config, cell_x, cell_y, if mouse_state.last_down_button == 2 { BeltType::INVALID } else { bt }, &context,
+      // Skip over factory cells or if you're dragging straight on one edge (note that the first/last cell will take an earlier path above so this must be middle-path-cells)
+      factory.floor[to_coord(cell_x, cell_y)].kind == CellKind::Machine || cell_x == 0 || cell_x == FLOOR_CELLS_W - 1 || cell_y == 0 || cell_y == FLOOR_CELLS_H - 1
+    );
   }
 }
 fn paint_ghost_belt_of_type(options: &Options, state: &State, config: &Config, cell_x: usize, cell_y: usize, belt_type: BeltType, context: &Rc<web_sys::CanvasRenderingContext2d>, skip_tile: bool) {
@@ -3280,6 +3387,30 @@ fn paint_ghost_belt_of_type(options: &Options, state: &State, config: &Config, c
   if !skip_tile {
     context.set_global_alpha(0.7);
     draw_belt(options, state, config, context, belt_type, UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + 5.0, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + 5.0, CELL_W - 10.0, CELL_H - 10.0);
+    context.set_global_alpha(1.0);
+  }
+}
+fn paint_ghost_supplier(options: &Options, state: &State, config: &Config, cell_x: usize, cell_y: usize, dir: Direction, context: &Rc<web_sys::CanvasRenderingContext2d>, skip_tile: bool) {
+  let tile_size_reduction = 1.0;
+
+  context.set_fill_style(&"#ffffff40".into());
+  context.fill_rect(UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + (1.0 - tile_size_reduction / 2.0), UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + (1.0 - tile_size_reduction / 2.0), CELL_W * tile_size_reduction, CELL_H * tile_size_reduction);
+
+  if !skip_tile {
+    context.set_global_alpha(0.7);
+    draw_supplier(options, state, config, context, dir, UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + 5.0, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + 5.0, CELL_W - 10.0, CELL_H - 10.0);
+    context.set_global_alpha(1.0);
+  }
+}
+fn paint_ghost_demander(options: &Options, state: &State, config: &Config, cell_x: usize, cell_y: usize, dir: Direction, context: &Rc<web_sys::CanvasRenderingContext2d>, skip_tile: bool) {
+  let tile_size_reduction = 1.0;
+
+  context.set_fill_style(&"#ffffff40".into());
+  context.fill_rect(UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + (1.0 - tile_size_reduction / 2.0), UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + (1.0 - tile_size_reduction / 2.0), CELL_W * tile_size_reduction, CELL_H * tile_size_reduction);
+
+  if !skip_tile {
+    context.set_global_alpha(0.7);
+    draw_demander(options, state, config, context, dir, UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + 5.0, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + 5.0, CELL_W - 10.0, CELL_H - 10.0);
     context.set_global_alpha(1.0);
   }
 }
@@ -4009,6 +4140,40 @@ fn draw_belt(options: &Options, state: &State, config: &Config, context: &Rc<web
     // Paint onto canvas at
     dx, dy, dw, dh,
   ).expect("draw_belt() something error draw_image"); // requires web_sys HtmlImageElement feature
+}
+
+fn draw_supplier(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, dir: Direction, ox: f64, oy: f64, dw: f64, dh: f64) {
+  let dpck_dir =
+    match dir {
+      Direction::Up => CONFIG_NODE_SUPPLY_UP,
+      Direction::Right => CONFIG_NODE_SUPPLY_RIGHT,
+      Direction::Down => CONFIG_NODE_SUPPLY_DOWN,
+      Direction::Left => CONFIG_NODE_SUPPLY_LEFT,
+    };
+
+  // TODO: should we offer the option to draw the dock behind in case of semi-transparent supply imgs?
+  context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+    &config.sprite_cache_canvas[config.nodes[dpck_dir].file_canvas_cache_index],
+    config.nodes[dpck_dir].x, config.nodes[dpck_dir].y, config.nodes[dpck_dir].w, config.nodes[dpck_dir].h,
+    ox, oy, dw, dh
+  ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+}
+
+fn draw_demander(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, dir: Direction, ox: f64, oy: f64, dw: f64, dh: f64) {
+  let dock_dir =
+    match dir {
+      Direction::Up => CONFIG_NODE_DEMAND_UP,
+      Direction::Right => CONFIG_NODE_DEMAND_RIGHT,
+      Direction::Down => CONFIG_NODE_DEMAND_DOWN,
+      Direction::Left => CONFIG_NODE_DEMAND_LEFT,
+    };
+
+  // TODO: should we offer the option to draw the dock behind in case of semi-transparent supply imgs?
+  context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+    &config.sprite_cache_canvas[config.nodes[dock_dir].file_canvas_cache_index],
+    config.nodes[dock_dir].x, config.nodes[dock_dir].y, config.nodes[dock_dir].w, config.nodes[dock_dir].h,
+    ox, oy, dw, dh
+  ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
 }
 
 fn request_animation_frame(f: &Closure<dyn FnMut()>) {
