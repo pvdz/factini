@@ -526,3 +526,26 @@ pub fn floor_delete_cell_at_partial_sub(options: &mut Options, state: &mut State
 
   factory.floor[coord] = empty_cell(config, factory.floor[coord].x, factory.floor[coord].y);
 }
+
+
+pub fn fix_ins_and_outs_for_all_belts_and_machines(factory: &mut Factory) {
+  log(format!("fix_ins_and_outs_for_all_belts_and_machines()"));
+
+  // Fix ins and outs. Especially necessary for machines in some cases.
+  for coord in 0..FLOOR_CELLS_WH {
+    match factory.floor[coord].kind {
+      CellKind::Demand => {}
+      CellKind::Empty => {}
+      CellKind::Belt => {
+        // Not sure we actually need this. I think this loop is mainly to patch up machines.
+        belt_discover_ins_and_outs(factory, coord);
+      }
+      CellKind::Machine => {
+        if coord == factory.floor[coord].machine.main_coord {
+          machine_discover_ins_and_outs(factory, coord);
+        }
+      }
+      CellKind::Supply => {}
+    }
+  }
+}

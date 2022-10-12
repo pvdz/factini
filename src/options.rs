@@ -41,6 +41,8 @@ pub struct Options {
 
   pub dbg_trash_is_joker: bool, // Trash serves as joker item for machines?
   pub dbg_machine_produce_trash: bool, // If a machine trashes a part and expects no inputs, should it output trash instead of discarding it?
+
+  pub test: u64, // just a temporary flag
 }
 
 pub fn create_options(speed_modifier: f64) -> Options {
@@ -78,6 +80,7 @@ pub fn create_options(speed_modifier: f64) -> Options {
     web_output_cli: false,
     dbg_trash_is_joker: true,
     dbg_machine_produce_trash: true,
+    test: 0,
   };
 }
 
@@ -198,6 +201,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "web_output_cli" => options.web_output_cli = parse_bool(value, name, strict, options.web_output_cli),
             "dbg_trash_is_joker" => options.dbg_trash_is_joker = parse_bool(value, name, strict, options.dbg_trash_is_joker),
             "dbg_machine_produce_trash" => options.dbg_machine_produce_trash = parse_bool(value, name, strict, options.dbg_machine_produce_trash),
+            "test" => options.test = parse_u64(value, name, strict, options.test),
             _ => {
               log(format!("  - ignoring `{}` because it is an unknown option or because it needs to be added to the options parser", name));
             }

@@ -613,7 +613,7 @@ fn auto_port_convert_machine_unknown_to(options: &mut Options, state: &mut State
 }
 
 pub fn keep_auto_porting(options: &mut Options, state: &mut State, factory: &mut Factory) {
-  if options.trace_porting_step { log(format!("keep_auto_porting()")); }
+  log(format!("keep_auto_porting(options.trace_porting_step = {})", options.trace_porting_step));
   // Start at demands, mark connected belts
   // From connected belts, mark any other connected belt if it is connected to only one unmarked
   // belt. If it is connected to a machine or belt with no unmarked neighbors, then it is looping.
@@ -635,7 +635,7 @@ pub fn keep_auto_porting(options: &mut Options, state: &mut State, factory: &mut
 }
 pub fn auto_port(options: &mut Options, state: &mut State, factory: &mut Factory, attempt: u32, force_unknowns: bool) -> ( bool, bool ) {
   assert!(attempt > 0, "attempt must be non-zero because it gets deducted");
-  if options.trace_porting_step { log(format!("auto_port({}, {})", attempt, force_unknowns)); }
+  if options.trace_porting_step { log(format!("  - auto_port({}, {})", attempt, force_unknowns)); }
   let mut changed = false;
   let mut has_unknowns = false;
   for coord in 0..FLOOR_CELLS_WH {
@@ -661,6 +661,8 @@ pub fn auto_port(options: &mut Options, state: &mut State, factory: &mut Factory
         // The cells are iterated over up to three times per coord iteration (should be no big deal)
 
         if factory.floor[coord].machine.kind == MachineKind::Main {
+          if options.trace_porting_step { log(format!("    - machine at {}", coord)); }
+
           if auto_port_machine_neighbors(options, state, factory, coord, attempt) {
             changed = true;
           }

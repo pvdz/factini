@@ -864,6 +864,8 @@ pub fn get_belt_type_for_cell_ports(factory: &Factory, coord: usize) -> BeltType
 }
 
 pub fn belt_discover_ins_and_outs(factory: &mut Factory, coord: usize) {
+  log(format!("belt_discover_ins_and_outs({}) {:?} {:?} {:?} {:?}", coord, factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
+
   factory.floor[coord].ins.clear();
   factory.floor[coord].outs.clear();
 

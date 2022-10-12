@@ -664,8 +664,9 @@ pub fn start() -> Result<(), JsValue> {
             state.snapshot_stack[state.snapshot_pointer % UNDO_STACK_SIZE] = snap;
           }
 
-          log(format!("Auto porting after modification. options.trace_porting_step = {}", options.trace_porting_step));
+          log(format!("Auto porting after modification"));
           keep_auto_porting(&mut options, &mut state, &mut factory);
+          fix_ins_and_outs_for_all_belts_and_machines(&mut factory);
 
           // Recreate cell traversal order
           let prio: Vec<usize> = create_prio_list(&mut options, &config, &mut factory.floor);
@@ -1769,22 +1770,25 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
   let len = track.len();
 
   if len == 1 {
+    log(format!("One cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_mirrored));
     if mouse_state.last_down_button == if state.mouse_mode_mirrored { 2 } else { 1 } {
-      // Ignore for a drag. Allows you to cancel a drag.
+      log(format!(" - Ignore click on a single cell, as well as dragging across one cell. Allows you to cancel a drag."));
     } else if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
+      log(format!(" - Removing the cell"));
       // Clear the cell if that makes sense for it
       // Do not delete a cell, not even stubs, because this would be a drag-cancel
       // (Regular click would delete stubs)
       let ((cell_x, cell_y), _belt_type, _unused, _port_out_dir) = track[0]; // First element has no inbound port here
       let coord = to_coord(cell_x, cell_y);
-
       clear_part_from_cell(options, state, config, factory, coord);
     } else {
       // Other mouse button. ignore for now / ever.
       // I think this allows you to cancel a drag by pressing the rmb
+      log(format!(" - Not left or right button; ignoring unknown button click"));
     }
-  } else if len == 2 {
-    log(format!("two cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_mirrored));
+  }
+  else if len == 2 {
+    log(format!("Two cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_mirrored));
     let ((cell_x1, cell_y1), belt_type1, _unused, _port_out_dir1) = track[0]; // First element has no inbound port here
     let coord1 = to_coord(cell_x1, cell_y1);
     let ((cell_x2, cell_y2), belt_type2, _port_in_dir2, _unused) = track[1]; // LAst element has no outbound port here
@@ -1796,6 +1800,8 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
     assert!(dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1, "since they are adjacent they must be -1, 0, or 1");
 
     if mouse_state.last_down_button == if state.mouse_mode_mirrored { 2 } else { 1 } {
+      log(format!(" - Connecting the two cells"));
+
       // Convert empty cells to belt cells.
       // Create a port between these two cells, but none of the other cells.
 
@@ -1824,7 +1830,10 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
 
         cell_connect_if_possible(options, state, factory, coord1, coord2, dx, dy);
       }
-    } else if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
+    }
+    else if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
+      log(format!(" - Disconnecting the two cells"));
+
       // Delete the port between the two cells but leave everything else alone.
       // The coords must be adjacent to one side.
 
@@ -1849,9 +1858,11 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
       };
 
       port_disconnect_cells(config, factory, coord1, dir1, coord2, dir2);
-    } else {
+    }
+    else {
       // Other mouse button or multi-button. ignore for now / ever.
       // (Remember: this was a drag of two cells)
+      log(format!(" - Not left or right button; ignoring unknown button click"));
     }
 
     fix_belt_meta(factory, coord1);
@@ -1869,7 +1880,10 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
         clear_part_from_cell(options, state, config, factory, coord2);
       }
     }
-  } else {
+  }
+  else {
+    log(format!("Multi cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_mirrored));
+
     // len > 2
     // Draw track if lmb, remove cells on track if rmb
 
