@@ -206,16 +206,22 @@ pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, f
             let mut trash = true;
             if !accepts_nothing {
               for i in 0..factory.floor[main_coord].machine.wants.len() {
-                let want = factory.floor[main_coord].machine.wants[i].kind;
+                // There must be space
                 let have = factory.floor[main_coord].machine.haves[i].kind;
-                if belt_part == factory.floor[main_coord].machine.wants[i].kind && belt_part != have && have == PARTKIND_NONE {
-                  if options.print_moves || options.print_moves_machine {
-                    log(format!("({}) Machine @{} (sub @{}) accepting part {:?} as input {} from belt @{}, had {:?}", factory.ticks, main_coord, sub_coord, belt_part, i, from_coord, have));
+                if have == PARTKIND_NONE {
+                  // Accept if trash (joker part) or if it matches the required part
+                  let want = factory.floor[main_coord].machine.wants[i].kind;
+                  if want != PARTKIND_NONE {
+                    if (options.dbg_trash_is_joker && belt_part == PARTKIND_TRASH) || (belt_part == factory.floor[main_coord].machine.wants[i].kind && belt_part != have) {
+                      if options.print_moves || options.print_moves_machine {
+                        log(format!("({}) Machine @{} (sub @{}) accepting part {:?} as input {} from belt @{}, had {:?}", factory.ticks, main_coord, sub_coord, belt_part, i, from_coord, have));
+                      }
+                      machine_receive_part(factory, main_coord, i, part_from_part_index(config, want));
+                      belt_receive_part(factory, from_coord, incoming_dir, part_none(config));
+                      trash = false;
+                      break;
+                    }
                   }
-                  machine_receive_part(factory, main_coord, i, factory.floor[from_coord].belt.part.clone());
-                  belt_receive_part(factory, from_coord, incoming_dir, part_none(config));
-                  trash = false;
-                  break;
                 }
               }
             }

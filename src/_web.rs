@@ -23,20 +23,19 @@
 //   - a part that reaches 100% of a cell but can't be moved to the side should not block the next part from entering the cell until all ports are taken like that. the part can sit in the port and a belt can only take parts if it has an available port.
 //   - prepare belt animations?
 // - make sun move across the day bar? in a sort of rainbow path?
-// - let trash be a joker part
 // - what's up with these assertion traps :(
 //   - `let (received_part_index, received_count) = factory.floor[coord].demand.received[i];` threw oob (1 while len=0). i thin it's somehow related to dropping a demander on the edge
-// - make recipes be arbitrary? 2x2? let go of pattern?
 // - bouncer animation not bound to tick
 // - the later bouncers should fade faster
 // - changing machine configuration does not trigger factory.change and undo stack
-// - hover over craftable should highlight craft-inputs (offers)
+// - hover over craftable offer should highlight craft-inputs (offers)
 // - config editor in web
 //   - tile editor
 //   - part editor
 //   - quest editor
 //   - prep for animations
 // - save/load map to save states, like examples but with visual tile "somewhere".
+// - rebalance the fps frame limiter
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 

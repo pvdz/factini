@@ -30,4 +30,5 @@ const GAME_OPTIONS = `
 - long_term_window: 600000
 - speed_modifier: 1.0
 - web_output_cli: false
+- dbg_trash_is_joker: true
 `;

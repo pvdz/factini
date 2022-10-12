@@ -38,6 +38,8 @@ pub struct Options {
   pub speed_modifier: f64, // Increase or decrease ticks per second by this rate
 
   pub web_output_cli: bool, // Print the simplified cli output in web version?
+
+  pub dbg_trash_is_joker: bool, // Trash serves as joker item for machines?
 }
 
 pub fn create_options(speed_modifier: f64) -> Options {
@@ -73,6 +75,7 @@ pub fn create_options(speed_modifier: f64) -> Options {
     long_term_window: 600000,
     speed_modifier,
     web_output_cli: false,
+    dbg_trash_is_joker: true,
   };
 }
 
@@ -191,6 +194,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "long_term_window" => options.long_term_window = parse_u64(value, name, strict, options.long_term_window),
             "speed_modifier" => options.speed_modifier = parse_f64(value, name, strict, options.speed_modifier),
             "web_output_cli" => options.web_output_cli = parse_bool(value, name, strict, options.web_output_cli),
+            "dbg_trash_is_joker" => options.dbg_trash_is_joker = parse_bool(value, name, strict, options.dbg_trash_is_joker),
             _ => {
               log(format!("  - ignoring `{}` because it is an unknown option or because it needs to be added to the options parser", name));
             }
