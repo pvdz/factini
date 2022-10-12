@@ -27,7 +27,6 @@
 //   - `let (received_part_index, received_count) = factory.floor[coord].demand.received[i];` threw oob (1 while len=0). i thin it's somehow related to dropping a demander on the edge
 // - bouncer animation not bound to tick
 // - the later bouncers should fade faster
-// - changing machine configuration does not trigger factory.change and undo stack
 // - hover over craftable offer should highlight craft-inputs (offers)
 // - config editor in web
 //   - tile editor

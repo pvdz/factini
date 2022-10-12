@@ -343,6 +343,7 @@ pub fn machine_change_want(options: &Options, state: &State, config: &Config, fa
   let new_out = machine_discover_output(options, state, config, factory, main_coord);
   log(format!("machine_change_want() -> {:?}", new_out));
   factory.floor[main_coord].machine.output_want = new_out;
+  factory.changed = true;
 }
 
 pub fn machine_discover_output(options: &Options, state: &State, config: &Config, factory: &Factory, main_coord: usize) -> Part {
