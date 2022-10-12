@@ -129,6 +129,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, f
   // Accept from the input ports
   // Start building
 
+  // Finished
   if factory.floor[main_coord].machine.start_at > 0 && factory.ticks - factory.floor[main_coord].machine.start_at >= factory.floor[main_coord].machine.speed {
     // log(format!("part {} is finished", factory.floor[main_coord].machine.output_want.icon));
     // Finished! Find an available outlet.
@@ -163,6 +164,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, f
     }
   }
 
+  // Check receive/create state
   let mut accepts_nothing = true;
   let mut waiting_for_input = false;
   for i in 0..factory.floor[main_coord].machine.haves.len() {
@@ -170,16 +172,19 @@ pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, f
     // If a certain input is none, then have should always be none too and it will auto-satisfy
     // Otherwise, it will satisfy if the have is not none, but rather the part that is wanted.
     let want = factory.floor[main_coord].machine.wants[i].kind;
+    if want != PARTKIND_NONE {
+      accepts_nothing = false;
+    }
     if want != factory.floor[main_coord].machine.haves[i].kind {
       waiting_for_input = true;
       accepts_nothing = false;
       break;
     }
-    else if want != PARTKIND_NONE {
-      accepts_nothing = false;
-    }
   }
 
+  let mut trashed_anything = false;
+
+  // Receive
   // It should only trash the input if it's actually still waiting for something so check that first
   if waiting_for_input || accepts_nothing {
     // Find the input connected to a belt with matching part as any of the inputs that await one
@@ -199,8 +204,8 @@ pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, f
           let belt_part = factory.floor[from_coord].belt.part.kind;
 
           if belt_part != PARTKIND_NONE && !factory.floor[from_coord].belt.part_to_tbd && factory.floor[from_coord].belt.part_to == main_neighbor_in_dir && factory.floor[from_coord].belt.part_progress >= factory.floor[from_coord].belt.speed {
-              // Check whether it fits in any input slot. If so, put it there. Otherwise trash it unless
-              // all slots are full (only trash input parts while actually waiting for more input).
+            // Check whether it fits in any input slot. If so, put it there. Otherwise trash it unless
+            // all slots are full (only trash input parts while actually waiting for more input).
 
             assert_eq!(factory.floor[main_coord].machine.wants.len(), factory.floor[main_coord].machine.haves.len(), "machines should start with same len wants as haves");
             let mut trash = true;
@@ -227,7 +232,6 @@ pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, f
             }
 
             if trash {
-              // Trash it? TODO: machine with multiple inputs should perhaps only trash if none of the inputs were acceptable?
               if options.print_moves || options.print_moves_machine {
                 log(format!("({}) Machine @{} (sub @{}) trashing part {:?} from belt @{}", factory.ticks, main_coord, sub_coord, belt_part, from_coord));
               }
@@ -235,6 +239,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, f
               machine_update_oldest_list(factory, main_coord, &part);
               belt_receive_part(factory, from_coord, incoming_dir, part_none(config));
               factory.floor[main_coord].machine.trashed += 1;
+              trashed_anything = true;
             }
           }
         }
@@ -242,7 +247,8 @@ pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, f
     }
   }
 
-  if factory.floor[main_coord].machine.start_at == 0 {
+  // Produce
+  if (!accepts_nothing || (trashed_anything && options.dbg_machine_produce_trash)) && factory.floor[main_coord].machine.start_at == 0 {
     let mut ready = true;
     for i in 0..factory.floor[main_coord].machine.haves.len() {
       // If a certain input does not exist, it will be none.

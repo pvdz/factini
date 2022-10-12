@@ -35,6 +35,9 @@
 //   - prep for animations
 // - save/load map to save states, like examples but with visual tile "somewhere".
 // - rebalance the fps frame limiter
+// - craft menu hover should not activate hover visuals on other elements
+// - joker trash part should disable achievements
+// - option to click on a quest to complete it
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 

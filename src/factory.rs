@@ -134,7 +134,7 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
       CellKind::Demand => {
         for i in 0..factory.floor[coord].demand.received.len() {
           if factory.floor.len() <= coord  { log(format!("coord was incorrect... {} {}", factory.floor.len(), coord)); }
-          if factory.floor.len() <= coord  { log(format!("i was incorrect... {} {}", factory.floor[coord].demand.received.len(), i)); }
+          if factory.floor[coord].demand.received.len() <= i { log(format!("i was incorrect... {} {}", factory.floor[coord].demand.received.len(), i)); }
           let (received_part_index, received_count) = factory.floor[coord].demand.received[i];
 
           // Update the quote counts (expensive search but these arrays should be tiny, sub-10)
