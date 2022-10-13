@@ -21,6 +21,9 @@ pub fn get_time_now() -> u64{
 pub fn bounds_check(x: f64, y: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> bool {
   return x >= x1 && x < x2 && y >= y1 && y < y2;
 }
+pub fn rect_check(x0: f64, y0: f64, x: f64, y: f64, w: f64, h: f64) -> bool {
+  return x0 >= x && x0 < x+w && y0 >= y && y0 < y+h;
+}
 
 pub fn line_check(n: f64, a: f64, b: f64) -> bool {
   return n >= a && n < b;

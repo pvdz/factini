@@ -37,7 +37,7 @@
 // - rebalance the fps frame limiter
 // - craft menu hover should not activate hover visuals on other elements
 // - joker trash part should disable achievements
-// - option to click on a quest to complete it
+// - option to click on a quest/quote to complete it
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -486,10 +486,14 @@ pub fn start() -> Result<(), JsValue> {
       is_dragging: false,
       is_drag_start: false,
 
+      over_floor_area: false,
       over_floor_not_corner: false,
-      over_floor_not_craft_or_corner: false,
+      down_floor_area: false,
       down_floor_not_corner: false,
-      down_floor_not_craft_or_corner: false,
+
+      over_quotes_area: false,
+      over_quote: false,
+      over_quote_index: 0, // Only if over_quote
 
       help_hover: false,
       help_down: false,
@@ -1019,7 +1023,6 @@ fn update_mouse_state(
     mouse_state.help_down = false;
     mouse_state.is_down = false;
     mouse_state.down_floor_not_corner = false;
-    mouse_state.down_floor_not_craft_or_corner = false;
   }
   mouse_state.was_down = false;
   mouse_state.is_up = false;
@@ -1031,7 +1034,6 @@ fn update_mouse_state(
 
   mouse_state.craft_over_any = false;
   mouse_state.over_floor_not_corner = false;
-  mouse_state.over_floor_not_craft_or_corner = false;
   mouse_state.craft_over_ci = CraftInteractable::None;
   mouse_state.craft_up_any = false;
   mouse_state.craft_up_ci = CraftInteractable::None;
@@ -1052,25 +1054,93 @@ fn update_mouse_state(
 
   let is_machine_selected = cell_selection.on && factory.floor[cell_selection.coord].kind == CellKind::Machine;
 
-  mouse_state.craft_over_any = is_machine_selected && hit_test_machine_circle(factory, cell_selection.coord, mouse_state.world_x, mouse_state.world_y);
-  mouse_state.over_floor_not_corner =
-    // Over floor cells
-    mouse_state.cell_x >= 0.0 && mouse_state.cell_x < (FLOOR_CELLS_W as f64) && mouse_state.cell_y >= 0.0 && mouse_state.cell_y < (FLOOR_CELLS_H as f64) &&
-    // Not corner
-    !((mouse_state.cell_x_floored == 0.0 || mouse_state.cell_x_floored == (FLOOR_CELLS_W - 1) as f64) && (mouse_state.cell_y_floored == 0.0 || mouse_state.cell_y_floored == (FLOOR_CELLS_H - 1) as f64));
-  mouse_state.over_floor_not_craft_or_corner =
-    // Forget it if we already know this is over a craft menu
-    !mouse_state.craft_over_any && mouse_state.over_floor_not_corner;
-  if mouse_state.craft_over_any && !mouse_state.is_dragging {
-    let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.world_x, mouse_state.world_y);
-    mouse_state.craft_over_ci = what;
-    mouse_state.craft_over_ci_wx = wx;
-    mouse_state.craft_over_ci_wy = wy;
-    mouse_state.craft_over_ci_wx = ww;
-    mouse_state.craft_over_ci_wy = wh;
-    mouse_state.craft_over_ci_icon = icon;
-    mouse_state.craft_over_ci_part_kind = part_index;
-    mouse_state.craft_over_ci_index = craft_index;
+  // Sweep the mouse coord by grid area. Start with the craft menu because that supersedes anything else.
+
+  if is_machine_selected && hit_test_machine_circle(factory, cell_selection.coord, mouse_state.world_x, mouse_state.world_y) {
+    mouse_state.craft_over_any = true;
+    if !mouse_state.is_dragging {
+      let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.world_x, mouse_state.world_y);
+      mouse_state.craft_over_ci = what;
+      mouse_state.craft_over_ci_wx = wx;
+      mouse_state.craft_over_ci_wy = wy;
+      mouse_state.craft_over_ci_wx = ww;
+      mouse_state.craft_over_ci_wy = wh;
+      mouse_state.craft_over_ci_icon = icon;
+      mouse_state.craft_over_ci_part_kind = part_index;
+      mouse_state.craft_over_ci_index = craft_index;
+    }
+  }
+  else if mouse_state.world_x < GRID_X1 {
+    if mouse_state.world_y < GRID_Y1 {
+      // top-left, help section
+      if hit_test_help_button(mouse_state.world_x, mouse_state.world_y) {
+        mouse_state.help_hover = true;
+      }
+    }
+    else if mouse_state.world_y < GRID_Y2 {
+      // left, quotes
+      mouse_state.over_quotes_area = true;
+      mouse_state.over_quote =
+        mouse_state.over_quotes_area &&
+        mouse_state.world_x >= (UI_QUOTES_OFFSET_X + UI_QUOTE_X) && mouse_state.world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUOTE_WIDTH &&
+        ((mouse_state.world_y - UI_QUOTES_OFFSET_X) % (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN)) < UI_QUOTE_HEIGHT;
+      mouse_state.over_quote_index = if mouse_state.over_quote { ((mouse_state.world_y - UI_QUOTES_OFFSET_X) / (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN)) as usize } else { 0 };
+    }
+    else if mouse_state.world_y < GRID_Y3 {
+      // bottom-left, unused
+    }
+    else {
+      // bottom-bottom-left, debug
+    }
+  }
+  else if mouse_state.world_x < GRID_X2 {
+    if mouse_state.world_y < GRID_Y1 {
+      // top, day bar
+    }
+    else if mouse_state.world_y < GRID_Y2 {
+      // middle, the floor
+      mouse_state.over_floor_area = true;
+      mouse_state.over_floor_not_corner =
+        // Over floor cells
+        mouse_state.cell_x >= 0.0 && mouse_state.cell_x < (FLOOR_CELLS_W as f64) && mouse_state.cell_y >= 0.0 && mouse_state.cell_y < (FLOOR_CELLS_H as f64) &&
+        // Not corner
+        !((mouse_state.cell_x_floored == 0.0 || mouse_state.cell_x_floored == (FLOOR_CELLS_W - 1) as f64) && (mouse_state.cell_y_floored == 0.0 || mouse_state.cell_y_floored == (FLOOR_CELLS_H - 1) as f64));
+    }
+    else if mouse_state.world_y < GRID_Y3 {
+      // bottom, menu
+      if hit_test_machine_button(mouse_state.world_x, mouse_state.world_y) {
+        mouse_state.over_machine_button = true;
+      }
+    }
+    else {
+      // bottom-bottom, debug
+    }
+  }
+  else if mouse_state.world_x < GRID_X3 {
+    if mouse_state.world_y < GRID_Y1 {
+      // top-right, unused
+    }
+    else if mouse_state.world_y < GRID_Y2 {
+      // right, offers
+      if !mouse_state.is_dragging {
+        // When already dragging do not update offer visual state, do not record the "over" state at all
+        // When dragging an offer, the offer_down_offer_index will be set to the initial offer index (keep it!)
+        let (offer_hover, offer_hover_offer_index) = hit_test_offers(factory, mouse_state.world_x, mouse_state.world_y);
+        if offer_hover {
+          // Do not consider offers that are not visible / interactive to be hoverable either
+          if factory.available_parts_rhs_menu[offer_hover_offer_index].1 {
+            mouse_state.offer_hover = true;
+            mouse_state.offer_hover_offer_index = offer_hover_offer_index;
+          }
+        }
+      }
+    }
+    else if mouse_state.world_y < GRID_Y3 {
+      // right-bottom, not really used but trucks turn here
+    }
+    else {
+      // bottom-bottom, debug
+    }
   }
 
   // on mouse down
@@ -1088,18 +1158,9 @@ fn update_mouse_state(
     mouse_state.is_down = true; // Unset after on_up
     mouse_state.was_down = true; // Unset after this frame
 
-    mouse_state.craft_down_any = is_machine_selected && hit_test_machine_circle(factory, cell_selection.coord, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
 
-    mouse_state.down_floor_not_corner =
-      // Over floor cells
-      mouse_state.last_down_cell_x >= 0.0 && mouse_state.last_down_cell_x < (FLOOR_CELLS_W as f64) && mouse_state.last_down_cell_y >= 0.0 && mouse_state.last_down_cell_y < (FLOOR_CELLS_H as f64) &&
-      // Not corner
-      !((mouse_state.last_down_cell_x_floored == 0.0 || mouse_state.last_down_cell_x_floored == (FLOOR_CELLS_W - 1) as f64) && (mouse_state.last_down_cell_y_floored == 0.0 || mouse_state.last_down_cell_y_floored == (FLOOR_CELLS_H - 1) as f64));
-    mouse_state.down_floor_not_craft_or_corner =
-      // Forget it if we already know this is over a craft menu
-      !mouse_state.craft_over_any && mouse_state.down_floor_not_corner;
-
-    if mouse_state.craft_down_any {
+    if is_machine_selected && is_machine_selected && hit_test_machine_circle(factory, cell_selection.coord, mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
+      mouse_state.craft_down_any = true;
       let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
       log(format!("mouse down inside craft selection -> {:?} {:?} {} at craft index {}", what, part_index, config.nodes[part_index].raw_name, craft_index));
       mouse_state.craft_down_ci = what;
@@ -1111,35 +1172,63 @@ fn update_mouse_state(
       mouse_state.craft_down_ci_part_kind = part_index;
       mouse_state.craft_down_ci_index = craft_index;
     }
-  }
-
-  if !mouse_state.is_dragging {
-    // When already dragging do not update offer visual state, do not record the "over" state at all
-    // When dragging an offer, the offer_down_offer_index will be set to the initial offer index (keep it!)
-    let (offer_hover, offer_hover_offer_index) = hit_test_offers(factory, mouse_state.world_x, mouse_state.world_y);
-    if offer_hover {
-      // Do not consider offers that are not visible / interactive to be hoverable either
-      if factory.available_parts_rhs_menu[offer_hover_offer_index].1 {
-        mouse_state.offer_hover = offer_hover;
-        mouse_state.offer_hover_offer_index = offer_hover_offer_index;
-        if mouse_state.was_down {
-          mouse_state.offer_down = true;
-          mouse_state.offer_down_offer_index = offer_hover_offer_index;
+    else if mouse_state.last_down_world_x < GRID_X1 {
+      if mouse_state.last_down_world_y < GRID_Y1 {
+        // top-left, help section
+        if mouse_state.help_hover {
+          mouse_state.help_down = true;
         }
       }
+      else if mouse_state.last_down_world_y < GRID_Y2 {
+        // left, quotes
+      }
+      else if mouse_state.last_down_world_y < GRID_Y3 {
+        // bottom-left, unused
+      }
+      else {
+        // bottom-bottom-left, debug
+      }
     }
-    else {
-      if hit_test_machine_button(mouse_state.world_x, mouse_state.world_y) {
-        mouse_state.over_machine_button = true;
-        if mouse_state.was_down {
+    else if mouse_state.last_down_world_x < GRID_X2 {
+      if mouse_state.last_down_world_y < GRID_Y1 {
+        // top, day bar
+      }
+      else if mouse_state.last_down_world_y < GRID_Y2 {
+        // middle, the floor
+        mouse_state.down_floor_area = true;
+        mouse_state.down_floor_not_corner =
+          // Over floor cells
+          mouse_state.last_down_cell_x >= 0.0 && mouse_state.last_down_cell_x < (FLOOR_CELLS_W as f64) && mouse_state.last_down_cell_y >= 0.0 && mouse_state.last_down_cell_y < (FLOOR_CELLS_H as f64) &&
+            // Not corner
+            !((mouse_state.last_down_cell_x_floored == 0.0 || mouse_state.last_down_cell_x_floored == (FLOOR_CELLS_W - 1) as f64) && (mouse_state.last_down_cell_y_floored == 0.0 || mouse_state.last_down_cell_y_floored == (FLOOR_CELLS_H - 1) as f64));
+
+      }
+      else if mouse_state.last_down_world_y < GRID_Y3 {
+        // bottom, menu
+        if mouse_state.over_machine_button {
           mouse_state.down_machine_button = true;
         }
       }
-      else if hit_test_help_button(mouse_state.world_x, mouse_state.world_y) {
-        mouse_state.help_hover = true;
-        if mouse_state.was_down {
-          mouse_state.help_down = true;
+      else {
+        // bottom-bottom, debug
+      }
+    }
+    else if mouse_state.last_down_world_x < GRID_X3 {
+      if mouse_state.last_down_world_y < GRID_Y1 {
+        // top-right, unused
+      }
+      else if mouse_state.last_down_world_y < GRID_Y2 {
+        // right, offers
+        if mouse_state.offer_hover {
+          mouse_state.offer_down = true;
+          mouse_state.offer_down_offer_index = mouse_state.offer_hover_offer_index;
         }
+      }
+      else if mouse_state.last_down_world_y < GRID_Y3 {
+        // right-bottom, not really used but area where trucks turn
+      }
+      else {
+        // right-bottom-bottom, debug
       }
     }
   }
@@ -1147,24 +1236,22 @@ fn update_mouse_state(
   // on drag start (maybe)
   // determine whether mouse is considered to be dragging (there's a buffer of movement before
   // we consider a mouse down to mouse up to be dragging. But once we do, we stick to it.)
-  if mouse_state.is_down && !mouse_state.is_dragging && mouse_state.moved_since_start {
-    if (mouse_state.last_down_world_x - mouse_state.world_x).abs() > 5.0 || (mouse_state.last_down_world_y - mouse_state.world_y).abs() > 5.0 {
-      // 5 world pixels? sensitivity tbd
+  if mouse_state.is_down && !mouse_state.is_dragging && mouse_state.moved_since_start && ((mouse_state.last_down_world_x - mouse_state.world_x).abs() > 5.0 || (mouse_state.last_down_world_y - mouse_state.world_y).abs() > 5.0) {
+    // 5 world pixels? sensitivity tbd
+    mouse_state.is_drag_start = true;
+    mouse_state.is_dragging = true;
+
+    if mouse_state.craft_down_any {
+      // Prevent any other interaction to the floor regardless of whether an interactable was hit
+      if mouse_state.craft_down_ci != CraftInteractable::None && mouse_state.craft_down_ci != CraftInteractable::BackClose {
+        log(format!("dragging craft interactable; {}-{} and {}-{}; dragging a {} at index {}", mouse_state.last_down_world_x, mouse_state.world_x, mouse_state.last_down_world_y, mouse_state.world_y, mouse_state.craft_down_ci_part_kind, mouse_state.craft_down_ci_index));
+        mouse_state.craft_dragging_ci = true;
+      }
+    }
+    else {
+      log(format!("yep, it be draggin; {}-{} and {}-{}", mouse_state.last_down_world_x, mouse_state.world_x, mouse_state.last_down_world_y, mouse_state.world_y));
       mouse_state.is_drag_start = true;
       mouse_state.is_dragging = true;
-
-      if mouse_state.craft_down_any {
-        // Prevent any other interaction to the floor regardless of whether an interactable was hit
-        if mouse_state.craft_down_ci != CraftInteractable::None && mouse_state.craft_down_ci != CraftInteractable::BackClose {
-          log(format!("dragging craft interactable; {}-{} and {}-{}; dragging a {} at index {}", mouse_state.last_down_world_x, mouse_state.world_x, mouse_state.last_down_world_y, mouse_state.world_y, mouse_state.craft_down_ci_part_kind, mouse_state.craft_down_ci_index));
-          mouse_state.craft_dragging_ci = true;
-        }
-      }
-      else {
-        log(format!("yep, it be draggin; {}-{} and {}-{}", mouse_state.last_down_world_x, mouse_state.world_x, mouse_state.last_down_world_y, mouse_state.world_y));
-        mouse_state.is_drag_start = true;
-        mouse_state.is_dragging = true;
-      }
     }
   }
 
@@ -1225,7 +1312,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
     }
   }
 
-  // Do these before the erasing/selecting. It may cancel those states even if active.
+  // Do these before the selecting. It may cancel those states even if active.
   if mouse_state.is_drag_start {
     if mouse_state.craft_down_any {
       on_drag_start_craft_before(options, state, config, factory, mouse_state, cell_selection);
@@ -1729,7 +1816,7 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
   log(format!("on_drag_end_floor_other()"));
 
   // If both x and y are on the edge then they're in a corner
-  if !mouse_state.over_floor_not_craft_or_corner || !mouse_state.down_floor_not_craft_or_corner {
+  if !mouse_state.over_floor_not_corner || !mouse_state.down_floor_not_corner {
     // Corner cell of the floor. Consider oob and ignore.
     return;
   }
@@ -3103,9 +3190,7 @@ fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory
     paint_mouse_while_dragging_machine(options, state, factory, context, mouse_state);
   }
   else if mouse_state.over_floor_not_corner {
-    if !mouse_state.craft_over_any {
-      paint_mouse_cell_location_on_floor(&context, &factory, &cell_selection, &mouse_state);
-    }
+    paint_mouse_cell_location_on_floor(&context, &factory, &cell_selection, &mouse_state);
     if mouse_state.was_dragging || mouse_state.is_dragging {
       if mouse_state.craft_down_any {
         // This drag stated in a craft popup so do not show a track preview; we're not doing that.
@@ -3295,7 +3380,7 @@ fn paint_mouse_cell_location_on_floor(context: &Rc<web_sys::CanvasRenderingConte
 }
 fn paint_belt_drag_preview(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
   // If both x and y are on the edge then they're in a corner
-  if !mouse_state.over_floor_not_craft_or_corner {
+  if !mouse_state.over_floor_not_corner {
     // Corner cell of the floor. Consider oob and ignore.
     return;
   }

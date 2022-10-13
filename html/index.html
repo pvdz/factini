@@ -370,12 +370,12 @@
 </style>
 <textarea id="$game_options" style="float: right; clear: right; min-width: 50px; min-height: 50px; width: 300px; height: 100px; margin-top: 5px; margin-right: 5px;" autocomplete="off" spellcheck="false"></textarea>
 <script>setGameOptions(GAME_OPTIONS.trim());</script>
-<button style="float: right; clear: right; margin-top: 5px; margin-right: 5px;" onClick="queuedAction = 'apply_options';">Apply options</button>
+<button style="float: right; clear: right; margin-top: 5px; margin-right: 5px;" onclick="queuedAction = 'apply_options';">Apply options</button>
 
 <div style="float: right; clear: right; margin-top: 5px;"><hr/>Current map:</div>
-<textarea id="$game_map" style="float: right; clear: right; min-width: 50px; min-height: 50px; width: 400px; height: 100px; margin-top: 5px; margin-right: 5px;" autocomplete="off" spellcheck="false" onClick="this.select();"></textarea>
+<textarea id="$game_map" style="float: right; clear: right; min-width: 50px; min-height: 50px; width: 400px; height: 300px; margin-top: 5px; margin-right: 5px;" autocomplete="off" spellcheck="false" onClick="this.select();"></textarea>
 <script>$game_map.value = GAME_MAP.trim();</script>
-<button style="float: right; clear: right; margin-top: 5px; margin-right: 5px;" onClick="queuedAction = 'load_map';">Set as map</button>
+<button style="float: right; clear: right; margin-top: 5px; margin-right: 5px;" onclick="queuedAction = 'load_map';">Set as map</button>
 
 <div style="clear: both;">
   <div><hr/>Config:</div>
@@ -385,7 +385,7 @@
       <textarea id="$game_config" style="min-width: 50px; min-height: 50px; width: 400px; height: 100px; margin-top: 5px; margin-right: 5px;" autocomplete="off" spellcheck="false"></textarea>
       <script>$game_config.value = GAME_CONFIG.trim();</script>
       <div id="$sprite_preview"></div>
-      <div style="margin-bottom: 15px;"><button style="margin-top: 5px; margin-right: 5px;" onClick="queuedAction = 'load_config';">Set as config</button></div>
+      <div style="margin-bottom: 15px;"><button style="margin-top: 5px; margin-right: 5px;" onclick="queuedAction = 'load_config';">Set as config</button></div>
       <div id="$config_editor">
         <div id="$config_node_kinds"></div>
         <div><select id="$config_node_titles" style="margin-bottom: 5px;"></select></div>

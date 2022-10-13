@@ -80,10 +80,14 @@ pub struct MouseState {
 
   // TODO: change the hover/down state/location to an enum rather than individual down states for each part of the UI
 
+  pub over_floor_area: bool,
   pub over_floor_not_corner: bool, // Over the floor but not any of the corner cells
-  pub over_floor_not_craft_or_corner: bool, // Over the floor but not blocked by something like craft menu, and not over a corner cell?
+  pub down_floor_area: bool,
   pub down_floor_not_corner: bool,
-  pub down_floor_not_craft_or_corner: bool,
+
+  pub over_quotes_area: bool,
+  pub over_quote: bool,
+  pub over_quote_index: usize, // Only if over_quote
 
   pub help_hover: bool,
   pub help_down: bool,
