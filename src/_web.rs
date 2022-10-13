@@ -633,18 +633,19 @@ pub fn start() -> Result<(), JsValue> {
         }
       }
 
+      let queued_action = getAction();
+      if queued_action != "" { log(format!("getAction() had `{}`", queued_action)); }
+      match queued_action.as_str() {
+        "apply_options" => parse_options_into(getGameOptions(), &mut options, false),
+        "load_map" => state.reset_next_frame = true, // implicitly will call getGameMap() which loads the map from UI indirectly
+        "load_config" => config = load_config(options.print_fmd_trace, getGameConfig()), // Might crash the game
+        "" => {},
+        _ => panic!("getAction() returned an unsupported value: `{}`", queued_action),
+      }
+
       if options.web_output_cli {
         paint_world_cli(&context, &mut options, &mut state, &factory);
       } else {
-        let queued_action = getAction();
-        if queued_action != "" { log(format!("getAction() had `{}`", queued_action)); }
-        match queued_action.as_str() {
-          "apply_options" => parse_options_into(getGameOptions(), &mut options, false),
-          "load_map" => state.reset_next_frame = true, // implicitly will call getGameMap() which loads the map from UI indirectly
-          "load_config" => config = load_config(options.print_fmd_trace, getGameConfig()), // Might crash the game
-          "" => {},
-          _ => panic!("getAction() returned an unsupported value: `{}`", queued_action),
-        }
 
         update_mouse_state(&mut options, &mut state, &config, &mut factory, &mut cell_selection, &mut mouse_state, mouse_x.get(), mouse_y.get(), mouse_moved.get(), last_mouse_was_down.get(), last_mouse_down_x.get(), last_mouse_down_y.get(), last_mouse_down_button.get(), last_mouse_was_up.get(), last_mouse_up_x.get(), last_mouse_up_y.get(), last_mouse_up_button.get());
         last_mouse_was_down.set(false);

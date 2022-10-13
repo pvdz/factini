@@ -12,6 +12,35 @@
   function getGameConfig() { return $game_config.value; /*GAME_CONFIG*/ }
   function getGameMap() { return $game_map.value /*GAME_MAP*/; }
   function getGameOptions() { return $game_options.value /*GAME_OPTIONS*/; }
+  function setGameOptions(optionStr) {
+    $game_options.value = optionStr;
+
+    optionStr.trim().split('\n').forEach(s => {
+      const line = s.trim()[0] === '-' ? s.trim().slice(1) : s.trim();
+      const [keyy, ...valueParts] = line.split(':');
+      const key = keyy.trim();
+      const value = valueParts.join(':').trim();
+
+      console.log('checking', [key], [value]);
+
+      if (value === 'true' || value === 'false') {
+        const e = $option_bools.appendChild(document.createElement('label'));
+        e.className = 'option-label';
+        e.onclick = () => {
+          console.log('Toggling option', [key], 'to', [!!i.checked]);
+          $game_options.value = $game_options.value.replace(new RegExp(`- ${key}: (?:true|false)`), `- ${key}: ${Boolean(i.checked)}`);
+          queuedAction = 'apply_options';
+        };
+
+        const s = e.appendChild(document.createElement('span'));
+        s.innerHTML = 'options.' + key;
+
+        const i = e.appendChild(document.createElement('input'));
+        i.type = 'checkbox';
+        i.checked = value === 'true';
+      }
+    });
+  }
   function getExamples() { return GAME_EXAMPLES; }
   function getAction() { let x = queuedAction; queuedAction = ''; return x; }
   function receiveConfigNode(name, pairs) {
@@ -334,8 +363,13 @@
 <div id="$tdb" style="float: right; border: 1px solid black; white-space: pre; font-family: monospace;">the debug box</div>
 
 <div style="float: right; clear: right; margin-top: 5px;"><hr/>Options:</div>
-<textarea id="$game_options" style="float: right; clear: right; min-width: 50px; min-height: 50px; width: 300px; height: 600px; margin-top: 5px; margin-right: 5px;" autocomplete="off" spellcheck="false"></textarea>
-<script>$game_options.value = GAME_OPTIONS.trim();</script>
+<div id="$option_bools"></div>
+<style>
+  .option-label { float: right; clear: right; cursor: pointer; }
+  .option-label:hover { background-color: yellow; }
+</style>
+<textarea id="$game_options" style="float: right; clear: right; min-width: 50px; min-height: 50px; width: 300px; height: 100px; margin-top: 5px; margin-right: 5px;" autocomplete="off" spellcheck="false"></textarea>
+<script>setGameOptions(GAME_OPTIONS.trim());</script>
 <button style="float: right; clear: right; margin-top: 5px; margin-right: 5px;" onClick="queuedAction = 'apply_options';">Apply options</button>
 
 <div style="float: right; clear: right; margin-top: 5px;"><hr/>Current map:</div>
