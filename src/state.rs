@@ -66,10 +66,6 @@ pub struct MouseState {
   pub cell_y: f64, // unfloored
   pub cell_x_floored: f64, // floored
   pub cell_y_floored: f64, // floored
-  pub cell_coord: usize,
-
-  pub cell_rel_x: f64,
-  pub cell_rel_y: f64,
 
   pub over_zone: Zone,
   pub down_zone: Zone,
@@ -84,6 +80,8 @@ pub struct MouseState {
   pub was_up: bool, // Set if current frame handled a mouse up. Should not be unset.
 
   // TODO: change the hover/down state/location to an enum rather than individual down states for each part of the UI
+
+  pub over_day_bar: bool,
 
   pub over_floor_area: bool,
   pub over_floor_not_corner: bool, // Over the floor but not any of the corner cells
@@ -113,7 +111,6 @@ pub struct MouseState {
   pub up_machine_button: bool,
   pub dragging_machine: bool,
 
-  pub craft_over_any: bool, // Was the over anywhere inside the craft circle? Prevemts actions underneath it.
   pub craft_over_ci: CraftInteractable,
   pub craft_over_ci_wx: f64,
   pub craft_over_ci_wy: f64,
@@ -122,7 +119,6 @@ pub struct MouseState {
   pub craft_over_ci_icon: char,
   pub craft_over_ci_index: u8,
   pub craft_over_ci_part_kind: PartKind,
-  pub craft_down_any: bool, // Was the down anywhere inside the craft circle? Prevemts actions underneath it.
   pub craft_down_ci: CraftInteractable,
   pub craft_down_ci_wx: f64,
   pub craft_down_ci_wy: f64,
@@ -131,7 +127,6 @@ pub struct MouseState {
   pub craft_down_ci_icon: char,
   pub craft_down_ci_part_kind: PartKind,
   pub craft_down_ci_index: u8,
-  pub craft_up_any: bool, // Was the up anywhere inside the craft circle? Prevemts actions underneath it.
   pub craft_up_ci: CraftInteractable,
   pub craft_up_ci_wx: f64,
   pub craft_up_ci_wy: f64,
