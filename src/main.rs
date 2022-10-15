@@ -33,6 +33,7 @@ pub mod state;
 pub mod supply;
 pub mod truck;
 pub mod utils;
+pub mod zone;
 
 #[cfg(target_arch = "wasm32")]
 pub mod _web;

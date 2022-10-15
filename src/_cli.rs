@@ -9,6 +9,7 @@ use super::options::*;
 use super::machine::*;
 use super::part::*;
 use super::state::*;
+use super::zone::*;
 
 pub fn cli_main(options: &mut Options, state: &mut State) {
 

@@ -19,6 +19,7 @@ use super::port_auto::*;
 use super::prio::*;
 use super::truck::*;
 use super::utils::*;
+use super::zone::*;
 
 pub const UNDO_STACK_SIZE: usize = 100;
 
@@ -70,6 +71,10 @@ pub struct MouseState {
   pub cell_rel_x: f64,
   pub cell_rel_y: f64,
 
+  pub over_zone: Zone,
+  pub down_zone: Zone,
+  pub up_zone: Zone,
+
   pub is_down: bool, // Set if pointer is currently down. Unset when the pointer is released.
   pub was_down: bool, // Set if current frame handled a pointer down. Should unset after the frame.
   pub is_dragging: bool,
@@ -89,6 +94,10 @@ pub struct MouseState {
   pub over_quote: bool,
   pub over_quote_index: usize, // Only if over_quote
 
+  pub over_menu_button: MenuButton,
+  pub down_menu_button: MenuButton,
+  pub up_menu_button: MenuButton,
+
   pub help_hover: bool,
   pub help_down: bool,
 
@@ -101,6 +110,7 @@ pub struct MouseState {
   pub dragging_offer: bool,
   pub over_machine_button: bool, // Is the mouse currently over the machine button?
   pub down_machine_button: bool,
+  pub up_machine_button: bool,
   pub dragging_machine: bool,
 
   pub craft_over_any: bool, // Was the over anywhere inside the craft circle? Prevemts actions underneath it.
@@ -153,6 +163,30 @@ pub struct MouseState {
   pub last_up_world_y: f64,
   pub last_up_cell_x: f64, // Can be negative (oob), is not floored
   pub last_up_cell_y: f64, // Can be negative (oob), is not floored
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MenuButton {
+  None,
+  Row1ButtonMin,
+  Row1ButtonHalf,
+  Row1ButtonPlay,
+  Row1Button2x,
+  Row1ButtonPlus,
+  Row2Button0,
+  Row2Button1,
+  Row2Button2,
+  Row2Button3,
+  Row2Button4,
+  Row2Button5,
+  Row2Button6,
+  Row3Button0,
+  Row3Button1,
+  Row3Button2,
+  Row3Button3,
+  Row3Button4,
+  Row3Button5,
+  Row3Button6,
 }
 
 #[derive(Debug)]

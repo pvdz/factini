@@ -1,5 +1,26 @@
 use super::utils::*;
 
+// Design is for the default speed to run 10k ticks per real world second
+pub const ONE_MS: u64 = 10;
+pub const ONE_SECOND: u64 = 1000 * ONE_MS;
+pub const MAX_TICKS_PER_FRAME: u64 = 1000; // Frame limiter
+
+// Size of the floor
+pub const FLOOR_CELLS_W: usize = 1 + 5*3 + 1;
+pub const FLOOR_CELLS_H: usize = 1 + 5*3 + 1;
+pub const FLOOR_CELLS_WH: usize = FLOOR_CELLS_W * FLOOR_CELLS_H;
+
+// Size of a cell
+pub const CELL_W: f64 = 35.0;
+pub const CELL_H: f64 = 35.0;
+
+// World pixels size of the floor
+pub const FLOOR_WIDTH: f64 = FLOOR_CELLS_W as f64 * CELL_W;
+pub const FLOOR_HEIGHT: f64 = FLOOR_CELLS_H as f64 * CELL_H;
+
+// Size of parts on a belt
+pub const PART_W: f64 = 20.0;
+pub const PART_H: f64 = 20.0;
 
 pub struct Options {
   pub print_choices: bool,
@@ -214,12 +235,3 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
     }
   })
 }
-
-// Design is for the default speed to run 10k ticks per real world second
-pub const ONE_MS: u64 = 10;
-pub const ONE_SECOND: u64 = 1000 * ONE_MS;
-pub const MAX_TICKS_PER_FRAME: u64 = 1000; // Frame limiter
-
-pub const FLOOR_CELLS_W: usize = 1 + 5*3 + 1;
-pub const FLOOR_CELLS_H: usize = 1 + 5*3 + 1;
-pub const FLOOR_CELLS_WH: usize = FLOOR_CELLS_W * FLOOR_CELLS_H;
