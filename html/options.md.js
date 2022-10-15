@@ -24,6 +24,7 @@ const GAME_OPTIONS = `
 - draw_part_char_icon: false
 - draw_part_kind: false
 - draw_port_arrows: true
+- draw_zone_hovers: false
 - draw_ui_section_border: false
 - ui_section_border_color: "white"
 - short_term_window: 10000

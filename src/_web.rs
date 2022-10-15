@@ -644,234 +644,32 @@ pub fn start() -> Result<(), JsValue> {
         context.set_fill_style(&"#00000077".into());
         context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y + CELL_H, (FLOOR_CELLS_W - 2) as f64 * CELL_W, (FLOOR_CELLS_H - 2) as f64 * CELL_H);
 
+        paint_zone_hovers(&options, &state, &context, &mouse_state);
+
         // paint_top_stats(&context, &mut factory);
         paint_corner_help_icon(&options, &state, &mut factory, &context, if mouse_state.help_hover { &img_help_red } else { &img_help_black});
         paint_top_bars(&options, &state, &mut factory, &context, &mouse_state);
-        paint_left_quotes(&options, &state, &config, &context, &mut factory, &mouse_state);
-        paint_ui_offers(&options, &state, &config, &context, &mut factory, &mouse_state, &cell_selection);
-
-        // Paint quote lasers (parts that are received draw a line to the left menu)
-        let mut i = state.lasers.len();
-        while i > 0 {
-          i -= 1;
-
-          let coord = state.lasers[i].coord;
-          let (x, y) = to_xy(coord);
-          let quote_pos = state.lasers[i].quote_pos;
-          let color = &state.lasers[i].color;
-
-          context.set_stroke_style(&color.into());
-          context.begin_path();
-          context.move_to(GRID_X1 + x as f64 * CELL_W + CELL_W / 2.0, GRID_Y1 + y as f64 * CELL_H + CELL_H / 2.0);
-          context.line_to(GRID_X0 as f64 + UI_QUOTES_WIDTH as f64 / 2.0, GRID_Y1 + (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) as f64 * quote_pos as f64 + (UI_QUOTE_HEIGHT as f64) / 2.0);
-          context.stroke();
-
-          state.lasers[i].ttl -= 1;
-          if state.lasers[i].ttl <= 0 {
-            state.lasers.remove(i);
-          }
-        }
-
-        // Paint trucks
-        let truck_dur_1 = 3.0; // seconds trucks take to cross the first part
-        let truck_dur_2 = 1.0; // turning circle
-        let truck_dur_3 = 5.0; // time to get up
-        let truck_size = 50.0;
-        let start_x = UI_MENU_BOTTOM_MACHINE_X + UI_MENU_BOTTOM_MACHINE_WIDTH - (truck_size + 5.0);
-        let end_x = GRID_X2 + 5.0;
-        // paint dump truck so it starts under the factory
-        for t in 0..factory.trucks.len() {
-          if factory.trucks[t].delay > 0 {
-            continue;
-          }
-
-          // Draw dump truck at proper position // TODO: prevent overlapping of multiples etc
-          // The first n seconds are spent driving under the floor to the right and then a corner
-          // The rest is however long it takes to reach the final location where the button is created
-          let ticks_since_truck = factory.ticks - factory.trucks[t].created_at;
-          let time_since_truck = ticks_since_truck as f64 / ONE_SECOND as f64;
-          if time_since_truck < truck_dur_1 {
-            let truck_x = start_x + (time_since_truck / truck_dur_1).min(1.0).max(0.0) * (end_x - start_x);
-            let truck_y = UI_MENU_BOTTOM_MACHINE_Y + (UI_MENU_BOTTOM_MACHINE_HEIGHT / 2.0) - (truck_size / 2.0); // Factory mid
-
-            context.save();
-            // This is how canvas rotation works; you rotate around the center of what you're painting, paint it, then reset the translation matrix.
-            // For this reason we must find the center of the dump truck, rotate around that point, and draw the dump track at minus half its size.
-            context.translate(truck_x + truck_size / 2.0, truck_y + truck_size / 2.0).expect("oopsie translate");
-            // pi/2 = quarter circle. what you draw upward will end up pointing to the right, which is what we want.
-            context.rotate(std::f64::consts::FRAC_PI_2).expect("oopsie rotate");
-            // Compensate for the origin currently being in the middle of the dump truck. Top-left is just easier.
-            context.translate(-truck_size/2.0, -truck_size/2.0).expect("oopsie translate");
-            // The truck starts _inside_ the factory and drives to the right (maybe slanted)
-            context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, 0.0, 0.0, truck_size, truck_size).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
-            // Paint the part icon on the back of the trick (x-centered, y-bottom)
-            paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_index, 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
-            context.restore();
-          } else if time_since_truck < (truck_dur_1 + truck_dur_2) {
-            let progress = ((time_since_truck - truck_dur_1) / truck_dur_2).min(1.0).max(0.0);
-            let truck_x = end_x + progress * 20.0;
-            let truck_y = UI_MENU_BOTTOM_MACHINE_Y + (UI_MENU_BOTTOM_MACHINE_HEIGHT / 2.0) - (truck_size / 2.0) + (progress * -50.0); // Turn upward
-
-            context.save();
-            // This is how canvas rotation works; you rotate around the center of what you're painting, paint it, then reset the translation matrix.
-            // For this reason we must find the center of the dump truck, rotate around that point, and draw the dump track at minus half its size.
-            context.translate(truck_x + truck_size / 2.0, truck_y + truck_size / 2.0).expect("oopsie translate");
-            // Note: same as before but we turn less as we progress in the turn
-            context.rotate(std::f64::consts::FRAC_PI_2 * (1.0 - progress)).expect("oopsie rotate");
-            // Compensate for the origin currently being in the middle of the dump truck. Top-left is just easier.
-            context.translate(-truck_size/2.0, -truck_size/2.0).expect("oopsie translate");
-            // The truck starts _inside_ the factory and drives to the right (maybe slanted)
-            context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, 0.0, 0.0, truck_size, truck_size).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
-            // Paint the part icon on the back of the trick (x-centered, y-bottom)
-            paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_index, 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
-            context.restore();
-          } else if time_since_truck < (truck_dur_1 + truck_dur_2 + truck_dur_3) {
-            // Get target coordinate where this part will be permanently drawn so we know where the truck has to move to
-            let ( target_x, target_y ) = get_offer_xy(factory.trucks[t].target_menu_part_position);
-
-            let progress = ((time_since_truck - (truck_dur_1 + truck_dur_2)) / truck_dur_3).min(1.0).max(0.0);
-            let truck_x = end_x + 20.0;
-            let truck_y = UI_MENU_BOTTOM_MACHINE_Y + (UI_MENU_BOTTOM_MACHINE_HEIGHT / 2.0) - (truck_size / 2.0) + -50.0; // Turn upward
-
-            let x = truck_x + (target_x - truck_x) * progress;
-            let y = truck_y + (target_y - truck_y) * progress;
-
-            context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, x, y, truck_size, truck_size).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
-            // Paint the part icon on the back of the trick (x-centered, y-bottom)
-            paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_index, x + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), y + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
-          } else {
-            // Truck reached its destiny.
-            // - Enable the button
-            // - Drop the truck
-            factory.available_parts_rhs_menu[factory.trucks[t].target_menu_part_position].1 = true;
-          }
-        }
-
+        paint_left_quotes(&options, &state, &config, &context, &factory, &mouse_state);
+        paint_ui_offers(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
+        paint_lasers(&options, &mut state, &config, &context);
+        paint_trucks(&options, &state, &config, &context, &mut factory, &img_dumptruck);
         paint_bottom_menu(&options, &state, &context, &img_machine_1_1, &mouse_state);
-
         // TODO: wait for tiles to be loaded because first few frames won't paint anything while the tiles are loading...
         paint_background_tiles(&options, &state, &config, &context, &factory, &img_machine4, &img_machine_1_1, &img_machine_2_1, &img_machine_3_2);
         paint_port_arrows(&options, &state, &context, &factory);
         paint_belt_items(&options, &state, &config, &context, &factory);
         paint_machine_selection_and_craft(&options, &state, &config, &context, &factory, &cell_selection, &mouse_state);
         paint_ui_offer_hover_droptarget_hint_conditionally(&options, &state, &config, &context, &mut factory, &mouse_state, &cell_selection);
-
         paint_mouse_cursor(&context, &mouse_state);
         paint_mouse_action(&options, &state, &config, &factory, &context, &mouse_state, &cell_selection);
-
         paint_debug_app(&options, &state, &context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
         paint_debug_selected_belt_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_debug_selected_machine_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_debug_selected_supply_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_debug_selected_demand_cell(&context, &factory, &cell_selection, &mouse_state);
-
-        if options.draw_ui_section_border {
-          context.set_stroke_style(&options.ui_section_border_color.clone().into());
-          context.stroke_rect(GRID_X0, GRID_Y0, GRID_LEFT_WIDTH, GRID_TOP_HEIGHT);
-          context.stroke_rect(GRID_X1, GRID_Y0, FLOOR_WIDTH, GRID_TOP_HEIGHT);
-          context.stroke_rect(GRID_X2, GRID_Y0, GRID_RIGHT_WIDTH, GRID_TOP_HEIGHT + GRID_SPACING + FLOOR_HEIGHT + GRID_SPACING + GRID_BOTTOM_HEIGHT);
-          context.stroke_rect(GRID_X0, GRID_Y1, GRID_LEFT_WIDTH, FLOOR_HEIGHT);
-          context.stroke_rect(GRID_X1, GRID_Y1, FLOOR_WIDTH, FLOOR_HEIGHT);
-          context.stroke_rect(GRID_X0, GRID_Y2, GRID_LEFT_WIDTH, GRID_BOTTOM_HEIGHT);
-          context.stroke_rect(GRID_X1, GRID_Y2, FLOOR_WIDTH, GRID_BOTTOM_HEIGHT);
-          context.stroke_rect(GRID_X0, GRID_Y3, GRID_LEFT_WIDTH + GRID_SPACING + FLOOR_WIDTH + GRID_SPACING + GRID_RIGHT_WIDTH, GRID_BOTTOM_DEBUG_HEIGHT);
-        }
-
-        if state.manual_open {
-          context.draw_image_with_html_image_element_and_dw_and_dh(&img_manual, 100.0, 20.0, 740.0, 740.0).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
-        }
-
-        let trail_time = 2;
-        let fade_time = 2;
-        // find bouncers that finished and create trucks with the new parts
-        for b in 0..factory.bouncers.len() {
-          // Create an extra still frame of existing bouncers.
-          // TODO: this part should be done inside the factory tick loop. right now it's not bound to factory ticks which can cause different animations at different speeds.
-          let framed = bouncer_step(&mut factory.bouncers[b], factory.ticks);
-          if framed {
-            let x = factory.bouncers[b].x;
-            let y = factory.bouncers[b].y;
-            factory.bouncers[b].frames.push_back( ( x, y, factory.ticks ) );
-          }
-
-          // Paint all bouncer shadow/trail frames
-          for ( x, y, added ) in factory.bouncers[b].frames.iter() {
-            // Leave trail on screen for 10 seconds. Then fade out in 5 seconds.
-            let existing = factory.ticks - added;
-            let tens = existing > ONE_SECOND * trail_time;
-            if tens {
-              let alpha = 1.0 - ((existing - ONE_SECOND * trail_time) as f64 / ((ONE_SECOND * fade_time) as f64)).max(0.0).min(1.0);
-              context.set_global_alpha(alpha);
-            }
-            paint_segment_part_from_config(&options, &state, &config, &context, factory.bouncers[b].part_index, *x, *y, CELL_W, CELL_H);
-            if tens {
-              context.set_global_alpha(1.0);
-            }
-          }
-
-          // Drop expired quote bouncer frames (the ghosts that form the trail)
-          while factory.bouncers[b].frames.len() > 0 {
-            if factory.ticks - factory.bouncers[b].frames[0].2 > (ONE_SECOND * (trail_time + fade_time)) {
-              factory.bouncers[b].frames.pop_front();
-            } else {
-              break;
-            }
-          }
-
-          // If completely faded. Start dump truck with resources that were unlocked by quests
-          // that were unlocked by finishing this one.
-          if factory.bouncers[b].frames.len() == 0 {
-            // - Find out which quests were unlocked by finishing this one
-            // - Find out which parts are newly available by unlocking that quest
-            // - Create a dump truck with those parts
-            // - Start them with some delay from each other
-            let finished_quest_index = factory.bouncers[b].quest_index;
-            let mut new_quests: Vec<usize> = vec!();
-            let mut new_parts: Vec<PartKind> = vec!();
-
-            for index in 0..config.nodes.len() {
-              if config.nodes[index].kind == ConfigNodeKind::Quest && config.nodes[index].current_state == ConfigNodeState::Waiting {
-                let pos = config.nodes[index].unlocks_todo_by_index.binary_search(&finished_quest_index);
-                if let Ok(unlock_index) = pos {
-                  config.nodes[index].unlocks_todo_by_index.remove(unlock_index);
-                  if config.nodes[index].unlocks_todo_by_index.len() == 0 {
-                    config.nodes[index].current_state = ConfigNodeState::LFG;
-                    new_quests.push(config.nodes[index].index);
-                    config.nodes[index].current_state = ConfigNodeState::Available;
-                    for i in 0..config.nodes[index].starting_part_by_index.len() {
-                      new_parts.push(config.nodes[index].starting_part_by_index[i]);
-                    }
-                  }
-                }
-              }
-            }
-
-            // We now have a set of available quests and any starting parts that they enabled.
-            // Let's create quotes and trucks for them and add them to the lists.
-            new_parts.iter().enumerate().for_each(|(index, &part_index)| {
-              log(format!("Adding truck {} for {}", index, part_index));
-              factory.trucks.push(truck_create(
-                factory.ticks,
-                (index + 1) as u64 * ONE_SECOND,
-                part_index,
-                factory.available_parts_rhs_menu.len(),
-              ));
-              // Add the part as a placeholder. Do not paint it yet. The truck will drive there first.
-              factory.available_parts_rhs_menu.push( ( part_index , false ) );
-            });
-
-            while new_quests.len() > 0 {
-              if let Some(quest_index) = new_quests.pop() {
-                let mut quotes = quote_create(&config, quest_index, factory.ticks);
-                if let Some(quote) = quotes.pop() {
-                  factory.quotes.push(quote);
-                }
-              }
-            }
-
-            // TODO: remove ended bouncers. not sure what the right approach is in rust. tbd
-          }
-        }
+        paint_zone_borders(&options, &state, &context);
+        paint_manual(&options, &state, &context, &img_manual);
+        paint_bouncers(&options, &state, &mut config, &context, &mut factory);
       }
 
       // Schedule next frame
@@ -3539,6 +3337,139 @@ fn paint_debug_selected_demand_cell(context: &Rc<web_sys::CanvasRenderingContext
   context.fill_text(format!("outs: {}", ins_outs_to_str(&factory.floor[coord].outs)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (4.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
   context.fill_text(format!("Received: {:?}", factory.floor[coord].demand.received).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (5.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
 }
+fn paint_zone_borders(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>) {
+  if options.draw_ui_section_border {
+    context.set_stroke_style(&options.ui_section_border_color.clone().into());
+    context.stroke_rect(GRID_X0, GRID_Y0, GRID_LEFT_WIDTH, GRID_TOP_HEIGHT);
+    context.stroke_rect(GRID_X1, GRID_Y0, FLOOR_WIDTH, GRID_TOP_HEIGHT);
+    context.stroke_rect(GRID_X2, GRID_Y0, GRID_RIGHT_WIDTH, GRID_TOP_HEIGHT + GRID_SPACING + FLOOR_HEIGHT + GRID_SPACING + GRID_BOTTOM_HEIGHT);
+    context.stroke_rect(GRID_X0, GRID_Y1, GRID_LEFT_WIDTH, FLOOR_HEIGHT);
+    context.stroke_rect(GRID_X1, GRID_Y1, FLOOR_WIDTH, FLOOR_HEIGHT);
+    context.stroke_rect(GRID_X0, GRID_Y2, GRID_LEFT_WIDTH, GRID_BOTTOM_HEIGHT);
+    context.stroke_rect(GRID_X1, GRID_Y2, FLOOR_WIDTH, GRID_BOTTOM_HEIGHT);
+    context.stroke_rect(GRID_X0, GRID_Y3, GRID_LEFT_WIDTH + GRID_SPACING + FLOOR_WIDTH + GRID_SPACING + GRID_RIGHT_WIDTH, GRID_BOTTOM_DEBUG_HEIGHT);
+  }
+}
+fn paint_manual(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, img_manual: &web_sys::HtmlImageElement) {
+  if state.manual_open {
+    context.draw_image_with_html_image_element_and_dw_and_dh(&img_manual, 100.0, 20.0, 740.0, 740.0).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+  }
+}
+fn paint_bouncers(options: &Options, state: &State, config: &mut Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory) {
+  let trail_time = 2;
+  let fade_time = 2;
+  // find bouncers that finished and create trucks with the new parts
+  for b in 0..factory.bouncers.len() {
+    // Create an extra still frame of existing bouncers.
+    // TODO: this part should be done inside the factory tick loop. right now it's not bound to factory ticks which can cause different animations at different speeds.
+    let framed = bouncer_step(&mut factory.bouncers[b], factory.ticks);
+    if framed {
+      let x = factory.bouncers[b].x;
+      let y = factory.bouncers[b].y;
+      factory.bouncers[b].frames.push_back( ( x, y, factory.ticks ) );
+    }
+
+    // Paint all bouncer shadow/trail frames
+    for ( x, y, added ) in factory.bouncers[b].frames.iter() {
+      // Leave trail on screen for 10 seconds. Then fade out in 5 seconds.
+      let existing = factory.ticks - added;
+      let tens = existing > ONE_SECOND * trail_time;
+      if tens {
+        let alpha = 1.0 - ((existing - ONE_SECOND * trail_time) as f64 / ((ONE_SECOND * fade_time) as f64)).max(0.0).min(1.0);
+        context.set_global_alpha(alpha);
+      }
+      paint_segment_part_from_config(&options, &state, &config, &context, factory.bouncers[b].part_index, *x, *y, CELL_W, CELL_H);
+      if tens {
+        context.set_global_alpha(1.0);
+      }
+    }
+
+    // Drop expired quote bouncer frames (the ghosts that form the trail)
+    while factory.bouncers[b].frames.len() > 0 {
+      if factory.ticks - factory.bouncers[b].frames[0].2 > (ONE_SECOND * (trail_time + fade_time)) {
+        factory.bouncers[b].frames.pop_front();
+      } else {
+        break;
+      }
+    }
+
+    // If completely faded. Start dump truck with resources that were unlocked by quests
+    // that were unlocked by finishing this one.
+    if factory.bouncers[b].frames.len() == 0 {
+      // - Find out which quests were unlocked by finishing this one
+      // - Find out which parts are newly available by unlocking that quest
+      // - Create a dump truck with those parts
+      // - Start them with some delay from each other
+      let finished_quest_index = factory.bouncers[b].quest_index;
+      let mut new_quests: Vec<usize> = vec!();
+      let mut new_parts: Vec<PartKind> = vec!();
+
+      for index in 0..config.nodes.len() {
+        if config.nodes[index].kind == ConfigNodeKind::Quest && config.nodes[index].current_state == ConfigNodeState::Waiting {
+          let pos = config.nodes[index].unlocks_todo_by_index.binary_search(&finished_quest_index);
+          if let Ok(unlock_index) = pos {
+            config.nodes[index].unlocks_todo_by_index.remove(unlock_index);
+            if config.nodes[index].unlocks_todo_by_index.len() == 0 {
+              config.nodes[index].current_state = ConfigNodeState::LFG;
+              new_quests.push(config.nodes[index].index);
+              config.nodes[index].current_state = ConfigNodeState::Available;
+              for i in 0..config.nodes[index].starting_part_by_index.len() {
+                new_parts.push(config.nodes[index].starting_part_by_index[i]);
+              }
+            }
+          }
+        }
+      }
+
+      // We now have a set of available quests and any starting parts that they enabled.
+      // Let's create quotes and trucks for them and add them to the lists.
+      new_parts.iter().enumerate().for_each(|(index, &part_index)| {
+        log(format!("Adding truck {} for {}", index, part_index));
+        factory.trucks.push(truck_create(
+          factory.ticks,
+          (index + 1) as u64 * ONE_SECOND,
+          part_index,
+          factory.available_parts_rhs_menu.len(),
+        ));
+        // Add the part as a placeholder. Do not paint it yet. The truck will drive there first.
+        factory.available_parts_rhs_menu.push( ( part_index , false ) );
+      });
+
+      while new_quests.len() > 0 {
+        if let Some(quest_index) = new_quests.pop() {
+          let mut quotes = quote_create(&config, quest_index, factory.ticks);
+          if let Some(quote) = quotes.pop() {
+            factory.quotes.push(quote);
+          }
+        }
+      }
+
+      // TODO: remove ended bouncers. not sure what the right approach is in rust. tbd
+    }
+  }
+}
+fn paint_zone_hovers(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  if options.draw_zone_hovers {
+    context.set_fill_style(&"#99999970".into()); // 100% background
+    match mouse_state.over_zone {
+      Zone::None => {}
+      Zone::TopLeft =>            context.fill_rect(GRID_X0, GRID_Y0, GRID_X1 - GRID_X0, GRID_Y1 - GRID_Y0),
+      Zone::Top =>                context.fill_rect(GRID_X1, GRID_Y0, GRID_X2 - GRID_X1, GRID_Y1 - GRID_Y0),
+      Zone::TopRight =>           context.fill_rect(GRID_X2, GRID_Y0, GRID_X3 - GRID_X2, GRID_Y1 - GRID_Y0),
+      Zone::Left =>               context.fill_rect(GRID_X0, GRID_Y1, GRID_X1 - GRID_X0, GRID_Y2 - GRID_Y1),
+      Zone::Middle =>             context.fill_rect(GRID_X1, GRID_Y1, GRID_X2 - GRID_X1, GRID_Y2 - GRID_Y1),
+      Zone::Right =>              context.fill_rect(GRID_X2, GRID_Y1, GRID_X3 - GRID_X2, GRID_Y2 - GRID_Y1),
+      Zone::BottomLeft =>         context.fill_rect(GRID_X0, GRID_Y2, GRID_X1 - GRID_X0, GRID_Y3 - GRID_Y2),
+      Zone::Bottom =>             context.fill_rect(GRID_X1, GRID_Y2, GRID_X2 - GRID_X1, GRID_Y3 - GRID_Y2),
+      Zone::BottomRight =>        context.fill_rect(GRID_X2, GRID_Y2, GRID_X3 - GRID_X2, GRID_Y3 - GRID_Y2),
+      Zone::BottomBottomLeft =>   context.fill_rect(GRID_X0, GRID_Y3, GRID_X1 - GRID_X0, GRID_Y4 - GRID_Y3),
+      Zone::BottomBottom =>       context.fill_rect(GRID_X1, GRID_Y3, GRID_X2 - GRID_X1, GRID_Y4 - GRID_Y3),
+      Zone::BottomBottomRight =>  context.fill_rect(GRID_X2, GRID_Y3, GRID_X3 - GRID_X2, GRID_Y4 - GRID_Y3),
+      Zone::Craft => {}
+      Zone::Manual => {}
+    }
+  }
+}
 fn paint_top_stats(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory) {
   context.set_fill_style(&"black".into());
   context.fill_text(format!("Ticks: {}, Supplied: {}, Produced: {}, Received: {}, Trashed: {}", factory.ticks, factory.supplied, factory.produced, factory.accepted, factory.trashed).as_str(), 20.0, 20.0).expect("to paint");
@@ -3648,6 +3579,105 @@ fn paint_ui_offers(options: &Options, state: &State, config: &Config, context: &
       let highlight = (is_mouse_over_offer && offer_index == offer_hover_index) || (mouse_state.offer_selected && mouse_state.offer_selected_index == offer_index);
       paint_ui_offer(options, state, config, context, factory, mouse_state, cell_selection, offer_index, part_index, inc, highlight, config.nodes[part_index].pattern_unique_icons.len() > 0);
       inc += 1;
+    }
+  }
+}
+fn paint_lasers(options: &Options, state: &mut State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>) {
+  // Paint quote lasers (parts that are received draw a line to the left menu)
+  let mut i = state.lasers.len();
+  while i > 0 {
+    i -= 1;
+
+    let coord = state.lasers[i].coord;
+    let (x, y) = to_xy(coord);
+    let quote_pos = state.lasers[i].quote_pos;
+    let color = &state.lasers[i].color;
+
+    context.set_stroke_style(&color.into());
+    context.begin_path();
+    context.move_to(GRID_X1 + x as f64 * CELL_W + CELL_W / 2.0, GRID_Y1 + y as f64 * CELL_H + CELL_H / 2.0);
+    context.line_to(GRID_X0 as f64 + UI_QUOTES_WIDTH as f64 / 2.0, GRID_Y1 + (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) as f64 * quote_pos as f64 + (UI_QUOTE_HEIGHT as f64) / 2.0);
+    context.stroke();
+
+    state.lasers[i].ttl -= 1;
+    if state.lasers[i].ttl <= 0 {
+      state.lasers.remove(i);
+    }
+  }
+}
+fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory, img_dumptruck: &web_sys::HtmlImageElement) {
+  // Paint trucks
+  let truck_dur_1 = 3.0; // seconds trucks take to cross the first part
+  let truck_dur_2 = 1.0; // turning circle
+  let truck_dur_3 = 5.0; // time to get up
+  let truck_size = 50.0;
+  let start_x = UI_MENU_BOTTOM_MACHINE_X + UI_MENU_BOTTOM_MACHINE_WIDTH - (truck_size + 5.0);
+  let end_x = GRID_X2 + 5.0;
+  // paint dump truck so it starts under the factory
+  for t in 0..factory.trucks.len() {
+    if factory.trucks[t].delay > 0 {
+      continue;
+    }
+
+    // Draw dump truck at proper position // TODO: prevent overlapping of multiples etc
+    // The first n seconds are spent driving under the floor to the right and then a corner
+    // The rest is however long it takes to reach the final location where the button is created
+    let ticks_since_truck = factory.ticks - factory.trucks[t].created_at;
+    let time_since_truck = ticks_since_truck as f64 / ONE_SECOND as f64;
+    if time_since_truck < truck_dur_1 {
+      let truck_x = start_x + (time_since_truck / truck_dur_1).min(1.0).max(0.0) * (end_x - start_x);
+      let truck_y = UI_MENU_BOTTOM_MACHINE_Y + (UI_MENU_BOTTOM_MACHINE_HEIGHT / 2.0) - (truck_size / 2.0); // Factory mid
+
+      context.save();
+      // This is how canvas rotation works; you rotate around the center of what you're painting, paint it, then reset the translation matrix.
+      // For this reason we must find the center of the dump truck, rotate around that point, and draw the dump track at minus half its size.
+      context.translate(truck_x + truck_size / 2.0, truck_y + truck_size / 2.0).expect("oopsie translate");
+      // pi/2 = quarter circle. what you draw upward will end up pointing to the right, which is what we want.
+      context.rotate(std::f64::consts::FRAC_PI_2).expect("oopsie rotate");
+      // Compensate for the origin currently being in the middle of the dump truck. Top-left is just easier.
+      context.translate(-truck_size/2.0, -truck_size/2.0).expect("oopsie translate");
+      // The truck starts _inside_ the factory and drives to the right (maybe slanted)
+      context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, 0.0, 0.0, truck_size, truck_size).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
+      // Paint the part icon on the back of the trick (x-centered, y-bottom)
+      paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_index, 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
+      context.restore();
+    } else if time_since_truck < (truck_dur_1 + truck_dur_2) {
+      let progress = ((time_since_truck - truck_dur_1) / truck_dur_2).min(1.0).max(0.0);
+      let truck_x = end_x + progress * 20.0;
+      let truck_y = UI_MENU_BOTTOM_MACHINE_Y + (UI_MENU_BOTTOM_MACHINE_HEIGHT / 2.0) - (truck_size / 2.0) + (progress * -50.0); // Turn upward
+
+      context.save();
+      // This is how canvas rotation works; you rotate around the center of what you're painting, paint it, then reset the translation matrix.
+      // For this reason we must find the center of the dump truck, rotate around that point, and draw the dump track at minus half its size.
+      context.translate(truck_x + truck_size / 2.0, truck_y + truck_size / 2.0).expect("oopsie translate");
+      // Note: same as before but we turn less as we progress in the turn
+      context.rotate(std::f64::consts::FRAC_PI_2 * (1.0 - progress)).expect("oopsie rotate");
+      // Compensate for the origin currently being in the middle of the dump truck. Top-left is just easier.
+      context.translate(-truck_size/2.0, -truck_size/2.0).expect("oopsie translate");
+      // The truck starts _inside_ the factory and drives to the right (maybe slanted)
+      context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, 0.0, 0.0, truck_size, truck_size).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
+      // Paint the part icon on the back of the trick (x-centered, y-bottom)
+      paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_index, 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
+      context.restore();
+    } else if time_since_truck < (truck_dur_1 + truck_dur_2 + truck_dur_3) {
+      // Get target coordinate where this part will be permanently drawn so we know where the truck has to move to
+      let ( target_x, target_y ) = get_offer_xy(factory.trucks[t].target_menu_part_position);
+
+      let progress = ((time_since_truck - (truck_dur_1 + truck_dur_2)) / truck_dur_3).min(1.0).max(0.0);
+      let truck_x = end_x + 20.0;
+      let truck_y = UI_MENU_BOTTOM_MACHINE_Y + (UI_MENU_BOTTOM_MACHINE_HEIGHT / 2.0) - (truck_size / 2.0) + -50.0; // Turn upward
+
+      let x = truck_x + (target_x - truck_x) * progress;
+      let y = truck_y + (target_y - truck_y) * progress;
+
+      context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, x, y, truck_size, truck_size).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
+      // Paint the part icon on the back of the trick (x-centered, y-bottom)
+      paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_index, x + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), y + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
+    } else {
+      // Truck reached its destiny.
+      // - Enable the button
+      // - Drop the truck
+      factory.available_parts_rhs_menu[factory.trucks[t].target_menu_part_position].1 = true;
     }
   }
 }
