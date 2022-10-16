@@ -35,7 +35,6 @@
 //   - prep for animations
 // - save/load map to save states, like examples but with visual tile "somewhere".
 // - rebalance the fps frame limiter
-// - craft menu hover should not activate hover visuals on other elements
 // - joker trash part should disable achievements
 // - option to click on a quest/quote to complete it
 // - should probably not be able to drag from an empty craft cell
@@ -1019,7 +1018,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         }
         ZONE_CRAFT => {
           if mouse_state.dragging_offer {
-            on_drag_end_offer_over_craft(options, state, config, factory, mouse_state);
+            on_drag_end_offer_over_craft(options, state, config, factory, mouse_state, cell_selection);
           }
           else {
             on_drag_end_craft(options, state, config, factory, cell_selection, mouse_state);
@@ -1166,11 +1165,6 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
       cell_selection.x = last_mouse_up_cell_x;
       cell_selection.y = last_mouse_up_cell_y;
       cell_selection.coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
-      // log(format!("Cell: {:?}", factory.floor[cell_selection.coord]));
-      // log(format!("- Belt: {:?}", factory.floor[cell_selection.coord].belt));
-      // log(format!("- Machine: {:?}", factory.floor[cell_selection.coord].machine));
-      // log(format!("- Supply: {:?}", factory.floor[cell_selection.coord].supply));
-      // log(format!("- Demand: {:?}", factory.floor[cell_selection.coord].demand));
     }
   }
 }
@@ -1306,16 +1300,16 @@ fn on_drag_end_machine_over_floor(options: &mut Options, state: &mut State, conf
     log(format!("Dropped a machine on the edge. Ignoring. {} {}", mouse_state.last_up_cell_x, mouse_state.last_up_cell_y as usize));
   }
 }
-fn on_drag_end_offer_over_craft(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
+fn on_drag_end_offer_over_craft(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState, cell_selection: &CellSelection) {
   log(format!("on_drag_end_offer_over_craft()"));
 
   let dragged_part_index = factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0;
 
   let coord = to_coord(mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize);
-  // Figure out whether it was dropped on a machine
-  if factory.floor[coord].kind == CellKind::Machine {
+  let main_coord = factory.floor[coord].machine.main_coord;
+  // Figure out whether it was dropped on the machine itself and if it was the selected machine
+  if factory.floor[coord].kind == CellKind::Machine && factory.floor[cell_selection.coord].machine.main_coord == main_coord {
     log(format!("Dropped an offer with pattern in the middle and on a machine. Update the machine!"));
-    let main_coord = factory.floor[coord].machine.main_coord;
     for i in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
       let part_index = config.nodes[dragged_part_index].pattern_by_index.get(i).unwrap_or(&PARTKIND_NONE);
       machine_change_want(options, state, config, factory, main_coord, i, part_from_part_index(config, *part_index));
@@ -1323,7 +1317,7 @@ fn on_drag_end_offer_over_craft(options: &mut Options, state: &mut State, config
       factory.floor[main_coord].machine.haves[i] = part_none(config);
     }
   } else {
-    log(format!("Dropped an offer with pattern in the middle  but not on a machine. Ignoring..."));
+    log(format!("Dropped an offer with pattern in the middle but not on a machine. Ignoring..."));
   }
 }
 fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
@@ -1909,13 +1903,13 @@ fn on_drag_start_craft(options: &mut Options, state: &mut State, config: &Config
 
   // If this was dragging from a machine cell, clear that machine input at this index
   if mouse_state.craft_down_ci == CraftInteractable::InputCell {
-    let main_coord = factory.floor[cell_selection.coord].machine.main_coord;
+    let selected_main_coord = factory.floor[cell_selection.coord].machine.main_coord;
     let index = mouse_state.craft_down_ci_index as usize - 100;
-    log(format!("Clearing input @{} from machine @{} because drag start; has {} wants and {} haves", index, cell_selection.coord, factory.floor[main_coord].machine.wants.len(), factory.floor[main_coord].machine.haves.len()));
+    log(format!("Clearing input @{} from machine @{} because drag start; has {} wants and {} haves", index, selected_main_coord, factory.floor[selected_main_coord].machine.wants.len(), factory.floor[selected_main_coord].machine.haves.len()));
 
-    machine_change_want(options, state, config, factory, main_coord, index, part_none(config));
+    machine_change_want(options, state, config, factory, selected_main_coord, index, part_none(config));
     // Make sure the haves are cleared as well
-    factory.floor[main_coord].machine.haves[index] = part_none(config);
+    factory.floor[selected_main_coord].machine.haves[index] = part_none(config);
   }
 }
 fn on_drag_end_craft(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
@@ -1925,12 +1919,12 @@ fn on_drag_end_craft(options: &mut Options, state: &mut State, config: &Config, 
   // cell then set that machine cell. Otherwise ignore it. This may cause an input to stay clear
   if mouse_state.craft_down_ci == CraftInteractable::InputCell || mouse_state.craft_down_ci == CraftInteractable::Resource {
     if mouse_state.craft_up_ci == CraftInteractable::InputCell {
-      let main_coord = factory.floor[cell_selection.coord].machine.main_coord;
+      let selected_main_coord = factory.floor[cell_selection.coord].machine.main_coord;
       let index = mouse_state.craft_up_ci_index as usize - 100;
-      log(format!("Setting input @{} from machine @{} because drag start; has {} wants and {} haves", index, cell_selection.coord, factory.floor[main_coord].machine.wants.len(), factory.floor[main_coord].machine.haves.len()));
-      machine_change_want(options, state, config, factory, main_coord, index, part_from_part_index(config, mouse_state.craft_down_ci_part_kind));
+      log(format!("Setting input @{} from machine @{} because drag start; has {} wants and {} haves", index, selected_main_coord, factory.floor[selected_main_coord].machine.wants.len(), factory.floor[selected_main_coord].machine.haves.len()));
+      machine_change_want(options, state, config, factory, selected_main_coord, index, part_from_part_index(config, mouse_state.craft_down_ci_part_kind));
       // Clear the haves to make sure it doesn't contain an incompatible part now
-      factory.floor[main_coord].machine.haves[index] = part_from_part_index(config, mouse_state.craft_down_ci_part_kind);
+      factory.floor[selected_main_coord].machine.haves[index] = part_from_part_index(config, mouse_state.craft_down_ci_part_kind);
     }
   }
 }
@@ -2032,23 +2026,23 @@ fn hit_test_menu_button(x: f64, y: f64) -> MenuButton {
 fn hit_test_get_craft_interactable_machine_at(options: &Options, state: &State, factory: &Factory, cell_selection: &CellSelection, mwx: f64, mwy: f64) -> ( CraftInteractable, f64, f64, f64, f64, char, PartKind, u8 ) {
   // Figure out whether any of the interactables were clicked
 
-  let coord = cell_selection.coord;
-  assert!(factory.floor[coord].kind == CellKind::Machine, "should be checked earlier");
+  let selected_coord = cell_selection.coord;
+  assert!(factory.floor[selected_coord].kind == CellKind::Machine, "should be checked earlier");
 
   // Each cell consolidates much of its information into the main coord, the top-left cell
-  let main_coord = factory.floor[coord].machine.main_coord;
-  let (main_cx, main_cy) = to_xy(main_coord);
+  let selected_main_coord = factory.floor[selected_coord].machine.main_coord;
+  let (selected_main_x, selected_main_y) = to_xy(selected_main_coord);
 
-  let machine_wx = UI_FLOOR_OFFSET_X + (main_cx as f64) * CELL_W;
-  let machine_wy = UI_FLOOR_OFFSET_Y + (main_cy as f64) * CELL_H;
+  let machine_wx = UI_FLOOR_OFFSET_X + (selected_main_x as f64) * CELL_W;
+  let machine_wy = UI_FLOOR_OFFSET_Y + (selected_main_y as f64) * CELL_H;
 
-  let machine_cw = factory.floor[main_coord].machine.cell_width as f64;
-  let machine_ch = factory.floor[main_coord].machine.cell_height as f64;
+  let machine_cw = factory.floor[selected_main_coord].machine.cell_width as f64;
+  let machine_ch = factory.floor[selected_main_coord].machine.cell_height as f64;
   let machine_ww = machine_cw * CELL_W;
   let machine_wh = machine_ch * CELL_H;
 
   // Find the center of the machine because .arc() requires the center x,y
-  let ( center_wx, center_wy, cr ) = get_machine_selection_circle_params(factory, main_coord);
+  let ( center_wx, center_wy, cr ) = get_machine_selection_circle_params(factory, selected_main_coord);
 
   if mwx >= machine_wx && mwx < machine_wx + machine_ww && mwy >= machine_wy && mwy < machine_wy + machine_wh {
     // log(format!("testing {} {} {}", machine_wy, mwy, ((machine_wy - mwy) / CELL_H)));
@@ -2057,7 +2051,7 @@ fn hit_test_get_craft_interactable_machine_at(options: &Options, state: &State, 
 
     // Clicked inside machine. Determine cell and delete it.
     // log(format!("Clicked on a cell of the actual machine. Now determine the input cell and clear it. (TODO)"));
-    return ( CraftInteractable::InputCell, machine_wx, machine_wy, CELL_W, CELL_H, factory.floor[main_coord].machine.wants[index as usize].icon, factory.floor[main_coord].machine.wants[index as usize].kind, 100 + (index as u8) );
+    return ( CraftInteractable::InputCell, machine_wx, machine_wy, CELL_W, CELL_H, factory.floor[selected_main_coord].machine.wants[index as usize].icon, factory.floor[selected_main_coord].machine.wants[index as usize].kind, 100 + (index as u8) );
   }
 
   // Minimal distance of painting interactbles is the distance from the center to the furthest
@@ -2074,13 +2068,13 @@ fn hit_test_get_craft_interactable_machine_at(options: &Options, state: &State, 
   }
 
   // Actual number of seen inputs
-  let len = factory.floor[main_coord].machine.last_received.len();
+  let len = factory.floor[selected_main_coord].machine.last_received.len();
   // Make sure that we always show something. If there aren't any elements, show trash as the only icon.
   let count = len.max(1);
 
   let angle_step = 5.5 - (count as f64 / 2.0).ceil() + (0.5 * ((count % 2) as f64));
   for i in 0..count {
-    let r = hit_test_get_craft_interactable_machine_at_index(angle_step, minr, center_wx, center_wy, mwx, mwy, i, if len == 0 { 't' } else { factory.floor[main_coord].machine.last_received[i].0.icon }, if len == 0 { PARTKIND_TRASH } else { factory.floor[main_coord].machine.last_received[i].0.kind });
+    let r = hit_test_get_craft_interactable_machine_at_index(angle_step, minr, center_wx, center_wy, mwx, mwy, i, if len == 0 { 't' } else { factory.floor[selected_main_coord].machine.last_received[i].0.icon }, if len == 0 { PARTKIND_TRASH } else { factory.floor[selected_main_coord].machine.last_received[i].0.kind });
     if let Some(x) = r {
       return x;
     }
@@ -2406,11 +2400,8 @@ fn paint_supply_and_part_for_edge(options: &Options, state: &State, config: &Con
 fn paint_supply_and_part_not_edge(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, ox: f64, oy: f64, part_index: PartKind) {
   paint_segment_part_from_config(options, state, config, context, part_index, ox + CELL_W*0.13, oy + CELL_H*0.13, CELL_W*0.75, CELL_H*0.75);
 }
-fn paint_part_and_pattern_at_middle(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cx: usize, cy: usize, part_index: PartKind) {
+fn paint_part_and_pattern_at_middle(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, main_coord: usize, part_index: PartKind) {
   // current coord must be a machine. Paint the pattern of the part we're currently dragging.
-  let ox = UI_FLOOR_OFFSET_X + CELL_W * (cx as f64);
-  let oy = UI_FLOOR_OFFSET_Y + CELL_H * (cy as f64);
-  let main_coord = factory.floor[to_coord(cx, cy)].machine.main_coord;
   let (mx, my) = to_xy(main_coord);
   let mwc = factory.floor[main_coord].machine.cell_width;
   let mhc = factory.floor[main_coord].machine.cell_height;
@@ -2662,16 +2653,16 @@ fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, c
     return;
   }
 
-  let coord = cell_selection.coord;
-  if factory.floor[coord].kind != CellKind::Machine {
+  let selected_coord = cell_selection.coord;
+  if factory.floor[selected_coord].kind != CellKind::Machine {
     // Not selected a machine.
     // log(format!("No machine selected"));
     return;
   }
 
   // Each cell consolidates much of its information into the main coord, the top-left cell
-  let main_coord = factory.floor[coord].machine.main_coord;
-  let ( main_x, main_y ) = to_xy(main_coord);
+  let selected_main_coord = factory.floor[selected_coord].machine.main_coord;
+  let ( main_x, main_y ) = to_xy(selected_main_coord);
 
   let main_wx = UI_FLOOR_OFFSET_X + (main_x as f64) * CELL_W;
   let main_wy = UI_FLOOR_OFFSET_Y + (main_y as f64) * CELL_H;
@@ -2682,11 +2673,11 @@ fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, c
   // Perhaps they should be squares to make hitboxes easier, but that's tbd.
 
   // Find the center of the machine because .arc() requires the center x,y
-  let machine_cw = factory.floor[main_coord].machine.cell_width as f64;
-  let machine_ch = factory.floor[main_coord].machine.cell_height as f64;
+  let machine_cw = factory.floor[selected_main_coord].machine.cell_width as f64;
+  let machine_ch = factory.floor[selected_main_coord].machine.cell_height as f64;
   let machine_ww = machine_cw * CELL_W;
   let machine_wh = machine_ch * CELL_H;
-  let ( center_wx, center_wy, cr ) = get_machine_selection_circle_params(factory, main_coord);
+  let ( center_wx, center_wy, cr ) = get_machine_selection_circle_params(factory, selected_main_coord);
 
   // Cheat by using rgba for semi trans
   context.set_fill_style(&"#0000007f".into());
@@ -2729,7 +2720,7 @@ fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, c
   // Draw the wants in the right spots
   let none = part_none(config);
   for i in 0..(machine_cw * machine_ch) as usize {
-    if let Some(part) = factory.floor[main_coord].machine.wants.get(i).or(Some(&none)) {
+    if let Some(part) = factory.floor[selected_main_coord].machine.wants.get(i).or(Some(&none)) {
       paint_segment_part_from_config(options, state, config, context, part.kind, main_wx + CELL_W * (i as f64 % machine_cw).floor(), main_wy + CELL_H * (i as f64 / machine_cw).floor(), CELL_W, CELL_H);
     }
   }
@@ -2773,7 +2764,7 @@ fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, c
   btn(context, close_wx, close_wy, '↩', mouse_state.craft_over_ci == CraftInteractable::BackClose);
 
   // Actual number of seen inputs
-  let len = factory.floor[main_coord].machine.last_received.len();
+  let len = factory.floor[selected_main_coord].machine.last_received.len();
   // Make sure that we always show something. If there aren't any elements, show trash as the only icon.
   let count = len.max(1);
 
@@ -2789,7 +2780,7 @@ fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, c
 
     // When hovering over the index, the _c is set to the char of the digit of that index.
     // If there are no last seen elements, show a trash icon
-    btn_img(options, state, config, context, wx, wy, if len == 0 { PARTKIND_TRASH } else { factory.floor[main_coord].machine.last_received[i].0.kind }, mouse_state.craft_over_ci_index == (i as u8));
+    btn_img(options, state, config, context, wx, wy, if len == 0 { PARTKIND_TRASH } else { factory.floor[selected_main_coord].machine.last_received[i].0.kind }, mouse_state.craft_over_ci_index == (i as u8));
   }
 }
 fn paint_mouse_cursor(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
@@ -2806,7 +2797,7 @@ fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory
     paint_mouse_in_selection_mode(options, state, config, factory, context, mouse_state, cell_selection);
   }
   else if mouse_state.dragging_offer {
-    paint_mouse_while_dragging_offer(options, state, config, factory, context, mouse_state);
+    paint_mouse_while_dragging_offer(options, state, config, factory, context, mouse_state, cell_selection);
   }
   else if mouse_state.dragging_machine {
     paint_mouse_while_dragging_machine(options, state, factory, context, mouse_state);
@@ -2957,7 +2948,7 @@ fn paint_mouse_while_dragging_machine(options: &Options, state: &State, factory:
   context.set_fill_style(&"black".into());
   context.fill_text("M", paint_at_x + (machine_cells_width as f64) * CELL_W / 2.0 - 5.0, paint_at_y + (machine_cells_height as f64) * CELL_H / 2.0 + 2.0).expect("no error")
 }
-fn paint_mouse_while_dragging_offer(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+fn paint_mouse_while_dragging_offer(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, cell_selection: &CellSelection) {
   // Two cases:
   // - the offer has a pattern; only allow to drag to machines. with debug setting can be both?
   // - the offer has no pattern; only allow to edge as supply
@@ -2971,8 +2962,15 @@ fn paint_mouse_while_dragging_offer(options: &Options, state: &State, config: &C
     // When over a machine, preview the pattern over the machine? Or snap the offer to its center?
 
     // Mouse position determines actual cell that we check
-    if is_middle(mouse_state.cell_x_floored, mouse_state.cell_y_floored) && factory.floor[to_coord(mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize)].kind == CellKind::Machine {
-      paint_part_and_pattern_at_middle(options, state, config, context, factory, mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize, part_index);
+    let coord = to_coord(mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize);
+    if is_middle(mouse_state.cell_x_floored, mouse_state.cell_y_floored) && factory.floor[coord].kind == CellKind::Machine {
+      // If a craft menu is open and the hover is over a craft then only show it if the machine is
+      // the current selection (dont hint for other machines under the craft menu because it wont work)
+      let main_coord = factory.floor[coord].machine.main_coord;
+      let selected_main_coord = factory.floor[cell_selection.coord].machine.main_coord;
+      if mouse_state.over_zone != ZONE_CRAFT || selected_main_coord == main_coord {
+        paint_part_and_pattern_at_middle(options, state, config, context, factory, main_coord, part_index);
+      }
     } else {
       paint_supply_and_part_not_floor(options, state, config, context, mouse_state.world_x - ((CELL_W as f64) / 2.0), mouse_state.world_y - ((CELL_H as f64) / 2.0), part_index);
     }
@@ -3098,8 +3096,8 @@ fn paint_debug_selected_belt_cell(context: &Rc<web_sys::CanvasRenderingContext2d
     return;
   }
 
-  let coord = cell_selection.coord;
-  if factory.floor[coord].kind != CellKind::Belt {
+  let selected_coord = cell_selection.coord;
+  if factory.floor[selected_coord].kind != CellKind::Belt {
     return;
   }
 
@@ -3126,10 +3124,10 @@ fn paint_debug_selected_belt_cell(context: &Rc<web_sys::CanvasRenderingContext2d
 
 
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("Belt cell: {} x {} (@{})", x, y, coord).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (1.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  context.fill_text(format!("Ports: {}", cell_ports_to_str(&factory.floor[coord])).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (2.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  context.fill_text(format!("ins:  {}", ins_outs_to_str(&factory.floor[coord].ins)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (3.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
-  context.fill_text(format!("outs: {}", ins_outs_to_str(&factory.floor[coord].outs)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (4.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
+  context.fill_text(format!("Belt cell: {} x {} (@{})", x, y, selected_coord).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (1.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Ports: {}", cell_ports_to_str(&factory.floor[selected_coord])).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (2.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("ins:  {}", ins_outs_to_str(&factory.floor[selected_coord].ins)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (3.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
+  context.fill_text(format!("outs: {}", ins_outs_to_str(&factory.floor[selected_coord].outs)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (4.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
 
   // let mut in_coords = factory.floor[coord].ins.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
   // in_coords.sort();
@@ -3142,14 +3140,14 @@ fn paint_debug_selected_belt_cell(context: &Rc<web_sys::CanvasRenderingContext2d
   // context.fill_text(format!("Received: {:?}", factory.floor[coord].demand.received).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (4.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
   //
 
-  if factory.floor[coord].belt.part.kind != PARTKIND_NONE{
+  if factory.floor[selected_coord].belt.part.kind != PARTKIND_NONE{
     // Paint current part details
-    let progress = ((factory.floor[coord].belt.part_progress as f64) / (factory.floor[coord].belt.speed as f64) * 100.0).round();
+    let progress = ((factory.floor[selected_coord].belt.part_progress as f64) / (factory.floor[selected_coord].belt.speed as f64) * 100.0).round();
     let to =
-      if factory.floor[coord].belt.part_to_tbd {
+      if factory.floor[selected_coord].belt.part_to_tbd {
         "TBD"
       } else {
-        match factory.floor[coord].belt.part_to {
+        match factory.floor[selected_coord].belt.part_to {
           Direction::Up => "up",
           Direction::Right => "right",
           Direction::Down => "down",
@@ -3168,8 +3166,8 @@ fn paint_debug_selected_machine_cell(context: &Rc<web_sys::CanvasRenderingContex
     return;
   }
 
-  let coord = cell_selection.coord;
-  if factory.floor[coord].kind != CellKind::Machine {
+  let selected_coord = cell_selection.coord;
+  if factory.floor[selected_coord].kind != CellKind::Machine {
     return;
   }
   let x = cell_selection.x;
@@ -3189,12 +3187,12 @@ fn paint_debug_selected_machine_cell(context: &Rc<web_sys::CanvasRenderingContex
 
 
   // Each cell consolidates much of its information into the main coord, usually the top-left cell
-  let main_coord = factory.floor[coord].machine.main_coord;
-  let ( main_x, main_y ) = to_xy(main_coord);
+  let selected_main_coord = factory.floor[selected_coord].machine.main_coord;
+  let (selected_main_x, selected_main_y) = to_xy(selected_main_coord);
 
   // Mark the currently selected machine main_coord
   context.set_stroke_style(&"cyan".into());
-  context.stroke_rect(UI_FLOOR_OFFSET_X + main_x as f64 * CELL_W, UI_FLOOR_OFFSET_Y + main_y as f64 * CELL_H, CELL_W * factory.floor[main_coord].machine.cell_width as f64, CELL_H * factory.floor[main_coord].machine.cell_height as f64);
+  context.stroke_rect(UI_FLOOR_OFFSET_X + selected_main_x as f64 * CELL_W, UI_FLOOR_OFFSET_Y + selected_main_y as f64 * CELL_H, CELL_W * factory.floor[selected_main_coord].machine.cell_width as f64, CELL_H * factory.floor[selected_main_coord].machine.cell_height as f64);
 
   context.set_fill_style(&"lightgreen".into());
   context.fill_rect(UI_DEBUG_CELL_OFFSET_X, UI_DEBUG_CELL_OFFSET_Y, UI_DEBUG_CELL_WIDTH, UI_DEBUG_CELL_HEIGHT);
@@ -3203,38 +3201,38 @@ fn paint_debug_selected_machine_cell(context: &Rc<web_sys::CanvasRenderingContex
 
   context.set_fill_style(&"black".into());
   // Sub details:
-  context.fill_text(format!("Machine cell: {} x {} (@{})", x, y, coord).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (1.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  context.fill_text(format!("Ports: {}", cell_ports_to_str(&factory.floor[coord])).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (2.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Machine cell: {} x {} (@{})", x, y, selected_coord).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (1.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Ports: {}", cell_ports_to_str(&factory.floor[selected_coord])).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (2.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
   // Main details
-  context.fill_text(format!("Machine main: {} x {} (@{})", main_x, main_y, main_coord).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (4.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  context.fill_text(format!("Dimensions: {} x {}", factory.floor[main_coord].machine.cell_width, factory.floor[main_coord].machine.cell_height).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (5.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  let mut in_coords = factory.floor[main_coord].ins.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
+  context.fill_text(format!("Machine main: {} x {} (@{})", selected_main_x, selected_main_y, selected_main_coord).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (4.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Dimensions: {} x {}", factory.floor[selected_main_coord].machine.cell_width, factory.floor[selected_main_coord].machine.cell_height).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (5.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  let mut in_coords = factory.floor[selected_main_coord].ins.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
   in_coords.sort();
   in_coords.dedup();
   context.fill_text(format!("Ins : {:?}", in_coords).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (6.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  let mut out_coords = factory.floor[main_coord].outs.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
+  let mut out_coords = factory.floor[selected_main_coord].outs.iter().map(|(_dir, coord, _, _)| coord).collect::<Vec<&usize>>();
   out_coords.sort();
   out_coords.dedup();
   context.fill_text(format!("Outs: {:?}", out_coords).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (7.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  let seen = factory.floor[main_coord].machine.last_received.iter().map(|( Part { icon, .. }, ts)| icon).collect::<String>();
+  let seen = factory.floor[selected_main_coord].machine.last_received.iter().map(|( Part { icon, .. }, ts)| icon).collect::<String>();
   context.fill_text(format!("Parts seen: {}", seen).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (8.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  let wants = factory.floor[main_coord].machine.wants.iter().map(|Part { icon, .. }| if icon == &' ' { '.' } else { *icon }).collect::<String>();
+  let wants = factory.floor[selected_main_coord].machine.wants.iter().map(|Part { icon, .. }| if icon == &' ' { '.' } else { *icon }).collect::<String>();
   context.fill_text(format!("Wants: {}", wants).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (9.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  let haves = factory.floor[main_coord].machine.haves.iter().map(|Part { icon, .. }| if icon == &' ' { '.' } else { *icon }).collect::<String>();
+  let haves = factory.floor[selected_main_coord].machine.haves.iter().map(|Part { icon, .. }| if icon == &' ' { '.' } else { *icon }).collect::<String>();
   context.fill_text(format!("Haves: {}", haves).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (10.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  context.fill_text(format!("Generates: {}", factory.floor[main_coord].machine.output_want.icon).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (11.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  context.fill_text(format!("Speed: {}", factory.floor[main_coord].machine.speed).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (12.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  context.fill_text(format!("Progress: {: >3}% ({})", (((factory.ticks - factory.floor[main_coord].machine.start_at) as f64 / factory.floor[main_coord].machine.speed as f64).min(1.0) * 100.0) as u8, factory.floor[main_coord].machine.start_at).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (13.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  context.fill_text(format!("Produced: {: >4}", factory.floor[main_coord].machine.produced).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (14.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  context.fill_text(format!("Trashed: {: >4}", factory.floor[main_coord].machine.trashed).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (15.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Generates: {}", factory.floor[selected_main_coord].machine.output_want.icon).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (11.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Speed: {}", factory.floor[selected_main_coord].machine.speed).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (12.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Progress: {: >3}% ({})", (((factory.ticks - factory.floor[selected_main_coord].machine.start_at) as f64 / factory.floor[selected_main_coord].machine.speed as f64).min(1.0) * 100.0) as u8, factory.floor[selected_main_coord].machine.start_at).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (13.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Produced: {: >4}", factory.floor[selected_main_coord].machine.produced).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (14.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Trashed: {: >4}", factory.floor[selected_main_coord].machine.trashed).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (15.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
 }
 fn paint_debug_selected_supply_cell(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
   if !cell_selection.on {
     return;
   }
 
-  let coord = cell_selection.coord;
-  if factory.floor[coord].kind != CellKind::Supply {
+  let selected_coord = cell_selection.coord;
+  if factory.floor[selected_coord].kind != CellKind::Supply {
     return;
   }
 
@@ -3262,23 +3260,23 @@ fn paint_debug_selected_supply_cell(context: &Rc<web_sys::CanvasRenderingContext
   context.stroke_rect(UI_DEBUG_CELL_OFFSET_X, UI_DEBUG_CELL_OFFSET_Y, UI_DEBUG_CELL_WIDTH, UI_DEBUG_CELL_HEIGHT);
 
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("Supply cell: {} x {} (@{})", x, y, coord).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (1.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  context.fill_text(format!("Ports: {}", cell_ports_to_str(&factory.floor[coord])).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (2.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  context.fill_text(format!("ins:  {}", ins_outs_to_str(&factory.floor[coord].ins)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (3.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
-  context.fill_text(format!("outs: {}", ins_outs_to_str(&factory.floor[coord].outs)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (4.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
-  context.fill_text(format!("Gives: {}", factory.floor[coord].supply.gives.icon).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (5.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  context.fill_text(format!("Speed: {}", factory.floor[coord].supply.speed).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (6.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  context.fill_text(format!("Cooldown: {: >3}% {}", (((factory.ticks - factory.floor[coord].supply.last_part_out_at) as f64 / factory.floor[coord].supply.cooldown.max(1) as f64).min(1.0) * 100.0) as u8, factory.floor[coord].supply.cooldown).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (7.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  context.fill_text(format!("Progress: {: >3}% (tbd: {})", (((factory.ticks - factory.floor[coord].supply.part_progress) as f64 / factory.floor[coord].supply.speed.max(1) as f64).min(1.0) * 100.0) as u8, factory.floor[coord].supply.part_tbd).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (8.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  context.fill_text(format!("Supplied: {: >4}", factory.floor[coord].supply.supplied).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (9.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Supply cell: {} x {} (@{})", x, y, selected_coord).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (1.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Ports: {}", cell_ports_to_str(&factory.floor[selected_coord])).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (2.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("ins:  {}", ins_outs_to_str(&factory.floor[selected_coord].ins)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (3.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
+  context.fill_text(format!("outs: {}", ins_outs_to_str(&factory.floor[selected_coord].outs)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (4.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
+  context.fill_text(format!("Gives: {}", factory.floor[selected_coord].supply.gives.icon).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (5.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Speed: {}", factory.floor[selected_coord].supply.speed).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (6.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Cooldown: {: >3}% {}", (((factory.ticks - factory.floor[selected_coord].supply.last_part_out_at) as f64 / factory.floor[selected_coord].supply.cooldown.max(1) as f64).min(1.0) * 100.0) as u8, factory.floor[selected_coord].supply.cooldown).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (7.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Progress: {: >3}% (tbd: {})", (((factory.ticks - factory.floor[selected_coord].supply.part_progress) as f64 / factory.floor[selected_coord].supply.speed.max(1) as f64).min(1.0) * 100.0) as u8, factory.floor[selected_coord].supply.part_tbd).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (8.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Supplied: {: >4}", factory.floor[selected_coord].supply.supplied).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (9.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
 }
 fn paint_debug_selected_demand_cell(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
   if !cell_selection.on {
     return;
   }
 
-  let coord = cell_selection.coord;
-  if factory.floor[coord].kind != CellKind::Demand {
+  let selected_coord = cell_selection.coord;
+  if factory.floor[selected_coord].kind != CellKind::Demand {
     return;
   }
 
@@ -3302,11 +3300,11 @@ fn paint_debug_selected_demand_cell(context: &Rc<web_sys::CanvasRenderingContext
   context.stroke_rect(UI_DEBUG_CELL_OFFSET_X, UI_DEBUG_CELL_OFFSET_Y, UI_DEBUG_CELL_WIDTH, UI_DEBUG_CELL_HEIGHT);
 
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("Demand cell: {} x {} (@{})", x, y, coord).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (1.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  context.fill_text(format!("Ports: {}", cell_ports_to_str(&factory.floor[coord])).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (2.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  context.fill_text(format!("ins:  {}", ins_outs_to_str(&factory.floor[coord].ins)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (3.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
-  context.fill_text(format!("outs: {}", ins_outs_to_str(&factory.floor[coord].outs)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (4.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
-  context.fill_text(format!("Received: {:?}", factory.floor[coord].demand.received).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (5.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Demand cell: {} x {} (@{})", x, y, selected_coord).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (1.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Ports: {}", cell_ports_to_str(&factory.floor[selected_coord])).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (2.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("ins:  {}", ins_outs_to_str(&factory.floor[selected_coord].ins)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (3.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
+  context.fill_text(format!("outs: {}", ins_outs_to_str(&factory.floor[selected_coord].outs)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (4.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
+  context.fill_text(format!("Received: {:?}", factory.floor[selected_coord].demand.received).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (5.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
 }
 fn paint_zone_borders(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>) {
   if options.draw_ui_section_border {
@@ -3762,14 +3760,14 @@ fn paint_ui_offer(
 
   // If current selected machine can paint this offer, paint some green rotating pixel around it
   // TODO: make this more performant. Maybe by pregenerated image or by pregenerating them onstart?
-  let scoord = cell_selection.coord;
-  let mcoord = factory.floor[scoord].machine.main_coord;
+  let selected_coord = cell_selection.coord;
+  let selected_main_coord = factory.floor[selected_coord].machine.main_coord;
   if
     cell_selection.on &&
-    factory.floor[scoord].kind == CellKind::Machine &&
+    factory.floor[selected_coord].kind == CellKind::Machine &&
     config.nodes[part_index].pattern_unique_icons.len() > 0 &&
     config.nodes[part_index].pattern_unique_icons.iter().all(|part_index| {
-      return factory.floor[mcoord].machine.last_received_parts.contains(part_index);
+      return factory.floor[selected_main_coord].machine.last_received_parts.contains(part_index);
     })
   {
     // paint some pixels green? (https://colordesigner.io/gradient-generator)
