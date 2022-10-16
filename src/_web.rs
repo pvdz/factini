@@ -37,7 +37,6 @@
 // - rebalance the fps frame limiter
 // - joker trash part should disable achievements
 // - option to click on a quest/quote to complete it
-// - should probably not be able to drag from an empty craft cell
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -835,14 +834,20 @@ fn update_mouse_state(
       ZONE_CRAFT => {
         let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
         log(format!("mouse down inside craft selection -> {:?} {:?} {} at craft index {}", what, part_index, config.nodes[part_index].raw_name, craft_index));
-        mouse_state.craft_down_ci = what;
-        mouse_state.craft_down_ci_wx = wx;
-        mouse_state.craft_down_ci_wy = wy;
-        mouse_state.craft_down_ci_wx = ww;
-        mouse_state.craft_down_ci_wy = wh;
-        mouse_state.craft_down_ci_icon = icon;
-        mouse_state.craft_down_ci_part_kind = part_index;
-        mouse_state.craft_down_ci_index = craft_index;
+        if part_index == PARTKIND_NONE {
+          log(format!("  started dragging from an empty input, ignoring..."));
+          mouse_state.craft_down_ci = CraftInteractable::None;
+        } else {
+          log(format!("  started dragging from a {:?}", what));
+          mouse_state.craft_down_ci = what;
+          mouse_state.craft_down_ci_wx = wx;
+          mouse_state.craft_down_ci_wy = wy;
+          mouse_state.craft_down_ci_wx = ww;
+          mouse_state.craft_down_ci_wy = wh;
+          mouse_state.craft_down_ci_icon = icon;
+          mouse_state.craft_down_ci_part_kind = part_index;
+          mouse_state.craft_down_ci_index = craft_index;
+        }
       }
       ZONE_HELP => {
         if mouse_state.help_hover {
@@ -881,24 +886,29 @@ fn update_mouse_state(
   }
 
   // on drag start (maybe)
+  // Note: keep out of button down check because it needs to wait for movement
   // determine whether mouse is considered to be dragging (there's a buffer of movement before
   // we consider a mouse down to mouse up to be dragging. But once we do, we stick to it.)
   if mouse_state.is_down && !mouse_state.is_dragging && mouse_state.moved_since_start && ((mouse_state.last_down_world_x - mouse_state.world_x).abs() > 5.0 || (mouse_state.last_down_world_y - mouse_state.world_y).abs() > 5.0) {
     // 5 world pixels? sensitivity tbd
+    log(format!("is_drag_start from zone {:?}", mouse_state.down_zone));
     mouse_state.is_drag_start = true;
     mouse_state.is_dragging = true;
 
-    if mouse_state.down_zone == ZONE_CRAFT {
-      // Prevent any other interaction to the floor regardless of whether an interactable was hit
-      if mouse_state.craft_down_ci != CraftInteractable::None && mouse_state.craft_down_ci != CraftInteractable::BackClose {
-        log(format!("drag start, craft interactable; {}-{} and {}-{}; dragging a {} at index {}", mouse_state.last_down_world_x, mouse_state.world_x, mouse_state.last_down_world_y, mouse_state.world_y, mouse_state.craft_down_ci_part_kind, mouse_state.craft_down_ci_index));
-        mouse_state.craft_dragging_ci = true;
-      } else {
-        log(format!("drag start, craft, but not interactable; ignoring"));
+    match mouse_state.down_zone {
+      ZONE_CRAFT => {
+        // Prevent any other interaction to the floor regardless of whether an interactable was hit
+        if mouse_state.craft_down_ci != CraftInteractable::None && mouse_state.craft_down_ci != CraftInteractable::BackClose {
+          log(format!("drag start, craft interactable; {}-{} and {}-{}; dragging a {} at index {}", mouse_state.last_down_world_x, mouse_state.world_x, mouse_state.last_down_world_y, mouse_state.world_y, mouse_state.craft_down_ci_part_kind, mouse_state.craft_down_ci_index));
+          mouse_state.craft_dragging_ci = true;
+        }
+        else {
+          log(format!("drag start, craft, but not interactable; ignoring"));
+        }
       }
-    }
-    else {
-      log(format!("drag start, non-craft; {}-{} and {}-{}", mouse_state.last_down_world_x, mouse_state.world_x, mouse_state.last_down_world_y, mouse_state.world_y));
+      _ => {
+        log(format!("drag start, non-craft; {}-{} and {}-{}", mouse_state.last_down_world_x, mouse_state.world_x, mouse_state.last_down_world_y, mouse_state.world_y));
+      }
     }
   }
 
@@ -995,9 +1005,6 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
   }
   else if mouse_state.was_down {
     match mouse_state.down_zone {
-      ZONE_CRAFT => {
-        on_down_craft();
-      }
       ZONE_FLOOR => {
         on_down_floor();
       }
@@ -1926,10 +1933,13 @@ fn on_drag_end_craft(options: &mut Options, state: &mut State, config: &Config, 
       // Clear the haves to make sure it doesn't contain an incompatible part now
       factory.floor[selected_main_coord].machine.haves[index] = part_from_part_index(config, mouse_state.craft_down_ci_part_kind);
     }
+    else {
+      log(format!("  Did not end on an input cell, ignoring"));
+    }
   }
-}
-fn on_down_craft() {
-  log(format!("on_down_craft_after()"));
+  else {
+    log(format!("  Did not start dragging from an input cell or resource, ignoring"));
+  }
 }
 fn on_up_selecting(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
   log(format!("mouse up on floor with selection mode enabled..."));
