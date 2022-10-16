@@ -381,7 +381,7 @@ pub fn serialize2(options: &mut Options, state: &mut State, factory: &Factory, d
     let m_y = (coord / FLOOR_CELLS_W) - (main_coord / FLOOR_CELLS_W);
     let m_w = factory.floor[main_coord].machine.cell_width;
     let m_h = factory.floor[main_coord].machine.cell_height;
-    if is_m { log(format!("{}x{}", m_w, m_h)); }
+    // if is_m { log(format!("{}x{}", m_w, m_h)); }
     let m_dl = main_coord + FLOOR_CELLS_W * (m_h - 1);
     let m_dr = m_dl + m_w - 1;
 
