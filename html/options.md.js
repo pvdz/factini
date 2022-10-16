@@ -33,5 +33,6 @@ const GAME_OPTIONS = `
 - web_output_cli: false
 - dbg_trash_is_joker: true
 - dbg_machine_produce_trash: true
+- dbg_clickable_quotes: true
 - test: 0
 `;

@@ -44,6 +44,7 @@ pub const UI_QUOTES_OFFSET_Y: f64 = GRID_Y1;
 pub const UI_QUOTES_WIDTH: f64 = GRID_LEFT_WIDTH;
 pub const UI_QUOTES_HEIGHT: f64 = FLOOR_HEIGHT; // TODO: include footer space? or ..
 pub const UI_QUOTE_X: f64 = 15.0;
+pub const UI_QUOTE_Y: f64 = 0.0;
 pub const UI_QUOTE_WIDTH: f64 = GRID_LEFT_WIDTH - (2.0 * UI_QUOTE_X);
 pub const UI_QUOTE_HEIGHT: f64 = CELL_H + 4.0;
 pub const UI_QUOTE_MARGIN: f64 = 5.0;

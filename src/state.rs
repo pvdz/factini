@@ -88,9 +88,12 @@ pub struct MouseState {
   pub down_floor_area: bool,
   pub down_floor_not_corner: bool,
 
-  pub over_quotes_area: bool,
   pub over_quote: bool,
-  pub over_quote_index: usize, // Only if over_quote
+  pub over_quote_visible_index: usize, // Only if over_quote
+  pub down_quote: bool,
+  pub down_quote_visible_index: usize, // Only if down_quote
+  pub up_quote: bool,
+  pub up_quote_visible_index: usize, // Only if up_quote
 
   pub over_menu_button: MenuButton,
   pub down_menu_button: MenuButton,

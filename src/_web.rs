@@ -36,7 +36,6 @@
 // - save/load map to save states, like examples but with visual tile "somewhere".
 // - rebalance the fps frame limiter
 // - joker trash part should disable achievements
-// - option to click on a quest/quote to complete it
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -96,6 +95,8 @@ const COLOR_DEMAND: &str = "lightgreen";
 const COLOR_DEMAND_SEMI: &str = "#00aa0055";
 const COLOR_MACHINE: &str = "lightyellow";
 const COLOR_MACHINE_SEMI: &str = "#aaaa0099";
+
+const QUOTE_FADE_TIME: u64 = 2 * ONE_SECOND;
 
 // Exports from web (on a non-module context, define a global "log" and "dnow" function)
 // Not sure how this works in threads. Probably the same. TBD.
@@ -377,9 +378,12 @@ pub fn start() -> Result<(), JsValue> {
       down_floor_area: false,
       down_floor_not_corner: false,
 
-      over_quotes_area: false,
       over_quote: false,
-      over_quote_index: 0, // Only if over_quote
+      over_quote_visible_index: 0, // Only if over_quote
+      down_quote: false,
+      down_quote_visible_index: 0, // Only if down_quote
+      up_quote: false,
+      up_quote_visible_index: 0, // Only if up_quote
 
       over_menu_button: MenuButton::None,
       down_menu_button: MenuButton::None,
@@ -641,7 +645,7 @@ pub fn start() -> Result<(), JsValue> {
         // paint_top_stats(&context, &mut factory);
         paint_corner_help_icon(&options, &state, &mut factory, &context, if mouse_state.help_hover { &img_help_red } else { &img_help_black});
         paint_top_bars(&options, &state, &mut factory, &context, &mouse_state);
-        paint_left_quotes(&options, &state, &config, &context, &factory, &mouse_state);
+        paint_quotes(&options, &state, &config, &context, &factory, &mouse_state);
         paint_ui_offers(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
         paint_lasers(&options, &mut state, &config, &context);
         paint_trucks(&options, &state, &config, &context, &mut factory, &img_dumptruck);
@@ -699,7 +703,7 @@ fn update_mouse_state(
   // Reset
   mouse_state.moved_since_start = mouse_moved_since_app_start;
   mouse_state.is_drag_start = false;
-  if mouse_state.is_up {
+  if mouse_state.is_up { // Note: this was the state in the previous frame
     mouse_state.down_zone = Zone::None;
     mouse_state.craft_down_ci = CraftInteractable::None;
     mouse_state.craft_dragging_ci = false;
@@ -712,12 +716,15 @@ fn update_mouse_state(
     mouse_state.up_menu_button = MenuButton::None;
     mouse_state.dragging_offer = false;
     mouse_state.dragging_machine = false;
+    mouse_state.down_quote = false;
+    mouse_state.up_quote = false;
   }
   mouse_state.was_down = false;
   mouse_state.is_up = false;
   mouse_state.was_up = false;
   mouse_state.was_dragging = false;
   mouse_state.offer_hover = false;
+  mouse_state.over_quote = false;
   mouse_state.over_machine_button = false;
   mouse_state.over_menu_button = MenuButton::None;
   mouse_state.help_hover = false;
@@ -766,12 +773,10 @@ fn update_mouse_state(
       }
     }
     ZONE_QUOTES => {
-      mouse_state.over_quotes_area = true;
       mouse_state.over_quote =
-        mouse_state.over_quotes_area &&
-        mouse_state.world_x >= (UI_QUOTES_OFFSET_X + UI_QUOTE_X) && mouse_state.world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUOTE_WIDTH &&
-        ((mouse_state.world_y - UI_QUOTES_OFFSET_X) % (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN)) < UI_QUOTE_HEIGHT;
-      mouse_state.over_quote_index = if mouse_state.over_quote { ((mouse_state.world_y - UI_QUOTES_OFFSET_X) / (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN)) as usize } else { 0 };
+        mouse_state.world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUOTE_WIDTH &&
+        (mouse_state.world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) < UI_QUOTE_HEIGHT;
+      mouse_state.over_quote_visible_index = if mouse_state.over_quote { ((mouse_state.world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN)) as usize } else { 0 };
     }
     Zone::BottomLeft => {}
     Zone::BottomBottomLeft => {}
@@ -855,6 +860,10 @@ fn update_mouse_state(
         }
       }
       ZONE_QUOTES => {
+        mouse_state.down_quote =
+          mouse_state.last_down_world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.last_down_world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUOTE_WIDTH &&
+          (mouse_state.last_down_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) < UI_QUOTE_HEIGHT;
+        mouse_state.down_quote_visible_index = if mouse_state.down_quote { ((mouse_state.last_down_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN)) as usize } else { 0 };
       }
       Zone::BottomLeft => {}
       Zone::BottomBottomLeft => {}
@@ -956,10 +965,15 @@ fn update_mouse_state(
       ZONE_HELP => {
       }
       ZONE_QUOTES => {
+        mouse_state.up_quote =
+          mouse_state.last_up_world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.last_up_world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUOTE_WIDTH &&
+          (mouse_state.last_up_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) < UI_QUOTE_HEIGHT;
+        mouse_state.up_quote_visible_index = if mouse_state.up_quote { ((mouse_state.last_up_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN)) as usize } else { 0 };
       }
       Zone::BottomLeft => {}
       Zone::BottomBottomLeft => {}
-      ZONE_DAY_BAR => {}
+      ZONE_DAY_BAR => {
+      }
       ZONE_FLOOR => {
       }
       ZONE_MENU => {
@@ -1008,6 +1022,11 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
       ZONE_FLOOR => {
         on_down_floor();
       }
+      ZONE_QUOTES => {
+        if mouse_state.up_quote {
+          on_down_quote(options, state, config, factory, mouse_state);
+        }
+      }
       _ => {}
     }
   }
@@ -1020,9 +1039,6 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
 
     if mouse_state.was_dragging {
       match mouse_state.up_zone {
-        ZONE_DAY_BAR => {
-          on_up_top_bar(options, state, config, factory, mouse_state)
-        }
         ZONE_CRAFT => {
           if mouse_state.dragging_offer {
             on_drag_end_offer_over_craft(options, state, config, factory, mouse_state, cell_selection);
@@ -1051,12 +1067,20 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
       }
     } else {
       match mouse_state.up_zone {
+        ZONE_DAY_BAR => {
+          on_up_top_bar(options, state, config, factory, mouse_state)
+        }
         ZONE_CRAFT => {
           on_up_craft(options, state, config, factory, cell_selection, mouse_state);
         }
         ZONE_OFFERS => {
           if mouse_state.offer_down {
             on_up_offer(options, state, config, factory, mouse_state);
+          }
+        }
+        ZONE_QUOTES => {
+          if mouse_state.up_quote {
+            on_up_quote(options, state, config, factory, mouse_state);
           }
         }
         ZONE_HELP => {
@@ -1125,6 +1149,35 @@ fn on_up_offer(options: &Options, state: &State, config: &Config, factory: &Fact
     log(format!("Selecting offer {}", mouse_state.offer_hover_offer_index));
     mouse_state.offer_selected = true;
     mouse_state.offer_selected_index = mouse_state.offer_hover_offer_index;
+  }
+}
+fn on_down_quote(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
+  log(format!("on_down_quote({}). quotes: {}", mouse_state.down_quote_visible_index, factory.quotes.len()));
+}
+fn on_up_quote(options: &Options, state: &State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState) {
+  log(format!("on_up_quote({}), quotes: {}, down on {:?} {}", mouse_state.up_quote_visible_index, factory.quotes.len(), mouse_state.down_zone, mouse_state.down_quote_visible_index));
+
+  if options.dbg_clickable_quotes && mouse_state.down_quote && mouse_state.down_quote_visible_index == mouse_state.up_quote_visible_index {
+    log(format!("  clicked on this quote (down=up). Completing it now..."));
+    let mut visible_index = 0;
+
+    for quote_index in 0..factory.quotes.len() {
+      let add_progress = if factory.quotes[quote_index].added_at > 0 { ((factory.ticks - factory.quotes[quote_index].added_at) as f64 / QUOTE_FADE_TIME as f64).max(0.0).min(1.0) } else { 1.0 };
+      let remove_progress = if factory.quotes[quote_index].completed_at > 0 { ((factory.ticks - factory.quotes[quote_index].completed_at) as f64 / QUOTE_FADE_TIME as f64).max(0.0).min(1.0) } else { 0.0 };
+
+      if add_progress * (1.0 - remove_progress) > 0.0 {
+        if visible_index == mouse_state.up_quote_visible_index {
+          log(format!("  it is quote {}", quote_index));
+          factory.quotes[quote_index].current_count = factory.quotes[quote_index].target_count;
+          factory_finish_quote(factory, quote_index);
+          return;
+        }
+
+        visible_index += 1;
+      }
+    }
+
+    panic!("Should find the quote that was clicked but did not...?");
   }
 }
 fn on_drag_end_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
@@ -3503,48 +3556,51 @@ fn get_quote_xy(index: usize, height_so_far: f64) -> ( f64, f64 ) {
 
   return ( x, y );
 }
-fn paint_left_quotes(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState) {
+fn paint_quotes(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState) {
 
   // Do we want to do this serial or parallel? parallel is easier I guess
-  let quote_fade_time = 2 * ONE_SECOND;
-  let quote_shrink_time = 2 * ONE_SECOND;
 
   let mut height = 0.0;
+  let mut visible_index = 0;
 
   for quote_index in 0..factory.quotes.len() {
-    let ( x, y ) = get_quote_xy(quote_index, height);
+    let add_progress = if factory.quotes[quote_index].added_at > 0 { ((factory.ticks - factory.quotes[quote_index].added_at) as f64 / QUOTE_FADE_TIME as f64).max(0.0).min(1.0) } else { 1.0 };
+    let remove_progress = if factory.quotes[quote_index].completed_at > 0 { ((factory.ticks - factory.quotes[quote_index].completed_at) as f64 / QUOTE_FADE_TIME as f64).max(0.0).min(1.0) } else { 0.0 };
+    let partial_height = add_progress * (1.0 - remove_progress) * UI_QUOTE_HEIGHT;
+    let partial_margin = add_progress * (1.0 - remove_progress) * UI_QUOTE_MARGIN;
 
-    let add_progress = if factory.quotes[quote_index].added_at > 0 { ((factory.ticks - factory.quotes[quote_index].added_at) as f64 / quote_fade_time as f64).max(0.0).min(1.0) } else { 1.0 };
-    let remove_progress = if factory.quotes[quote_index].completed_at > 0 { ((factory.ticks - factory.quotes[quote_index].completed_at) as f64 / quote_fade_time as f64).max(0.0).min(1.0) } else { 0.0 };
-    let h = add_progress * (1.0 - remove_progress) * UI_QUOTE_HEIGHT;
-    let m = add_progress * (1.0 - remove_progress) * UI_QUOTE_MARGIN;
+    if add_progress * (1.0 - remove_progress) > 0.0 {
+      let ( x, y ) = get_quote_xy(quote_index, height);
 
-    context.set_fill_style(&"grey".into()); // 100% background
-    context.fill_rect(x, y, UI_QUOTE_WIDTH, h);
-    context.set_fill_style(&"lightgreen".into()); // progress green
-    context.fill_rect(x, y, UI_QUOTE_WIDTH * (factory.quotes[quote_index].current_count as f64 / factory.quotes[quote_index].target_count as f64).min(1.0), h);
-    context.set_stroke_style(&"black".into());
-    context.stroke_rect(x, y, UI_QUOTE_WIDTH, h);
+      context.set_fill_style(&"grey".into()); // 100% background
+      context.fill_rect(x, y, UI_QUOTE_WIDTH, partial_height);
+      context.set_fill_style(&"lightgreen".into()); // progress green
+      context.fill_rect(x, y, UI_QUOTE_WIDTH * (factory.quotes[quote_index].current_count as f64 / factory.quotes[quote_index].target_count as f64).min(1.0), partial_height);
+      if options.dbg_clickable_quotes && mouse_state.over_quote && mouse_state.over_quote_visible_index == visible_index {
+        context.set_stroke_style(&"red".into());
+      } else {
+        context.set_stroke_style(&"black".into());
+      }
+      context.stroke_rect(x, y, UI_QUOTE_WIDTH, partial_height);
 
-    // Paint the icon(s), the required count, the progress
+      // Paint the icon(s), the required count, the progress
 
-    assert!(
-      config.nodes[factory.quotes[quote_index].part_index].kind == ConfigNodeKind::Part,
-      "quote part index should refer to Part node... have index: {}, but it points to: {:?}",
-      factory.quotes[quote_index].part_index,
-      config.nodes[factory.quotes[quote_index].part_index]
-    );
-    paint_segment_part_from_config(options, state, config, context, factory.quotes[quote_index].part_index, x + 4.0, y + 2.0, CELL_W, CELL_H);
+      assert!(
+        config.nodes[factory.quotes[quote_index].part_index].kind == ConfigNodeKind::Part,
+        "quote part index should refer to Part node... have index: {}, but it points to: {:?}",
+        factory.quotes[quote_index].part_index,
+        config.nodes[factory.quotes[quote_index].part_index]
+      );
+      paint_segment_part_from_config(options, state, config, context, factory.quotes[quote_index].part_index, x + 4.0, y + 2.0, CELL_W, CELL_H);
 
-    context.set_fill_style(&"black".into());
-    context.fill_text(format!("{}/{}x", factory.quotes[quote_index].current_count, factory.quotes[quote_index].target_count).as_str(), x + CELL_W + 10.0, y + 23.0).expect("oopsie fill_text");
+      context.set_fill_style(&"black".into());
+      context.fill_text(format!("{}/{}x", factory.quotes[quote_index].current_count, factory.quotes[quote_index].target_count).as_str(), x + CELL_W + 10.0, y + 23.0).expect("oopsie fill_text");
 
-    height += h + m; // margin between quotes
+      visible_index += 1;
+    }
+
+    height += partial_height + partial_margin; // margin between quotes
   }
-  // // Clear the rect below the last item in case it was the bottom item and only partially painted
-  // let ( x, y ) = get_quote_xy(factory.quotes.len(), height);
-  // context.set_fill_style(&"#E86A17".into()); // This will be more annoying later but for now it'll do
-  // context.fill_rect(x, y, UI_QUOTES_WIDTH, UI_QUOTE_HEIGHT);
 }
 fn paint_ui_offers(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) {
   let ( is_mouse_over_offer, offer_hover_index ) =

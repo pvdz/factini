@@ -157,10 +157,7 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
               });
 
               if factory.quotes[j].current_count >= factory.quotes[j].target_count {
-                log(format!("finished quote {} with {} of {}", factory.quotes[j].name, factory.quotes[j].current_count, factory.quotes[j].target_count));
-                // This quote is finished so end the day // TODO: multiple parts one quote
-                factory.finished_at = factory.ticks;
-                factory.finished_quotes.push(j); // Start visual candy for this quote in next frame
+                factory_finish_quote(factory, j);
               }
               break;
             }
@@ -179,6 +176,13 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
   factory.produced = total_parts_produced;
   factory.accepted = total_parts_accepted;
   factory.trashed = total_parts_trashed;
+}
+
+pub fn factory_finish_quote(factory: &mut Factory, quote_index: usize) {
+  log(format!("finished quote {} with {} of {}", factory.quotes[quote_index].name, factory.quotes[quote_index].current_count, factory.quotes[quote_index].target_count));
+  // This quote is finished so end the day // TODO: multiple parts one quote
+  factory.finished_at = factory.ticks;
+  factory.finished_quotes.push(quote_index); // Start visual candy for this quote in next frame
 }
 
 pub fn factory_reset_stats(options: &mut Options, state: &mut State, factory: &mut Factory) {
