@@ -35,7 +35,6 @@
 //   - prep for animations
 // - save/load map to save states, like examples but with visual tile "somewhere".
 // - rebalance the fps frame limiter
-// - joker trash part should disable achievements
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -3512,6 +3511,7 @@ fn paint_corner_help_icon(options: &Options, state: &State, factory: &Factory, c
 }
 fn paint_top_bars(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   let hovering = mouse_state.over_zone == ZONE_DAY_BAR && !mouse_state.is_down && !mouse_state.is_up && mouse_state.over_day_bar;
+  let corrupted = factory.day_corrupted;
   let invalid = factory.finished_at == 0 && factory.modified_at > factory.last_day_start && factory.modified_at < factory.last_day_start + ONE_MS * 1000 * 60 * 60;
   let day_ticks = ONE_MS * 1000 * 60; // one day a minute (arbitrary)
 
@@ -3521,7 +3521,11 @@ fn paint_top_bars(options: &Options, state: &State, factory: &Factory, context: 
     context.set_fill_style(&"grey".into()); // 100% background
   }
   context.fill_rect(UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_HEIGHT);
-  context.set_fill_style(&"lightgreen".into()); // progress green
+  if corrupted {
+    context.set_fill_style(&"tomato".into()); // progress green
+  } else {
+    context.set_fill_style(&"lightgreen".into()); // progress green
+  }
   context.fill_rect(UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_WIDTH * factory.curr_day_progress.min(1.0), UI_DAY_PROGRESS_HEIGHT);
 
   if hovering {
@@ -3535,6 +3539,11 @@ fn paint_top_bars(options: &Options, state: &State, factory: &Factory, context: 
     context.set_font(&"18px monospace");
     context.set_fill_style(&"black".into());
     context.fill_text("Change detected! Click to restart day", UI_DAY_PROGRESS_OFFSET_X + 37.0, UI_DAY_PROGRESS_OFFSET_Y + 22.0).expect("oopsie fill_text"); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
+  }
+  else if corrupted {
+    context.set_font(&"18px monospace");
+    context.set_fill_style(&"black".into());
+    context.fill_text("Factory corrupted by trash", UI_DAY_PROGRESS_OFFSET_X + 130.0, UI_DAY_PROGRESS_OFFSET_Y + 22.0).expect("oopsie fill_text"); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
   }
   else if factory.finished_at > 0 {
     context.set_font(&"18px monospace");

@@ -217,7 +217,13 @@ pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, f
                   // Accept if trash (joker part) or if it matches the required part
                   let want = factory.floor[main_coord].machine.wants[i].kind;
                   if want != PARTKIND_NONE {
-                    if (options.dbg_trash_is_joker && belt_part == PARTKIND_TRASH) || (belt_part == factory.floor[main_coord].machine.wants[i].kind && belt_part != have) {
+                    let have_eq_wants = belt_part == factory.floor[main_coord].machine.wants[i].kind && belt_part != have;
+                    let trash_joker = options.dbg_trash_is_joker && belt_part == PARTKIND_TRASH;
+                    if have_eq_wants || trash_joker {
+                      if !have_eq_wants && options.db_joker_corrupts_factory {
+                        // Mark the factory as having been poisoned
+                        factory.day_corrupted = true;
+                      }
                       if options.print_moves || options.print_moves_machine {
                         log(format!("({}) Machine @{} (sub @{}) accepting part {:?} as input {} from belt @{}, had {:?}", factory.ticks, main_coord, sub_coord, belt_part, i, from_coord, have));
                       }

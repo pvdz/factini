@@ -32,6 +32,7 @@ const GAME_OPTIONS = `
 - speed_modifier: 1.0
 - web_output_cli: false
 - dbg_trash_is_joker: true
+- db_joker_corrupts_factory: true
 - dbg_machine_produce_trash: true
 - dbg_clickable_quotes: true
 - test: 0

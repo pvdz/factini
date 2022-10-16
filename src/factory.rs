@@ -49,6 +49,8 @@ pub struct Factory {
   pub bouncers: VecDeque<Bouncer>,
   pub trucks: Vec<Truck>,
   pub finished_quotes: Vec<usize>,
+
+  pub day_corrupted: bool, // Used trash as jokers to create parts in machines?
 }
 
 pub fn create_factory(options: &mut Options, state: &mut State, config: &Config, floor_str: String) -> Factory {
@@ -72,6 +74,7 @@ pub fn create_factory(options: &mut Options, state: &mut State, config: &Config,
     trucks: vec!(),
     bouncers: VecDeque::new(),
     finished_quotes: vec!(),
+    day_corrupted: false,
   };
   log(format!("available quotes: {:?}", factory.quotes));
   auto_layout(options, state, config, &mut factory);
