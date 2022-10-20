@@ -35,6 +35,7 @@ features = [
     'CanvasPattern',
     'CanvasRenderingContext2d',
     'CssStyleDeclaration',
+    'DomRect', # for get_bounding_client_rect
     'Document',
     'Element',
     'EventTarget',
@@ -49,5 +50,8 @@ features = [
     'MouseEvent',
     'Node',
     'Performance',
+    'Touch', # touchevent.touches.get
+    'TouchEvent',
+    'TouchList', # touchevent.touches
     'Window',
 ]

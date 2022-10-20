@@ -310,6 +310,47 @@
     }
 
     updateMermaid(nodes);
+
+    nodes.forEach(node => {
+      if (node.kind !== 'Part') return;
+      // index: node_index,
+      // kind:
+      // name: name.to_string(),
+      // raw_name: rest.to_string(),
+      // unlocks_after_by_name: vec!(),
+      // unlocks_after_by_index: vec!(),
+      // unlocks_todo_by_index: vec!(),
+      // starting_part_by_name: vec!(),
+      // starting_part_by_index: vec!(),
+      // production_target_by_name: vec!(),
+      // production_target_by_index: vec!(),
+      // pattern_by_index: vec!(),
+      // pattern_by_name: vec!(),
+      // pattern_by_icon: vec!(),
+      // pattern_unique_icons: vec!(),
+      // icon,
+      // file: "".to_string(),
+      // file_canvas_cache_index: 0,
+      // x: 0.0,
+      // y: 0.0,
+      // w: 0.0,
+      // h: 0.0,
+      // current_state: ConfigNodeState::Waiting,
+
+      const finalWidth = 64;
+      const finalHeight = 64;
+      const scalex = finalWidth / node.w;
+      const scaley = finalHeight / node.h;
+
+      // The outer gives a viewport on the inner, scaled, div. Cutting away the overflow.
+      const outer = $all_parts.appendChild(document.createElement('div'));
+      outer.title = `${node.raw_name}`;
+      // The inner has the image as background with a zoom factor to scale the sprite
+      const inner = outer.appendChild(document.createElement('img'));
+      inner.src = node.file;
+      outer.style = `position: relative; width: ${finalWidth}px; height: ${finalHeight}px; overflow: hidden; float: right; border: 1px solid black;`;
+      inner.style = `position: absolute; left: -${Math.round(scalex * node.x)}px; top: -${Math.round(scaley * node.y)}px; transform: scale(${scalex}, ${scaley}); transform-origin: top left;`;
+    });
   }
   function updateMermaid(nodes) {
     // mermaid:
@@ -357,7 +398,7 @@
 </script>
 <!-- for flow graphs of the quests -->
 
-<div id="$main_game" style="float: left; clear: both;"></div>
+<div id="$main_game" style="float: left; clear: both; user-select: none;"></div>
 
 <style>#tdb img { border: 1px solid green; }</style>
 <div id="$tdb" style="float: right; border: 1px solid black; white-space: pre; font-family: monospace;">the debug box</div>
@@ -426,6 +467,8 @@
     <div class="mermaid" id="$mermaid" style="white-space:pre;"></div>
   </div>
 </div>
+
+<div style="clear: both;" id="$all_parts"></div>
 
 </body>
 </html>

@@ -379,10 +379,13 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
             "after" => {
               // This should be a list of zero or more quests that are required to unlock this quest
               let pairs = value_raw.split(',');
-              for name_untrimmed in pairs {
-                let name = name_untrimmed.trim();
-                if name != "" {
-                  nodes[current_node_index].unlocks_after_by_name.push(name.trim().to_string());
+              for s in pairs {
+                let pairs = s.split(' ');
+                for name_untrimmed in pairs {
+                  let name = name_untrimmed.trim();
+                  if name != "" {
+                    nodes[current_node_index].unlocks_after_by_name.push(name.trim().to_string());
+                  }
                 }
               }
             }
@@ -390,10 +393,13 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
               // This is a list of zero or more parts that unlock when this quest unlocks
               // So it's not _after_ this quest completes, but parts that unlock when starting this quest
               let pairs = value_raw.split(',');
-              for name_untrimmed in pairs {
-                let name = name_untrimmed.trim();
-                if name != "" {
-                  nodes[current_node_index].starting_part_by_name.push(name.to_string());
+              for s in pairs {
+                let pairs = s.split(' ');
+                for name_untrimmed in pairs {
+                  let name = name_untrimmed.trim();
+                  if name != "" {
+                    nodes[current_node_index].starting_part_by_name.push(name.to_string());
+                  }
                 }
               }
             }
@@ -426,11 +432,14 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
             "pattern" => {
               // Optional pattern for creating this part in a machine
               // If there's no pattern then the part can be used as a supplier. Otherwise it cannot.
-              let pairs = value_raw.split(' ').filter(|s| !s.is_empty());
-              for name_untrimmed in pairs {
-                let name = name_untrimmed.trim();
-                if name != "" {
-                  nodes[current_node_index].pattern_by_name.push(name.trim().to_string());
+              let pairs = value_raw.split(' ');
+              for s in pairs {
+                let pairs = s.split(',');
+                for name_untrimmed in pairs {
+                  let name = name_untrimmed.trim();
+                  if name != "" {
+                    nodes[current_node_index].pattern_by_name.push(name.trim().to_string());
+                  }
                 }
               }
             }

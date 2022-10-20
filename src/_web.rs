@@ -33,8 +33,14 @@
 //   - part editor
 //   - quest editor
 //   - prep for animations
-// - save/load map to save states, like examples but with visual tile "somewhere".
 // - rebalance the fps frame limiter
+// - play button border color affected by laser. also highlights on hover when it supposed to not to
+// - car polish; should make nice corners, should drive same speed to any height
+// - touchmove may need to put the pointer above the finger?
+// - new parts are not properly displayed when created from factory or whats up with that
+// - need to figure out how to create bigger buttons
+// - belt drag should deselect factory?
+// - bouncers are affected by time. the last bouncer animations are completely broken
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -130,7 +136,7 @@ fn dnow() -> u64 {
 }
 
 fn load_tile(src: &str) -> Result<web_sys::HtmlImageElement, JsValue> {
-  let document = web_sys::window().unwrap().document().unwrap();
+  let document = document();
 
   let img = document
     .create_element("img")?
@@ -152,11 +158,12 @@ pub fn start() -> Result<(), JsValue> {
   // console_error_panic_hook::set_once();
 
   log(format!("web start..."));
-  let document = web_sys::window().unwrap().document().unwrap();
+  let document = document();
   let canvas = document
     .create_element("canvas")?
     .dyn_into::<web_sys::HtmlCanvasElement>()?;
   document.get_element_by_id("$main_game").unwrap().append_child(&canvas)?;
+  canvas.set_id("$main_game_canvas");
   canvas.set_width(CANVAS_WIDTH as u32);
   canvas.set_height(CANVAS_HEIGHT as u32);
   canvas.style().set_property("border", "solid")?;
@@ -222,6 +229,8 @@ pub fn start() -> Result<(), JsValue> {
   let img_help_black: web_sys::HtmlImageElement = load_tile("./img/help.png")?;
   let img_help_red: web_sys::HtmlImageElement = load_tile("./img/help_red.png")?;
   let img_manual: web_sys::HtmlImageElement = load_tile("./img/manual.png")?;
+  let img_lmb: web_sys::HtmlImageElement = load_tile("./img/lmb.png")?;
+  let img_rmb: web_sys::HtmlImageElement = load_tile("./img/rmb.png")?;
 
   // https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/createPattern
   // https://rustwasm.github.io/wasm-bindgen/api/web_sys/struct.CanvasRenderingContext2d.html#method.create_pattern_with_html_image_element
@@ -239,26 +248,31 @@ pub fn start() -> Result<(), JsValue> {
   let last_mouse_up_x = Rc::new(Cell::new(0.0));
   let last_mouse_up_y = Rc::new(Cell::new(0.0));
   let last_mouse_up_button = Rc::new(Cell::new(0));
+  let counted = Rc::new(canvas);
 
   // mousedown
   {
+    let mouse_x = mouse_x.clone();
+    let mouse_y = mouse_y.clone();
     let last_mouse_was_down = last_mouse_was_down.clone();
     let last_mouse_down_x = last_mouse_down_x.clone();
     let last_mouse_down_y = last_mouse_down_y.clone();
     let last_mouse_down_button = last_mouse_down_button.clone();
     let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
+      event.stop_propagation();
+      event.prevent_default();
+
       let mx = event.offset_x() as f64;
       let my = event.offset_y() as f64;
+
       last_mouse_was_down.set(true);
-      last_mouse_was_down.set(true);
+      mouse_x.set(mx);
+      mouse_y.set(my);
       last_mouse_down_x.set(mx);
       last_mouse_down_y.set(my);
       last_mouse_down_button.set(event.buttons()); // 1=left, 2=right, 3=left-then-also-right (but right-then-also-left is still 2)
-
-      event.stop_propagation();
-      event.prevent_default();
     }) as Box<dyn FnMut(_)>);
-    canvas.add_event_listener_with_callback("mousedown", closure.as_ref().unchecked_ref())?;
+    counted.clone().add_event_listener_with_callback("mousedown", closure.as_ref().unchecked_ref())?;
     closure.forget();
   }
   // mousemove
@@ -267,16 +281,17 @@ pub fn start() -> Result<(), JsValue> {
     let mouse_y = mouse_y.clone();
     let mouse_moved = mouse_moved.clone();
     let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
+      event.stop_propagation();
+      event.prevent_default();
+
       let mx = event.offset_x() as f64;
       let my = event.offset_y() as f64;
+
       mouse_x.set(mx);
       mouse_y.set(my);
       mouse_moved.set(true);
-
-      event.stop_propagation();
-      event.prevent_default();
     }) as Box<dyn FnMut(_)>);
-    canvas.add_event_listener_with_callback("mousemove", closure.as_ref().unchecked_ref())?;
+    counted.clone().add_event_listener_with_callback("mousemove", closure.as_ref().unchecked_ref())?;
     closure.forget();
   }
   // mouseup
@@ -286,17 +301,18 @@ pub fn start() -> Result<(), JsValue> {
     let last_mouse_up_y = last_mouse_up_y.clone();
     let last_mouse_up_button = last_mouse_up_button.clone();
     let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
+      event.stop_propagation();
+      event.prevent_default();
+
       let mx = event.offset_x() as f64;
       let my = event.offset_y() as f64;
+
       last_mouse_was_up.set(true);
       last_mouse_up_x.set(mx);
       last_mouse_up_y.set(my);
       last_mouse_up_button.set(event.buttons()); // 1=left, 2=right, 3=left-then-also-right (but right-then-also-left is still 2)
-
-      event.stop_propagation();
-      event.prevent_default();
     }) as Box<dyn FnMut(_)>);
-    canvas.add_event_listener_with_callback("mouseup", closure.as_ref().unchecked_ref())?;
+    counted.clone().add_event_listener_with_callback("mouseup", closure.as_ref().unchecked_ref())?;
     closure.forget();
   }
   // context menu (just to disable it so we can use rmb for interaction)
@@ -305,11 +321,94 @@ pub fn start() -> Result<(), JsValue> {
       event.stop_propagation();
       event.prevent_default();
     }) as Box<dyn FnMut(_)>);
-    canvas.add_event_listener_with_callback("contextmenu", closure.as_ref().unchecked_ref())?;
+    counted.clone().add_event_listener_with_callback("contextmenu", closure.as_ref().unchecked_ref())?;
+    closure.forget();
+  }
+  // touchdown
+  {
+    let canvas = counted.clone();
+    let mouse_x = mouse_x.clone();
+    let mouse_y = mouse_y.clone();
+    let last_mouse_was_down = last_mouse_was_down.clone();
+    let last_mouse_down_x = last_mouse_down_x.clone();
+    let last_mouse_down_y = last_mouse_down_y.clone();
+    let last_mouse_down_button = last_mouse_down_button.clone();
+    let closure = Closure::wrap(Box::new(move |event: web_sys::TouchEvent| {
+      event.stop_propagation();
+      event.prevent_default();
+
+      let bound = canvas.get_bounding_client_rect();
+      let event = event.touches().get(0).unwrap();
+
+      let mx = -bound.left() + event.client_x() as f64;
+      let my = -bound.top() + event.client_y() as f64;
+
+      mouse_x.set(mx);
+      mouse_y.set(my);
+      last_mouse_was_down.set(true);
+      last_mouse_down_x.set(mx);
+      last_mouse_down_y.set(my);
+      last_mouse_down_button.set(1); // 1=left, 2=right, 3=left-then-also-right (but right-then-also-left is still 2). touch is always 1.
+    }) as Box<dyn FnMut(_)>);
+    counted.clone().add_event_listener_with_callback("touchstart", closure.as_ref().unchecked_ref())?;
+    closure.forget();
+  }
+  // touchmove
+  {
+    let canvas = counted.clone();
+    let mouse_x = mouse_x.clone();
+    let mouse_y = mouse_y.clone();
+    let mouse_moved = mouse_moved.clone();
+    let closure = Closure::wrap(Box::new(move |event: web_sys::TouchEvent| {
+      event.stop_propagation();
+      event.prevent_default();
+
+      let bound = canvas.get_bounding_client_rect();
+      let event = event.touches().get(0).unwrap();
+
+      let mx = -bound.left() + event.client_x() as f64;
+      let my = -bound.top() + event.client_y() as f64;
+
+      mouse_x.set(mx);
+      mouse_y.set(my);
+      mouse_moved.set(true);
+    }) as Box<dyn FnMut(_)>);
+    counted.clone().add_event_listener_with_callback("touchmove", closure.as_ref().unchecked_ref())?;
+    closure.forget();
+  }
+  // touchend
+  {
+    let canvas = counted.clone();
+    let mouse_x = mouse_x.clone();
+    let mouse_y = mouse_y.clone();
+    let last_mouse_was_up = last_mouse_was_up.clone();
+    let last_mouse_up_x = last_mouse_up_x.clone();
+    let last_mouse_up_y = last_mouse_up_y.clone();
+    let last_mouse_up_button = last_mouse_up_button.clone();
+    let closure = Closure::wrap(Box::new(move |event: web_sys::TouchEvent| {
+      event.stop_propagation();
+      event.prevent_default();
+
+      log(format!("number of touches: {}", event.changed_touches().length()));
+      let bound = canvas.get_bounding_client_rect();
+      let event = event.changed_touches().get(0).unwrap();
+
+      let mx = -bound.left() + event.client_x() as f64;
+      let my = -bound.top() + event.client_y() as f64;
+
+      mouse_x.set(mx);
+      mouse_y.set(my);
+      last_mouse_was_up.set(true);
+      last_mouse_up_x.set(mx);
+      last_mouse_up_y.set(my);
+      last_mouse_up_button.set(1); // 1=left, 2=right, 3=left-then-also-right (but right-then-also-left is still 2)
+    }) as Box<dyn FnMut(_)>);
+    counted.clone().add_event_listener_with_callback("touchend", closure.as_ref().unchecked_ref())?;
     closure.forget();
   }
 
   let ( mut options, mut state, mut factory ) = init(&config, getGameMap());
+  let mut saves: [Option<(web_sys::HtmlCanvasElement, String)>; 9] = [(); 9].map(|_| None);
 
   parse_options_into(getGameOptions(), &mut options, true);
   state_add_examples(getExamples(), &mut state);
@@ -450,6 +549,13 @@ pub fn start() -> Result<(), JsValue> {
       last_up_world_y: 0.0,
       last_up_cell_x: 0.0,
       last_up_cell_y: 0.0,
+
+      over_save_map: false,
+      over_save_map_index: 0,
+      down_save_map: false,
+      down_save_map_index: 0,
+      up_save_map: false,
+      up_save_map_index: 0,
     };
 
     // From https://rustwasm.github.io/wasm-bindgen/examples/request-animation-frame.html
@@ -547,7 +653,7 @@ pub fn start() -> Result<(), JsValue> {
         last_mouse_was_up.set(false);
 
         // Handle drag-end or click
-        handle_input(&mut cell_selection, &mut mouse_state, &mut options, &mut state, &config, &mut factory);
+        handle_input(&mut cell_selection, &mut mouse_state, &mut options, &mut state, &config, &mut factory, &mut saves);
 
         if factory.changed {
           // If currently looking at a historic snapshot, then now copy that
@@ -571,7 +677,7 @@ pub fn start() -> Result<(), JsValue> {
 
           if !state.load_snapshot_next_frame {
             // Create snapshot in history, except for unredo
-            let snap = generate_floor_dump(&mut options, &mut state, &factory, dnow()).join("\n");
+            let snap = generate_floor_dump(&options, &state, &factory, dnow()).join("\n");
             // log(format!("Snapshot:\n{}", snap));
             log(format!("Pushed snapshot to the front of the stack; size: {} bytes, undo pointer: {}, pointer: {}", snap.len(), state.snapshot_undo_pointer, state.snapshot_pointer));
 
@@ -594,7 +700,6 @@ pub fn start() -> Result<(), JsValue> {
           state.load_snapshot_next_frame = false;
 
           // Dump current map to debug UI
-          let document = web_sys::window().unwrap().document().unwrap();
           let game_map = document.get_element_by_id("$game_map").unwrap();
           game_map.dyn_into::<web_sys::HtmlTextAreaElement>().unwrap().set_value(state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].as_str());
         }
@@ -655,16 +760,26 @@ pub fn start() -> Result<(), JsValue> {
         paint_belt_items(&options, &state, &config, &context, &factory);
         paint_machine_craft_menu(&options, &state, &config, &context, &factory, &cell_selection, &mouse_state);
         paint_ui_offer_hover_droptarget_hint_conditionally(&options, &state, &config, &context, &mut factory, &mouse_state, &cell_selection);
-        paint_mouse_cursor(&context, &mouse_state);
-        paint_mouse_action(&options, &state, &config, &factory, &context, &mouse_state, &cell_selection);
         paint_debug_app(&options, &state, &context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
         paint_debug_selected_belt_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_debug_selected_machine_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_debug_selected_supply_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_debug_selected_demand_cell(&context, &factory, &cell_selection, &mouse_state);
+        paint_load_thumbs(&options, &state, &config, &context, &mouse_state, &saves, &img_lmb);
+
+        // Probably after all backround/floor stuff is finished
         paint_zone_borders(&options, &state, &context);
-        paint_manual(&options, &state, &context, &img_manual);
+
+        // Over all the UI stuff
+        paint_mouse_cursor(&context, &mouse_state);
+
+        // In front of all game stuff
         paint_bouncers(&options, &state, &mut config, &context, &mut factory);
+        // When dragging make sure that stays on top of bouncers
+        paint_mouse_action(&options, &state, &config, &factory, &context, &mouse_state, &cell_selection);
+
+        // In front of everything else
+        paint_manual(&options, &state, &context, &img_manual);
       }
 
       // Schedule next frame
@@ -717,6 +832,8 @@ fn update_mouse_state(
     mouse_state.dragging_machine = false;
     mouse_state.down_quote = false;
     mouse_state.up_quote = false;
+    mouse_state.down_save_map = false;
+    mouse_state.up_save_map = false;
   }
   mouse_state.was_down = false;
   mouse_state.is_up = false;
@@ -728,6 +845,7 @@ fn update_mouse_state(
   mouse_state.over_menu_button = MenuButton::None;
   mouse_state.help_hover = false;
   mouse_state.over_day_bar = false;
+  mouse_state.over_save_map = false;
 
   mouse_state.up_zone = Zone::None;
   mouse_state.over_zone = Zone::None;
@@ -777,7 +895,12 @@ fn update_mouse_state(
         (mouse_state.world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) < UI_QUOTE_HEIGHT;
       mouse_state.over_quote_visible_index = if mouse_state.over_quote { ((mouse_state.world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN)) as usize } else { 0 };
     }
-    Zone::BottomLeft => {}
+    ZONE_SAVE_MAP => {
+      let button_index = hit_test_save_map(mouse_state.world_x, mouse_state.world_y);
+      if button_index == 100 { return; } // Not up on a button
+      mouse_state.over_save_map = true;
+      mouse_state.over_save_map_index = button_index;
+    }
     Zone::BottomBottomLeft => {}
     ZONE_DAY_BAR => {
       mouse_state.over_day_bar = bounds_check(mouse_state.world_x, mouse_state.world_y, UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_OFFSET_Y + UI_DAY_PROGRESS_HEIGHT);
@@ -832,6 +955,7 @@ fn update_mouse_state(
 
     mouse_state.down_zone = coord_to_zone(options, state, config, mouse_state.last_down_world_x, mouse_state.last_down_world_y, is_machine_selected, factory, cell_selection.coord);
     log(format!("MOUSE DOWN in zone {:?}, coord {}x{}", mouse_state.down_zone, mouse_state.world_x, mouse_state.world_y));
+
     match mouse_state.down_zone {
       Zone::None => panic!("cant be down on no zone"),
       ZONE_MANUAL => {}
@@ -864,7 +988,12 @@ fn update_mouse_state(
           (mouse_state.last_down_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) < UI_QUOTE_HEIGHT;
         mouse_state.down_quote_visible_index = if mouse_state.down_quote { ((mouse_state.last_down_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN)) as usize } else { 0 };
       }
-      Zone::BottomLeft => {}
+      ZONE_SAVE_MAP => {
+        let button_index = hit_test_save_map(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
+        if button_index == 100 { return; } // Not up on a button
+        mouse_state.down_save_map = true;
+        mouse_state.down_save_map_index = button_index;
+      }
       Zone::BottomBottomLeft => {}
       ZONE_DAY_BAR => {}
       ZONE_FLOOR => {
@@ -899,7 +1028,7 @@ fn update_mouse_state(
   // we consider a mouse down to mouse up to be dragging. But once we do, we stick to it.)
   if mouse_state.is_down && !mouse_state.is_dragging && mouse_state.moved_since_start && ((mouse_state.last_down_world_x - mouse_state.world_x).abs() > 5.0 || (mouse_state.last_down_world_y - mouse_state.world_y).abs() > 5.0) {
     // 5 world pixels? sensitivity tbd
-    log(format!("is_drag_start from zone {:?}", mouse_state.down_zone));
+    log(format!("is_drag_start from zone {:?}, down at {}x{}, now at {}x{}", mouse_state.down_zone, mouse_state.last_down_world_x, mouse_state.last_down_world_y, mouse_state.world_x, mouse_state.world_y));
     mouse_state.is_drag_start = true;
     mouse_state.is_dragging = true;
 
@@ -942,6 +1071,7 @@ fn update_mouse_state(
 
     mouse_state.up_zone = coord_to_zone(options, state, config, mouse_state.last_up_world_x, mouse_state.last_up_world_y, is_machine_selected, factory, cell_selection.coord);
     log(format!("MOUSE UP in zone {:?}, was down in zone {:?}, coord {}x{}", mouse_state.up_zone, mouse_state.down_zone, mouse_state.last_up_world_x, mouse_state.last_up_world_y));
+
     match mouse_state.up_zone {
       Zone::None => panic!("cant be up on no zone"),
       ZONE_MANUAL => {}
@@ -969,7 +1099,12 @@ fn update_mouse_state(
           (mouse_state.last_up_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) < UI_QUOTE_HEIGHT;
         mouse_state.up_quote_visible_index = if mouse_state.up_quote { ((mouse_state.last_up_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN)) as usize } else { 0 };
       }
-      Zone::BottomLeft => {}
+      ZONE_SAVE_MAP => {
+        let button_index = hit_test_save_map(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
+        if button_index == 100 { return; } // Not up on a button
+        mouse_state.up_save_map = true;
+        mouse_state.up_save_map_index = button_index;
+      }
       Zone::BottomBottomLeft => {}
       ZONE_DAY_BAR => {
       }
@@ -989,12 +1124,13 @@ fn update_mouse_state(
     }
   }
 }
-fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
+fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, saves: &mut [Option<(web_sys::HtmlCanvasElement, String)>; 9]) {
   if state.manual_open {
     // If the manual is open, ignore all other events
     if mouse_state.is_up {
       state.manual_open = false;
     }
+    log(format!("Ignoring most mouse input while manual is open"));
     return;
   }
 
@@ -1031,7 +1167,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
   }
 
   if mouse_state.is_up {
-    if state.mouse_mode_selecting && mouse_state.up_zone == ZONE_FLOOR{
+    if state.mouse_mode_selecting && mouse_state.up_zone == ZONE_FLOOR {
       on_up_selecting(options, state, config, factory, mouse_state, cell_selection);
       return;
     }
@@ -1080,6 +1216,11 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         ZONE_QUOTES => {
           if mouse_state.up_quote {
             on_up_quote(options, state, config, factory, mouse_state);
+          }
+        }
+        ZONE_SAVE_MAP => {
+          if mouse_state.up_save_map {
+            on_up_save_map(options, state, config, factory, mouse_state, saves);
           }
         }
         ZONE_HELP => {
@@ -1176,7 +1317,65 @@ fn on_up_quote(options: &Options, state: &State, config: &Config, factory: &mut 
       }
     }
 
-    panic!("Should find the quote that was clicked but did not...?");
+    log(format!("Clicked on a quote index that doesnt exist right now. mouse_state.down_quote_visible_index={}, mouse_state.up_quote_visible_index={}", mouse_state.down_quote_visible_index, mouse_state.up_quote_visible_index));
+  }
+}
+fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, saves: &mut [Option<(web_sys::HtmlCanvasElement, String)>; 9]) {
+  log(format!("on_up_save_map()"));
+
+  if !mouse_state.down_save_map || mouse_state.down_save_map_index != mouse_state.up_save_map_index {
+    log(format!("  down != up, bailing: {} {} {}", mouse_state.down_save_map, mouse_state.down_save_map_index, mouse_state.up_save_map_index));
+    return;
+  }
+
+  if let Some((canvas, mapString)) = &saves[mouse_state.up_save_map_index] {
+    let (row, col) = match mouse_state.up_save_map_index {
+      0 => (0.0, 0.0),
+      1 => (0.0, 1.0),
+      2 => (1.0, 0.0),
+      3 => (1.0, 1.0),
+      _ => panic!("no such button: {}", mouse_state.up_save_map_index),
+    };
+    let close = hit_test_save_map_right(mouse_state.world_x, mouse_state.world_y, row, col);
+
+    if close {
+      log(format!("  deleting saved map"));
+      saves[mouse_state.up_save_map_index] = None;
+    }
+    else {
+      log(format!("  loading saved map"));
+      state.snapshot_pointer += 1;
+      state.snapshot_undo_pointer = state.snapshot_pointer;
+      state.snapshot_stack[state.snapshot_pointer % UNDO_STACK_SIZE] = mapString.clone();
+      state.load_snapshot_next_frame = true;
+    }
+
+  } else {
+    let document = document();
+
+    // This element is created in this file but it's just easier to query it from the DOM ;)
+    let game_map: web_sys::HtmlCanvasElement = document.get_element_by_id("$main_game_canvas").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
+
+    // Create a new canvas and draw the floor part onto that canvas
+    let canvas = document.create_element("canvas").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
+    // document.get_element_by_id("$main_game").unwrap().append_child(&canvas)?;
+    // canvas.set_id(&"$main_game_canvas".into());
+    // canvas.set_width(600 as u32);
+    // canvas.set_height(600 as u32);
+    canvas.set_width((UI_SAVE_THUMB_WIDTH * 0.66) as u32);
+    canvas.set_height(UI_SAVE_THUMB_HEIGHT as u32);
+    let context = canvas.get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap();
+    context.draw_image_with_html_canvas_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+      &game_map,
+      UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_WIDTH, UI_FLOOR_HEIGHT,
+      0.0, 0.0, UI_SAVE_THUMB_WIDTH * 0.66, UI_SAVE_THUMB_HEIGHT
+    );
+
+    // Get string of map
+    let snap = generate_floor_dump(&options, &state, &factory, dnow()).join("\n");
+
+    // Store it there
+    saves[mouse_state.up_save_map_index] = Some( ( canvas, snap ) );
   }
 }
 fn on_drag_end_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
@@ -3596,7 +3795,8 @@ fn paint_quotes(options: &Options, state: &State, config: &Config, context: &Rc<
 
       assert!(
         config.nodes[factory.quotes[quote_index].part_index].kind == ConfigNodeKind::Part,
-        "quote part index should refer to Part node... have index: {}, but it points to: {:?}",
+        "quote part index should refer to Part node but was {:?}... have index: {}, but it points to: {:?}",
+        config.nodes[factory.quotes[quote_index].part_index].kind,
         factory.quotes[quote_index].part_index,
         config.nodes[factory.quotes[quote_index].part_index]
       );
@@ -4005,13 +4205,13 @@ fn paint_segment_part_from_config_bug(options: &Options, state: &State, config: 
     return false;
   }
 
-  assert!(config.nodes[segment_part_index].kind == ConfigNodeKind::Part, "segment parts should refer to part nodes... received {:?} which resolves to {:?}", segment_part_index, config.nodes[segment_part_index]);
+  assert!(config.nodes[segment_part_index].kind == ConfigNodeKind::Part, "segment parts should refer to part nodes but was {:?}... received {:?} which resolves to {:?}", config.nodes[segment_part_index].kind, segment_part_index, config.nodes[segment_part_index]);
 
   let (spx, spy, spw, sph, canvas) = part_to_sprite_coord_from_config(config, segment_part_index);
   if bug { log(format!("meh? {} {} {} {}: {:?} --> {:?}", spx, spy, spw, sph, segment_part_index, config.nodes[segment_part_index])); }
 
   // log(format!("wat: {} {} {} {}     {} {} {} {}", spx, spy, spw, sph , dx, dy, dw, dh,));
-  // web_sys::window().unwrap().document().unwrap().get_element_by_id("$tdb").unwrap().dyn_into::<web_sys::HtmlElement>().unwrap().append_child(&canvas).expect("to work");
+  // document().get_element_by_id("$tdb").unwrap().dyn_into::<web_sys::HtmlElement>().unwrap().append_child(&canvas).expect("to work");
 
   context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
     &canvas,
@@ -4039,6 +4239,112 @@ fn paint_segment_part_from_config_bug(options: &Options, state: &State, config: 
   }
 
   return true;
+}
+fn hit_test_save_map(x: f64, y: f64) -> usize {
+  return
+    if hit_test_save_map_rc(x, y, 0.0, 0.0) { 0 }
+    else if hit_test_save_map_rc(x, y, 0.0, 1.0) { 1 }
+    else if hit_test_save_map_rc(x, y, 1.0, 0.0) { 2 }
+    else if hit_test_save_map_rc(x, y, 1.0, 1.0) { 3 }
+    else { 100 };
+}
+fn hit_test_save_map_rc(x: f64, y: f64, row: f64, col: f64) -> bool {
+  return bounds_check(
+    x, y,
+    GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN), GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN),
+    GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN) + UI_SAVE_THUMB_WIDTH, GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN) + UI_SAVE_THUMB_HEIGHT,
+  );
+}
+fn hit_test_save_map_left(x: f64, y: f64, row: f64, col: f64) -> bool {
+  return bounds_check(
+    x, y,
+    GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN), GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN),
+    GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN) + UI_SAVE_THUMB_WIDTH * 0.66, GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN) + UI_SAVE_THUMB_HEIGHT,
+  );
+}
+fn hit_test_save_map_right(x: f64, y: f64, row: f64, col: f64) -> bool {
+  return bounds_check(
+    x, y,
+    GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN) + UI_SAVE_THUMB_WIDTH * 0.66, GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN),
+    GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN) + UI_SAVE_THUMB_WIDTH, GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN) + UI_SAVE_THUMB_HEIGHT,
+  );
+}
+fn paint_load_thumbs(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, saves: &[Option<(web_sys::HtmlCanvasElement, String)>; 9], img_lmb: &web_sys::HtmlImageElement) {
+  paint_map_load_button(0.0, 0.0, 0, context, &saves[0], img_lmb, mouse_state);
+  paint_map_load_button(1.0, 0.0, 1, context, &saves[1], img_lmb, mouse_state);
+  paint_map_load_button(0.0, 1.0, 2, context, &saves[2], img_lmb, mouse_state);
+  paint_map_load_button(1.0, 1.0, 3, context, &saves[3], img_lmb, mouse_state);
+}
+fn paint_map_load_button(col: f64, row: f64, button_index: usize, context: &Rc<web_sys::CanvasRenderingContext2d>, save: &Option<(web_sys::HtmlCanvasElement, String)>, img_lmb: &web_sys::HtmlImageElement, mouse_state: &MouseState) {
+  assert!(button_index < 6, "there are only 6 save buttons");
+  let ox = GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN);
+  let oy = GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN);
+  round_rect(context, ox, oy, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT);
+  if let Some((canvas, String)) = save {
+    // I'm using patterns to get around rounded corners but maybe should just use the mask
+    // appraoch instead? Neither is very portable anyways so why not make it a simple blit...
+    if let Some(ptrn) = context.create_pattern_with_html_canvas_element(&canvas, "repeat").expect("trying to load thumb") {
+      let close = hit_test_save_map_right(mouse_state.world_x, mouse_state.world_y, row, col);
+
+      context.save();
+      // Note: the translate is necessary because the pattern anchor point is always 0.0 of window, not the canvas
+      context.translate(ox, oy);
+      context.set_fill_style(&ptrn);
+      context.fill();
+      context.restore();
+      context.set_stroke_style(&"black".into());
+      context.stroke();
+
+      // Paint trash button
+      if mouse_state.over_save_map && mouse_state.over_save_map_index == button_index && close {
+        context.set_fill_style(&"#ffaaaa".into());
+      } else {
+        context.set_fill_style(&"#aaaaaa".into());
+      }
+      round_rect(context, ox + UI_SAVE_THUMB_WIDTH * 0.66, oy, UI_SAVE_THUMB_WIDTH * 0.33, UI_SAVE_THUMB_HEIGHT);
+      context.fill();
+      context.set_stroke_style(&"black".into());
+      context.stroke();
+      context.set_fill_style(&"red".into());
+      context.fill_text("X", ox + UI_SAVE_THUMB_WIDTH - 20.0, oy + UI_SAVE_THUMB_HEIGHT / 2.0 + 5.0);
+    } else {
+      context.set_fill_style(&"orange".into());
+      context.fill();
+      context.set_stroke_style(&"black".into());
+      context.stroke();
+    }
+  } else {
+    if mouse_state.over_save_map && mouse_state.over_save_map_index == button_index {
+      context.set_fill_style(&"#aaffaa".into());
+    } else {
+      context.set_fill_style(&"#aaaaaa".into());
+    }
+    context.fill();
+    context.draw_image_with_html_image_element_and_dw_and_dh(
+      img_lmb,
+      ox + UI_SAVE_THUMB_WIDTH * 0.35,
+      oy + UI_SAVE_THUMB_HEIGHT * 0.2,
+      UI_SAVE_THUMB_WIDTH / 3.0,
+      UI_SAVE_THUMB_HEIGHT / 2.0
+    );
+    context.set_stroke_style(&"black".into());
+    context.stroke();
+  }
+}
+
+fn round_rect(context: &Rc<web_sys::CanvasRenderingContext2d>, x: f64, y: f64, w: f64, h: f64) {
+  // web_sys is not exposing the new roundRect so this SO answer will have to do
+  // https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/roundRect
+  let mut r = 10.0;
+  if w < 2.0 * r { r = w / 2.0; }
+  if h < 2.0 * r { r = h / 2.0; }
+  context.begin_path();
+  context.move_to(x+r, y);
+  context.arc_to(x+w, y,   x+w, y+h, r);
+  context.arc_to(x+w, y+h, x,   y+h, r);
+  context.arc_to(x,   y+h, x,   y,   r);
+  context.arc_to(x,   y,   x+w, y,   r);
+  context.close_path();
 }
 
 fn draw_belt(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, belt_type: BeltType, dx: f64, dy: f64, dw: f64, dh: f64) {

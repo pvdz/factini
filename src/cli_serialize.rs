@@ -298,7 +298,7 @@ pub fn generate_floor_without_views(options: &mut Options, state: &mut State, fa
 
   return out;
 }
-pub fn generate_floor_dump(options: &mut Options, state: &mut State, factory: &Factory, now: u64) -> Vec<String> {
+pub fn generate_floor_dump(options: &Options, state: &State, factory: &Factory, now: u64) -> Vec<String> {
   // Send help. I'm sure this is wrong on multiple levels. But it works.
   let aa = serialize2(options, state, factory, true, now);
   let a = aa.split('\n');
@@ -309,7 +309,7 @@ pub fn generate_floor_dump(options: &mut Options, state: &mut State, factory: &F
   return out;
 }
 
-pub fn serialize2(options: &mut Options, state: &mut State, factory: &Factory, dump: bool, now: u64) -> String {
+pub fn serialize2(options: &Options, state: &State, factory: &Factory, dump: bool, now: u64) -> String {
   // Create a string that we can parse again. This requires to be explicit about the port states.
   // While it would be super nice to have a condensed string, there's just too many variations.
   // There are four ports and each port can have one of four states (none, unknown, in, out) so

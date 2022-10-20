@@ -68,6 +68,16 @@ pub const UI_DAY_PROGRESS_OFFSET_Y: f64 = UI_DAY_BAR_OFFSET_Y;
 pub const UI_DAY_PROGRESS_WIDTH: f64 = UI_TOP_WIDTH - (UI_DAY_BAR_ICON_WIDTH + 5.0 + 5.0 + UI_DAY_BAR_ICON_WIDTH);
 pub const UI_DAY_PROGRESS_HEIGHT: f64 = 30.0;
 
+pub const UI_SAVE_OFFSET_X: f64 = 5.0;
+pub const UI_SAVE_OFFSET_Y: f64 = 8.0;
+// Note: game is currently at 1000 x 800. The floor is 600x600, so 1:1 ratio
+pub const UI_SAVE_THUMB_WIDTH: f64 = 90.0;
+pub const UI_SAVE_THUMB_HEIGHT: f64 = 60.0;
+pub const UI_SAVE_MARGIN: f64 = 7.0;
+// Note: we have 3x2 save tiles
+pub const UI_SAVE_THUMB_X1: f64 = UI_SAVE_OFFSET_X;
+pub const UI_SAVE_THUMB_Y1: f64 = UI_SAVE_OFFSET_Y;
+
 pub const UI_BOTTOM_OFFSET_X: f64 = GRID_X1 + 15.0;
 pub const UI_BOTTOM_OFFSET_Y: f64 = GRID_Y2 + 10.0;
 
@@ -132,7 +142,7 @@ pub const GRID_Y4: f64 = GRID_Y3 + GRID_BOTTOM_DEBUG_HEIGHT + GRID_SPACING;
 
 pub const ZONE_HELP: Zone = Zone::TopLeft;
 pub const ZONE_QUOTES: Zone = Zone::Left;
-pub const ZONE_BOTTOM_LEFT: Zone = Zone::BottomLeft;
+pub const ZONE_SAVE_MAP: Zone = Zone::BottomLeft;
 pub const ZONE_BOTTOM_BOTTOM_LEFT: Zone = Zone::BottomBottomLeft;
 pub const ZONE_DAY_BAR: Zone = Zone::Top;
 pub const ZONE_FLOOR: Zone = Zone::Middle;
@@ -163,7 +173,7 @@ pub fn coord_to_zone(options: &Options, state: &State, config: &Config, x: f64, 
       ZONE_QUOTES
     } else if y < GRID_Y3 {
       // bottom-left, unused
-      ZONE_BOTTOM_LEFT
+      ZONE_SAVE_MAP
     } else {
       // bottom-bottom-left, debug
       ZONE_BOTTOM_BOTTOM_LEFT

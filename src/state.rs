@@ -161,6 +161,13 @@ pub struct MouseState {
   pub last_up_world_y: f64,
   pub last_up_cell_x: f64, // Can be negative (oob), is not floored
   pub last_up_cell_y: f64, // Can be negative (oob), is not floored
+
+  pub over_save_map: bool,
+  pub over_save_map_index: usize,
+  pub down_save_map: bool,
+  pub down_save_map_index: usize,
+  pub up_save_map: bool,
+  pub up_save_map_index: usize,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

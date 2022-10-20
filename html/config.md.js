@@ -323,6 +323,7 @@ The old paper
 
 # Part_PotionRed
 - char: V
+- pattern: Part_Ruby Part_EmptyBottle
 - file: ./img/roguelikeitems.png
 - x: 176
 - y: 64
@@ -378,6 +379,141 @@ The old paper
 - w: 16
 - h: 16
 
+# Part_Gift
+Char is the Greek letter chi
+- char: χ
+- pattern: Part_Thread Part_Paper Part_GoldCoins Part_BookShield
+- file: ./img/bigset.png
+- x: 168
+- y: 216
+- w: 24
+- h: 24
+
+# Part_SilverCoin
+Char is the Greek letter sigma
+- char: ς
+- pattern: Part_DirtWhite Part_DirtWhite
+- file: ./img/bigset.png
+- x: 96
+- y: 2232
+- w: 24
+- h: 24
+
+# Part_SilverCoins
+Char is the Greek letter sigma (upper)
+- char: Σ
+- pattern: Part_SilverCoin Part_SilverCoin Part_SilverCoin
+- file: ./img/bigset.png
+- x: 144
+- y: 2232
+- w: 24
+- h: 24
+
+# Part_GoldCoin
+Char is the Greek letter theta
+- char: θ
+- pattern: Part_SilverCoins Part_GoldDust
+- file: ./img/bigset.png
+- x: 0
+- y: 2232
+- w: 24
+- h: 24
+
+# Part_GoldCoins
+Char is the Greek letter theta (upper)
+- char: Θ
+- pattern: Part_GoldCoin Part_GoldCoin Part_GoldCoin
+- file: ./img/bigset.png
+- x: 48
+- y: 2232
+- w: 24
+- h: 24
+
+# Part_Cloth
+Char is the Greek letter xi (upper)
+- char: ξ
+- file: ./img/bigset.png
+- x: 360
+- y: 2376
+- w: 24
+- h: 24
+
+# Part_GrayHat
+Char is the Greek letter eta (upper)
+- char: ε
+- pattern: Part_Rope Part_Cloth
+- file: ./img/bigset.png
+- x: 48
+- y: 10320
+- w: 24
+- h: 24
+
+# Part_SantaHat
+Char is the Greek letter eta (upper)
+- char: Η
+- pattern: Part_PotionRed Part_Rope Part_GrayHat
+- file: ./img/bigset.png
+- x: 169
+- y: 5688
+- w: 24
+- h: 24
+
+# Part_RedGift
+Char is the Greek letter omega (upper)
+- char: Ω
+- pattern: Part_Gift Part_SantaHat Part_PotionRed Part_PotionGreen Part_Sled
+- file: ./img/bigset.png
+- x: 193
+- y: 5688
+- w: 24
+- h: 24
+
+# Part_Wool
+Char is the Greek letter psi (upper)
+- char: ψ
+- file: ./img/bigset.png
+- x: 120
+- y: 15072
+- w: 24
+- h: 24
+
+# Part_Thread
+Char is the Greek letter tau (upper)
+- char: Τ
+- pattern: Part_Wool
+- file: ./img/bigset.png
+- x: 48
+- y: 2448
+- w: 24
+- h: 24
+
+# Part_FishingRod
+Char is the Greek letter tau (upper)
+- char: Τ
+- pattern: Part_Wood Part_Thread
+- file: ./img/bigset.png
+- x: 144
+- y: 2448
+- w: 24
+- h: 24
+
+# Part_Worm
+Char is the Greek letter zeta (upper)
+- char: ζ
+- file: ./img/roguelikeitems.png
+- x: 176
+- y: 176
+- w: 16
+- h: 16
+
+# Part_Sled
+Char is the Greek letter xi (upper)
+- char: Ξ
+- file: ./img/sled.png
+- x: 0
+- y: 0
+- w: 512
+- h: 512
 
 # Quest_Start
 - after: 
@@ -413,6 +549,61 @@ The old paper
 - after: Quest_BlueBook, Quest_BlueShield
 - parts: Part_BookShield
 - targets: 10x Part_BookShield
+
+# Quest_SilverCoin
+- after:
+- parts: Part_SilverCoin
+- targets: 10x Part_SilverCoin
+
+# Quest_SilverCoins
+- after: Quest_SilverCoin
+- parts: Part_SilverCoins
+- targets: 10x Part_SilverCoins
+
+# Quest_GoldCoins
+- after: Quest_SilverCoins
+- parts: Part_GoldCoins Part_GoldDust
+- targets: 10x Part_GoldCoins
+
+# Quest_Gift
+- after: Quest_GoldCoins Quest_BookShield
+- parts: Part_Gift
+- targets: 10x Part_Gift
+
+# Quest_PotionRed
+- after: Quest_Start
+- parts: Part_Ruby, Part_PotionRed
+- targets: 10x Part_PotionRed
+
+# Quest_GreyHat
+- after: Quest_Start
+- parts: Part_GrayHat Part_Cloth
+- targets: 10x Part_GrayHat
+
+# Quest_SantaHat
+- after: Quest_PotionRed Quest_WhiteBook Quest_GreyHat
+- parts: Part_SantaHat
+- targets: 10x Part_SantaHat
+
+# Quest_Thread
+- after:
+- parts: Part_Wool Part_Thread
+- targets: 10x Part_Thread
+
+# Quest_FishingRod
+- after: Quest_Start Quest_Thread
+- parts: Part_FishingRod
+- targets: 10x Part_FishingRod
+
+# Quest_Sled
+- after: Quest_FishingRod
+- parts: Part_Sled Part_Worm
+- targets: 10x Part_Sled
+
+# Quest_Santa
+- after: Quest_Gift Quest_SantaHat Quest_Sled
+- parts: Part_PotionGreen Part_RedGift
+- targets: 10x Part_RedGift
 
 # Supply_Up
 - file: ./img/supply.png
