@@ -37,7 +37,6 @@
 // - play button border color affected by laser. also highlights on hover when it supposed to not to
 // - car polish; should make nice corners, should drive same speed to any height
 // - touchmove may need to put the pointer above the finger?
-// - new parts are not properly displayed when created from factory or whats up with that
 // - need to figure out how to create bigger buttons
 // - belt drag should deselect factory?
 // - bouncers are affected by time. the last bouncer animations are completely broken
@@ -1256,7 +1255,7 @@ fn on_drag_start_offer(options: &mut Options, state: &mut State, config: &Config
     state.mouse_mode_selecting = false;
 
     let part_index = factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0;
-    if config.nodes[part_index].pattern_unique_icons.len() == 0 {
+    if config.nodes[part_index].pattern_unique_kinds.len() == 0 {
       log(format!("closing machine craft menu because dragging offer without pattern"));
       cell_selection.on = false;
     }
@@ -1444,7 +1443,7 @@ fn on_up_craft(options: &mut Options, state: &mut State, config: &Config, factor
       log(format!("Clicked an input cell: {}", mouse_state.craft_up_ci_icon));
 
       // Force-clear this cell of the machine
-      machine_change_want(options, state, config, factory, factory.floor[cell_selection.coord].machine.main_coord, mouse_state.craft_up_ci_index as usize - 100, part_none(config));
+      machine_change_want_kind(options, state, config, factory, factory.floor[cell_selection.coord].machine.main_coord, mouse_state.craft_up_ci_index as usize - 100, PARTKIND_NONE);
     }
     CraftInteractable::None => {
       log(format!("Clicked inside selection craft menu but not on an interactable; ignoring"));
@@ -1570,7 +1569,7 @@ fn on_drag_end_offer_over_craft(options: &mut Options, state: &mut State, config
     log(format!("Dropped an offer with pattern in the middle and on a machine. Update the machine!"));
     for i in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
       let part_index = config.nodes[dragged_part_index].pattern_by_index.get(i).unwrap_or(&PARTKIND_NONE);
-      machine_change_want(options, state, config, factory, main_coord, i, part_from_part_index(config, *part_index));
+      machine_change_want_kind(options, state, config, factory, main_coord, i, *part_index);
       // Make sure the haves are cleared as well
       factory.floor[main_coord].machine.haves[i] = part_none(config);
     }
@@ -1652,7 +1651,7 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
     }
     factory.changed = true;
   }
-  else if is_middle(last_mouse_up_cell_x, last_mouse_up_cell_y) && config.nodes[dragged_part_index].pattern_unique_icons.len() > 0 {
+  else if is_middle(last_mouse_up_cell_x, last_mouse_up_cell_y) && config.nodes[dragged_part_index].pattern_unique_kinds.len() > 0 {
     let coord = to_coord(mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize);
     // Figure out whether it was dropped on a machine
     if factory.floor[coord].kind == CellKind::Machine {
@@ -1660,7 +1659,7 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
       let main_coord = factory.floor[coord].machine.main_coord;
       for i in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
         let part_index = config.nodes[dragged_part_index].pattern_by_index.get(i).unwrap_or(&PARTKIND_NONE);
-        machine_change_want(options, state, config, factory, main_coord, i, part_from_part_index(config, *part_index));
+        machine_change_want_kind(options, state, config, factory, main_coord, i, *part_index);
         // Make sure the haves are cleared as well
         factory.floor[main_coord].machine.haves[i] = part_none(config);
       }
@@ -2165,7 +2164,7 @@ fn on_drag_start_craft(options: &mut Options, state: &mut State, config: &Config
     let index = mouse_state.craft_down_ci_index as usize - 100;
     log(format!("Clearing input @{} from machine @{} because drag start; has {} wants and {} haves", index, selected_main_coord, factory.floor[selected_main_coord].machine.wants.len(), factory.floor[selected_main_coord].machine.haves.len()));
 
-    machine_change_want(options, state, config, factory, selected_main_coord, index, part_none(config));
+    machine_change_want_kind(options, state, config, factory, selected_main_coord, index, PARTKIND_NONE);
     // Make sure the haves are cleared as well
     factory.floor[selected_main_coord].machine.haves[index] = part_none(config);
   }
@@ -2180,7 +2179,7 @@ fn on_drag_end_craft(options: &mut Options, state: &mut State, config: &Config, 
       let selected_main_coord = factory.floor[cell_selection.coord].machine.main_coord;
       let index = mouse_state.craft_up_ci_index as usize - 100;
       log(format!("Setting input @{} from machine @{} because drag start; has {} wants and {} haves", index, selected_main_coord, factory.floor[selected_main_coord].machine.wants.len(), factory.floor[selected_main_coord].machine.haves.len()));
-      machine_change_want(options, state, config, factory, selected_main_coord, index, part_from_part_index(config, mouse_state.craft_down_ci_part_kind));
+      machine_change_want_kind(options, state, config, factory, selected_main_coord, index, mouse_state.craft_down_ci_part_kind);
       // Clear the haves to make sure it doesn't contain an incompatible part now
       factory.floor[selected_main_coord].machine.haves[index] = part_from_part_index(config, mouse_state.craft_down_ci_part_kind);
     }
@@ -3217,7 +3216,7 @@ fn paint_mouse_while_dragging_offer(options: &Options, state: &State, config: &C
   let part_index = factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0;
   paint_ui_offer_hover_droptarget_hint(options, state, config, context, factory, part_index);
 
-  let len = config.nodes[part_index].pattern_unique_icons.len();
+  let len = config.nodes[part_index].pattern_unique_kinds.len();
   if len > 0 {
     // Only machines unless debug setting is enabled
     // When over a machine, preview the pattern over the machine? Or snap the offer to its center?
@@ -3821,7 +3820,7 @@ fn paint_ui_offers(options: &Options, state: &State, config: &Config, context: &
     let ( part_index, part_interactable ) = factory.available_parts_rhs_menu[offer_index];
     if part_interactable {
       let highlight = (is_mouse_over_offer && offer_index == offer_hover_index) || (mouse_state.offer_selected && mouse_state.offer_selected_index == offer_index);
-      paint_ui_offer(options, state, config, context, factory, mouse_state, cell_selection, offer_index, part_index, inc, highlight, config.nodes[part_index].pattern_unique_icons.len() > 0);
+      paint_ui_offer(options, state, config, context, factory, mouse_state, cell_selection, offer_index, part_index, inc, highlight, config.nodes[part_index].pattern_unique_kinds.len() > 0);
       inc += 1;
     }
   }
@@ -3951,7 +3950,7 @@ fn paint_ui_offer_hover_droptarget_hint(options: &Options, state: &State, config
   // Parts with patterns go to machines. Parts without patterns (or empty patterns) are suppliers.
   if config.nodes[part_index].pattern_by_index.len() > 0 {
     // Get all unique required parts
-    let want_icons = &config.nodes[part_index].pattern_unique_icons;
+    let want_icons = &config.nodes[part_index].pattern_unique_kinds;
 
     // TODO: do this prep in the mouse state change so we only do it once per mouse-over
     // TODO: did I not have a shortcut to iterate over just machine cells?
@@ -4011,7 +4010,7 @@ fn paint_ui_offer(
 
   if highlight {
     context.set_stroke_style(&"black".into());
-    if config.nodes[part_index].pattern_unique_icons.len() > 0 {
+    if config.nodes[part_index].pattern_unique_kinds.len() > 0 {
       // Draw tiny machine (with arrow?)
       // Draw tiny parts
 
@@ -4021,9 +4020,9 @@ fn paint_ui_offer(
       let machine_img = &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].file_canvas_cache_index];
       context.draw_image_with_html_image_element_and_dw_and_dh(machine_img, x, y, 0.75 * CELL_W, 0.75 * CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
 
-      for i in 0..config.nodes[part_index].pattern_unique_icons.len() {
+      for i in 0..config.nodes[part_index].pattern_unique_kinds.len() {
         // Paint tiny output part
-        paint_segment_part_from_config(options, state, config, context, config.nodes[part_index].pattern_unique_icons[i], x + CELL_W + (CELL_W * 0.5 + 5.0) * i as f64, y + CELL_H * 0.125, 0.5 * CELL_W, 0.5 * CELL_H);
+        paint_segment_part_from_config(options, state, config, context, config.nodes[part_index].pattern_unique_kinds[i], x + CELL_W + (CELL_W * 0.5 + 5.0) * i as f64, y + CELL_H * 0.125, 0.5 * CELL_W, 0.5 * CELL_H);
       }
     }
   } else {
@@ -4040,8 +4039,8 @@ fn paint_ui_offer(
   if
     cell_selection.on &&
     factory.floor[selected_coord].kind == CellKind::Machine &&
-    config.nodes[part_index].pattern_unique_icons.len() > 0 &&
-    config.nodes[part_index].pattern_unique_icons.iter().all(|part_index| {
+    config.nodes[part_index].pattern_unique_kinds.len() > 0 &&
+    config.nodes[part_index].pattern_unique_kinds.iter().all(|part_index| {
       return factory.floor[selected_main_coord].machine.last_received_parts.contains(part_index);
     })
   {

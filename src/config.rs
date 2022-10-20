@@ -4,6 +4,7 @@ use std::collections::HashSet;
 use wasm_bindgen::{JsValue} ;
 
 use super::options::*;
+use super::machine::*;
 use super::part::*;
 use super::state::*;
 use super::utils::*;
@@ -93,8 +94,9 @@ pub const CONFIG_NODE_BELT_INVALID: usize = 80;
 pub struct Config {
   pub nodes: Vec<ConfigNode>,
   pub quest_nodes: Vec<usize>, // maps to nodes vec
-  pub part_nodes: Vec<usize>, // maps to nodes vec
-  pub node_name_to_index: HashMap<String, usize>,
+  pub part_nodes: Vec<PartKind>, // maps to nodes vec
+  pub node_name_to_index: HashMap<String, PartKind>,
+  pub node_pattern_to_index: HashMap<String, PartKind>,
   pub sprite_cache_lookup: HashMap<String, usize>, // indexes into sprite_cache_canvas
   pub sprite_cache_order: Vec<String>, // srcs by index.
   pub sprite_cache_canvas: Vec<web_sys::HtmlImageElement>,
@@ -118,9 +120,9 @@ pub struct ConfigNode {
 
   // Part
   pub pattern_by_index: Vec<PartKind>, // Machine pattern that generates this part (part_index)
-  pub pattern_by_name: Vec<String>, // Machine pattern that generates this part (actual names)
-  pub pattern_by_icon: Vec<char>, // Machine pattern that generates this part
-  pub pattern_unique_icons: Vec<PartKind>, // String of unique non-empty part icons. We can use this to quickly find machines that have received these parts.
+  pub pattern_by_name: Vec<String>, // Actual names. Used while parsing. Should only be used for debugging afterwards
+  pub pattern_by_icon: Vec<char>, // Char icons. Should only be used for debugging
+  pub pattern_unique_kinds: Vec<PartKind>, // Unique non-empty part kinds. We can use this to quickly find machines that have received these parts.
   pub icon: char, // Single (unique) character that also represents this part internally
   pub file: String, // Sprite image location
   pub file_canvas_cache_index: usize, // The canvas with the sprite image loaded
@@ -336,7 +338,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
             pattern_by_index: vec!(),
             pattern_by_name: vec!(),
             pattern_by_icon: vec!(),
-            pattern_unique_icons: vec!(),
+            pattern_unique_kinds: vec!(),
             icon,
             file: "".to_string(),
             file_canvas_cache_index: 0,
@@ -499,6 +501,8 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
 
   // Map (fully qualified) name to index on config nodes
   let mut node_name_to_index = HashMap::new();
+  // Map for getting fast pattern lookups. The icons for each part of the pattern (sorted, not none) are serialized into a string and checked against this hashmap. Faster-simpler than anything else.
+  let mut node_pattern_to_index = HashMap::new();
   // Create unique index for each unique sprite map url
   let mut sprite_cache_lookup = HashMap::new();
   let mut sprite_cache_order = vec!();
@@ -517,37 +521,33 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
     let node = &mut nodes[i];
 
     // First resolve the target index, regardless of whether the name or icon was used
-    nodes[i].pattern_by_index = nodes[i].pattern_by_name.iter().map(|name| {
-      let mut t = name.as_str().clone();
-      if t == "." || t == "_"{
-        // In patterns we use . or _ to represent nothing, which translates to the empty/none part
-        t = " ";
-      }
-      return *node_name_to_index.get(t).unwrap_or_else(| | panic!("pattern_by_name to index: what happened here: unlock name=`{}` of names=`{:?}`", name, node_name_to_index.keys()))
-    }).collect::<Vec<PartKind>>();
+    let pattern_by_index =
+      nodes[i].pattern_by_name.iter()
+        .map(|name| {
+          let mut t = name.as_str().clone();
+          if t == "." || t == "_"{
+            // In patterns we use . or _ to represent nothing, which translates to the empty/none part
+            t = " ";
+          }
+          return *node_name_to_index.get(t).unwrap_or_else(| | panic!("pattern_by_name to index: what happened here: unlock name=`{}` of names=`{:?}`", name, node_name_to_index.keys()))
+        })
+        .collect::<Vec<PartKind>>();
+    let pattern_by_index = machine_normalize_wants(pattern_by_index);
 
-    // Fetch all the icons
-    nodes[i].pattern_by_icon = nodes[i].pattern_by_index.iter().map(|&index| nodes[index].icon).collect::<Vec<char>>();
+    // Clean up the pattern by name (should only be used for parsing and debugging)
+    nodes[i].pattern_by_name = pattern_by_index.iter().map(|&kind| nodes[kind].name.clone()).collect::<Vec<String>>();
+    // Should only be used for debugging and serialization
+    nodes[i].pattern_by_icon = pattern_by_index.iter().map(|&index| nodes[index].icon).collect::<Vec<char>>();
 
-    // Normalize to name (could be icon)
-    nodes[i].pattern_by_name = nodes[i].pattern_by_index.iter().map(|&index| nodes[index].name.clone()).collect::<Vec<String>>();
+    let pattern_str = nodes[i].pattern_by_icon.iter().collect::<String>();
+    node_pattern_to_index.insert(pattern_str, i);
 
-    // If the pattern was defined with empty nodes then clear it
-    if nodes[i].pattern_by_index.iter().all(|&part_index| part_index == PARTKIND_NONE) {
-      nodes[i].pattern_by_index = vec!();
-      nodes[i].pattern_by_name = vec!();
-      nodes[i].pattern_by_icon = vec!();
-    }
-  // });
-  }
-
-  for i in 0..nodes.len() {
     // Get all unique required parts, convert them to their icon, order them, create a string
     // If we do the same for the machines then we can do string comparisons.
-    let mut icons = nodes[i].pattern_by_index.iter().filter(|&&part_index| part_index != PARTKIND_NONE).map(|&x|x).collect::<Vec<usize>>();
-    icons.sort_unstable();
-    icons.dedup();
-    nodes[i].pattern_unique_icons = icons;
+    let mut kinds = pattern_by_index.clone();
+    kinds.dedup();
+    nodes[i].pattern_unique_kinds = kinds;
+    nodes[i].pattern_by_index = pattern_by_index;
   }
 
   if print_fmd_trace { log(format!("+ create quest unlocks_after_by_index and starting_part_by_index pointers")); }
@@ -648,8 +648,9 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
 
   // log(format!("parsed nodes: {:?}", &nodes[1..]));
   if print_fmd_trace { log(format!("parsed map: {:?}", node_name_to_index)); }
+  if print_fmd_trace { node_pattern_to_index.iter_mut().for_each(|(str, &mut kind)| log(format!("node_pattern_to_index: {} = {} = {}", nodes[kind].raw_name, str, kind))); }
 
-  return Config { nodes, quest_nodes, part_nodes, node_name_to_index, sprite_cache_lookup, sprite_cache_order, sprite_cache_canvas: vec!() };
+  return Config { nodes, quest_nodes, part_nodes, node_name_to_index, node_pattern_to_index, sprite_cache_lookup, sprite_cache_order, sprite_cache_canvas: vec!() };
 }
 
 fn get_system_nodes() -> Vec<ConfigNode> {
@@ -761,7 +762,7 @@ fn config_node_part(index: PartKind, name: String, icon: char) -> ConfigNode {
     pattern_by_index: vec!(),
     pattern_by_name: vec!(),
     pattern_by_icon: vec!(),
-    pattern_unique_icons: vec!(),
+    pattern_unique_kinds: vec!(),
     icon,
     file: "".to_string(),
     file_canvas_cache_index: 0,
@@ -784,7 +785,7 @@ fn config_node_supply(index: PartKind, name: String) -> ConfigNode {
     unlocks_todo_by_index: vec!(),
     starting_part_by_name: vec!(),
     starting_part_by_index: vec!(),
-    pattern_unique_icons: vec!(),
+    pattern_unique_kinds: vec!(),
     production_target_by_name: vec!(),
     production_target_by_index: vec!(),
     pattern_by_index: vec!(),
@@ -812,7 +813,7 @@ fn config_node_demand(index: PartKind, name: String) -> ConfigNode {
     unlocks_todo_by_index: vec!(),
     starting_part_by_name: vec!(),
     starting_part_by_index: vec!(),
-    pattern_unique_icons: vec!(),
+    pattern_unique_kinds: vec!(),
     production_target_by_name: vec!(),
     production_target_by_index: vec!(),
     pattern_by_index: vec!(),
@@ -840,7 +841,7 @@ fn config_node_dock(index: PartKind, name: String) -> ConfigNode {
     unlocks_todo_by_index: vec!(),
     starting_part_by_name: vec!(),
     starting_part_by_index: vec!(),
-    pattern_unique_icons: vec!(),
+    pattern_unique_kinds: vec!(),
     production_target_by_name: vec!(),
     production_target_by_index: vec!(),
     pattern_by_index: vec!(),
@@ -868,7 +869,7 @@ fn config_node_machine(index: PartKind, name: String, file: String) -> ConfigNod
     unlocks_todo_by_index: vec!(),
     starting_part_by_name: vec!(),
     starting_part_by_index: vec!(),
-    pattern_unique_icons: vec!(),
+    pattern_unique_kinds: vec!(),
     production_target_by_name: vec!(),
     production_target_by_index: vec!(),
     pattern_by_index: vec!(),
@@ -897,7 +898,7 @@ fn config_node_belt(index: PartKind, name: String, file: String) -> ConfigNode {
     unlocks_todo_by_index: vec!(),
     starting_part_by_name: vec!(),
     starting_part_by_index: vec!(),
-    pattern_unique_icons: vec!(),
+    pattern_unique_kinds: vec!(),
     production_target_by_name: vec!(),
     production_target_by_index: vec!(),
     pattern_by_index: vec!(),
@@ -961,7 +962,7 @@ fn config_node_to_jsvalue(node: &ConfigNode) -> JsValue {
     convert_js_to_pair("pattern_by_index", convert_vec_usize_to_jsvalue(&node.pattern_by_index)),
     convert_js_to_pair("pattern_by_name", convert_vec_string_to_jsvalue(&node.pattern_by_name)),
     convert_js_to_pair("pattern_by_icon", convert_vec_char_to_jsvalue(&node.pattern_by_icon)),
-    convert_js_to_pair("pattern_unique_icons", convert_vec_usize_to_jsvalue(&node.pattern_unique_icons)),
+    convert_js_to_pair("pattern_unique_kinds", convert_vec_usize_to_jsvalue(&node.pattern_unique_kinds)),
     convert_string_to_pair("icon", format!("{}", node.icon).as_str()),
     convert_string_to_pair("file", &node.file),
     convert_js_to_pair("file_canvas_cache_index", JsValue::from(node.file_canvas_cache_index)),

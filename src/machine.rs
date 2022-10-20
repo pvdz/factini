@@ -94,7 +94,7 @@ pub fn machine_new(options: &mut Options, state: &mut State, config: &Config, ki
     haves.push(part_none(config));
   }
 
-  let output = wants_discover_output(options, state, config, &wants, cell_width, cell_height);
+  let output = machine_discover_output_wants(options, state, config, &wants, main_coord);
 
   assert_eq!(wants.len(), haves.len(), "machines should start with same len wants as haves");
 
@@ -111,7 +111,7 @@ pub fn machine_new(options: &mut Options, state: &mut State, config: &Config, ki
 
     start_at: 0,
 
-    output_want: output,
+    output_want: part_from_part_index(config, output),
 
     speed,
     production_price: 0,
@@ -349,153 +349,55 @@ pub fn machine_discover_ins_and_outs_floor(floor: &mut [Cell; FLOOR_CELLS_WH], m
   }
 }
 
-pub fn machine_change_want(options: &Options, state: &State, config: &Config, factory: &mut Factory, main_coord: usize, index: usize, part: Part) {
-  factory.floor[main_coord].machine.wants[index] = part;
-
-  let new_out = machine_discover_output(options, state, config, factory, main_coord);
-  log(format!("machine_change_want() -> {:?}", new_out));
-  factory.floor[main_coord].machine.output_want = new_out;
-  factory.changed = true;
+pub fn machine_normalize_wants(wants: Vec<PartKind>) -> Vec<PartKind> {
+  let mut wants = wants.iter()
+    .map(|&p| p)
+    .filter(|&part_index| part_index != PARTKIND_NONE)
+    .collect::<Vec<PartKind>>();
+  wants.sort_unstable();
+  return wants;
 }
 
-pub fn machine_discover_output(options: &Options, state: &State, config: &Config, factory: &Factory, main_coord: usize) -> Part {
+pub fn machine_change_want_kind(options: &Options, state: &State, config: &Config, factory: &mut Factory, main_coord: usize, index: usize, kind: PartKind) {
+  factory.floor[main_coord].machine.wants[index] = part_from_part_index(config, kind);
+
+  let new_out = machine_discover_output_unmut(options, state, config, factory, main_coord, index, kind);
+  log(format!("machine_change_want() -> {:?}", new_out));
+  factory.floor[main_coord].machine.output_want = part_from_part_index(config, new_out);
+  factory.changed = true;
+}
+pub fn machine_change_want_kind_floor(options: &Options, state: &State, config: &Config, floor: &mut [Cell; FLOOR_CELLS_WH], main_coord: usize, index: usize, kind: PartKind) {
+  floor[main_coord].machine.wants[index] = part_from_part_index(config, kind);
+
+  let new_out = machine_discover_output_floor(options, state, config, floor, main_coord);
+  log(format!("machine_change_want() -> {:?}", new_out));
+  floor[main_coord].machine.output_want = part_from_part_index(config, new_out);
+}
+pub fn machine_discover_output_unmut(options: &Options, state: &State, config: &Config, factory: &Factory, main_coord: usize, index: usize, kind: PartKind) -> PartKind {
+  // Work around slicing muts. why this does work is beyond me rn.
+  machine_discover_output_floor(options, state, config, &factory.floor, main_coord)
+}
+pub fn machine_discover_output_floor(options: &Options, state: &State, config: &Config, floor: &[Cell; FLOOR_CELLS_WH], main_coord: usize) -> PartKind {
   // Given a set of wants, determine what the output should be
   // Things to consider;
-  // - input pattern
+  // - input parts (sorted list without nones)
   // - factory type
   // - unlock tree
   // - level limitations / specials (?)
 
-  // 1x1, 1x2, 1x3, 1x4, 1x5
-  // 2x1, 2x2, 2x3, 2x4, 2x5
-  // 3x1, 3x4, 3x3, 3x4, 3x5
-  // 4x1, 4x4, 4x3, 4x4, 4x5
-  // 5x1, 5x4, 5x3, 5x4, 5x5
-
   // Probably only a subset of these? with expansion options
 
-  let w = factory.floor[main_coord].machine.cell_width;
-  let h = factory.floor[main_coord].machine.cell_height;
+  // let wants = machine_normalize_wants(floor[main_coord].machine.wants.clone());
+  // let mut wants = floor[main_coord].machine.wants.clone().iter().map(|part| part.kind).filter(|&kind| kind != PARTKIND_NONE).collect::<Vec<PartKind>>();
+  // wants.sort_unstable();
+  return machine_discover_output_wants(options, state, config, &floor[main_coord].machine.wants, main_coord);
 
-  if options.trace_map_parsing { log(format!("machine_discover_output({}) {}_{}", main_coord, w, h)); }
-
-  match ( w , h ) {
-    ( 1, 3 ) => machine_discover_output_1_3(options, state, config, factory, main_coord),
-    ( 3, 3 ) => machine_discover_output_3_3(options, state, config, factory, main_coord),
-    _ => {
-      if options.trace_map_parsing { log(format!("machine_discover_output(): machine dimensions not supported; {} x {}", w, h)); }
-      part_c(config, 't')
-    },
-  }
+  // return floor[main_coord].machine.wants.clone();
 }
-pub fn wants_discover_output(options: &Options, state: &State, config: &Config, wants: &Vec<Part>, width: usize, height: usize) -> Part {
-  match ( width , height ) {
-    ( 1, 3 ) => machine_wants_to_output_1_3(config, wants),
-    ( 3, 3 ) => machine_wants_to_output_3_3(config, wants),
-    _ => {
-      if options.trace_map_parsing { log(format!("wants_discover_output(): machine dimensions not supported; {} x {}", width , height)); }
-      part_c(config, 't')
-    },
-  }
+pub fn machine_discover_output_wants(options: &Options, state: &State, config: &Config, wants: &Vec<Part>, main_coord: usize) -> PartKind {
+  let pattern_str_untrimmed = wants.iter().map(|part| part.icon).collect::<String>().to_string();
+  let pattern_str = pattern_str_untrimmed.trim();
+  let target_kind = *config.node_pattern_to_index.get(pattern_str).or(Some(&PARTKIND_NONE)).unwrap();
+  log(format!("machine_discover_output(): Looking in node_pattern_to_index for: `{}` --> {}", pattern_str, target_kind));
+  return target_kind;
 }
-fn machine_discover_output_1_3(options: &Options, state: &State, config: &Config, factory: &Factory, main_coord: usize) -> Part {
-  assert!(factory.floor[main_coord].machine.wants.len() == 3, "1x3 factory has 3 cells so should have 3 wants");
-  return machine_wants_to_output_1_3(config, &factory.floor[main_coord].machine.wants);
-}
-fn machine_wants_to_output_1_3(config: &Config, wants: &Vec<Part>) -> Part {
-  match (
-    wants[0].icon,
-    wants[1].icon,
-    wants[2].icon,
-  ) {
-    (
-      ' ',
-      ' ',
-      ' ',
-    ) => part_c(config, 't'),
-    (
-      's',
-      'w',
-      'w',
-    ) => part_c(config, 'b'),
-    (
-      'b',
-      'd',
-      'd',
-    ) => part_c(config, 'g'),
-
-    _ => part_c(config, 't'),
-  }
-}
-fn machine_discover_output_3_3(options: &Options, state: &State, config: &Config, factory: &Factory, main_coord: usize) -> Part {
-  assert!(factory.floor[main_coord].machine.wants.len() == 9, "3x3 factory has 9 cells so should have 9 wants");
-  return machine_wants_to_output_3_3(config, &factory.floor[main_coord].machine.wants);
-}
-pub fn machine_wants_to_output_3_3(config: &Config, wants: &Vec<Part>) -> Part {
-  match (
-    wants[0].icon, wants[1].icon, wants[2].icon,
-    wants[3].icon, wants[4].icon, wants[5].icon,
-    wants[6].icon, wants[7].icon, wants[8].icon,
-  ) {
-    (
-      ' ', ' ', ' ',
-      ' ', ' ', ' ',
-      ' ', ' ', ' ',
-    ) => part_c(config, 't'),
-    (
-      ' ', ' ', ' ',
-      'w', 'w', 'w',
-      'w', ' ', 'w',
-    ) => part_c(config, 'T'),
-    (
-      'w', ' ', ' ',
-      'w', 'w', 'w',
-      'w', ' ', 'w',
-    ) => part_c(config, 'C'),
-    (
-      ' ', 'r', ' ',
-      ' ', 'e', ' ',
-      ' ', 'r', ' ',
-    ) => part_c(config, 'W'),
-    (
-      'i', 'p', 'p',
-      'i', 'p', 'p',
-      'i', 'p', 'p',
-    ) => part_c(config, 'D'),
-    (
-      ' ', 'W', ' ',
-      'W', 'D', 'W',
-      ' ', 'W', ' ',
-    ) => part_c(config, 'C'),
-    (
-      ' ', ' ', ' ',
-      'n', 'n', 'n',
-      'n', 'n', 'n',
-    ) => part_c(config, 'Q'),
-    (
-      ' ', 'Q', ' ',
-      'k', 'k', 'k',
-      'k', 'k', 'k',
-    ) => part_c(config, 'l'),
-    (
-      ' ', ' ', ' ',
-      'W', 'l', 'W',
-      ' ', ' ', ' ',
-    ) => part_c(config, 'o'),
-    (
-      ' ', ' ', ' ',
-      'C', 'o', ' ',
-      ' ', ' ', ' ',
-    ) => part_c(config, 'K'),
-
-    _ => part_c(config, 't'),
-  }
-}
-
-// h e -> W
-// i p -> D
-// D W -> C
-// n -> Q
-// k Q -> l
-// W l -> o
-// C o -> K

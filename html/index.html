@@ -176,7 +176,7 @@
           show('pattern_by_index', node.pattern_by_index.join(', '));
           show('pattern_by_name', node.pattern_by_name.join(', '));
           show('pattern_by_icon', node.pattern_by_icon.join(', '));
-          show('pattern_unique_icons', node.pattern_unique_icons.join(', '));
+          show('pattern_unique_kinds', node.pattern_unique_kinds.join(', '));
 
           showSprite();
           break;
@@ -191,7 +191,7 @@
           show('pattern_by_index', node.pattern_by_index);
           show('pattern_by_name', node.pattern_by_name.join(', '));
           show('pattern_by_icon', node.pattern_by_icon.join(', '));
-          show('pattern_unique_icons', node.pattern_unique_icons.join(', '));
+          show('pattern_unique_kinds', node.pattern_unique_kinds.join(', '));
           hide('icon');
           hide('file');
           hide('file_canvas_cache_index');
@@ -211,7 +211,7 @@
           hide('pattern_by_index', node.pattern_by_index);
           hide('pattern_by_name', node.pattern_by_name);
           hide('pattern_by_icon', node.pattern_by_icon);
-          hide('pattern_unique_icons', node.pattern_unique_icons);
+          hide('pattern_unique_kinds', node.pattern_unique_kinds);
           showSprite();
           break;
         case 'Demand':
@@ -225,7 +225,7 @@
           hide('pattern_by_index', node.pattern_by_index);
           hide('pattern_by_name', node.pattern_by_name);
           hide('pattern_by_icon', node.pattern_by_icon);
-          hide('pattern_unique_icons', node.pattern_unique_icons);
+          hide('pattern_unique_kinds', node.pattern_unique_kinds);
           showSprite();
           break;
         case 'Dock':
@@ -239,7 +239,7 @@
           hide('pattern_by_index', node.pattern_by_index);
           hide('pattern_by_name', node.pattern_by_name);
           hide('pattern_by_icon', node.pattern_by_icon);
-          hide('pattern_unique_icons', node.pattern_unique_icons);
+          hide('pattern_unique_kinds', node.pattern_unique_kinds);
           showSprite();
           break;
         case 'Machine':
@@ -253,7 +253,7 @@
           hide('pattern_by_index', node.pattern_by_index);
           hide('pattern_by_name', node.pattern_by_name);
           hide('pattern_by_icon', node.pattern_by_icon);
-          hide('pattern_unique_icons', node.pattern_unique_icons);
+          hide('pattern_unique_kinds', node.pattern_unique_kinds);
           showSprite();
           break;
         case 'Belt':
@@ -267,7 +267,7 @@
           hide('pattern_by_index', node.pattern_by_index);
           hide('pattern_by_name', node.pattern_by_name);
           hide('pattern_by_icon', node.pattern_by_icon);
-          hide('pattern_unique_icons', node.pattern_unique_icons);
+          hide('pattern_unique_kinds', node.pattern_unique_kinds);
           showSprite();
           break;
       }
@@ -327,7 +327,7 @@
       // pattern_by_index: vec!(),
       // pattern_by_name: vec!(),
       // pattern_by_icon: vec!(),
-      // pattern_unique_icons: vec!(),
+      // pattern_unique_kinds: vec!(),
       // icon,
       // file: "".to_string(),
       // file_canvas_cache_index: 0,
@@ -450,7 +450,7 @@
           <div id="$p_config_node_pattern_by_index" style="white-space: pre;"><span class="key">pattern_by_index:</span><span id="$config_node_pattern_by_index" class="value"></span></div>
           <div id="$p_config_node_pattern_by_name"><span class="key">pattern_by_name:</span><span id="$config_node_pattern_by_name" class="value"></span></div>
           <div id="$p_config_node_pattern_by_icon" style="white-space: pre;"><span class="key">pattern_by_icon:</span><span id="$config_node_pattern_by_icon" class="value"></span></div>
-          <div id="$p_config_node_pattern_unique_icons" style="white-space: pre;"><span class="key">pattern_unique_icons:</span><span id="$config_node_pattern_unique_icons" class="value"></span></div>
+          <div id="$p_config_node_pattern_unique_kinds" style="white-space: pre;"><span class="key">pattern_unique_kinds:</span><span id="$config_node_pattern_unique_kinds" class="value"></span></div>
           <div id="$p_config_node_icon" style="white-space: pre;"><span class="key">icon:</span><span id="$config_node_icon" class="value"></span></div>
           <div id="$p_config_node_file"><span class="key">file:</span><span id="$config_node_file" class="value"></span></div>
           <div id="$p_config_node_file_canvas_cache_index" style="white-space: pre;"><span class="key">file_canvas_cache_index:</span><span id="$config_node_file_canvas_cache_index" class="value"></span></div>
