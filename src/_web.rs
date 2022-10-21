@@ -38,8 +38,7 @@
 // - car polish; should make nice corners, should drive same speed to any height
 // - touchmove may need to put the pointer above the finger?
 // - need to figure out how to create bigger buttons
-// - belt drag should deselect factory?
-// - bouncers are affected by time. the last bouncer animations are completely broken
+// - bouncers are taking bouncer index as offsets rather than visible offsets. the last bouncer animations are completely broken
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -805,7 +804,7 @@ fn world_y_to_top_left_cell_y_while_dragging_offer_machine(cell_y: f64, offer_he
 
 fn update_mouse_state(
   options: &Options, state: &State, config: &Config, factory: &Factory,
-  cell_selection: &CellSelection, mouse_state: &mut MouseState,
+  cell_selection: &mut CellSelection, mouse_state: &mut MouseState,
   mouse_x: f64, mouse_y: f64, mouse_moved_since_app_start: bool,
   last_mouse_was_down: bool, last_mouse_down_x: f64, last_mouse_down_y: f64, last_mouse_down_button: u16,
   last_mouse_was_up: bool, last_mouse_up_x: f64, last_mouse_up_y: f64, last_mouse_up_button: u16,
@@ -1040,6 +1039,13 @@ fn update_mouse_state(
         }
         else {
           log(format!("drag start, craft, but not interactable; ignoring"));
+        }
+      }
+      ZONE_FLOOR => {
+        let is_machine_selected = cell_selection.on && factory.floor[cell_selection.coord].kind == CellKind::Machine;
+        if is_machine_selected {
+          log(format!("Closing craft menu because drag start on floor"));
+          cell_selection.on = false;
         }
       }
       _ => {
