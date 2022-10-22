@@ -58,6 +58,7 @@ pub struct Options {
   pub long_term_window: u64, // For stats; average over this many ticks
 
   pub speed_modifier: f64, // Increase or decrease ticks per second by this rate
+  pub touch_drag_compensation: bool, // Show the mouse pointer 50x50 away from the actual pointer? helpful for dragging on touch screen but can be annoying
 
   pub web_output_cli: bool, // Print the simplified cli output in web version?
 
@@ -102,6 +103,7 @@ pub fn create_options(speed_modifier: f64) -> Options {
     short_term_window: 10000,
     long_term_window: 600000,
     speed_modifier,
+    touch_drag_compensation: false,
     web_output_cli: false,
     dbg_trash_is_joker: true,
     db_joker_corrupts_factory: true,
@@ -226,6 +228,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "short_term_window" => options.short_term_window = parse_u64(value, name, strict, options.short_term_window),
             "long_term_window" => options.long_term_window = parse_u64(value, name, strict, options.long_term_window),
             "speed_modifier" => options.speed_modifier = parse_f64(value, name, strict, options.speed_modifier),
+            "touch_drag_compensation" => options.touch_drag_compensation = parse_bool(value, name, strict, options.touch_drag_compensation),
             "web_output_cli" => options.web_output_cli = parse_bool(value, name, strict, options.web_output_cli),
             "dbg_trash_is_joker" => options.dbg_trash_is_joker = parse_bool(value, name, strict, options.dbg_trash_is_joker),
             "db_joker_corrupts_factory" => options.db_joker_corrupts_factory = parse_bool(value, name, strict, options.db_joker_corrupts_factory),

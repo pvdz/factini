@@ -812,6 +812,14 @@ fn update_mouse_state(
   // Note: event handlers should not be called from here. This should only update mouse_state.
   //       this is why only the mouse_state is mutable.
 
+  // Compensate input coord for the finger while touch dragging
+  let (mouse_x, mouse_y, last_mouse_up_x, last_mouse_up_y) =
+    if options.touch_drag_compensation && mouse_state.is_dragging && !mouse_state.is_up {
+      (mouse_x - 50.0, mouse_y - 50.0, last_mouse_up_x - 50.0, last_mouse_up_y - 50.0)
+    } else {
+      (mouse_x, mouse_y, last_mouse_up_x, last_mouse_up_y)
+    };
+
   // Reset
   mouse_state.moved_since_start = mouse_moved_since_app_start;
   mouse_state.is_drag_start = false;
@@ -1596,7 +1604,6 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
     log(format!("Dropped a supply on an edge cell that is not corner. Deploying... {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize));
     log(format!("Drag started from offer {} ({:?})", mouse_state.offer_down_offer_index, dragged_part_index));
     let bools = ( last_mouse_up_cell_x == 0.0, last_mouse_up_cell_y == 0.0, last_mouse_up_cell_x as usize == FLOOR_CELLS_W - 1, last_mouse_up_cell_y as usize == FLOOR_CELLS_H - 1 );
-    log(format!("wtf {} {:?} bools: {:?}", to_coord_right(last_mouse_up_cell_coord), factory.floor[to_coord_right(last_mouse_up_cell_coord)].port_l, bools));
     let prev_port = match bools {
       // On the top you need to look one cell down to the up port
       ( false, true, false, false ) => factory.floor[to_coord_down(last_mouse_up_cell_coord)].port_u,
@@ -4210,7 +4217,7 @@ fn paint_segment_part_from_config_bug(options: &Options, state: &State, config: 
     return false;
   }
 
-  assert!(config.nodes[segment_part_index].kind == ConfigNodeKind::Part, "segment parts should refer to part nodes but was {:?}... received {:?} which resolves to {:?}", config.nodes[segment_part_index].kind, segment_part_index, config.nodes[segment_part_index]);
+  assert!(config.nodes[segment_part_index].kind == ConfigNodeKind::Part, "segment parts should refer to part nodes but was received {}, kind: {:?}, node: {:?}", segment_part_index, config.nodes[segment_part_index].kind, config.nodes[segment_part_index]);
 
   let (spx, spy, spw, sph, canvas) = part_to_sprite_coord_from_config(config, segment_part_index);
   if bug { log(format!("meh? {} {} {} {}: {:?} --> {:?}", spx, spy, spw, sph, segment_part_index, config.nodes[segment_part_index])); }
