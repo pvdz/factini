@@ -395,9 +395,15 @@ pub fn machine_discover_output_floor(options: &Options, state: &State, config: &
   // return floor[main_coord].machine.wants.clone();
 }
 pub fn machine_discover_output_wants(options: &Options, state: &State, config: &Config, wants: &Vec<Part>, main_coord: usize) -> PartKind {
+  log(format!("machine_discover_output_wants({})", main_coord));
   let pattern_str_untrimmed = wants.iter().map(|part| part.icon).collect::<String>().to_string();
   let pattern_str = pattern_str_untrimmed.trim();
+  if pattern_str == "" {
+    log(format!("  Machine has no inputs so it has no output"));
+    return PARTKIND_NONE;
+  }
   let target_kind = *config.node_pattern_to_index.get(pattern_str).or(Some(&PARTKIND_NONE)).unwrap();
-  log(format!("machine_discover_output(): Looking in node_pattern_to_index for: `{}` --> {}", pattern_str, target_kind));
+  log(format!("  Looking in node_pattern_to_index for: `{}` --> {}", pattern_str, target_kind));
+  assert!(config.nodes[target_kind].kind == ConfigNodeKind::Part, "the pattern should resolve to a part node...");
   return target_kind;
 }
