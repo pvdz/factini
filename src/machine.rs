@@ -387,12 +387,7 @@ pub fn machine_discover_output_floor(options: &Options, state: &State, config: &
 
   // Probably only a subset of these? with expansion options
 
-  // let wants = machine_normalize_wants(floor[main_coord].machine.wants.clone());
-  // let mut wants = floor[main_coord].machine.wants.clone().iter().map(|part| part.kind).filter(|&kind| kind != PARTKIND_NONE).collect::<Vec<PartKind>>();
-  // wants.sort_unstable();
   return machine_discover_output_wants(options, state, config, &floor[main_coord].machine.wants, main_coord);
-
-  // return floor[main_coord].machine.wants.clone();
 }
 pub fn machine_discover_output_wants(options: &Options, state: &State, config: &Config, wants: &Vec<Part>, main_coord: usize) -> PartKind {
   log(format!("machine_discover_output_wants({})", main_coord));

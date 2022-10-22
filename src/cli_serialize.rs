@@ -405,7 +405,7 @@ pub fn serialize2(options: &Options, state: &State, factory: &Factory, dump: boo
       cell_params.push('-');
       cell_params.push('>');
       cell_params.push(' ');
-      cell_params.push(factory.floor[coord].machine.output_want.icon);
+      cell_params.push(if factory.floor[coord].machine.output_want.kind == PARTKIND_NONE { '.' } else { factory.floor[coord].machine.output_want.icon });
       cell_params.push(' ');
       cell_params.push('s');
       cell_params.push(':');

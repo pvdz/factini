@@ -107,7 +107,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
   // om = b         -> g s:0  d:3x3
   // om = b         -> g s:0  d:4x4
 
-  log(format!("str_to_floor2:\n{}", str));
+  log(format!("str_to_floor2(options.trace_map_parsing={}):\n{}", options.trace_map_parsing, str));
 
   let mut floor: [Cell; FLOOR_CELLS_WH] = floor_empty(config);
 
@@ -379,11 +379,13 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
 
   // Keep parsing config lines while skipping comments. These are optional and augment
   // things on the floor that don't really fit inside the schematic cleanly
+  let mut line_no = 0;
   loop {
+    line_no += 1;
     match lines.next() {
       None => break,
       Some(line) => {
-        if options.trace_map_parsing { log(format!("Next line: {:?}", line)); }
+        if options.trace_map_parsing { log(format!("Next line({}): {}", line_no, line.clone().collect::<String>())); }
         while line.peek().or(Some(&'#')).unwrap() == &' ' { line.next(); }
         // Keep skipping lines that start with comments and empty lines (only containing spaces)
         if line.peek().or(Some(&'#')).unwrap() != &'#' {
@@ -403,11 +405,11 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              if c != '=' { panic!("Unexpected input while parsing supply augment: first character after `s{}` must be the `=` sign, found `{}`", n_to_alnum(nth), c); }
+              if c != '=' { panic!("Unexpected input on line {} while parsing supply augment: first character after `s{}` must be the `=` sign, found `{}`", line_no, n_to_alnum(nth), c); }
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              if c < 'a' && c > 'z' { panic!("Unexpected input while parsing supply augment kind: input characters must be a-z, found `{}`", c); }
+              if c < 'a' && c > 'z' { panic!("Unexpected input on line {} while parsing supply augment kind: input characters must be a-z, found `{}`", line_no, c); }
               gives = c;
 
               loop {
@@ -419,7 +421,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
                     // speed modifier
                     let mut c = line.next().or(Some('#')).unwrap();
                     while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                    if c != ':' { panic!("Unexpected input while parsing supply augment speed modifier: first character after `s` must be a `:`, found `{}`", c); }
+                    if c != ':' { panic!("Unexpected input on line {} while parsing supply augment speed modifier: first character after `s` must be a `:`, found `{}`", line_no, c); }
 
                     speed = 0;
                     let mut c = line.next().or(Some('#')).unwrap();
@@ -430,7 +432,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
                       } else if c == '#' || c == ' ' {
                         break;
                       } else {
-                        panic!("Unexpected input while parsing supply augment speed modifier: speed value consists of digits, found `{}`", c);
+                        panic!("Unexpected input on line {} while parsing supply augment speed modifier: speed value consists of digits, found `{}`", line_no, c);
                       }
                       c = line.next().or(Some('#')).unwrap();
                     }
@@ -439,7 +441,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
                     // cooldown modifier
                     let mut c = line.next().or(Some('#')).unwrap();
                     while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                    if c != ':' { panic!("Unexpected input while parsing supply augment cooldown modifier: first character after `c` must be a `:`, found `{}`", c); }
+                    if c != ':' { panic!("Unexpected input on line {} while parsing supply augment cooldown modifier: first character after `c` must be a `:`, found `{}`", line_no, c); }
 
                     cooldown = 0;
                     let mut c = line.next().or(Some('#')).unwrap();
@@ -450,12 +452,12 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
                       } else if c == '#' || c == ' ' {
                         break;
                       } else {
-                        panic!("Unexpected input while parsing supply augment cooldown modifier: cooldown value consists of digits, found `{}`", c);
+                        panic!("Unexpected input on line {} while parsing supply augment cooldown modifier: cooldown value consists of digits, found `{}`", line_no, c);
                       }
                       c = line.next().or(Some('#')).unwrap();
                     }
                   }
-                  c => panic!("Unexpected input while parsing supply augment modifier: expecting `s`, `c`, '#', or EOL, found `{}`", c),
+                  c => panic!("Unexpected input on line {} while parsing supply augment modifier: expecting `s`, `c`, '#', or EOL, found `{}`", line_no, c),
                 }
               }
 
@@ -496,12 +498,12 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              if !((c >= '1' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) { panic!("Unexpected input while parsing machine augment: first character after `m` must be 1-9a-zA-Z, indicating which supply it targets, found `{}`", c); }
+              if !((c >= '1' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) { panic!("Unexpected input on line {} while parsing machine augment: first character after `m` must be 1-9a-zA-Z, indicating which supply it targets, found `{}`", line_no, c); }
               nth = (c as u8) - ('0' as u8);
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              if c != '=' { panic!("Unexpected input while parsing machine augment: first character after `m{}` must be the `=` sign, found `{}`", nth, c); }
+              if c != '=' { panic!("Unexpected input on line {} while parsing machine augment: first character after `m{}` must be the `=` sign, found `{}`", line_no, nth, c); }
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
@@ -514,11 +516,11 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
                 while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
               }
 
-              if c != '-' { panic!("Unexpected input while parsing machine augment: after input must follow an `->` arrow and then the output, found `{}`", c); }
+              if c != '-' { panic!("Unexpected input on line {} while parsing machine augment: after input must follow an `->` arrow and then the output, found `{}`", line_no, c); }
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              if c != '>' { panic!("Unexpected input while parsing machine augment: after input must follow an `->` arrow and then the output, found `{}`", c); }
+              if c != '>' { panic!("Unexpected input on line {} while parsing machine augment: after input must follow an `->` arrow and then the output, found `{}`", line_no, c); }
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
@@ -545,12 +547,12 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
                       } else if c == '#' || c == ' ' {
                         break;
                       } else {
-                        panic!("Unexpected input while parsing machine augment speed modifier: speed value consists of digits, found `{}`", c);
+                        panic!("Unexpected input on line {} while parsing machine augment speed modifier: speed value consists of digits, found `{}`", line_no, c);
                       }
                       c = line.next().or(Some('#')).unwrap();
                     }
                   }
-                  c => panic!("Unexpected input while parsing machine augment modifier: expecting `s`, '#', or EOL, found `{}`", c),
+                  c => panic!("Unexpected input on line {} while parsing machine augment modifier: expecting `s`, '#', or EOL, found `{}`. Input map:\n{}", line_no, c, str),
                 }
               }
 
@@ -575,7 +577,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
                 if options.trace_map_parsing { log(format!("Machine {} was defined as having inputs {:?} and output {} at speed {} but its main_coord was not found", nth, wants, output, speed)); }
               }
             },
-            _ => panic!("Unexpected input while parsing input augments: wanted start of augment line, found `{}`", c),
+            _ => panic!("Unexpected input on line {} while parsing input augments: wanted start of augment line, found `{}`", line_no, c),
           }
         }
       }
