@@ -23,7 +23,8 @@ const GAME_OPTIONS = `
 - draw_part_borders: false
 - draw_part_char_icon: false
 - draw_part_kind: false
-- draw_port_arrows: true
+- draw_port_arrows: false
+- draw_belt_dbg_id: true
 - draw_zone_hovers: false
 - draw_ui_section_border: false
 - ui_section_border_color: "white"

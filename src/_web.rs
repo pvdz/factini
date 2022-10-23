@@ -754,7 +754,8 @@ pub fn start() -> Result<(), JsValue> {
         paint_bottom_menu(&options, &state, &context, &img_machine_1_1, &mouse_state);
         // TODO: wait for tiles to be loaded because first few frames won't paint anything while the tiles are loading...
         paint_background_tiles(&options, &state, &config, &context, &factory, &img_machine4, &img_machine_1_1, &img_machine_2_1, &img_machine_3_2);
-        paint_port_arrows(&options, &state, &context, &factory);
+        paint_port_arrows(&options, &state, &config, &context, &factory);
+        paint_belt_dbg_id(&options, &state, &config, &context, &factory);
         paint_belt_items(&options, &state, &config, &context, &factory);
         paint_machine_craft_menu(&options, &state, &config, &context, &factory, &cell_selection, &mouse_state);
         paint_ui_offer_hover_droptarget_hint_conditionally(&options, &state, &config, &context, &mut factory, &mouse_state, &cell_selection);
@@ -2768,7 +2769,7 @@ fn paint_background_tiles(
       CellKind::Belt => {
         let belt_meta = &factory.floor[coord].belt.meta;
 
-        draw_belt(options, state, config, context, belt_meta.btype, ox, oy, CELL_W, CELL_H);
+        paint_belt(options, state, config, context, belt_meta.btype, ox, oy, CELL_W, CELL_H);
       },
       CellKind::Machine => {
         // For machines, paint the top-left cell only but make the painted area cover the whole machine
@@ -2823,13 +2824,14 @@ fn paint_background_tiles(
     }
   }
 }
-fn paint_port_arrows(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory) {
+fn paint_port_arrows(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory) {
   if !options.draw_port_arrows {
     return;
   }
 
+
   // "draw arrows"
-  context.set_stroke_style(&"gray".into());
+  context.set_stroke_style(&"white".into());
 
   // Adjust for font size such that it gets centered. API falls a little short in this regard.
   let font_centering_delta_x: f64 = -5.0;
@@ -2851,6 +2853,32 @@ fn paint_port_arrows(options: &Options, state: &State, context: &Rc<web_sys::Can
         context.stroke_text("🡅", UI_FLOOR_OFFSET_X + (x as f64) * CELL_W + CELL_W / 2.0 + font_centering_delta_x, UI_FLOOR_OFFSET_Y + (y as f64) * CELL_H + CELL_H + font_centering_delta_y).expect("to paint");
       } else if factory.floor[coord].port_d == Port::Outbound {
         context.stroke_text("🡇", UI_FLOOR_OFFSET_X + (x as f64) * CELL_W + CELL_W / 2.0 + font_centering_delta_x, UI_FLOOR_OFFSET_Y + (y as f64) * CELL_H + CELL_H + font_centering_delta_y).expect("to paint");
+      }
+    }
+  }
+}
+fn paint_belt_dbg_id(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory) {
+  if !options.draw_belt_dbg_id {
+    return;
+  }
+
+  // "draw arrows"
+  context.set_stroke_style(&"white".into());
+
+  // Adjust for font size such that it gets centered. API falls a little short in this regard.
+  let font_centering_delta_x: f64 = -5.0;
+  let font_centering_delta_y: f64 = 4.0;
+
+  for coord in 0..FLOOR_CELLS_WH {
+    let (x, y) = to_xy(coord);
+    if factory.floor[coord].kind != CellKind::Empty {
+      // For each cell only paint the right and bottom port
+      // Otherwise we're just gonna paint each port twice
+
+      if factory.floor[coord].kind == CellKind::Belt {
+        context.set_fill_style(&"white".into());
+        let wat = factory.floor[coord].belt.meta.src.rsplit_once('/').unwrap();
+        context.fill_text(format!("{: >3}", wat.1.split_once('.').unwrap().0).as_str(), UI_FLOOR_OFFSET_X + (x as f64) * CELL_W + 4.0, UI_FLOOR_OFFSET_Y + (y as f64) * CELL_H + CELL_H / 2.0 + font_centering_delta_y).expect("should work");
       }
     }
   }
@@ -3336,7 +3364,7 @@ fn paint_ghost_belt_of_type(options: &Options, state: &State, config: &Config, c
 
   if !skip_tile {
     context.set_global_alpha(0.7);
-    draw_belt(options, state, config, context, belt_type, UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + 5.0, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + 5.0, CELL_W - 10.0, CELL_H - 10.0);
+    paint_belt(options, state, config, context, belt_type, UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + 5.0, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + 5.0, CELL_W - 10.0, CELL_H - 10.0);
     context.set_global_alpha(1.0);
   }
 }
@@ -4359,7 +4387,7 @@ fn round_rect(context: &Rc<web_sys::CanvasRenderingContext2d>, x: f64, y: f64, w
   context.close_path();
 }
 
-fn draw_belt(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, belt_type: BeltType, dx: f64, dy: f64, dw: f64, dh: f64) {
+fn paint_belt(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, belt_type: BeltType, dx: f64, dy: f64, dw: f64, dh: f64) {
   let (spx, spy, spw, sph, canvas) = match belt_type {
     BeltType::D_U => config_get_sprite_details(config, CONFIG_NODE_BELT_D_U),
     BeltType::U_D => config_get_sprite_details(config, CONFIG_NODE_BELT_U_D),
@@ -4433,7 +4461,7 @@ fn draw_belt(options: &Options, state: &State, config: &Config, context: &Rc<web
     spx, spy, spw, sph,
     // Paint onto canvas at
     dx, dy, dw, dh,
-  ).expect("draw_belt() something error draw_image"); // requires web_sys HtmlImageElement feature
+  ).expect("paint_belt() something error draw_image"); // requires web_sys HtmlImageElement feature
 }
 
 fn draw_supplier(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, dir: Direction, ox: f64, oy: f64, dw: f64, dh: f64) {
