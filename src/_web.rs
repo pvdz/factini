@@ -1639,25 +1639,25 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
         ( false, true, false, false ) => {
           let ocoord = to_coord_down(last_mouse_up_cell_coord);
           factory.floor[ocoord].port_u = Port::Inbound;
-          fix_belt_meta(factory, ocoord);
+          fix_belt_meta(options, state, config, factory, ocoord);
           belt_discover_ins_and_outs(factory, ocoord);
         },
         ( false, false, true, false ) => {
           let ocoord = to_coord_left(last_mouse_up_cell_coord);
           factory.floor[ocoord].port_r = Port::Inbound;
-          fix_belt_meta(factory, ocoord);
+          fix_belt_meta(options, state, config, factory, ocoord);
           belt_discover_ins_and_outs(factory, ocoord);
         },
         ( false, false, false, true ) => {
           let ocoord = to_coord_up(last_mouse_up_cell_coord);
           factory.floor[ocoord].port_d = Port::Inbound;
-          fix_belt_meta(factory, ocoord);
+          fix_belt_meta(options, state, config, factory, ocoord);
           belt_discover_ins_and_outs(factory, ocoord);
         },
         ( true, false, false, false ) => {
           let ocoord = to_coord_right(last_mouse_up_cell_coord);
           factory.floor[ocoord].port_l = Port::Inbound;
-          fix_belt_meta(factory, ocoord);
+          fix_belt_meta(options, state, config, factory, ocoord);
           belt_discover_ins_and_outs(factory, ocoord);
         },
         _ => panic!("Should be one side"),
@@ -1826,8 +1826,8 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
       log(format!(" - Not left or right button; ignoring unknown button click"));
     }
 
-    fix_belt_meta(factory, coord1);
-    fix_belt_meta(factory, coord2);
+    fix_belt_meta(options, state, config, factory, coord1);
+    fix_belt_meta(options, state, config, factory, coord2);
 
     if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
       if factory.floor[coord1].kind == CellKind::Belt && factory.floor[coord1].port_u == Port::None && factory.floor[coord1].port_r == Port::None && factory.floor[coord1].port_d == Port::None && factory.floor[coord1].port_l == Port::None {

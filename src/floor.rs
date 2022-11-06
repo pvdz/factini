@@ -430,7 +430,7 @@ pub const fn to_coord_left(coord: usize) -> usize {
 //     if factory.floor[coord1].kind == CellKind::Belt {
 //       if factory.floor[coord1].port_d == Port::None {
 //         factory.floor[coord1].port_d = Port::Unknown;
-//         fix_belt_meta(factory, coord1);
+//         fix_belt_meta(options, state, config, factory, coord1);
 //       }
 //       factory.floor[coord2].port_u = Port::Unknown;
 //     }
@@ -439,7 +439,7 @@ pub const fn to_coord_left(coord: usize) -> usize {
 //     if factory.floor[coord1].kind == CellKind::Belt {
 //       if factory.floor[coord1].port_l == Port::None {
 //         factory.floor[coord1].port_l = Port::Unknown;
-//         fix_belt_meta(factory, coord1);
+//         fix_belt_meta(options, state, config, factory, coord1);
 //       }
 //       factory.floor[coord2].port_r = Port::Unknown;
 //     }
@@ -448,7 +448,7 @@ pub const fn to_coord_left(coord: usize) -> usize {
 //     if factory.floor[coord1].kind == CellKind::Belt {
 //       if factory.floor[coord1].port_u == Port::None {
 //         factory.floor[coord1].port_u = Port::Unknown;
-//         fix_belt_meta(factory, coord1);
+//         fix_belt_meta(options, state, config, factory, coord1);
 //       }
 //       factory.floor[coord2].port_d = Port::Unknown;
 //     }
@@ -457,14 +457,14 @@ pub const fn to_coord_left(coord: usize) -> usize {
 //     if factory.floor[coord1].kind == CellKind::Belt {
 //       if factory.floor[coord1].port_r == Port::None {
 //         factory.floor[coord1].port_r = Port::Unknown;
-//         fix_belt_meta(factory, coord1);
+//         fix_belt_meta(options, state, config, factory, coord1);
 //       }
 //       factory.floor[coord2].port_l = Port::Unknown;
 //     }
 //   }
 //   log(format!("  - after  @{} - @{} -> {} {}, ports: {} and {}", coord1, coord2, dx, dy, serialize_ports(factory, coord1), serialize_ports(factory, coord2)));
 //
-//   fix_belt_meta(factory, coord2);
+//   fix_belt_meta(options, state, config, factory, coord2);
 // }
 pub fn floor_delete_cell_at_partial(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, coord: usize) {
   // Note: partial because factory prio must to be updated too, elsewhere (!)
@@ -499,28 +499,28 @@ pub fn floor_delete_cell_at_partial_sub(options: &mut Options, state: &mut State
   if factory.floor[coord].port_u != Port::None {
     if let Some(ocoord) = factory.floor[coord].coord_u {
       port_disconnect_cell(options, state, config, factory, ocoord, Direction::Down);
-      fix_belt_meta(factory, ocoord);
+      fix_belt_meta(options, state, config, factory, ocoord);
     }
   }
 
   if factory.floor[coord].port_r != Port::None {
     if let Some(ocoord) = factory.floor[coord].coord_r {
       port_disconnect_cell(options, state, config, factory, ocoord, Direction::Left);
-      fix_belt_meta(factory, ocoord);
+      fix_belt_meta(options, state, config, factory, ocoord);
     }
   }
 
   if factory.floor[coord].port_d != Port::None {
     if let Some(ocoord) = factory.floor[coord].coord_d {
       port_disconnect_cell(options, state, config, factory, ocoord, Direction::Up);
-      fix_belt_meta(factory, ocoord);
+      fix_belt_meta(options, state, config, factory, ocoord);
     }
   }
 
   if factory.floor[coord].port_l != Port::None {
     if let Some(ocoord) = factory.floor[coord].coord_l {
       port_disconnect_cell(options, state, config, factory, ocoord, Direction::Right);
-      fix_belt_meta(factory, ocoord);
+      fix_belt_meta(options, state, config, factory, ocoord);
     }
   }
 

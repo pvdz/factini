@@ -48,7 +48,7 @@ pub fn paste(options: &mut Options, state: &mut State, config: &Config, factory:
           belt_fix_semi_connected_ports_partial(options, state, factory, coord);
 
           // At this point the ports and that of the neighbor should be fixed. Fix the meta.
-          fix_belt_meta(factory, coord);
+          fix_belt_meta(options, state, config, factory, coord);
           // And fix the .ins and .outs of this and its neighbor
           belt_discover_ins_and_outs(factory, coord);
         } else {
@@ -93,22 +93,22 @@ pub fn paste_one_cell(options: &mut Options, state: &mut State, config: &Config,
 
       if y == 0 || cy == 1 {
         log(format!("    - Upper row in copy area"));
-        belt_connect_up_if_either_has_port_fix_partial(options, state, factory, coord);
+        belt_connect_up_if_either_has_port_fix_partial(options, state, config, factory, coord);
       }
 
       if x == w-1 || cx == FLOOR_CELLS_W-2 {
         log(format!("    - Right column in copy area"));
-        belt_connect_right_if_either_has_port_fix_partial(options, state, factory, coord);
+        belt_connect_right_if_either_has_port_fix_partial(options, state, config, factory, coord);
       }
 
       if y == h-1 || cy == FLOOR_CELLS_H-2 {
         log(format!("    - Bottom row in copy area"));
-        belt_connect_down_if_either_has_port_fix_partial(options, state, factory, coord);
+        belt_connect_down_if_either_has_port_fix_partial(options, state, config, factory, coord);
       }
 
       if x == 0 || cx == 0 {
         log(format!("    - Left column in copy area"));
-        belt_connect_left_if_either_has_port_fix_partial(options, state, factory, coord);
+        belt_connect_left_if_either_has_port_fix_partial(options, state, config, factory, coord);
       }
     }
     else {
@@ -120,7 +120,7 @@ pub fn paste_one_cell(options: &mut Options, state: &mut State, config: &Config,
         if let Some(ocoord) = factory.floor[coord].coord_u {
           factory.floor[ocoord].port_d = Port::None;
           belt_discover_ins_and_outs(factory, ocoord);
-          fix_belt_meta(factory, ocoord);
+          fix_belt_meta(options, state, config, factory, ocoord);
         }
       }
 
@@ -129,7 +129,7 @@ pub fn paste_one_cell(options: &mut Options, state: &mut State, config: &Config,
         if let Some(ocoord) = factory.floor[coord].coord_r {
           factory.floor[ocoord].port_l = Port::None;
           belt_discover_ins_and_outs(factory, ocoord);
-          fix_belt_meta(factory, ocoord);
+          fix_belt_meta(options, state, config, factory, ocoord);
         }
       }
 
@@ -138,7 +138,7 @@ pub fn paste_one_cell(options: &mut Options, state: &mut State, config: &Config,
         if let Some(ocoord) = factory.floor[coord].coord_d {
           factory.floor[ocoord].port_u = Port::None;
           belt_discover_ins_and_outs(factory, ocoord);
-          fix_belt_meta(factory, ocoord);
+          fix_belt_meta(options, state, config, factory, ocoord);
         }
       }
 
@@ -147,16 +147,16 @@ pub fn paste_one_cell(options: &mut Options, state: &mut State, config: &Config,
         if let Some(ocoord) = factory.floor[coord].coord_l {
           factory.floor[ocoord].port_r = Port::None;
           belt_discover_ins_and_outs(factory, ocoord);
-          fix_belt_meta(factory, ocoord);
+          fix_belt_meta(options, state, config, factory, ocoord);
         }
       }
     }
 
-    fix_belt_meta(factory, coord);
+    fix_belt_meta(options, state, config, factory, coord);
   }
 }
 
-pub fn belt_connect_up_if_either_has_port_fix_partial(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize) {
+pub fn belt_connect_up_if_either_has_port_fix_partial(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, coord: usize) {
   // Fixes partial because it doesn't fix the coord meta, nor .ins and .outs, nor .prio
 
   if let Some(ocoord) = factory.floor[coord].coord_u {
@@ -174,7 +174,7 @@ pub fn belt_connect_up_if_either_has_port_fix_partial(options: &mut Options, sta
             log(format!("        - Setting up.port_d to outbound"));
             factory.floor[ocoord].port_d = Port::Outbound;
             belt_discover_ins_and_outs(factory, ocoord);
-            fix_belt_meta(factory, ocoord);
+            fix_belt_meta(options, state, config, factory, ocoord);
           }
         }
         else if factory.floor[coord].port_u == Port::Outbound {
@@ -182,7 +182,7 @@ pub fn belt_connect_up_if_either_has_port_fix_partial(options: &mut Options, sta
             log(format!("        - Setting up.port_d to inbound"));
             factory.floor[ocoord].port_d = Port::Inbound;
             belt_discover_ins_and_outs(factory, ocoord);
-            fix_belt_meta(factory, ocoord);
+            fix_belt_meta(options, state, config, factory, ocoord);
           }
         }
         else if factory.floor[ocoord].port_d == Port::Inbound {
@@ -202,7 +202,7 @@ pub fn belt_connect_up_if_either_has_port_fix_partial(options: &mut Options, sta
           factory.floor[coord].port_u = Port::Unknown;
           factory.floor[ocoord].port_d = Port::Unknown;
           belt_discover_ins_and_outs(factory, ocoord);
-          fix_belt_meta(factory, ocoord);
+          fix_belt_meta(options, state, config, factory, ocoord);
         }
         else {
           log(format!("        - both ports are already unknown or none; {:?} {:?}", factory.floor[coord].port_u, factory.floor[ocoord].port_d));
@@ -246,7 +246,7 @@ pub fn belt_connect_up_if_either_has_port_fix_partial(options: &mut Options, sta
 
         let main_coord = factory.floor[ocoord].machine.main_coord;
         machine_discover_ins_and_outs(factory, main_coord);
-        fix_belt_meta(factory, ocoord);
+        fix_belt_meta(options, state, config, factory, ocoord);
       }
       CellKind::Empty => {
         log(format!("        - Up is empty so clear this port_u, which was {:?}", factory.floor[coord].port_u));
@@ -258,7 +258,7 @@ pub fn belt_connect_up_if_either_has_port_fix_partial(options: &mut Options, sta
     }
   }
 }
-pub fn belt_connect_right_if_either_has_port_fix_partial(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize) {
+pub fn belt_connect_right_if_either_has_port_fix_partial(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, coord: usize) {
   // Fixes partial because it doesn't fix the coord meta, nor .ins and .outs, nor .prio
 
   if let Some(ocoord) = factory.floor[coord].coord_r {
@@ -276,7 +276,7 @@ pub fn belt_connect_right_if_either_has_port_fix_partial(options: &mut Options, 
             log(format!("        - Setting right.port_l to outbound"));
             factory.floor[ocoord].port_l = Port::Outbound;
             belt_discover_ins_and_outs(factory, ocoord);
-            fix_belt_meta(factory, ocoord);
+            fix_belt_meta(options, state, config, factory, ocoord);
           }
         }
         else if factory.floor[coord].port_r == Port::Outbound {
@@ -284,7 +284,7 @@ pub fn belt_connect_right_if_either_has_port_fix_partial(options: &mut Options, 
             log(format!("        - Setting right.port_l to inbound"));
             factory.floor[ocoord].port_l = Port::Inbound;
             belt_discover_ins_and_outs(factory, ocoord);
-            fix_belt_meta(factory, ocoord);
+            fix_belt_meta(options, state, config, factory, ocoord);
           }
         }
         else if factory.floor[ocoord].port_l == Port::Inbound {
@@ -304,7 +304,7 @@ pub fn belt_connect_right_if_either_has_port_fix_partial(options: &mut Options, 
           factory.floor[coord].port_r = Port::Unknown;
           factory.floor[ocoord].port_l = Port::Unknown;
           belt_discover_ins_and_outs(factory, ocoord);
-          fix_belt_meta(factory, ocoord);
+          fix_belt_meta(options, state, config, factory, ocoord);
         }
         else {
           log(format!("        - both ports are already unknown or none; {:?} {:?}", factory.floor[coord].port_r, factory.floor[ocoord].port_l));
@@ -348,7 +348,7 @@ pub fn belt_connect_right_if_either_has_port_fix_partial(options: &mut Options, 
 
         let main_coord = factory.floor[ocoord].machine.main_coord;
         machine_discover_ins_and_outs(factory, main_coord);
-        fix_belt_meta(factory, ocoord);
+        fix_belt_meta(options, state, config, factory, ocoord);
       }
       CellKind::Empty => {
         log(format!("        - Right is empty so clear this port_r, which was {:?}", factory.floor[coord].port_r));
@@ -360,7 +360,7 @@ pub fn belt_connect_right_if_either_has_port_fix_partial(options: &mut Options, 
     }
   }
 }
-pub fn belt_connect_down_if_either_has_port_fix_partial(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize) {
+pub fn belt_connect_down_if_either_has_port_fix_partial(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, coord: usize) {
   // Fixes partial because it doesn't fix the coord meta, nor .ins and .outs, nor .prio
 
   if let Some(ocoord) = factory.floor[coord].coord_d {
@@ -378,7 +378,7 @@ pub fn belt_connect_down_if_either_has_port_fix_partial(options: &mut Options, s
             log(format!("        - Setting down.port_u to outbound"));
             factory.floor[ocoord].port_u = Port::Outbound;
             belt_discover_ins_and_outs(factory, ocoord);
-            fix_belt_meta(factory, ocoord);
+            fix_belt_meta(options, state, config, factory, ocoord);
           }
         }
         else if factory.floor[coord].port_d == Port::Outbound {
@@ -386,7 +386,7 @@ pub fn belt_connect_down_if_either_has_port_fix_partial(options: &mut Options, s
             log(format!("        - Setting down.port_u to inbound"));
             factory.floor[ocoord].port_u = Port::Inbound;
             belt_discover_ins_and_outs(factory, ocoord);
-            fix_belt_meta(factory, ocoord);
+            fix_belt_meta(options, state, config, factory, ocoord);
           }
         }
         else if factory.floor[ocoord].port_u == Port::Inbound {
@@ -406,7 +406,7 @@ pub fn belt_connect_down_if_either_has_port_fix_partial(options: &mut Options, s
           factory.floor[coord].port_d = Port::Unknown;
           factory.floor[ocoord].port_u = Port::Unknown;
           belt_discover_ins_and_outs(factory, ocoord);
-          fix_belt_meta(factory, ocoord);
+          fix_belt_meta(options, state, config, factory, ocoord);
         }
         else {
           log(format!("        - both ports are already unknown or none; {:?} {:?}", factory.floor[coord].port_d, factory.floor[ocoord].port_u));
@@ -450,7 +450,7 @@ pub fn belt_connect_down_if_either_has_port_fix_partial(options: &mut Options, s
 
         let main_coord = factory.floor[ocoord].machine.main_coord;
         machine_discover_ins_and_outs(factory, main_coord);
-        fix_belt_meta(factory, ocoord);
+        fix_belt_meta(options, state, config, factory, ocoord);
       }
       CellKind::Empty => {
         log(format!("        - Down is empty so clear this port_d, which was {:?}", factory.floor[coord].port_d));
@@ -462,7 +462,7 @@ pub fn belt_connect_down_if_either_has_port_fix_partial(options: &mut Options, s
     }
   }
 }
-pub fn belt_connect_left_if_either_has_port_fix_partial(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize) {
+pub fn belt_connect_left_if_either_has_port_fix_partial(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, coord: usize) {
   // Fixes partial because it doesn't fix the coord meta, nor .ins and .outs, nor .prio
 
   if let Some(ocoord) = factory.floor[coord].coord_l {
@@ -480,7 +480,7 @@ pub fn belt_connect_left_if_either_has_port_fix_partial(options: &mut Options, s
             log(format!("        - Setting Left.port_r to outbound"));
             factory.floor[ocoord].port_r = Port::Outbound;
             belt_discover_ins_and_outs(factory, ocoord);
-            fix_belt_meta(factory, ocoord);
+            fix_belt_meta(options, state, config, factory, ocoord);
           }
         }
         else if factory.floor[coord].port_l == Port::Outbound {
@@ -488,7 +488,7 @@ pub fn belt_connect_left_if_either_has_port_fix_partial(options: &mut Options, s
             log(format!("        - Setting Left.port_r to inbound"));
             factory.floor[ocoord].port_r = Port::Inbound;
             belt_discover_ins_and_outs(factory, ocoord);
-            fix_belt_meta(factory, ocoord);
+            fix_belt_meta(options, state, config, factory, ocoord);
           }
         }
         else if factory.floor[ocoord].port_r == Port::Inbound {
@@ -508,7 +508,7 @@ pub fn belt_connect_left_if_either_has_port_fix_partial(options: &mut Options, s
           factory.floor[coord].port_l = Port::Unknown;
           factory.floor[ocoord].port_r = Port::Unknown;
           belt_discover_ins_and_outs(factory, ocoord);
-          fix_belt_meta(factory, ocoord);
+          fix_belt_meta(options, state, config, factory, ocoord);
         }
         else {
           log(format!("        - both ports are already unknown or none; {:?} {:?}", factory.floor[coord].port_l, factory.floor[ocoord].port_r));
@@ -552,7 +552,7 @@ pub fn belt_connect_left_if_either_has_port_fix_partial(options: &mut Options, s
 
         let main_coord = factory.floor[ocoord].machine.main_coord;
         machine_discover_ins_and_outs(factory, main_coord);
-        fix_belt_meta(factory, ocoord);
+        fix_belt_meta(options, state, config, factory, ocoord);
       }
       CellKind::Empty => {
         log(format!("        - Left is empty so clear this port_l, which was {:?}", factory.floor[coord].port_l));

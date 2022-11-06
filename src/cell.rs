@@ -407,7 +407,7 @@ pub fn demand_cell(config: &Config, x: usize, y: usize) -> Cell {
   };
 }
 
-pub fn fix_belt_meta(factory: &mut Factory, coord: usize) {
+pub fn fix_belt_meta(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord: usize) {
   let belt_type = get_belt_type_for_cell_ports(factory, coord);
   log(format!("    -- fix_belt_meta() @{} current {:?}, new {:?} ;; {:?} {:?} {:?} {:?}", coord, factory.floor[coord].belt.meta.btype, belt_type, factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
   let belt_meta = belt_type_to_belt_meta(belt_type);
@@ -607,7 +607,7 @@ pub fn cell_set_port_u_to(options: &Options, state: &State, config: &Config, fac
   }
 
   factory.floor[coord_from].port_u = port;
-  fix_belt_meta(factory, coord_from);
+  fix_belt_meta(options, state, config, factory, coord_from);
   match port {
     Port::Inbound => factory.floor[machine_friendly_coord].ins.push(( Direction::Up, coord_from, ocoord, Direction::Down )),
     Port::Outbound => factory.floor[machine_friendly_coord].outs.push(( Direction::Up, coord_from, ocoord, Direction::Down )),
@@ -635,7 +635,7 @@ pub fn cell_set_port_r_to(options: &Options, state: &State, config: &Config, fac
   }
 
   factory.floor[coord_from].port_r = port;
-  fix_belt_meta(factory, coord_from);
+  fix_belt_meta(options, state, config, factory, coord_from);
   match port {
     Port::Inbound => factory.floor[machine_friendly_coord].ins.push(( Direction::Right, coord_from, ocoord, Direction::Left )),
     Port::Outbound => factory.floor[machine_friendly_coord].outs.push(( Direction::Right, coord_from, ocoord, Direction::Left )),
@@ -663,7 +663,7 @@ pub fn cell_set_port_d_to(options: &Options, state: &State, config: &Config, fac
   }
 
   factory.floor[coord_from].port_d = port;
-  fix_belt_meta(factory, coord_from);
+  fix_belt_meta(options, state, config, factory, coord_from);
   match port {
     Port::Inbound => factory.floor[machine_friendly_coord].ins.push(( Direction::Down, coord_from, ocoord, Direction::Up )),
     Port::Outbound => factory.floor[machine_friendly_coord].outs.push(( Direction::Down, coord_from, ocoord, Direction::Up )),
@@ -691,7 +691,7 @@ pub fn cell_set_port_l_to(options: &Options, state: &State, config: &Config, fac
   }
 
   factory.floor[coord_from].port_l = port;
-  fix_belt_meta(factory, coord_from);
+  fix_belt_meta(options, state, config, factory, coord_from);
   match port {
     Port::Inbound => factory.floor[machine_friendly_coord].ins.push(( Direction::Left, coord_from, ocoord, Direction::Right )),
     Port::Outbound => factory.floor[machine_friendly_coord].outs.push(( Direction::Left, coord_from, ocoord, Direction::Right )),

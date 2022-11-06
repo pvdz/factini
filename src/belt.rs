@@ -906,32 +906,32 @@ pub fn connect_to_neighbor_dead_end_belts(options: &mut Options, state: &mut Sta
     if factory.floor[ocoord].kind == CellKind::Belt && port_count(factory, ocoord) <= 1 {
       factory.floor[coord].port_u = Port::Unknown;
       factory.floor[ocoord].port_d = Port::Unknown;
-      fix_belt_meta(factory, ocoord);
-      fix_belt_meta(factory, coord);
+      fix_belt_meta(options, state, config, factory, ocoord);
+      fix_belt_meta(options, state, config, factory, coord);
     }
   }
   if let Some(ocoord) = factory.floor[coord].coord_r {
     if factory.floor[ocoord].kind == CellKind::Belt && port_count(factory, ocoord) <= 1 {
       factory.floor[coord].port_r = Port::Unknown;
       factory.floor[ocoord].port_l = Port::Unknown;
-      fix_belt_meta(factory, ocoord);
-      fix_belt_meta(factory, coord);
+      fix_belt_meta(options, state, config, factory, ocoord);
+      fix_belt_meta(options, state, config, factory, coord);
     }
   }
   if let Some(ocoord) = factory.floor[coord].coord_d {
     if factory.floor[ocoord].kind == CellKind::Belt && port_count(factory, ocoord) <= 1 {
       factory.floor[coord].port_d = Port::Unknown;
       factory.floor[ocoord].port_u = Port::Unknown;
-      fix_belt_meta(factory, ocoord);
-      fix_belt_meta(factory, coord);
+      fix_belt_meta(options, state, config, factory, ocoord);
+      fix_belt_meta(options, state, config, factory, coord);
     }
   }
   if let Some(ocoord) = factory.floor[coord].coord_l {
     if factory.floor[ocoord].kind == CellKind::Belt && port_count(factory, ocoord) <= 1 {
       factory.floor[coord].port_l = Port::Unknown;
       factory.floor[ocoord].port_r = Port::Unknown;
-      fix_belt_meta(factory, ocoord);
-      fix_belt_meta(factory, coord);
+      fix_belt_meta(options, state, config, factory, ocoord);
+      fix_belt_meta(options, state, config, factory, coord);
     }
   }
 }
