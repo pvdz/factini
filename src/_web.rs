@@ -4246,7 +4246,7 @@ fn paint_segment_part_from_config_bug(options: &Options, state: &State, config: 
     return false;
   }
 
-  assert!(config.nodes[segment_part_index].kind == ConfigNodeKind::Part, "segment parts should refer to part nodes but was received {}, kind: {:?}, node: {:?}", segment_part_index, config.nodes[segment_part_index].kind, config.nodes[segment_part_index]);
+  assert!(config.nodes[segment_part_index].kind == ConfigNodeKind::Part, "segment parts should refer to part nodes but received index: {}, kind: {:?}, node: {:?}", segment_part_index, config.nodes[segment_part_index].kind, config.nodes[segment_part_index]);
 
   let (spx, spy, spw, sph, canvas) = part_to_sprite_coord_from_config(config, segment_part_index);
   if bug { log(format!("meh? {} {} {} {}: {:?} --> {:?}", spx, spy, spw, sph, segment_part_index, config.nodes[segment_part_index])); }
