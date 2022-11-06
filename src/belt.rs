@@ -364,14 +364,6 @@ pub fn add_two_ports_to_cell(factory: &Factory, coord: usize, dir1: Direction, d
     (false, true, true, true) => BeltType::DLR,
   }
 }
-pub fn get_belt_type_for_cell_ports(factory: &Factory, coord: usize) -> BeltType {
-  return ports_to_belt_type(
-    factory.floor[coord].port_u,
-    factory.floor[coord].port_r,
-    factory.floor[coord].port_d,
-    factory.floor[coord].port_l,
-  );
-}
 
 pub fn belt_discover_ins_and_outs(factory: &mut Factory, coord: usize) {
   // log(format!("belt_discover_ins_and_outs({}) {:?} {:?} {:?} {:?}", coord, factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));

@@ -409,7 +409,12 @@ pub fn demand_cell(config: &Config, x: usize, y: usize) -> Cell {
 }
 
 pub fn fix_belt_meta(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord: usize) {
-  let belt_type = get_belt_type_for_cell_ports(factory, coord);
+  let belt_type = ports_to_belt_type(
+    factory.floor[coord].port_u,
+    factory.floor[coord].port_r,
+    factory.floor[coord].port_d,
+    factory.floor[coord].port_l,
+  );
   log(format!("    -- fix_belt_meta() @{} current {:?}, new {:?} ;; {:?} {:?} {:?} {:?}", coord, factory.floor[coord].belt.meta.btype, belt_type, factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
   let belt_meta = belt_type_to_belt_meta(belt_type);
   factory.floor[coord].belt.meta = belt_meta;
