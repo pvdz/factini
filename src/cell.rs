@@ -460,7 +460,7 @@ pub fn update_meta_to_belt_type_and_replace_cell(factory: &mut Factory, coord: u
   factory.floor[coord].belt.meta = meta;
 }
 
-pub fn connect_belt_to_existing_neighbor_cells(factory: &mut Factory, coord: usize) {
+pub fn connect_belt_to_existing_neighbor_cells(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord: usize) {
   // Note: this still requires factory prio update but it should take care of all the other things
   log(format!("connect_belt_to_existing_neighbor_cells({})", coord));
 

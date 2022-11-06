@@ -1918,7 +1918,7 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
               if index == 0 || index == len - 1 {
                 // log(format!("    -- okay @{} got {:?} ;; {:?} {:?} {:?} {:?}", coord, belt_type, factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
                 // log(format!("  - connect_belt_to_existing_neighbor_belts(), before: {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
-                connect_belt_to_existing_neighbor_cells(factory, coord);
+                connect_belt_to_existing_neighbor_cells(options, state, config, factory, coord);
               }
             }
           }
