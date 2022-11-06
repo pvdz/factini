@@ -927,23 +927,36 @@ pub fn cell_neighbors_to_auto_belt_meta(up: CellKind, right: CellKind, down: Cel
   (up,             right,          down,           left)
   {
     // Straight
-    (CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) => BELT_LR,
-    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty) => BELT_DU,
+    (CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) =>
+      BELT_LR,
+    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty) =>
+      BELT_DU,
 
     // Corner
-    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Empty) => BELT_RU,
-    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) => BELT_LU,
-    (CellKind::Empty, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) => BELT_DL,
-    (CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty) => BELT_DR,
+    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Empty) =>
+      BELT_RU,
+    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) =>
+      BELT_LU,
+    (CellKind::Empty, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) =>
+      BELT_DL,
+    (CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty) =>
+      BELT_DR,
 
     // T
-    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) => BELT_LRU,
-    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) => BELT_DLU,
-    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty) => BELT_DRU,
-    (CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) => BELT_DLR,
+    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) =>
+      BELT_LRU,
+    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) =>
+      BELT_DLU,
+    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty) =>
+      BELT_DRU,
+    (CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) =>
+      BELT_DLR,
 
     // +
-    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) => BELT_DLRU,
+    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) =>
+      BELT_DLRU,
+
+    // anything else is bust
     _ => BELT_UNKNOWN,
   };
 }
