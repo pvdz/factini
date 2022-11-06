@@ -23,21 +23,21 @@ pub enum Port {
   Unknown,
 }
 
-pub fn port_disconnect_cells(config: &Config, factory: &mut Factory, coord1: usize, dir1: Direction, coord2: usize, dir2: Direction) {
+pub fn port_disconnect_cells(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord1: usize, dir1: Direction, coord2: usize, dir2: Direction) {
   // Note: this still requires fixing the cell meta and a new factory prio
-  port_disconnect_cell(config, factory, coord1, dir1);
-  port_disconnect_cell(config, factory, coord2, dir2);
+  port_disconnect_cell(options, state, config, factory, coord1, dir1);
+  port_disconnect_cell(options, state, config, factory, coord2, dir2);
 }
-pub fn port_disconnect_cell(config: &Config, factory: &mut Factory, coord: usize, dir: Direction) {
+pub fn port_disconnect_cell(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord: usize, dir: Direction) {
   // Some cells have fixed ports, only belts are dynamic, machines reset to unknown
   // Note: this still requires fixing the cell meta and a new factory prio
 
   if factory.floor[coord].kind == CellKind::Belt || factory.floor[coord].kind == CellKind::Machine {
     match dir {
-      Direction::Up => cell_set_port_u_to(factory, coord, Port::None, to_coord_up(coord)),
-      Direction::Right => cell_set_port_r_to(factory, coord, Port::None, to_coord_right(coord)),
-      Direction::Down => cell_set_port_d_to(factory, coord, Port::None, to_coord_down(coord)),
-      Direction::Left => cell_set_port_l_to(factory, coord, Port::None, to_coord_left(coord)),
+      Direction::Up => cell_set_port_u_to(options, state, config, factory, coord, Port::None, to_coord_up(coord)),
+      Direction::Right => cell_set_port_r_to(options, state, config, factory, coord, Port::None, to_coord_right(coord)),
+      Direction::Down => cell_set_port_d_to(options, state, config, factory, coord, Port::None, to_coord_down(coord)),
+      Direction::Left => cell_set_port_l_to(options, state, config, factory, coord, Port::None, to_coord_left(coord)),
     }
   }
 

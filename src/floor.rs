@@ -498,28 +498,28 @@ pub fn floor_delete_cell_at_partial_sub(options: &mut Options, state: &mut State
 
   if factory.floor[coord].port_u != Port::None {
     if let Some(ocoord) = factory.floor[coord].coord_u {
-      port_disconnect_cell(config, factory, ocoord, Direction::Down);
+      port_disconnect_cell(options, state, config, factory, ocoord, Direction::Down);
       fix_belt_meta(factory, ocoord);
     }
   }
 
   if factory.floor[coord].port_r != Port::None {
     if let Some(ocoord) = factory.floor[coord].coord_r {
-      port_disconnect_cell(config, factory, ocoord, Direction::Left);
+      port_disconnect_cell(options, state, config, factory, ocoord, Direction::Left);
       fix_belt_meta(factory, ocoord);
     }
   }
 
   if factory.floor[coord].port_d != Port::None {
     if let Some(ocoord) = factory.floor[coord].coord_d {
-      port_disconnect_cell(config, factory, ocoord, Direction::Up);
+      port_disconnect_cell(options, state, config, factory, ocoord, Direction::Up);
       fix_belt_meta(factory, ocoord);
     }
   }
 
   if factory.floor[coord].port_l != Port::None {
     if let Some(ocoord) = factory.floor[coord].coord_l {
-      port_disconnect_cell(config, factory, ocoord, Direction::Right);
+      port_disconnect_cell(options, state, config, factory, ocoord, Direction::Right);
       fix_belt_meta(factory, ocoord);
     }
   }

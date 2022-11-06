@@ -414,46 +414,46 @@ pub fn fix_belt_meta(factory: &mut Factory, coord: usize) {
   factory.floor[coord].belt.meta = belt_meta;
 }
 
-pub fn update_meta_to_belt_type_and_replace_cell(factory: &mut Factory, coord: usize, belt_type: BeltType) {
+pub fn update_meta_to_belt_type_and_replace_cell(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord: usize, belt_type: BeltType) {
   let meta = belt_type_to_belt_meta(belt_type);
 
   if meta.port_u != Port::None {
     if factory.floor[coord].port_u == Port::None {
-      cell_set_port_u_to(factory, coord, Port::Unknown, to_coord_up(coord));
+      cell_set_port_u_to(options, state, config, factory, coord, Port::Unknown, to_coord_up(coord));
     }
   } else {
     if factory.floor[coord].port_u != Port::None {
-      cell_set_port_u_to(factory, coord, Port::None, to_coord_up(coord));
+      cell_set_port_u_to(options, state, config, factory, coord, Port::None, to_coord_up(coord));
     }
   }
 
   if meta.port_r != Port::None {
     if factory.floor[coord].port_r == Port::None {
-      cell_set_port_r_to(factory, coord, Port::Unknown, to_coord_right(coord));
+      cell_set_port_r_to(options, state, config, factory, coord, Port::Unknown, to_coord_right(coord));
     }
   } else {
     if factory.floor[coord].port_r != Port::None {
-      cell_set_port_r_to(factory, coord, Port::None, to_coord_right(coord));
+      cell_set_port_r_to(options, state, config, factory, coord, Port::None, to_coord_right(coord));
     }
   }
 
   if meta.port_d != Port::None {
     if factory.floor[coord].port_d == Port::None {
-      cell_set_port_d_to(factory, coord, Port::Unknown, to_coord_down(coord));
+      cell_set_port_d_to(options, state, config, factory, coord, Port::Unknown, to_coord_down(coord));
     }
   } else {
     if factory.floor[coord].port_d != Port::None {
-      cell_set_port_d_to(factory, coord, Port::None, to_coord_down(coord));
+      cell_set_port_d_to(options, state, config, factory, coord, Port::None, to_coord_down(coord));
     }
   }
 
   if meta.port_l != Port::None {
     if factory.floor[coord].port_l == Port::None {
-      cell_set_port_l_to(factory, coord, Port::Unknown, to_coord_left(coord));
+      cell_set_port_l_to(options, state, config, factory, coord, Port::Unknown, to_coord_left(coord));
     }
   } else {
     if factory.floor[coord].port_l != Port::None {
-      cell_set_port_r_to(factory, coord, Port::None, to_coord_left(coord));
+      cell_set_port_r_to(options, state, config, factory, coord, Port::None, to_coord_left(coord));
     }
   }
 
@@ -468,20 +468,20 @@ pub fn connect_belt_to_existing_neighbor_cells(options: &Options, state: &State,
     match factory.floor[ocoord].kind {
       CellKind::Empty => {}
       CellKind::Belt => {
-        cell_set_port_d_to(factory, ocoord, Port::Unknown, to_coord_down(coord));
-        cell_set_port_u_to(factory, coord, Port::Unknown, to_coord_up(coord));
+        cell_set_port_d_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_down(coord));
+        cell_set_port_u_to(options, state, config, factory, coord, Port::Unknown, to_coord_up(coord));
       }
       CellKind::Machine => {
-        cell_set_port_d_to(factory, ocoord, Port::Unknown, to_coord_down(coord));
-        cell_set_port_u_to(factory, coord, Port::Unknown, to_coord_up(coord));
+        cell_set_port_d_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_down(coord));
+        cell_set_port_u_to(options, state, config, factory, coord, Port::Unknown, to_coord_up(coord));
       }
       CellKind::Supply => {
         assert_eq!(factory.floor[ocoord].port_d, Port::Outbound, "supply port is always outbound");
-        cell_set_port_u_to(factory, coord, Port::Inbound, to_coord_up(coord));
+        cell_set_port_u_to(options, state, config, factory, coord, Port::Inbound, to_coord_up(coord));
       }
       CellKind::Demand => {
         assert_eq!(factory.floor[ocoord].port_d, Port::Inbound, "demand port is always inbound");
-        cell_set_port_u_to(factory, coord, Port::Outbound, to_coord_up(coord));
+        cell_set_port_u_to(options, state, config, factory, coord, Port::Outbound, to_coord_up(coord));
       }
     }
   }
@@ -490,20 +490,20 @@ pub fn connect_belt_to_existing_neighbor_cells(options: &Options, state: &State,
     match factory.floor[ocoord].kind {
       CellKind::Empty => {}
       CellKind::Belt => {
-        cell_set_port_l_to(factory, ocoord, Port::Unknown, to_coord_left(coord));
-        cell_set_port_r_to(factory, coord, Port::Unknown, to_coord_right(coord));
+        cell_set_port_l_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_left(coord));
+        cell_set_port_r_to(options, state, config, factory, coord, Port::Unknown, to_coord_right(coord));
       }
       CellKind::Machine => {
-        cell_set_port_l_to(factory, ocoord, Port::Unknown, to_coord_left(coord));
-        cell_set_port_r_to(factory, coord, Port::Unknown, to_coord_right(coord));
+        cell_set_port_l_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_left(coord));
+        cell_set_port_r_to(options, state, config, factory, coord, Port::Unknown, to_coord_right(coord));
       }
       CellKind::Supply => {
         assert_eq!(factory.floor[ocoord].port_l, Port::Outbound, "supply port is always outbound");
-        cell_set_port_r_to(factory, coord, Port::Inbound, to_coord_right(coord));
+        cell_set_port_r_to(options, state, config, factory, coord, Port::Inbound, to_coord_right(coord));
       }
       CellKind::Demand => {
         assert_eq!(factory.floor[ocoord].port_l, Port::Inbound, "demand port is always inbound");
-        cell_set_port_r_to(factory, coord, Port::Outbound, to_coord_right(coord));
+        cell_set_port_r_to(options, state, config, factory, coord, Port::Outbound, to_coord_right(coord));
       }
     }
   }
@@ -512,20 +512,20 @@ pub fn connect_belt_to_existing_neighbor_cells(options: &Options, state: &State,
     match factory.floor[ocoord].kind {
       CellKind::Empty => {}
       CellKind::Belt => {
-        cell_set_port_u_to(factory, ocoord, Port::Unknown, to_coord_up(coord));
-        cell_set_port_d_to(factory, coord, Port::Unknown, to_coord_down(coord));
+        cell_set_port_u_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_up(coord));
+        cell_set_port_d_to(options, state, config, factory, coord, Port::Unknown, to_coord_down(coord));
       }
       CellKind::Machine => {
-        cell_set_port_u_to(factory, ocoord, Port::Unknown, to_coord_up(coord));
-        cell_set_port_d_to(factory, coord, Port::Unknown, to_coord_down(coord));
+        cell_set_port_u_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_up(coord));
+        cell_set_port_d_to(options, state, config, factory, coord, Port::Unknown, to_coord_down(coord));
       }
       CellKind::Supply => {
         assert_eq!(factory.floor[ocoord].port_u, Port::Outbound, "supply port is always outbound");
-        cell_set_port_d_to(factory, coord, Port::Inbound, to_coord_down(coord));
+        cell_set_port_d_to(options, state, config, factory, coord, Port::Inbound, to_coord_down(coord));
       }
       CellKind::Demand => {
         assert_eq!(factory.floor[ocoord].port_u, Port::Inbound, "demand port is always inbound");
-        cell_set_port_d_to(factory, coord, Port::Outbound, to_coord_down(coord));
+        cell_set_port_d_to(options, state, config, factory, coord, Port::Outbound, to_coord_down(coord));
       }
     }
   }
@@ -534,60 +534,60 @@ pub fn connect_belt_to_existing_neighbor_cells(options: &Options, state: &State,
     match factory.floor[ocoord].kind {
       CellKind::Empty => {}
       CellKind::Belt => {
-        cell_set_port_r_to(factory, ocoord, Port::Unknown, to_coord_right(coord));
-        cell_set_port_l_to(factory, coord, Port::Unknown, to_coord_left(coord));
+        cell_set_port_r_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_right(coord));
+        cell_set_port_l_to(options, state, config, factory, coord, Port::Unknown, to_coord_left(coord));
       }
       CellKind::Machine => {
-        cell_set_port_r_to(factory, ocoord, Port::Unknown, to_coord_right(coord));
-        cell_set_port_l_to(factory, coord, Port::Unknown, to_coord_left(coord));
+        cell_set_port_r_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_right(coord));
+        cell_set_port_l_to(options, state, config, factory, coord, Port::Unknown, to_coord_left(coord));
       }
       CellKind::Supply => {
         assert_eq!(factory.floor[ocoord].port_r, Port::Outbound, "supply port is always outbound");
-        cell_set_port_l_to(factory, coord, Port::Inbound, to_coord_left(coord));
+        cell_set_port_l_to(options, state, config, factory, coord, Port::Inbound, to_coord_left(coord));
       }
       CellKind::Demand => {
         assert_eq!(factory.floor[ocoord].port_r, Port::Inbound, "demand port is always inbound");
-        cell_set_port_l_to(factory, coord, Port::Outbound, to_coord_left(coord));
+        cell_set_port_l_to(options, state, config, factory, coord, Port::Outbound, to_coord_left(coord));
       }
     }
   }
 }
 
-pub fn connect_machine_to_existing_neighbor_belts(factory: &mut Factory, coord: usize) {
+pub fn connect_machine_to_existing_neighbor_belts(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord: usize) {
   // Note: this still requires factory prio update but it should take care of all the other things
 
   // TODO: all directions or only the drag direction (for machines cells)?
 
   if let Some(ocoord) = factory.floor[coord].coord_u {
    if factory.floor[ocoord].kind == CellKind::Belt {
-      cell_set_port_d_to(factory, ocoord, Port::Unknown, to_coord_down(coord));
-      cell_set_port_u_to(factory, coord, Port::Unknown, to_coord_up(coord));
+      cell_set_port_d_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_down(coord));
+      cell_set_port_u_to(options, state, config, factory, coord, Port::Unknown, to_coord_up(coord));
     }
   }
 
   if let Some(ocoord) = factory.floor[coord].coord_r {
     if factory.floor[ocoord].kind == CellKind::Belt {
-      cell_set_port_l_to(factory, ocoord, Port::Unknown, to_coord_left(coord));
-      cell_set_port_r_to(factory, coord, Port::Unknown, to_coord_right(coord));
+      cell_set_port_l_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_left(coord));
+      cell_set_port_r_to(options, state, config, factory, coord, Port::Unknown, to_coord_right(coord));
     }
   }
 
   if let Some(ocoord) = factory.floor[coord].coord_d {
     if factory.floor[ocoord].kind == CellKind::Belt {
-      cell_set_port_u_to(factory, ocoord, Port::Unknown, to_coord_up(coord));
-      cell_set_port_d_to(factory, coord, Port::Unknown, to_coord_down(coord));
+      cell_set_port_u_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_up(coord));
+      cell_set_port_d_to(options, state, config, factory, coord, Port::Unknown, to_coord_down(coord));
     }
   }
 
   if let Some(ocoord) = factory.floor[coord].coord_l {
     if factory.floor[ocoord].kind == CellKind::Belt {
-      cell_set_port_r_to(factory, ocoord, Port::Unknown, to_coord_right(coord));
-      cell_set_port_l_to(factory, coord, Port::Unknown, to_coord_left(coord));
+      cell_set_port_r_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_right(coord));
+      cell_set_port_l_to(options, state, config, factory, coord, Port::Unknown, to_coord_left(coord));
     }
   }
 }
 
-pub fn cell_set_port_u_to(factory: &mut Factory, coord_from: usize, port: Port, ocoord: usize) {
+pub fn cell_set_port_u_to(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord_from: usize, port: Port, ocoord: usize) {
   // Note: this still requires factory prio update but it should take care of all the other things
 
   if factory.floor[coord_from].port_u == port {
@@ -615,7 +615,7 @@ pub fn cell_set_port_u_to(factory: &mut Factory, coord_from: usize, port: Port, 
     Port::Unknown => {}
   }
 }
-pub fn cell_set_port_r_to(factory: &mut Factory, coord_from: usize, port: Port, ocoord: usize) {
+pub fn cell_set_port_r_to(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord_from: usize, port: Port, ocoord: usize) {
   // Note: this still requires factory prio update but it should take care of all the other things
 
   if factory.floor[coord_from].port_r == port {
@@ -643,7 +643,7 @@ pub fn cell_set_port_r_to(factory: &mut Factory, coord_from: usize, port: Port, 
     Port::Unknown => {}
   }
 }
-pub fn cell_set_port_d_to(factory: &mut Factory, coord_from: usize, port: Port, ocoord: usize) {
+pub fn cell_set_port_d_to(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord_from: usize, port: Port, ocoord: usize) {
   // Note: this still requires factory prio update but it should take care of all the other things
 
   if factory.floor[coord_from].port_d == port {
@@ -671,7 +671,7 @@ pub fn cell_set_port_d_to(factory: &mut Factory, coord_from: usize, port: Port, 
     Port::Unknown => {}
   }
 }
-pub fn cell_set_port_l_to(factory: &mut Factory, coord_from: usize, port: Port, ocoord: usize) {
+pub fn cell_set_port_l_to(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord_from: usize, port: Port, ocoord: usize) {
   // Note: this still requires factory prio update but it should take care of all the other things
 
   if factory.floor[coord_from].port_l == port {
@@ -726,20 +726,20 @@ pub fn cell_connect_if_possible(options: &mut Options, state: &mut State, config
     assert!(from_kind != CellKind::Demand || to_kind != CellKind::Demand, "not checked here so we assume this");
     match ( dx, dy ) {
       ( 0 , -1 ) => {
-        if from_kind != CellKind::Supply { cell_set_port_u_to(factory, coord_from, Port::Inbound, coord_to); }
-        if to_kind != CellKind::Supply { cell_set_port_d_to(factory, coord_to, Port::Inbound, coord_from); }
+        if from_kind != CellKind::Supply { cell_set_port_u_to(options, state, config, factory, coord_from, Port::Inbound, coord_to); }
+        if to_kind != CellKind::Supply { cell_set_port_d_to(options, state, config, factory, coord_to, Port::Inbound, coord_from); }
       }
       ( 1 , 0 ) => {
-        if from_kind != CellKind::Supply { cell_set_port_r_to(factory, coord_from, Port::Inbound, coord_to); }
-        if to_kind != CellKind::Supply { cell_set_port_l_to(factory, coord_to, Port::Inbound, coord_from); }
+        if from_kind != CellKind::Supply { cell_set_port_r_to(options, state, config, factory, coord_from, Port::Inbound, coord_to); }
+        if to_kind != CellKind::Supply { cell_set_port_l_to(options, state, config, factory, coord_to, Port::Inbound, coord_from); }
       }
       ( 0 , 1 ) => {
-        if from_kind != CellKind::Supply { cell_set_port_d_to(factory, coord_from, Port::Inbound, coord_to); }
-        if to_kind != CellKind::Supply { cell_set_port_u_to(factory, coord_to, Port::Inbound, coord_from); }
+        if from_kind != CellKind::Supply { cell_set_port_d_to(options, state, config, factory, coord_from, Port::Inbound, coord_to); }
+        if to_kind != CellKind::Supply { cell_set_port_u_to(options, state, config, factory, coord_to, Port::Inbound, coord_from); }
       }
       ( -1 , 0 ) => {
-        if from_kind != CellKind::Supply { cell_set_port_l_to(factory, coord_from, Port::Inbound, coord_to); }
-        if to_kind != CellKind::Supply { cell_set_port_r_to(factory, coord_to, Port::Inbound, coord_from); }
+        if from_kind != CellKind::Supply { cell_set_port_l_to(options, state, config, factory, coord_from, Port::Inbound, coord_to); }
+        if to_kind != CellKind::Supply { cell_set_port_r_to(options, state, config, factory, coord_to, Port::Inbound, coord_from); }
       }
       _ => panic!("already asserted the range of x and y"),
     }
@@ -747,20 +747,20 @@ pub fn cell_connect_if_possible(options: &mut Options, state: &mut State, config
   else if from_kind == CellKind::Demand || to_kind == CellKind::Demand {
     match ( dx, dy ) {
       ( 0 , -1 ) => {
-        if from_kind != CellKind::Demand { cell_set_port_u_to(factory, coord_from, Port::Outbound, coord_to); }
-        if to_kind != CellKind::Demand { cell_set_port_d_to(factory, coord_to, Port::Outbound, coord_from); }
+        if from_kind != CellKind::Demand { cell_set_port_u_to(options, state, config, factory, coord_from, Port::Outbound, coord_to); }
+        if to_kind != CellKind::Demand { cell_set_port_d_to(options, state, config, factory, coord_to, Port::Outbound, coord_from); }
       }
       ( 1 , 0 ) => {
-        if from_kind != CellKind::Demand { cell_set_port_r_to(factory, coord_from, Port::Outbound, coord_to); }
-        if to_kind != CellKind::Demand { cell_set_port_l_to(factory, coord_to, Port::Outbound, coord_from); }
+        if from_kind != CellKind::Demand { cell_set_port_r_to(options, state, config, factory, coord_from, Port::Outbound, coord_to); }
+        if to_kind != CellKind::Demand { cell_set_port_l_to(options, state, config, factory, coord_to, Port::Outbound, coord_from); }
       }
       ( 0 , 1 ) => {
-        if from_kind != CellKind::Demand { cell_set_port_d_to(factory, coord_from, Port::Outbound, coord_to); }
-        if to_kind != CellKind::Demand { cell_set_port_u_to(factory, coord_to, Port::Outbound, coord_from); }
+        if from_kind != CellKind::Demand { cell_set_port_d_to(options, state, config, factory, coord_from, Port::Outbound, coord_to); }
+        if to_kind != CellKind::Demand { cell_set_port_u_to(options, state, config, factory, coord_to, Port::Outbound, coord_from); }
       }
       ( -1 , 0 ) => {
-        if from_kind != CellKind::Demand { cell_set_port_l_to(factory, coord_from, Port::Outbound, coord_to); }
-        if to_kind != CellKind::Demand { cell_set_port_r_to(factory, coord_to, Port::Outbound, coord_from); }
+        if from_kind != CellKind::Demand { cell_set_port_l_to(options, state, config, factory, coord_from, Port::Outbound, coord_to); }
+        if to_kind != CellKind::Demand { cell_set_port_r_to(options, state, config, factory, coord_to, Port::Outbound, coord_from); }
       }
       _ => panic!("already asserted the range of x and y"),
     }
@@ -770,20 +770,20 @@ pub fn cell_connect_if_possible(options: &mut Options, state: &mut State, config
     log(format!("connecting to empty? nope"));
     match ( dx, dy ) {
       ( 0 , -1 ) => {
-        cell_set_port_u_to(factory, coord_from, Port::None, coord_to);
-        cell_set_port_d_to(factory, coord_to, Port::None, coord_from);
+        cell_set_port_u_to(options, state, config, factory, coord_from, Port::None, coord_to);
+        cell_set_port_d_to(options, state, config, factory, coord_to, Port::None, coord_from);
       }
       ( 1 , 0 ) => {
-        cell_set_port_r_to(factory, coord_from, Port::None, coord_to);
-        cell_set_port_l_to(factory, coord_to, Port::None, coord_from);
+        cell_set_port_r_to(options, state, config, factory, coord_from, Port::None, coord_to);
+        cell_set_port_l_to(options, state, config, factory, coord_to, Port::None, coord_from);
       }
       ( 0 , 1 ) => {
-        cell_set_port_d_to(factory, coord_from, Port::None, coord_to);
-        cell_set_port_u_to(factory, coord_to, Port::None, coord_from);
+        cell_set_port_d_to(options, state, config, factory, coord_from, Port::None, coord_to);
+        cell_set_port_u_to(options, state, config, factory, coord_to, Port::None, coord_from);
       }
       ( -1 , 0 ) => {
-        cell_set_port_l_to(factory, coord_from, Port::None, coord_to);
-        cell_set_port_r_to(factory, coord_to, Port::None, coord_from);
+        cell_set_port_l_to(options, state, config, factory, coord_from, Port::None, coord_to);
+        cell_set_port_r_to(options, state, config, factory, coord_to, Port::None, coord_from);
       }
       _ => panic!("already asserted the range of x and y"),
     }
@@ -799,20 +799,20 @@ pub fn cell_connect_if_possible(options: &mut Options, state: &mut State, config
 
     match ( dx, dy ) {
       ( 0 , -1 ) => {
-        cell_set_port_u_to(factory, coord_from, Port::Outbound, coord_to);
-        cell_set_port_d_to(factory, coord_to, Port::Inbound, coord_from);
+        cell_set_port_u_to(options, state, config, factory, coord_from, Port::Outbound, coord_to);
+        cell_set_port_d_to(options, state, config, factory, coord_to, Port::Inbound, coord_from);
       }
       ( 1 , 0 ) => {
-        cell_set_port_r_to(factory, coord_from, Port::Outbound, coord_to);
-        cell_set_port_l_to(factory, coord_to, Port::Inbound, coord_from);
+        cell_set_port_r_to(options, state, config, factory, coord_from, Port::Outbound, coord_to);
+        cell_set_port_l_to(options, state, config, factory, coord_to, Port::Inbound, coord_from);
       }
       ( 0 , 1 ) => {
-        cell_set_port_d_to(factory, coord_from, Port::Outbound, coord_to);
-        cell_set_port_u_to(factory, coord_to, Port::Inbound, coord_from);
+        cell_set_port_d_to(options, state, config, factory, coord_from, Port::Outbound, coord_to);
+        cell_set_port_u_to(options, state, config, factory, coord_to, Port::Inbound, coord_from);
       }
       ( -1 , 0 ) => {
-        cell_set_port_l_to(factory, coord_from, Port::Outbound, coord_to);
-        cell_set_port_r_to(factory, coord_to, Port::Inbound, coord_from);
+        cell_set_port_l_to(options, state, config, factory, coord_from, Port::Outbound, coord_to);
+        cell_set_port_r_to(options, state, config, factory, coord_to, Port::Inbound, coord_from);
       }
       _ => panic!("already asserted the range of x and y"),
     }

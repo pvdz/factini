@@ -1818,7 +1818,7 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
         _ => panic!("already asserted the range of x and y"),
       };
 
-      port_disconnect_cells(config, factory, coord1, dir1, coord2, dir2);
+      port_disconnect_cells(options, state, config, factory, coord1, dir1, coord2, dir2);
     }
     else {
       // Other mouse button or multi-button. ignore for now / ever.
@@ -2041,16 +2041,16 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
         let (x, y) = to_xy(coord);
         if factory.floor[coord].kind != CellKind::Supply && factory.floor[coord].kind != CellKind::Demand {
           if factory.floor[coord].port_u != Port::None {
-            cell_set_port_u_to(factory, coord, Port::Unknown, to_coord_up(coord));
+            cell_set_port_u_to(options, state, config, factory, coord, Port::Unknown, to_coord_up(coord));
           }
           if factory.floor[coord].port_r != Port::None {
-            cell_set_port_r_to(factory, coord, Port::Unknown, to_coord_right(coord));
+            cell_set_port_r_to(options, state, config, factory, coord, Port::Unknown, to_coord_right(coord));
           }
           if factory.floor[coord].port_d != Port::None {
-            cell_set_port_d_to(factory, coord, Port::Unknown, to_coord_down(coord));
+            cell_set_port_d_to(options, state, config, factory, coord, Port::Unknown, to_coord_down(coord));
           }
           if factory.floor[coord].port_l != Port::None {
-            cell_set_port_l_to(factory, coord, Port::Unknown, to_coord_left(coord));
+            cell_set_port_l_to(options, state, config, factory, coord, Port::Unknown, to_coord_left(coord));
           }
         }
       }
