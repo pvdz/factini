@@ -54,7 +54,7 @@ pub fn auto_layout(options: &mut Options, state: &mut State, config: &Config, fa
         let down = if factory.floor[coord].port_d == Port::None { CellKind::Empty } else { get_cell_kind_at(factory, factory.floor[coord].coord_d) };
         let left = if factory.floor[coord].port_l == Port::None { CellKind::Empty } else { get_cell_kind_at(factory, factory.floor[coord].coord_l) };
 
-        factory.floor[coord].belt = belt_new(config, belt_auto_layout(up, right, down, left));
+        factory.floor[coord].belt = belt_new(config, cell_neighbors_to_auto_belt_meta(up, right, down, left));
       }
       CellKind::Machine => {
         if factory.floor[coord].machine.kind == MachineKind::Unknown {

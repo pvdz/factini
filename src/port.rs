@@ -65,7 +65,6 @@ pub fn port_to_char(port: Port) -> char {
   };
 }
 
-
 /*
 // https://en.wikipedia.org/wiki/Box-drawing_character
 fn ports_to_cell_icon(up: Port, right: Port, down: Port, left: Port) -> char {
