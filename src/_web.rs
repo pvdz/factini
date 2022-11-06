@@ -1562,7 +1562,7 @@ fn on_drag_end_machine_over_floor(options: &mut Options, state: &mut State, conf
     log(format!("Attaching machine to neighbor dead ending belts"));
     for i in 0..factory.floor[ccoord].machine.coords.len() {
       let coord = factory.floor[ccoord].machine.coords[i];
-      connect_to_neighbor_dead_end_belts(options, state, factory, coord);
+      connect_to_neighbor_dead_end_belts(options, state, config, factory, coord);
     }
 
     machine_discover_ins_and_outs(factory, ccoord);
@@ -1624,7 +1624,7 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
     }
     log(format!("Add new supply cell..."));
     factory.floor[last_mouse_up_cell_coord] = supply_cell(config, last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_from_part_index(config, dragged_part_index), 2000, 500, 1);
-    connect_to_neighbor_dead_end_belts(options, state, factory, last_mouse_up_cell_coord);
+    connect_to_neighbor_dead_end_belts(options, state, config, factory, last_mouse_up_cell_coord);
     match bools {
       ( false, true, false, false ) => factory.floor[last_mouse_up_cell_coord].port_d = Port::Outbound,
       ( false, false, true, false ) => factory.floor[last_mouse_up_cell_coord].port_l = Port::Outbound,

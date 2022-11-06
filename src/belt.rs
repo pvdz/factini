@@ -895,7 +895,7 @@ pub fn belt_discover_ins_and_outs(factory: &mut Factory, coord: usize) {
   };
 }
 
-pub fn connect_to_neighbor_dead_end_belts(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize) {
+pub fn connect_to_neighbor_dead_end_belts(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, coord: usize) {
   // log(format!("connect_to_neighbor_dead_end_belts({})", coord));
 
   let from_machine = factory.floor[coord].kind == CellKind::Machine;
