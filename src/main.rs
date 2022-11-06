@@ -10,6 +10,7 @@ use std::collections::VecDeque;
 pub mod _cli;
 
 pub mod belt;
+pub mod belt_type2;
 pub mod bouncer;
 pub mod cell;
 pub mod cli_serialize;

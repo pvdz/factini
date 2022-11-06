@@ -61,6 +61,7 @@ use std::collections::HashMap;
 use std::collections::VecDeque;
 
 use super::belt::*;
+use super::belt_type2::*;
 use super::bouncer::*;
 use super::cell::*;
 use super::cli_serialize::*;
