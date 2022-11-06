@@ -414,6 +414,8 @@ pub fn fix_belt_meta(options: &Options, state: &State, config: &Config, factory:
   factory.floor[coord].belt.meta = belt_meta;
 }
 
+// Unused
+/*
 pub fn update_meta_to_belt_type_and_replace_cell(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord: usize, belt_type: BeltType) {
   let meta = belt_type_to_belt_meta(belt_type);
 
@@ -459,6 +461,7 @@ pub fn update_meta_to_belt_type_and_replace_cell(options: &Options, state: &Stat
 
   factory.floor[coord].belt.meta = meta;
 }
+ */
 
 pub fn connect_belt_to_existing_neighbor_cells(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord: usize) {
   // Note: this still requires factory prio update but it should take care of all the other things
@@ -553,6 +556,8 @@ pub fn connect_belt_to_existing_neighbor_cells(options: &Options, state: &State,
   }
 }
 
+// unused
+/*
 pub fn connect_machine_to_existing_neighbor_belts(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord: usize) {
   // Note: this still requires factory prio update but it should take care of all the other things
 
@@ -586,6 +591,7 @@ pub fn connect_machine_to_existing_neighbor_belts(options: &Options, state: &Sta
     }
   }
 }
+*/
 
 pub fn cell_set_port_u_to(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord_from: usize, port: Port, ocoord: usize) {
   // Note: this still requires factory prio update but it should take care of all the other things
