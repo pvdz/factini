@@ -2,6 +2,7 @@ use std::borrow::Borrow;
 use std::convert::TryInto;
 
 use super::belt::*;
+use super::belt_type2::*;
 use super::cell::*;
 use super::config::*;
 use super::demand::*;
@@ -63,6 +64,30 @@ pub fn port_to_char(port: Port) -> char {
     Port::Unknown => { '?' },
     Port::None => { '-' },
   };
+}
+
+
+pub const fn ports_to_belt_type(up: Port, right: Port, down: Port, left: Port) -> BeltType {
+  // Each port as four possible states (none, in, out, unknown) and there are four ports so there
+  // are 4^4=256 options. The belt code is `{inports}_{out-ports}`, where the ports are single
+  // letters and each of the two groups is ordered alphabetically. Examples: `lr_u` or `d_r`
+
+  match (up, right, down, left) {
+    (Port::None, Port::None, Port::None, Port::None) => BeltType::NONE,
+    (_, Port::None, Port::None, Port::None) => BeltType::INVALID,
+    (Port::None, _, Port::None, Port::None) => BeltType::INVALID,
+    (Port::None, Port::None, _, Port::None) => BeltType::INVALID,
+    (Port::None, Port::None, Port::None, _) => BeltType::INVALID,
+    (_, _, Port::None, Port::None) => BeltType::RU,
+    (Port::None, _, _, Port::None) => BeltType::DR,
+    (Port::None, Port::None, _, _) => BeltType::DL,
+    (_, Port::None, Port::None, _) => BeltType::LU,
+    (_, _, _, Port::None) => BeltType::DRU,
+    (_, _, Port::None, _) => BeltType::LRU,
+    (_, Port::None, _, _) => BeltType::DLU,
+    (Port::None, _, _, _) => BeltType::DLR,
+    (_, _, _, _) => BeltType::DLRU,
+  }
 }
 
 /*

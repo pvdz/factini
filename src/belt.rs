@@ -365,29 +365,12 @@ pub fn add_two_ports_to_cell(factory: &Factory, coord: usize, dir1: Direction, d
   }
 }
 pub fn get_belt_type_for_cell_ports(factory: &Factory, coord: usize) -> BeltType {
-  match (
-    factory.floor[coord].port_u != Port::None,
-    factory.floor[coord].port_r != Port::None,
-    factory.floor[coord].port_d != Port::None,
-    factory.floor[coord].port_l != Port::None,
-  ) {
-    (true, false, false, false) => BeltType::INVALID, // TODO
-    (true, true, false, false) => BeltType::RU,
-    (true, false, true, false) => BeltType::DU,
-    (true, false, false, true) => BeltType::LU,
-    (true, true, true, false) => BeltType::DRU,
-    (true, true, false, true) => BeltType::LRU,
-    (true, false, true, true) => BeltType::DLU,
-    (true, true, true, true) => BeltType::DLRU,
-    (false, false, false, false) => BeltType::INVALID, // TODO
-    (false, true, false, false) => BeltType::INVALID, // TODO
-    (false, false, true, false) => BeltType::INVALID, // TODO
-    (false, false, false, true) => BeltType::INVALID, // TODO
-    (false, true, true, false) => BeltType::DR,
-    (false, true, false, true) => BeltType::LR,
-    (false, false, true, true) => BeltType::DL,
-    (false, true, true, true) => BeltType::DLR,
-  }
+  return ports_to_belt_type(
+    factory.floor[coord].port_u,
+    factory.floor[coord].port_r,
+    factory.floor[coord].port_d,
+    factory.floor[coord].port_l,
+  );
 }
 
 pub fn belt_discover_ins_and_outs(factory: &mut Factory, coord: usize) {
