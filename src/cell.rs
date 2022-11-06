@@ -1,4 +1,5 @@
 use super::belt::*;
+use super::belt_type2::*;
 use super::config::*;
 use super::demand::*;
 use super::direction::*;

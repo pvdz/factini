@@ -686,25 +686,6 @@ fn boxx(up: Port, right: Port, down: Port, left: Port) -> char {
   }
 }
 
-pub fn belt_type_to_belt_meta(belt_type: BeltType) -> BeltMeta {
-  match belt_type {
-    BeltType::RU => BELT_RU,
-    BeltType::DR => BELT_DR,
-    BeltType::DL => BELT_DL,
-    BeltType::LU => BELT_LU,
-    BeltType::DU => BELT_DU,
-    BeltType::LR => BELT_LR,
-    BeltType::LRU => BELT_LRU,
-    BeltType::DRU => BELT_DRU,
-    BeltType::DLR => BELT_DLR,
-    BeltType::DLU => BELT_DLU,
-    BeltType::DLRU => BELT_DLRU,
-    BeltType::UNKNOWN => BELT_UNKNOWN,
-    BeltType::INVALID => BELT_INVALID,
-    _ => panic!("Only use this for unguided types or code support for the other ones ^^ {:?}", belt_type),
-  }
-}
-
 pub fn add_one_ports_to_cell(factory: &Factory, coord: usize, dir: Direction) -> BeltType {
   // Given a coord and two dirs return a belt type that has _a_ port in all the directions of:
   // - the given dirs
