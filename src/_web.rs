@@ -2475,7 +2475,7 @@ fn ray_trace_dragged_line_expensive(factory: &Factory, ix0: f64, iy0: f64, ix1: 
     // For the first one, pass on the same "to" port since there is no "from" port (it'll be a noop)
     let bt =
       if !for_preview {
-        // add_one_ports_to_cell(factory, to_coord(lx, ly), last_to)
+        // add_unknown_port_to_cell(factory, to_coord(lx, ly), last_to)
         BeltType::INVALID
       } else {
         // This is necessary to make preview work but it may crash edge cells for actual placement
@@ -2489,7 +2489,7 @@ fn ray_trace_dragged_line_expensive(factory: &Factory, ix0: f64, iy0: f64, ix1: 
     last_from = new_from;
   }
   // Final step. Only has a from port.
-  let bt = add_one_ports_to_cell(factory, to_coord(lx, ly), last_from);
+  let bt = add_unknown_port_to_cell(factory, to_coord(lx, ly), last_from);
   track.push(((lx, ly), bt, last_from, last_from)); // there's no out port for last element. consumer beware?
 
   return track;

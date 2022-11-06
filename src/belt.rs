@@ -303,7 +303,7 @@ pub fn belt_determine_part_target_port(factory: &mut Factory, curr_coord: usize)
   }
 }
 
-pub fn add_one_ports_to_cell(factory: &Factory, coord: usize, dir: Direction) -> BeltType {
+pub fn add_unknown_port_to_cell(factory: &Factory, coord: usize, dir: Direction) -> BeltType {
   // Given a coord and two dirs return a belt type that has _a_ port in all the directions of:
   // - the given dirs
   // - the non-none ports of the current cell
