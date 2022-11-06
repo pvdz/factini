@@ -700,7 +700,7 @@ pub fn cell_set_port_l_to(factory: &mut Factory, coord_from: usize, port: Port, 
   }
 }
 
-pub fn cell_connect_if_possible(options: &mut Options, state: &mut State, factory: &mut Factory, coord_from: usize, coord_to: usize, dx: i8, dy: i8) {
+pub fn cell_connect_if_possible(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, coord_from: usize, coord_to: usize, dx: i8, dy: i8) {
   // Note: this still requires factory prio update but it should take care of all the other things
 
   log(format!("cell_connect_if_possible({} <-> {}) {} {}", coord_from, coord_to, dx, dy));

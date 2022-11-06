@@ -1789,7 +1789,7 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
           }
         }
 
-        cell_connect_if_possible(options, state, factory, coord1, coord2, dx, dy);
+        cell_connect_if_possible(options, state, config, factory, coord1, coord2, dx, dy);
       }
     }
     else if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
@@ -1926,7 +1926,7 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
 
         if index > 0 {
           // (First element has no inbound)
-          cell_connect_if_possible(options, state, factory, pcoord, coord, (cell_x as i8) - (px as i8), (cell_y as i8) - (py as i8));
+          cell_connect_if_possible(options, state, config, factory, pcoord, coord, (cell_x as i8) - (px as i8), (cell_y as i8) - (py as i8));
         }
       } else if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
         // Delete the cell if it is a belt, and in that case any port to it
