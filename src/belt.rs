@@ -490,36 +490,6 @@ pub fn connect_to_neighbor_dead_end_belts(options: &mut Options, state: &mut Sta
   }
 }
 
-const BOX_ARROW_U: char = '^';
-const BOX_ARROW_R: char = '>';
-const BOX_ARROW_D: char = 'v';
-const BOX_ARROW_L: char = '<';
-const BOX_LU: char = '┌';
-const BOX_U: char =  '─';
-const BOX_RU: char = '┐';
-const BOX_L: char =  '│';
-const BOX_R: char =  '│';
-const BOX_DL: char = '└';
-const BOX_D: char =  '─';
-const BLX_DR: char = '┘';
-const BOX_EQ_V: char = '║';
-const BOX_EQ_H: char = '═';
-// const BOX_SEG_U: char = '│';
-// const BOX_SEG_R: char = '─';
-// const BOX_SEG_D: char = '│';
-// const BOX_SEG_L: char = '─';
-// const BOX_SEG_C_DL: char = '┐';
-// const BOX_SEG_C_DLR: char = '┬';
-// const BOX_SEG_C_DLRU: char = '┼';
-// const BOX_SEG_C_DLU: char = '┤';
-// const BOX_SEG_C_DRU: char = '├';
-// const BOX_SEG_C_DR: char = '┌';
-// const BOX_SEG_C_DU: char = '│';
-// const BOX_SEG_C_LR: char = '─';
-// const BOX_SEG_C_LRU: char = '┴';
-// const BOX_SEG_C_LU: char = '┘';
-// const BOX_SEG_C_RU: char = '└';
-
 // ┌─┐
 // │ │
 // └─┘
