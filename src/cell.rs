@@ -1,5 +1,10 @@
 use super::belt::*;
-use super::belt_type2::*;
+use super::belt_codes::*;
+use super::belt_frame::*;
+use super::belt_meta::*;
+use super::belt_sprite::*;
+use super::belt_type::*;
+use super::belt_type::*;
 use super::config::*;
 use super::demand::*;
 use super::direction::*;
@@ -409,7 +414,7 @@ pub fn demand_cell(config: &Config, x: usize, y: usize) -> Cell {
 }
 
 pub fn fix_belt_meta(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord: usize) {
-  let belt_type = ports_to_belt_type(
+  let belt_type = belt_type_from_ports(
     factory.floor[coord].port_u,
     factory.floor[coord].port_r,
     factory.floor[coord].port_d,
@@ -712,7 +717,7 @@ pub fn cell_set_port_l_to(options: &Options, state: &State, config: &Config, fac
   }
 }
 
-pub fn cell_connect_if_possible(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, coord_from: usize, coord_to: usize, dx: i8, dy: i8) {
+pub fn cell_connect_if_possible(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord_from: usize, coord_to: usize, dx: i8, dy: i8) {
   // Note: this still requires factory prio update but it should take care of all the other things
 
   log(format!("cell_connect_if_possible({} <-> {}) {} {}", coord_from, coord_to, dx, dy));
@@ -864,7 +869,7 @@ pub fn get_cell_kind_at(factory: &mut Factory, coord: Option<usize>) -> CellKind
   };
 }
 
-pub fn clear_part_from_cell(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, coord: usize) {
+pub fn clear_part_from_cell(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord: usize) {
   // Clear the part from this cell
   match factory.floor[coord].kind {
     CellKind::Belt => {
@@ -923,40 +928,49 @@ pub fn cell_ports_to_str(cell: &super::cell::Cell) -> String {
 
 pub fn cell_neighbors_to_auto_belt_meta(up: CellKind, right: CellKind, down: CellKind, left: CellKind) -> BeltMeta {
   // log(format!("cell_neighbors_to_auto_belt_meta({:?}, {:?}, {:?}, {:?})", up, right, down, left));
-  return match
-  (up,             right,          down,           left)
-  {
+  return match (up, right, down, left) {
+    // Empty
+    (CellKind::Empty, CellKind::Empty, CellKind::Empty, CellKind::Empty) =>
+      BELT_NONE,
+
+    // Stubs
+    (_, CellKind::Empty, CellKind::Empty, CellKind::Empty) =>
+      BELT___U,
+    (CellKind::Empty, _, CellKind::Empty, CellKind::Empty) =>
+      BELT___R,
+    (CellKind::Empty, CellKind::Empty, _, CellKind::Empty) =>
+      BELT___D,
+    (CellKind::Empty, CellKind::Empty, CellKind::Empty, _) =>
+      BELT___L,
+
     // Straight
-    (CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) =>
-      BELT_LR,
-    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty) =>
-      BELT_DU,
+    (CellKind::Empty, _, CellKind::Empty, _) =>
+      BELT___LR,
+    (_, CellKind::Empty, _, CellKind::Empty) =>
+      BELT___DU,
 
     // Corner
-    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Empty) =>
-      BELT_RU,
-    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) =>
-      BELT_LU,
-    (CellKind::Empty, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) =>
-      BELT_DL,
-    (CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty) =>
-      BELT_DR,
+    (_, _, CellKind::Empty, CellKind::Empty) =>
+      BELT___RU,
+    (_, CellKind::Empty, CellKind::Empty, _) =>
+      BELT___LU,
+    (CellKind::Empty, CellKind::Empty, _, _) =>
+      BELT___DL,
+    (CellKind::Empty, _, _, CellKind::Empty) =>
+      BELT___DR,
 
     // T
-    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) =>
-      BELT_LRU,
-    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) =>
-      BELT_DLU,
-    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Empty) =>
-      BELT_DRU,
-    (CellKind::Empty, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) =>
-      BELT_DLR,
+    (_, _, CellKind::Empty, _) =>
+      BELT___LRU,
+    (_, CellKind::Empty, _, _) =>
+      BELT___DLU,
+    (_, _, _, CellKind::Empty) =>
+      BELT___DRU,
+    (CellKind::Empty, _, _, _) =>
+      BELT___DLR,
 
     // +
-    (CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand, CellKind::Belt|CellKind::Machine|CellKind::Supply|CellKind::Demand) =>
-      BELT_DLRU,
-
-    // anything else is bust
-    _ => BELT_UNKNOWN,
+    (_, _, _, _) =>
+      BELT___DLRU,
   };
 }

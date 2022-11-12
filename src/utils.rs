@@ -14,6 +14,12 @@ pub fn log(s: String) {
   web_sys::console::log_2(&"(rust)".into(), &s.into());
 }
 
+// pub fn error(s: String) {
+  // 1.65.0
+  // std::backtrace::Backtrace
+  // let t = Backtrace::force_capture();
+// }
+
 pub fn get_time_now() -> u64{
   return js_sys::Date::now() as u64;
 }

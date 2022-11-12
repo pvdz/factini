@@ -1,4 +1,9 @@
-use super::belt_type2::*;
+use super::belt_codes::*;
+use super::belt_frame::*;
+use super::belt_meta::*;
+use super::belt_sprite::*;
+use super::belt_type::*;
+use super::belt_type::*;
 use super::cell::*;
 use super::config::*;
 use super::demand::*;
@@ -26,21 +31,6 @@ pub struct Belt {
   pub part_progress: u64, // Usually factory.ticks - part_at is progress, but a part could be stuck at the center waiting for an outbound port to be available
   pub speed: u64,
   pub tick_price: i32, // Basically the continuous price you pay for having this belt on board, this applies to every tick so keep it low
-}
-
-// Clone but not Copy... I don't want to accidentally clone cells when I want to move them
-#[derive(Debug, Clone)]
-pub struct BeltMeta {
-  pub btype: BeltType, // BELT_FROM_TO
-  pub dbg: &'static str,
-  pub src: &'static str, // tile image
-  // TBD if I want to keep this
-  pub port_u: Port,
-  pub port_r: Port,
-  pub port_d: Port,
-  pub port_l: Port,
-  // simplify cli output painting
-  pub cli_icon: char,
 }
 
 pub fn belt_none(config: &Config) -> Belt {
@@ -309,29 +299,14 @@ pub fn add_unknown_port_to_cell(factory: &Factory, coord: usize, dir: Direction)
   // - the non-none ports of the current cell
   // - any dir where the neighbor is a belt (if flag is not set)
 
-  match (
-    dir == Direction::Up || factory.floor[coord].port_u != Port::None,
-    dir == Direction::Right || factory.floor[coord].port_r != Port::None,
-    dir == Direction::Down || factory.floor[coord].port_d != Port::None,
-    dir == Direction::Left || factory.floor[coord].port_l != Port::None,
-  ) {
-    (true, false, false, false) => BeltType::INVALID, // TODO
-    (true, true, false, false) => BeltType::RU,
-    (true, false, true, false) => BeltType::DU,
-    (true, false, false, true) => BeltType::LU,
-    (true, true, true, false) => BeltType::DRU,
-    (true, true, false, true) => BeltType::LRU,
-    (true, false, true, true) => BeltType::DLU,
-    (true, true, true, true) => BeltType::DLRU,
-    (false, false, false, false) => BeltType::INVALID, // TODO
-    (false, true, false, false) => BeltType::INVALID, // TODO
-    (false, false, true, false) => BeltType::INVALID, // TODO
-    (false, false, false, true) => BeltType::INVALID, // TODO
-    (false, true, true, false) => BeltType::DR,
-    (false, true, false, true) => BeltType::LR,
-    (false, false, true, true) => BeltType::DL,
-    (false, true, true, true) => BeltType::DLR,
-  }
+  let Cell { port_u, port_r, port_d, port_l, .. } = factory.floor[coord];
+
+  let port_u = if port_u != Port::None { port_u } else if dir == Direction::Up { Port::Unknown } else { Port::None };
+  let port_r = if port_r != Port::None { port_r } else if dir == Direction::Right { Port::Unknown } else { Port::None };
+  let port_d = if port_d != Port::None { port_d } else if dir == Direction::Down { Port::Unknown } else { Port::None };
+  let port_l = if port_l != Port::None { port_l } else if dir == Direction::Left { Port::Unknown } else { Port::None };
+
+  return belt_type_from_ports(port_u, port_r, port_d, port_l);
 }
 
 pub fn add_two_ports_to_cell(factory: &Factory, coord: usize, dir1: Direction, dir2: Direction) -> BeltType {
@@ -340,29 +315,14 @@ pub fn add_two_ports_to_cell(factory: &Factory, coord: usize, dir1: Direction, d
   // - the non-none ports of the current cell
   // - any dir where the neighbor is a belt (if flag is not set)
 
-  match (
-    dir1 == Direction::Up || dir2 == Direction::Up || factory.floor[coord].port_u != Port::None, // || (!ignore_neighbors && factory.floor[coord].coord_u != None && factory.floor[factory.floor[coord].coord_u.unwrap()].kind == CellKind::Belt),
-    dir1 == Direction::Right || dir2 == Direction::Right || factory.floor[coord].port_r != Port::None, // || (!ignore_neighbors && factory.floor[coord].coord_r != None && factory.floor[factory.floor[coord].coord_r.unwrap()].kind == CellKind::Belt),
-    dir1 == Direction::Down || dir2 == Direction::Down || factory.floor[coord].port_d != Port::None, // || (!ignore_neighbors && factory.floor[coord].coord_d != None && factory.floor[factory.floor[coord].coord_d.unwrap()].kind == CellKind::Belt),
-    dir1 == Direction::Left || dir2 == Direction::Left || factory.floor[coord].port_l != Port::None, // || (!ignore_neighbors && factory.floor[coord].coord_l != None && factory.floor[factory.floor[coord].coord_l.unwrap()].kind == CellKind::Belt),
-  ) {
-    (true, false, false, false) => BeltType::INVALID, // TODO
-    (true, true, false, false) => BeltType::RU,
-    (true, false, true, false) => BeltType::DU,
-    (true, false, false, true) => BeltType::LU,
-    (true, true, true, false) => BeltType::DRU,
-    (true, true, false, true) => BeltType::LRU,
-    (true, false, true, true) => BeltType::DLU,
-    (true, true, true, true) => BeltType::DLRU,
-    (false, false, false, false) => BeltType::INVALID, // TODO
-    (false, true, false, false) => BeltType::INVALID, // TODO
-    (false, false, true, false) => BeltType::INVALID, // TODO
-    (false, false, false, true) => BeltType::INVALID, // TODO
-    (false, true, true, false) => BeltType::DR,
-    (false, true, false, true) => BeltType::LR,
-    (false, false, true, true) => BeltType::DL,
-    (false, true, true, true) => BeltType::DLR,
-  }
+  let Cell { port_u, port_r, port_d, port_l, .. } = factory.floor[coord];
+
+  let port_u = if port_u != Port::None { port_u } else if dir1 == Direction::Up || dir2 == Direction::Up { Port::Unknown } else { Port::None };
+  let port_r = if port_r != Port::None { port_r } else if dir1 == Direction::Right || dir2 == Direction::Right { Port::Unknown } else { Port::None };
+  let port_d = if port_d != Port::None { port_d } else if dir1 == Direction::Down || dir2 == Direction::Down { Port::Unknown } else { Port::None };
+  let port_l = if port_l != Port::None { port_l } else if dir1 == Direction::Left || dir2 == Direction::Left { Port::Unknown } else { Port::None };
+
+  return belt_type_from_ports(port_u, port_r, port_d, port_l);
 }
 
 pub fn belt_discover_ins_and_outs(factory: &mut Factory, coord: usize) {
@@ -437,275 +397,3 @@ pub fn connect_to_neighbor_dead_end_belts(options: &mut Options, state: &mut Sta
     }
   }
 }
-
-// ┌─┐
-// │ │
-// └─┘
-pub const BELT_NONE: BeltMeta = BeltMeta {
-  btype: BeltType::NONE,
-  dbg: "BELT_NONE",
-  src: "./img/none.png",
-  port_u: Port::None,
-  port_r: Port::None,
-  port_d: Port::None,
-  port_l: Port::None,
-  cli_icon: ' ',
-};
-
-// o
-// ┌─┐
-// │ │
-// └─┘
-pub const BELT_INVALID: BeltMeta = BeltMeta {
-  btype: BeltType::INVALID,
-  dbg: "BELT_INVALID",
-  src: "./img/invalid.png",
-  port_u: Port::None,
-  port_r: Port::None,
-  port_d: Port::None,
-  port_l: Port::None,
-  cli_icon: '!',
-};
-// ┌║┐
-// ═ ═
-// └║┘
-pub const BELT_UNKNOWN: BeltMeta = BeltMeta {
-  btype: BeltType::INVALID,
-  dbg: "BELT_UNKNOWN",
-  src: "./img/invalid.png",
-  port_u: Port::Unknown,
-  port_r: Port::Unknown,
-  port_d: Port::Unknown,
-  port_l: Port::Unknown,
-  cli_icon: '?',
-};
-// ┌║┐
-// ═ ═
-// └║┘
-pub const MACHINE: BeltMeta = BeltMeta {
-  btype: BeltType::NONE,
-  dbg: "CELL_MACHINE",
-  src: "./img/todo.png",
-  port_u: Port::None,
-  port_r: Port::None,
-  port_d: Port::None,
-  port_l: Port::None,
-  cli_icon: 'm',
-};
-// ┌─┐
-// │s│
-// └v┘
-pub const SUPPLY_U: BeltMeta = BeltMeta {
-  btype: BeltType::NONE,
-  dbg: "CELL_SUPPLY_U",
-  src: "./img/todo.png",
-  port_u: Port::None,
-  port_r: Port::None,
-  port_d: Port::Outbound,
-  port_l: Port::None,
-  cli_icon: 's',
-};
-// ┌─┐
-// <s│
-// └─┘
-pub const SUPPLY_R: BeltMeta = BeltMeta {
-  btype: BeltType::NONE,
-  dbg: "CELL_SUPPLY_R",
-  src: "./img/todo.png",
-  port_u: Port::None,
-  port_r: Port::None,
-  port_d: Port::None,
-  port_l: Port::Outbound,
-  cli_icon: 's',
-};
-// ┌^┐
-// │s│
-// └─┘
-pub const SUPPLY_D: BeltMeta = BeltMeta {
-  btype: BeltType::NONE,
-  dbg: "CELL_SUPPLY_D",
-  src: "./img/todo.png",
-  port_u: Port::Outbound,
-  port_r: Port::None,
-  port_d: Port::None,
-  port_l: Port::None,
-  cli_icon: 's',
-};
-// ┌─┐
-// │s>
-// └─┘
-pub const SUPPLY_L: BeltMeta = BeltMeta {
-  btype: BeltType::NONE,
-  dbg: "CELL_SUPPLY_L",
-  src: "./img/todo.png",
-  port_u: Port::None,
-  port_r: Port::Outbound,
-  port_d: Port::None,
-  port_l: Port::None,
-  cli_icon: 's',
-};
-// ┌─┐
-// │d│
-// └^┘
-pub const DEMAND_U: BeltMeta = BeltMeta {
-  btype: BeltType::NONE,
-  dbg: "CELL_DEMAND_U",
-  src: "./img/todo.png",
-  port_u: Port::Inbound,
-  port_r: Port::None,
-  port_d: Port::None,
-  port_l: Port::None,
-  cli_icon: 'd',
-};
-// ┌─┐
-// >d│
-// └─┘
-pub const DEMAND_R: BeltMeta = BeltMeta {
-  btype: BeltType::NONE,
-  dbg: "CELL_DEMAND_R",
-  src: "./img/todo.png",
-  port_u: Port::None,
-  port_r: Port::Inbound,
-  port_d: Port::None,
-  port_l: Port::None,
-  cli_icon: 'd',
-};
-// ┌v┐
-// │d│
-// └─┘
-pub const DEMAND_D: BeltMeta = BeltMeta {
-  btype: BeltType::NONE,
-  dbg: "CELL_DEMAND_D",
-  src: "./img/todo.png",
-  port_u: Port::None,
-  port_r: Port::None,
-  port_d: Port::Inbound,
-  port_l: Port::None,
-  cli_icon: 'd',
-};
-// ┌─┐
-// │d<
-// └─┘
-pub const DEMAND_L: BeltMeta = BeltMeta {
-  btype: BeltType::NONE,
-  dbg: "CELL_DEMAND_L",
-  src: "./img/todo.png",
-  port_u: Port::None,
-  port_r: Port::None,
-  port_d: Port::None,
-  port_l: Port::Inbound,
-  cli_icon: 'd',
-};
-// ┌?┐
-// │ ?
-// └─┘
-pub const BELT_RU: BeltMeta = BeltMeta {
-  btype: BeltType::RU,
-  dbg: "BELT_RU",
-  src: "./img/ru.png",
-  port_u: Port::Unknown,
-  port_r: Port::Unknown,
-  port_d: Port::None,
-  port_l: Port::None,
-  cli_icon: '╚',
-};
-pub const BELT_DR: BeltMeta = BeltMeta {
-  btype: BeltType::DR,
-  dbg: "BELT_DR",
-  src: "./img/dr.png",
-  port_u: Port::None,
-  port_r: Port::Unknown,
-  port_d: Port::Unknown,
-  port_l: Port::None,
-  cli_icon: '╔',
-};
-pub const BELT_DL: BeltMeta = BeltMeta {
-  btype: BeltType::DL,
-  dbg: "BELT_DL",
-  src: "./img/dl.png",
-  port_u: Port::None,
-  port_r: Port::None,
-  port_d: Port::Unknown,
-  port_l: Port::Unknown,
-  cli_icon: '╗',
-};
-pub const BELT_LU: BeltMeta = BeltMeta {
-  btype: BeltType::LU,
-  dbg: "BELT_LU",
-  src: "./img/lu.png",
-  port_u: Port::Unknown,
-  port_r: Port::None,
-  port_d: Port::None,
-  port_l: Port::Unknown,
-  cli_icon: '╝',
-};
-pub const BELT_DU: BeltMeta = BeltMeta {
-  btype: BeltType::DU,
-  dbg: "BELT_DU",
-  src: "./img/du.png",
-  port_u: Port::Unknown,
-  port_r: Port::None,
-  port_d: Port::Unknown,
-  port_l: Port::None,
-  cli_icon: '║',
-};
-pub const BELT_LR: BeltMeta = BeltMeta {
-  btype: BeltType::LR,
-  dbg: "BELT_LR",
-  src: "./img/lr.png",
-  port_u: Port::None,
-  port_r: Port::Unknown,
-  port_d: Port::None,
-  port_l: Port::Unknown,
-  cli_icon: '═',
-};
-pub const BELT_LRU: BeltMeta = BeltMeta {
-  btype: BeltType::LRU,
-  dbg: "BELT_LRU",
-  src: "./img/lru.png",
-  port_u: Port::Unknown,
-  port_r: Port::Unknown,
-  port_d: Port::None,
-  port_l: Port::Unknown,
-  cli_icon: '╩',
-};
-pub const BELT_DRU: BeltMeta = BeltMeta {
-  btype: BeltType::DRU,
-  dbg: "BELT_DRU",
-  src: "./img/dru.png",
-  port_u: Port::Unknown,
-  port_r: Port::Unknown,
-  port_d: Port::Unknown,
-  port_l: Port::None,
-  cli_icon: '╠',
-};
-pub const BELT_DLR: BeltMeta = BeltMeta {
-  btype: BeltType::DLR,
-  dbg: "BELT_DLR",
-  src: "./img/dlr.png",
-  port_u: Port::None,
-  port_r: Port::Unknown,
-  port_d: Port::Unknown,
-  port_l: Port::Unknown,
-  cli_icon: '╦',
-};
-pub const BELT_DLU: BeltMeta = BeltMeta {
-  btype: BeltType::DLU,
-  dbg: "BELT_DLU",
-  src: "./img/dlu.png",
-  port_u: Port::Unknown,
-  port_r: Port::None,
-  port_d: Port::Unknown,
-  port_l: Port::Unknown,
-  cli_icon: '╣',
-};
-pub const BELT_DLRU: BeltMeta = BeltMeta {
-  btype: BeltType::DLRU,
-  dbg: "BELT_DLRU",
-  src: "./img/dlru.png",
-  port_u: Port::Unknown,
-  port_r: Port::Unknown,
-  port_d: Port::Unknown,
-  port_l: Port::Unknown,
-  cli_icon: '╬',
-};

@@ -49,6 +49,7 @@ pub struct Options {
   pub draw_part_char_icon: bool, // Draw the char icon representation for a part on top of it
   pub draw_part_kind: bool, // Draw the part kind id representation for a part on top of it
   pub draw_port_arrows: bool, // Draw the port directional arrows?
+  pub paint_belts: bool, // Paint the belt background tiles?
   pub draw_belt_dbg_id: bool, // Draw the belt id on top of each belt? "dl_r" etc
   pub draw_zone_hovers: bool, // Draw a rect on the area where the mouse is detected
 
@@ -98,7 +99,8 @@ pub fn create_options(speed_modifier: f64) -> Options {
     draw_part_char_icon: false,
     draw_part_kind: false,
     draw_port_arrows: false,
-    draw_belt_dbg_id: true,
+    paint_belts: true,
+    draw_belt_dbg_id: false,
     draw_zone_hovers: false,
     draw_ui_section_border: false,
     ui_section_border_color: "white".to_string(),
@@ -224,6 +226,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "draw_part_char_icon" => options.draw_part_char_icon = parse_bool(value, name, strict, options.draw_part_char_icon),
             "draw_part_kind" => options.draw_part_kind = parse_bool(value, name, strict, options.draw_part_kind),
             "draw_port_arrows" => options.draw_port_arrows = parse_bool(value, name, strict, options.draw_port_arrows),
+            "paint_belts" => options.paint_belts = parse_bool(value, name, strict, options.paint_belts),
             "draw_belt_dbg_id" => options.draw_belt_dbg_id = parse_bool(value, name, strict, options.draw_belt_dbg_id),
             "draw_zone_hovers" => options.draw_zone_hovers = parse_bool(value, name, strict, options.draw_zone_hovers),
             "draw_ui_section_border" => options.draw_ui_section_border = parse_bool(value, name, strict, options.draw_ui_section_border),

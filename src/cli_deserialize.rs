@@ -3,6 +3,8 @@ use std::collections::VecDeque;
 use std::convert::TryInto;
 
 use super::belt::*;
+use super::belt_meta::*;
+use crate::belt_type::*;
 use super::cell::*;
 use super::config::*;
 use super::demand::*;
@@ -330,7 +332,9 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
         // Then there's a bunch of belt cells. These are either `b` or "table ascii art" chars
         // The actual char is not relevant here since we will auto-discover the meta of the cell
         // based on the port configuration, anyways.
-        '%' => { // Joker, unspecified belt. (b is used by machine id)
+
+        // Joker, unspecified belt. Ports are ignored. (b is used by machine id)
+        '%' => {
           // Fix belt meta later in the auto layout step
           let mut cell = belt_cell(config, i, j, BELT_UNKNOWN);
           cell.port_u = Port::Unknown;
@@ -339,6 +343,8 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
           cell.port_l = Port::Unknown;
           floor[coord] = cell;
         }
+
+        // Explicit tiles use box art but are exclusively defined by the ports
         | '╸' // double lines have no one-arm glyph :rolls-eys: so we use thick line instead
         | '╹'
         | '╺'
@@ -356,11 +362,21 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
         | '╬'
         => {
           // Fix belt meta later in the auto layout step
-          let mut cell = belt_cell(config, i, j, BELT_UNKNOWN);
-          cell.port_u = match port_u as char { '^' => Port::Outbound, 'v' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port up indicators must be `^`, `v`, `?` or a space, this was `{}`", port_u)};
-          cell.port_r = match port_r as char { '>' => Port::Outbound, '<' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port right indicators must be `<`, `>`, `?` or a space, this was `{}`", port_u)};
-          cell.port_d = match port_d as char { 'v' => Port::Outbound, '^' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port down indicators must be `^`, `v`, `?` or a space, this was `{}`", port_u)};
-          cell.port_l = match port_l as char { '<' => Port::Outbound, '>' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port left indicators must be `<`, `>`, `?` or a space, this was `{}`", port_u)};
+
+          let belt_type = belt_type_from_ports(
+            match port_u as char { '^' => Port::Outbound, 'v' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port up indicators must be `^`, `v`, `?` or a space, this was `{}`", port_u)},
+            match port_r as char { '>' => Port::Outbound, '<' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port right indicators must be `<`, `>`, `?` or a space, this was `{}`", port_u)},
+            match port_d as char { 'v' => Port::Outbound, '^' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port down indicators must be `^`, `v`, `?` or a space, this was `{}`", port_u)},
+            match port_l as char { '<' => Port::Outbound, '>' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port left indicators must be `<`, `>`, `?` or a space, this was `{}`", port_u)},
+          );
+          let belt_meta = belt_type_to_belt_meta(belt_type);
+          if cell_kind == '╹' {
+            log(format!("REMOVEME check1: {:?} {:?} {:?} {:?} -> {:?}", belt_meta.port_u, belt_meta.port_r, belt_meta.port_d, belt_meta.port_l, belt_meta.dbg));
+          }
+          let mut cell = belt_cell(config, i, j, belt_meta);
+          if cell_kind == '╹' {
+            log(format!("REMOVEME check2: {:?} {:?} {:?} {:?} -> {:?} -> {:?}", cell.port_u, cell.port_r, cell.port_d, cell.port_l, cell.belt.meta.dbg, cell.belt.meta.src));
+          }
           floor[coord] = cell;
         }
 
@@ -409,7 +425,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              if c < 'a' && c > 'z' { panic!("Unexpected input on line {} while parsing supply augment kind: input characters must be a-z, found `{}`", line_no, c); }
+              if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c as u8 > 127) { panic!("Unexpected input on line {} while parsing supply augment kind: input characters must be a-zA-Z or non-ascii, found `{}`", line_no, c); }
               gives = c;
 
               loop {
@@ -508,7 +524,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
               while c != '#' && c != '-' {
-                if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '.') { panic!("Unexpected input while parsing machine input: input characters must be a-zA-Z or dot, found `{}`", c); }
+                if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '.') || c as u8 > 127 { panic!("Unexpected input on line {} while parsing machine input: input characters must be a-zA-Z or dot or non-ascii, found `{}`", line_no, c); }
                 // Convert the dot back to an empty part.
                 wants.push(part_c(config, if c == '.' { ' ' } else { c }));
 
@@ -524,7 +540,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '.') { panic!("Unexpected input while parsing machine output: input characters must be a-zA-Z or dot, found `{}`", c); }
+              if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '.' || c as u8 > 127) { panic!("Unexpected input on line {} while parsing machine output: input characters must be a-zA-Z or dot or non-ascii, found `{}`", line_no, c); }
               output = c;
 
               loop {

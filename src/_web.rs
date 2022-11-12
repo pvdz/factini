@@ -61,7 +61,7 @@ use std::collections::HashMap;
 use std::collections::VecDeque;
 
 use super::belt::*;
-use super::belt_type2::*;
+use super::belt_type::*;
 use super::bouncer::*;
 use super::cell::*;
 use super::cli_serialize::*;
@@ -177,7 +177,11 @@ pub fn start() -> Result<(), JsValue> {
   pub fn load_config(print_fmd_trace: bool, config_str: String) -> Config {
     let mut config = parse_fmd(print_fmd_trace, config_str);
 
-    config.nodes.iter().for_each(|node| log(format!("node `{}` wants to load `{}`", node.raw_name, node.file)));
+    config.nodes.iter().for_each(|node| {
+      if node.file != "" {
+        log(format!("node `{}` wants to load `{}` at canvas index {}", node.raw_name, node.file, node.file_canvas_cache_index))
+      }
+    });
 
     // Load sprite maps. Once per image.
     config.sprite_cache_canvas = config.sprite_cache_order.iter().enumerate().map(|(_index, src)| {
@@ -1429,7 +1433,7 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
     }
   } else {
     // De-/Select this cell
-    log(format!("clicked {} {} cell selection before: {:?}", last_mouse_up_cell_x, last_mouse_up_cell_y, cell_selection));
+    log(format!("clicked {} {} cell selection before: {:?}, belt: {:?}", last_mouse_up_cell_x, last_mouse_up_cell_y, cell_selection, factory.floor[to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize)].belt));
 
     if cell_selection.on && cell_selection.x == last_mouse_up_cell_x && cell_selection.y == last_mouse_up_cell_y {
       cell_selection.on = false;
@@ -1732,222 +1736,235 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
   let len = track.len();
 
   if len == 1 {
-    log(format!("One cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_mirrored));
-    if mouse_state.last_down_button == if state.mouse_mode_mirrored { 2 } else { 1 } {
-      log(format!(" - Ignore click on a single cell, as well as dragging across one cell. Allows you to cancel a drag."));
-    } else if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
-      log(format!(" - Removing the cell"));
-      // Clear the cell if that makes sense for it
-      // Do not delete a cell, not even stubs, because this would be a drag-cancel
-      // (Regular click would delete stubs)
-      let ((cell_x, cell_y), _belt_type, _unused, _port_out_dir) = track[0]; // First element has no inbound port here
-      let coord = to_coord(cell_x, cell_y);
-      clear_part_from_cell(options, state, config, factory, coord);
-    } else {
-      // Other mouse button. ignore for now / ever.
-      // I think this allows you to cancel a drag by pressing the rmb
-      log(format!(" - Not left or right button; ignoring unknown button click"));
-    }
+    on_drag_end_floor_one_cell(state, options, config, factory, mouse_state, track);
   }
   else if len == 2 {
-    log(format!("Two cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_mirrored));
-    let ((cell_x1, cell_y1), belt_type1, _unused, _port_out_dir1) = track[0]; // First element has no inbound port here
-    let coord1 = to_coord(cell_x1, cell_y1);
-    let ((cell_x2, cell_y2), belt_type2, _port_in_dir2, _unused) = track[1]; // LAst element has no outbound port here
-    let coord2 = to_coord(cell_x2, cell_y2);
-
-    let dx = (cell_x2 as i8) - (cell_x1 as i8);
-    let dy = (cell_y2 as i8) - (cell_y1 as i8);
-    assert!((dx == 0) != (dy == 0), "one and only one of dx or dy is zero");
-    assert!(dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1, "since they are adjacent they must be -1, 0, or 1");
-
-    if mouse_state.last_down_button == if state.mouse_mode_mirrored { 2 } else { 1 } {
-      log(format!(" - Connecting the two cells"));
-
-      // Convert empty cells to belt cells.
-      // Create a port between these two cells, but none of the other cells.
-
-      if is_edge(cell_x1 as f64, cell_y1 as f64) && is_edge(cell_x2 as f64, cell_y2 as f64) {
-        // Noop. Just don't.
-      }
-      else {
-        if factory.floor[coord1].kind == CellKind::Empty {
-          if is_edge_not_corner(cell_x1 as f64, cell_y1 as f64) {
-            // Cell is empty so place a trash supplier here as a placeholder
-            factory.floor[coord1] = supply_cell(config, cell_x1, cell_y1, part_c(config, 't'), 2000, 0, 0);
-          }
-          else if is_middle(cell_x1 as f64, cell_y1 as f64) {
-            factory.floor[coord1] = belt_cell(config, cell_x1, cell_y1, belt_type_to_belt_meta(belt_type1));
-          }
-        }
-        if factory.floor[coord2].kind == CellKind::Empty {
-          if is_edge_not_corner(cell_x2 as f64, cell_y2 as f64) {
-            // Cell is empty so place a demander here
-            factory.floor[coord2] = demand_cell(config, cell_x2, cell_y2);
-          }
-          else if is_middle(cell_x2 as f64, cell_y2 as f64) {
-            factory.floor[coord2] = belt_cell(config, cell_x2, cell_y2, belt_type_to_belt_meta(belt_type2));
-          }
-        }
-
-        cell_connect_if_possible(options, state, config, factory, coord1, coord2, dx, dy);
-      }
-    }
-    else if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
-      log(format!(" - Disconnecting the two cells"));
-
-      // Delete the port between the two cells but leave everything else alone.
-      // The coords must be adjacent to one side.
-
-      let ( dir1, dir2) = match ( dx, dy ) {
-        ( 0 , -1 ) => {
-          // x1 was bigger so xy1 is under xy2
-          (Direction::Up, Direction::Down)
-        }
-        ( 1 , 0 ) => {
-          // x2 was bigger so xy1 is left of xy2
-          (Direction::Right, Direction::Left)
-        }
-        ( 0 , 1 ) => {
-          // y2 was bigger so xy1 is above xy2
-          (Direction::Down, Direction::Up)
-        }
-        ( -1 , 0 ) => {
-          // x1 was bigger so xy1 is right of xy2
-          (Direction::Left, Direction::Right)
-        }
-        _ => panic!("already asserted the range of x and y"),
-      };
-
-      port_disconnect_cells(options, state, config, factory, coord1, dir1, coord2, dir2);
-    }
-    else {
-      // Other mouse button or multi-button. ignore for now / ever.
-      // (Remember: this was a drag of two cells)
-      log(format!(" - Not left or right button; ignoring unknown button click"));
-    }
-
-    fix_belt_meta(options, state, config, factory, coord1);
-    fix_belt_meta(options, state, config, factory, coord2);
-
-    if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
-      if factory.floor[coord1].kind == CellKind::Belt && factory.floor[coord1].port_u == Port::None && factory.floor[coord1].port_r == Port::None && factory.floor[coord1].port_d == Port::None && factory.floor[coord1].port_l == Port::None {
-        floor_delete_cell_at_partial(options, state, config, factory, coord1);
-      } else {
-        clear_part_from_cell(options, state, config, factory, coord1);
-      }
-      if factory.floor[coord2].kind == CellKind::Belt && factory.floor[coord2].port_u == Port::None && factory.floor[coord2].port_r == Port::None && factory.floor[coord2].port_d == Port::None && factory.floor[coord2].port_l == Port::None {
-        floor_delete_cell_at_partial(options, state, config, factory, coord2);
-      } else {
-        clear_part_from_cell(options, state, config, factory, coord2);
-      }
-    }
+    on_drag_end_floor_two_cells(state, options, config, factory, mouse_state, track);
   }
   else {
-    log(format!("Multi cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_mirrored));
-
-    // len > 2
-    // Draw track if lmb, remove cells on track if rmb
-
-    let mut still_starting_on_edge = true; // start true until first middle cell
-    let mut already_ending_on_edge = false; // start false until still_starting_on_edge and current cell is edge
-    let mut px = 0;
-    let mut py = 0;
-    let mut pcoord = 0;
-    for index in 0..len {
-      let ((cell_x, cell_y), belt_type, _port_in_dir, _port_out_dir) = track[index];
-      log(format!("- track {} at {} {} isa {:?}", index, cell_x, cell_y, belt_type));
-      let coord = to_coord(cell_x, cell_y);
-
-      if mouse_state.last_down_button == if state.mouse_mode_mirrored { 2 } else { 1 } {
-        if still_starting_on_edge {
-          // Note: if the first cell is in the middle then the track does not start on the edge
-          if index == 0 {
-            log(format!("({}) first track part...", index));
-            if is_middle(cell_x as f64, cell_y as f64) {
-              // The track starts in the middle of the floor. Do not add a trashcan.
-              log(format!("({})  - in middle. still_starting_on_edge now false", index));
-              still_starting_on_edge = false;
-            }
-          }
-          // Still on the edge but not the first so the prior part of the track and all pieces
-          // before it were all on the edge. If this one is not then the previous cell should
-          // get the trashcan treatment. And otherwise we noop until the next cell.
-          else if is_middle(cell_x as f64, cell_y as f64) {
-            log(format!("({}) first middle part of track", index));
-            // Track started on the edge but has at least one segment in the middle.
-            // Create a trash on the previous (edge) cell if that cell is empty.
-            if factory.floor[pcoord].kind == CellKind::Empty {
-              factory.floor[pcoord] = supply_cell(config, px, py, part_c(config, 't'), 2000, 0, 0);
-            }
-            still_starting_on_edge = false;
-          }
-          // This means this and all prior track parts were on the edge. Move to next part.
-          else {
-            log(format!("({}) non-first-but-still-edge part of track", index));
-          }
-        }
-        else if is_edge_not_corner(cell_x as f64, cell_y as f64) {
-          log(format!("({}) ending edge part of track", index));
-          if !already_ending_on_edge {
-            log(format!("({}) - first ending edge part of track, already_ending_on_edge = true", index));
-            // Note: the drag can only start inside the floor, so we don't have to worry about
-            //       the index here since we always drag in a straight line. Once the edge is
-            //       reached, we assume the line to end and we can put a trash Demand down.
-            if factory.floor[coord].kind == CellKind::Empty {
-              factory.floor[coord] = demand_cell(config, cell_x, cell_y);
-            }
-
-            already_ending_on_edge = true;
-          }
-        }
-
-        log(format!("({}) head-on-edge? {} tail-on-edge? {}", index, still_starting_on_edge, already_ending_on_edge));
-
-        // If not at the start or end of the track...
-        if !still_starting_on_edge && !already_ending_on_edge {
-          // Create middle cell
-
-          // Staple the track on top of the existing layout. If the cell is not empty then either
-          // it's a belt which we'll try to connect to the previous/next part of the belt. Or it's
-          // another piece that we don't want to override anyways, and will also be connected.
-          if factory.floor[coord].kind == CellKind::Empty {
-            if is_middle(cell_x as f64, cell_y as f64) {
-              factory.floor[coord] = belt_cell(config, cell_x, cell_y, belt_type_to_belt_meta(belt_type));
-
-              // Connect the end points to any existing neighboring cells if not already connected
-              if index == 0 || index == len - 1 {
-                // log(format!("    -- okay @{} got {:?} ;; {:?} {:?} {:?} {:?}", coord, belt_type, factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
-                // log(format!("  - connect_belt_to_existing_neighbor_belts(), before: {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
-                connect_belt_to_existing_neighbor_cells(options, state, config, factory, coord);
-              }
-            }
-          }
-        }
-
-        if index > 0 {
-          // (First element has no inbound)
-          cell_connect_if_possible(options, state, config, factory, pcoord, coord, (cell_x as i8) - (px as i8), (cell_y as i8) - (py as i8));
-        }
-      } else if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
-        // Delete the cell if it is a belt, and in that case any port to it
-        // Do not delete machines, suppliers, or demanders. No need to delete empty cells
-        if factory.floor[coord].kind == CellKind::Belt {
-          // Delete this belt tile and update the neighbors accordingly
-          floor_delete_cell_at_partial(options, state, config, factory, coord);
-        }
-      } else {
-        // Ignore whatever this is.
-      }
-
-      px = cell_x;
-      py = cell_y;
-      pcoord = coord;
-    }
+    on_drag_end_floor_multi_cells(state, options, config, factory, mouse_state, track);
   }
 
   factory.changed = true;
 }
+fn on_drag_end_floor_one_cell(state: &State, options: &Options, config: &Config, factory: &mut Factory, mouse_state: &MouseState, track: Vec<((usize, usize), BeltType, Direction, Direction)>) {
+  log(format!("One cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_mirrored));
+  if mouse_state.last_down_button == if state.mouse_mode_mirrored { 2 } else { 1 } {
+    log(format!(" - Ignore click on a single cell, as well as dragging across one cell. Allows you to cancel a drag."));
+  } else if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
+    log(format!(" - Removing the cell"));
+    // Clear the cell if that makes sense for it
+    // Do not delete a cell, not even stubs, because this would be a drag-cancel
+    // (Regular click would delete stubs)
+    let ((cell_x, cell_y), _belt_type, _unused, _port_out_dir) = track[0]; // First element has no inbound port here
+    let coord = to_coord(cell_x, cell_y);
+    clear_part_from_cell(options, state, config, factory, coord);
+  } else {
+    // Other mouse button. ignore for now / ever.
+    // I think this allows you to cancel a drag by pressing the rmb
+    log(format!(" - Not left or right button; ignoring unknown button click"));
+  }
+}
+fn on_drag_end_floor_two_cells(state: &State, options: &Options, config: &Config, factory: &mut Factory, mouse_state: &MouseState, track: Vec<((usize, usize), BeltType, Direction, Direction)>) {
+  log(format!("Two cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_mirrored));
+  let ((cell_x1, cell_y1), belt_type1, _unused, _port_out_dir1) = track[0]; // First element has no inbound port here
+  let coord1 = to_coord(cell_x1, cell_y1);
+  let ((cell_x2, cell_y2), belt_type2, _port_in_dir2, _unused) = track[1]; // LAst element has no outbound port here
+  let coord2 = to_coord(cell_x2, cell_y2);
+
+  let dx = (cell_x2 as i8) - (cell_x1 as i8);
+  let dy = (cell_y2 as i8) - (cell_y1 as i8);
+  assert!((dx == 0) != (dy == 0), "one and only one of dx or dy is zero");
+  assert!(dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1, "since they are adjacent they must be -1, 0, or 1");
+
+  if mouse_state.last_down_button == if state.mouse_mode_mirrored { 2 } else { 1 } {
+    log(format!(" - Connecting the two cells"));
+
+    // Convert empty cells to belt cells.
+    // Create a port between these two cells, but none of the other cells.
+
+    if is_edge(cell_x1 as f64, cell_y1 as f64) && is_edge(cell_x2 as f64, cell_y2 as f64) {
+      // Noop. Just don't.
+    }
+    else {
+      if factory.floor[coord1].kind == CellKind::Empty {
+        if is_edge_not_corner(cell_x1 as f64, cell_y1 as f64) {
+          // Cell is empty so place a trash supplier here as a placeholder
+          factory.floor[coord1] = supply_cell(config, cell_x1, cell_y1, part_c(config, 't'), 2000, 0, 0);
+        }
+        else if is_middle(cell_x1 as f64, cell_y1 as f64) {
+          factory.floor[coord1] = belt_cell(config, cell_x1, cell_y1, belt_type_to_belt_meta(belt_type1));
+        }
+      }
+      if factory.floor[coord2].kind == CellKind::Empty {
+        if is_edge_not_corner(cell_x2 as f64, cell_y2 as f64) {
+          // Cell is empty so place a demander here
+          factory.floor[coord2] = demand_cell(config, cell_x2, cell_y2);
+        }
+        else if is_middle(cell_x2 as f64, cell_y2 as f64) {
+          factory.floor[coord2] = belt_cell(config, cell_x2, cell_y2, belt_type_to_belt_meta(belt_type2));
+        }
+      }
+
+      cell_connect_if_possible(options, state, config, factory, coord1, coord2, dx, dy);
+    }
+  }
+  else if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
+    log(format!(" - Disconnecting the two cells"));
+
+    // Delete the port between the two cells but leave everything else alone.
+    // The coords must be adjacent to one side.
+
+    let ( dir1, dir2) = match ( dx, dy ) {
+      ( 0 , -1 ) => {
+        // x1 was bigger so xy1 is under xy2
+        (Direction::Up, Direction::Down)
+      }
+      ( 1 , 0 ) => {
+        // x2 was bigger so xy1 is left of xy2
+        (Direction::Right, Direction::Left)
+      }
+      ( 0 , 1 ) => {
+        // y2 was bigger so xy1 is above xy2
+        (Direction::Down, Direction::Up)
+      }
+      ( -1 , 0 ) => {
+        // x1 was bigger so xy1 is right of xy2
+        (Direction::Left, Direction::Right)
+      }
+      _ => panic!("already asserted the range of x and y"),
+    };
+
+    port_disconnect_cells(options, state, config, factory, coord1, dir1, coord2, dir2);
+  }
+  else {
+    // Other mouse button or multi-button. ignore for now / ever.
+    // (Remember: this was a drag of two cells)
+    log(format!(" - Not left or right button; ignoring unknown button click"));
+  }
+
+  fix_belt_meta(options, state, config, factory, coord1);
+  fix_belt_meta(options, state, config, factory, coord2);
+
+  if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
+    if factory.floor[coord1].kind == CellKind::Belt && factory.floor[coord1].port_u == Port::None && factory.floor[coord1].port_r == Port::None && factory.floor[coord1].port_d == Port::None && factory.floor[coord1].port_l == Port::None {
+      floor_delete_cell_at_partial(options, state, config, factory, coord1);
+    } else {
+      clear_part_from_cell(options, state, config, factory, coord1);
+    }
+    if factory.floor[coord2].kind == CellKind::Belt && factory.floor[coord2].port_u == Port::None && factory.floor[coord2].port_r == Port::None && factory.floor[coord2].port_d == Port::None && factory.floor[coord2].port_l == Port::None {
+      floor_delete_cell_at_partial(options, state, config, factory, coord2);
+    } else {
+      clear_part_from_cell(options, state, config, factory, coord2);
+    }
+  }
+}
+fn on_drag_end_floor_multi_cells(state: &State, options: &Options, config: &Config, factory: &mut Factory, mouse_state: &MouseState, track: Vec<((usize, usize), BeltType, Direction, Direction)>) {
+  log(format!("Multi cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_mirrored));
+
+  // len > 2
+  // Draw track if lmb, remove cells on track if rmb
+
+  let mut still_starting_on_edge = true; // start true until first middle cell
+  let mut already_ending_on_edge = false; // start false until still_starting_on_edge and current cell is edge
+  let mut px = 0;
+  let mut py = 0;
+  let mut pcoord = 0;
+  let len = track.len();
+  for index in 0..len {
+    let ((cell_x, cell_y), belt_type, _port_in_dir, _port_out_dir) = track[index];
+    log(format!("- track {} at {} {} isa {:?}", index, cell_x, cell_y, belt_type));
+    let coord = to_coord(cell_x, cell_y);
+
+    if mouse_state.last_down_button == if state.mouse_mode_mirrored { 2 } else { 1 } {
+      if still_starting_on_edge {
+        // Note: if the first cell is in the middle then the track does not start on the edge
+        if index == 0 {
+          log(format!("({}) first track part...", index));
+          if is_middle(cell_x as f64, cell_y as f64) {
+            // The track starts in the middle of the floor. Do not add a trashcan.
+            log(format!("({})  - in middle. still_starting_on_edge now false", index));
+            still_starting_on_edge = false;
+          }
+        }
+        // Still on the edge but not the first so the prior part of the track and all pieces
+        // before it were all on the edge. If this one is not then the previous cell should
+        // get the trashcan treatment. And otherwise we noop until the next cell.
+        else if is_middle(cell_x as f64, cell_y as f64) {
+          log(format!("({}) first middle part of track", index));
+          // Track started on the edge but has at least one segment in the middle.
+          // Create a trash on the previous (edge) cell if that cell is empty.
+          if factory.floor[pcoord].kind == CellKind::Empty {
+            factory.floor[pcoord] = supply_cell(config, px, py, part_c(config, 't'), 2000, 0, 0);
+          }
+          still_starting_on_edge = false;
+        }
+        // This means this and all prior track parts were on the edge. Move to next part.
+        else {
+          log(format!("({}) non-first-but-still-edge part of track", index));
+        }
+      }
+      else if is_edge_not_corner(cell_x as f64, cell_y as f64) {
+        log(format!("({}) ending edge part of track", index));
+        if !already_ending_on_edge {
+          log(format!("({}) - first ending edge part of track, already_ending_on_edge = true", index));
+          // Note: the drag can only start inside the floor, so we don't have to worry about
+          //       the index here since we always drag in a straight line. Once the edge is
+          //       reached, we assume the line to end and we can put a trash Demand down.
+          if factory.floor[coord].kind == CellKind::Empty {
+            factory.floor[coord] = demand_cell(config, cell_x, cell_y);
+          }
+
+          already_ending_on_edge = true;
+        }
+      }
+
+      log(format!("({}) head-on-edge? {} tail-on-edge? {}", index, still_starting_on_edge, already_ending_on_edge));
+
+      // If not at the start or end of the track...
+      if !still_starting_on_edge && !already_ending_on_edge {
+        // Create middle cell
+
+        // Staple the track on top of the existing layout. If the cell is not empty then either
+        // it's a belt which we'll try to connect to the previous/next part of the belt. Or it's
+        // another piece that we don't want to override anyways, and will also be connected.
+        if factory.floor[coord].kind == CellKind::Empty {
+          if is_middle(cell_x as f64, cell_y as f64) {
+            factory.floor[coord] = belt_cell(config, cell_x, cell_y, belt_type_to_belt_meta(belt_type));
+
+            // Connect the end points to any existing neighboring cells if not already connected
+            if index == 0 || index == len - 1 {
+              log(format!("  -- okay. first/last track segment: @{} got {:?}", coord, belt_type));
+              log(format!("  - connect_belt_to_existing_neighbor_belts(), before: {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
+              connect_belt_to_existing_neighbor_cells(options, state, config, factory, coord);
+              log(format!("  - connect_belt_to_existing_neighbor_belts(),  after: {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
+            }
+          }
+        }
+      }
+
+      if index > 0 {
+        // (First element has no inbound)
+        cell_connect_if_possible(options, state, config, factory, pcoord, coord, (cell_x as i8) - (px as i8), (cell_y as i8) - (py as i8));
+      }
+    } else if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
+      // Delete the cell if it is a belt, and in that case any port to it
+      // Do not delete machines, suppliers, or demanders. No need to delete empty cells
+      if factory.floor[coord].kind == CellKind::Belt {
+        // Delete this belt tile and update the neighbors accordingly
+        floor_delete_cell_at_partial(options, state, config, factory, coord);
+      }
+    } else {
+      // Ignore whatever this is.
+    }
+
+    px = cell_x;
+    py = cell_y;
+    pcoord = coord;
+  }
+}
+
+
 fn on_up_machine_button() {
   log(format!("on_up_machine_button()"));
 }
@@ -2462,27 +2479,22 @@ fn ray_trace_dragged_line_expensive(factory: &Factory, ix0: f64, iy0: f64, ix1: 
   let mut last_from = Direction::Up; // first one ignores this value
 
   // Draw example tiles of the path you're drawing.
-  // Take the existing cell and add one or two ports to it;
+  // Take the existing cell and add one (first/last segment) or two ports to it;
   // - first one only gets the "to" port added to it
   // - last one only gets the "from" port added to it
   // - middle parts get the "from" and "to" port added to them
-  // let mut is_first = true;
   for index in 1..covered.len() {
     let (x, y) = covered[index];
     // Always set the previous one.
     let new_from = get_from_dir_between_xy(lx, ly, x, y);
     let last_to = direction_reverse(new_from);
-    // For the first one, pass on the same "to" port since there is no "from" port (it'll be a noop)
     let bt =
-      if !for_preview {
-        // add_unknown_port_to_cell(factory, to_coord(lx, ly), last_to)
-        BeltType::INVALID
+      if track.len() == 0 {
+        add_unknown_port_to_cell(factory, to_coord(lx, ly), last_to)
       } else {
-        // This is necessary to make preview work but it may crash edge cells for actual placement
-        // When placing the meta is updated to represent the final state after patching
         add_two_ports_to_cell(factory, to_coord(lx, ly), last_from, last_to)
       };
-    track.push(((lx, ly), bt, last_from, last_to)); // Note: no inport for first element. consumer beware?
+    track.push(((lx, ly), bt, last_from, last_to)); // Note: first segment has undefined "from"
 
     lx = x;
     ly = y;
@@ -2490,7 +2502,7 @@ fn ray_trace_dragged_line_expensive(factory: &Factory, ix0: f64, iy0: f64, ix1: 
   }
   // Final step. Only has a from port.
   let bt = add_unknown_port_to_cell(factory, to_coord(lx, ly), last_from);
-  track.push(((lx, ly), bt, last_from, last_from)); // there's no out port for last element. consumer beware?
+  track.push(((lx, ly), bt, last_from, last_from)); // Note: last segment has undefined "from"
 
   return track;
 }
@@ -2879,7 +2891,15 @@ fn paint_belt_dbg_id(options: &Options, state: &State, config: &Config, context:
       if factory.floor[coord].kind == CellKind::Belt {
         context.set_fill_style(&"white".into());
         let wat = factory.floor[coord].belt.meta.src.rsplit_once('/').unwrap();
-        context.fill_text(format!("{: >3}", wat.1.split_once('.').unwrap().0).as_str(), UI_FLOOR_OFFSET_X + (x as f64) * CELL_W + 4.0, UI_FLOOR_OFFSET_Y + (y as f64) * CELL_H + CELL_H / 2.0 + font_centering_delta_y).expect("should work");
+        let wat = wat.1.split_once('.').unwrap().0;
+        let mut wat = wat.split('_');
+        // let prefix = wat.next().unwrap();
+        let ins = wat.next().or(Some("")).unwrap().trim();
+        let outs = wat.next().or(Some("")).unwrap().trim();
+        let uns = wat.next().or(Some("")).unwrap().trim();
+        context.fill_text(format!(">{}", ins).as_str(), UI_FLOOR_OFFSET_X + (x as f64) * CELL_W + 1.0, UI_FLOOR_OFFSET_Y + (y as f64) * CELL_H + 10.0).expect("should work");
+        context.fill_text(format!("<{}", outs).as_str(), UI_FLOOR_OFFSET_X + (x as f64) * CELL_W + 1.0, UI_FLOOR_OFFSET_Y + (y as f64) * CELL_H + 20.0).expect("should work");
+        context.fill_text(format!("-{}", uns).as_str(), UI_FLOOR_OFFSET_X + (x as f64) * CELL_W + 1.0, UI_FLOOR_OFFSET_Y + (y as f64) * CELL_H + 30.0).expect("should work");
       }
     }
   }
@@ -3460,6 +3480,8 @@ fn paint_debug_selected_belt_cell(context: &Rc<web_sys::CanvasRenderingContext2d
   } else {
     context.fill_text(format!("part: none").as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (5.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to paint port");
   }
+
+  context.fill_text(format!("cell code: {}", factory.floor[selected_coord].belt.meta.dbg).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (6.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to paint cell code");
 
   // TODO: could print neighbor progress decision stuff
 }
@@ -4389,6 +4411,10 @@ fn round_rect(context: &Rc<web_sys::CanvasRenderingContext2d>, x: f64, y: f64, w
 }
 
 fn paint_belt(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, belt_type: BeltType, dx: f64, dy: f64, dw: f64, dh: f64) {
+  if !options.paint_belts {
+    return;
+  }
+
   let (spx, spy, spw, sph, canvas) = config_get_sprite_for_belt_type(config, belt_type);
 
   context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(

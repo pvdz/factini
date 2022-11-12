@@ -27,6 +27,10 @@ pub fn init(config: &Config, map_str: String) -> ( Options, State, Factory ) {
   let mut factory = create_factory(&mut options, &mut state, &config, map_str);
   let parts = config_get_available_parts(config);
   factory.available_parts_rhs_menu = parts.iter().map(|&p| ( p, true )).collect::<Vec<(PartKind, bool)>>();
+
+  // log(format!("eh? paint_ui_offers {:?}", config.part_nodes));
+  // log(format!("pushing {:?} to paint_ui_offers", factory.available_parts_rhs_menu));
+
   factory.changed = true; // Store the initial map
 
   return ( options, state, factory );

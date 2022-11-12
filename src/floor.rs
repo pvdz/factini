@@ -53,7 +53,7 @@ pub fn auto_layout(options: &mut Options, state: &mut State, config: &Config, fa
         let right = if factory.floor[coord].port_r == Port::None { CellKind::Empty } else { get_cell_kind_at(factory, factory.floor[coord].coord_r) };
         let down = if factory.floor[coord].port_d == Port::None { CellKind::Empty } else { get_cell_kind_at(factory, factory.floor[coord].coord_d) };
         let left = if factory.floor[coord].port_l == Port::None { CellKind::Empty } else { get_cell_kind_at(factory, factory.floor[coord].coord_l) };
-
+ 
         factory.floor[coord].belt = belt_new(config, cell_neighbors_to_auto_belt_meta(up, right, down, left));
       }
       CellKind::Machine => {
@@ -466,7 +466,7 @@ pub const fn to_coord_left(coord: usize) -> usize {
 //
 //   fix_belt_meta(options, state, config, factory, coord2);
 // }
-pub fn floor_delete_cell_at_partial(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, coord: usize) {
+pub fn floor_delete_cell_at_partial(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord: usize) {
   // Note: partial because factory prio must to be updated too, elsewhere (!)
   // Running auto-porting may uncover new tracks but should not be required to run
   // Can be used for any cell
@@ -489,7 +489,7 @@ pub fn floor_delete_cell_at_partial(options: &mut Options, state: &mut State, co
     return floor_delete_cell_at_partial_sub(options, state, config, factory, coord);
   }
 }
-pub fn floor_delete_cell_at_partial_sub(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, coord: usize) {
+pub fn floor_delete_cell_at_partial_sub(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord: usize) {
   // For all connected cells
   // - delete port towards this cell
   // - update belt meta to reflect new cell meta

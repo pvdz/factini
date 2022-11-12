@@ -74,10 +74,10 @@ pub fn part_icon_to_kind(config: &Config, c: char) -> PartKind {
 pub fn part_kind_to_icon(config: &Config, kind: PartKind) -> char {
   return config.nodes[kind].icon;
 }
-pub fn part_to_sprite_coord_from_config(config: &Config, kind: PartKind) -> ( f64, f64, f64, f64, &web_sys::HtmlImageElement ) {
-  assert!((kind as usize) < config.nodes.len(), "part kind should be a node index: {} < {}", kind, config.nodes.len());
+pub fn part_to_sprite_coord_from_config(config: &Config, belt_type: PartKind) -> (f64, f64, f64, f64, &web_sys::HtmlImageElement ) {
+  assert!((belt_type as usize) < config.nodes.len(), "part kind should be a node index: {} < {}", belt_type, config.nodes.len());
 
-  return config_get_sprite_details(config, kind as usize);
+  return config_get_sprite_details(config, belt_type as usize);
   // let node = &config.nodes[kind];
   // return ( node.x as f64, node.y as f64, node.w as f64, node.h as f64, &config.sprite_cache_canvas[node.file_canvas_cache_index] );
 }

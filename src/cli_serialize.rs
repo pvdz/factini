@@ -1,7 +1,7 @@
 use std::time::SystemTime;
 
 use super::belt::*;
-use super::belt_type2::*;
+use super::belt_type::*;
 use super::cell::*;
 use super::direction::*;
 use super::factory::*;

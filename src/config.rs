@@ -1,16 +1,23 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use wasm_bindgen::{JsValue} ;
+use wasm_bindgen::{JsValue};
+use js_sys;
 
-use super::belt_type2::*;
+use super::belt::*;
+use super::belt_codes::*;
+use super::belt_frame::*;
+use super::belt_meta::*;
+use super::belt_sprite::*;
+use super::belt_type::*;
+use super::belt_type::*;
 use super::machine::*;
 use super::options::*;
 use super::part::*;
 use super::state::*;
 use super::utils::*;
 
-// These index directly to the config.nodes vec
+// These index directly to the config.nodes vec and BELT_CODES (for belts)
 pub const CONFIG_NODE_SUPPLY_UP: usize = 2;
 pub const CONFIG_NODE_SUPPLY_RIGHT: usize = 3;
 pub const CONFIG_NODE_SUPPLY_DOWN: usize = 4;
@@ -26,70 +33,264 @@ pub const CONFIG_NODE_DOCK_LEFT: usize = 13;
 pub const CONFIG_NODE_MACHINE_1X1: usize = 14;
 pub const CONFIG_NODE_MACHINE_2X2: usize = 15;
 pub const CONFIG_NODE_MACHINE_3X3: usize = 16;
-pub const CONFIG_NODE_BELT_D_U: usize = 17;
-pub const CONFIG_NODE_BELT_U_D: usize = 18;
-pub const CONFIG_NODE_BELT_DU: usize = 19;
-pub const CONFIG_NODE_BELT_L_R: usize = 20;
-pub const CONFIG_NODE_BELT_R_L: usize = 21;
-pub const CONFIG_NODE_BELT_LR: usize = 22;
-pub const CONFIG_NODE_BELT_L_U: usize = 23;
-pub const CONFIG_NODE_BELT_U_L: usize = 24;
-pub const CONFIG_NODE_BELT_LU: usize = 25;
-pub const CONFIG_NODE_BELT_R_U: usize = 26;
-pub const CONFIG_NODE_BELT_U_R: usize = 27;
-pub const CONFIG_NODE_BELT_RU: usize = 28;
-pub const CONFIG_NODE_BELT_D_R: usize = 29;
-pub const CONFIG_NODE_BELT_R_D: usize = 30;
-pub const CONFIG_NODE_BELT_DR: usize = 31;
-pub const CONFIG_NODE_BELT_D_L: usize = 32;
-pub const CONFIG_NODE_BELT_L_D: usize = 33;
-pub const CONFIG_NODE_BELT_DL: usize = 34;
-pub const CONFIG_NODE_BELT_DU_R: usize = 35;
-pub const CONFIG_NODE_BELT_DR_U: usize = 36;
-pub const CONFIG_NODE_BELT_D_RU: usize = 37;
-pub const CONFIG_NODE_BELT_RU_D: usize = 38;
-pub const CONFIG_NODE_BELT_R_DU: usize = 39;
-pub const CONFIG_NODE_BELT_U_DR: usize = 40;
-pub const CONFIG_NODE_BELT_DRU: usize = 41;
-pub const CONFIG_NODE_BELT_LU_R: usize = 42;
-pub const CONFIG_NODE_BELT_LR_U: usize = 43;
-pub const CONFIG_NODE_BELT_L_RU: usize = 44;
-pub const CONFIG_NODE_BELT_RU_L: usize = 45;
-pub const CONFIG_NODE_BELT_R_LU: usize = 46;
-pub const CONFIG_NODE_BELT_U_LR: usize = 47;
-pub const CONFIG_NODE_BELT_LRU: usize = 48;
-pub const CONFIG_NODE_BELT_DL_R: usize = 49;
-pub const CONFIG_NODE_BELT_DR_L: usize = 50;
-pub const CONFIG_NODE_BELT_D_LR: usize = 51;
-pub const CONFIG_NODE_BELT_LR_D: usize = 52;
-pub const CONFIG_NODE_BELT_R_DL: usize = 53;
-pub const CONFIG_NODE_BELT_L_DR: usize = 54;
-pub const CONFIG_NODE_BELT_DLR: usize = 55;
-pub const CONFIG_NODE_BELT_DL_U: usize = 56;
-pub const CONFIG_NODE_BELT_DU_L: usize = 57;
-pub const CONFIG_NODE_BELT_D_LU: usize = 58;
-pub const CONFIG_NODE_BELT_LU_D: usize = 59;
-pub const CONFIG_NODE_BELT_U_DL: usize = 60;
-pub const CONFIG_NODE_BELT_L_DU: usize = 61;
-pub const CONFIG_NODE_BELT_DLU: usize = 62;
-pub const CONFIG_NODE_BELT_DLR_U: usize = 63;
-pub const CONFIG_NODE_BELT_DLU_R: usize = 64;
-pub const CONFIG_NODE_BELT_DRU_L: usize = 65;
-pub const CONFIG_NODE_BELT_LRU_D: usize = 66;
-pub const CONFIG_NODE_BELT_DL_RU: usize = 67;
-pub const CONFIG_NODE_BELT_DR_LU: usize = 68;
-pub const CONFIG_NODE_BELT_DU_LR: usize = 69;
-pub const CONFIG_NODE_BELT_LR_DU: usize = 70;
-pub const CONFIG_NODE_BELT_LU_DR: usize = 71;
-pub const CONFIG_NODE_BELT_RU_DL: usize = 72;
-pub const CONFIG_NODE_BELT_D_LRU: usize = 73;
-pub const CONFIG_NODE_BELT_L_DRU: usize = 74;
-pub const CONFIG_NODE_BELT_R_DLU: usize = 75;
-pub const CONFIG_NODE_BELT_U_DLR: usize = 76;
-pub const CONFIG_NODE_BELT_DLRU: usize = 77;
-pub const CONFIG_NODE_BELT_NONE: usize = 78;
-pub const CONFIG_NODE_BELT_UNKNOWN: usize = 79;
-pub const CONFIG_NODE_BELT_INVALID: usize = 80;
+pub const CONFIG_NODE_BELT_NONE: usize = 17;
+pub const CONFIG_NODE_BELT_UNKNOWN: usize = 18;
+pub const CONFIG_NODE_BELT_INVALID: usize = 19;
+pub const CONFIG_NODE_BELT_L_: usize = 20;
+pub const CONFIG_NODE_BELT__L: usize = 21;
+pub const CONFIG_NODE_BELT___L: usize = 22;
+pub const CONFIG_NODE_BELT_D_: usize = 23;
+pub const CONFIG_NODE_BELT_DL_: usize = 24;
+pub const CONFIG_NODE_BELT_D_L: usize = 25;
+pub const CONFIG_NODE_BELT_D__L: usize = 26;
+pub const CONFIG_NODE_BELT__D: usize = 27;
+pub const CONFIG_NODE_BELT_L_D: usize = 28;
+pub const CONFIG_NODE_BELT__DL: usize = 29;
+pub const CONFIG_NODE_BELT__D_L: usize = 30;
+pub const CONFIG_NODE_BELT___D: usize = 31;
+pub const CONFIG_NODE_BELT_L__D: usize = 32;
+pub const CONFIG_NODE_BELT__L_D: usize = 33;
+pub const CONFIG_NODE_BELT___DL: usize = 34;
+pub const CONFIG_NODE_BELT_R_: usize = 35;
+pub const CONFIG_NODE_BELT_LR_: usize = 36;
+pub const CONFIG_NODE_BELT_R_L: usize = 37;
+pub const CONFIG_NODE_BELT_R__L: usize = 38;
+pub const CONFIG_NODE_BELT_DR_: usize = 39;
+pub const CONFIG_NODE_BELT_DLR_: usize = 40;
+pub const CONFIG_NODE_BELT_DR_L: usize = 41;
+pub const CONFIG_NODE_BELT_DR__L: usize = 42;
+pub const CONFIG_NODE_BELT_R_D: usize = 43;
+pub const CONFIG_NODE_BELT_LR_D: usize = 44;
+pub const CONFIG_NODE_BELT_R_DL: usize = 45;
+pub const CONFIG_NODE_BELT_R_D_L: usize = 46;
+pub const CONFIG_NODE_BELT_R__D: usize = 47;
+pub const CONFIG_NODE_BELT_LR__D: usize = 48;
+pub const CONFIG_NODE_BELT_R_L_D: usize = 49;
+pub const CONFIG_NODE_BELT_R__DL: usize = 50;
+pub const CONFIG_NODE_BELT__R: usize = 51;
+pub const CONFIG_NODE_BELT_L_R: usize = 52;
+pub const CONFIG_NODE_BELT__LR: usize = 53;
+pub const CONFIG_NODE_BELT__R_L: usize = 54;
+pub const CONFIG_NODE_BELT_D_R: usize = 55;
+pub const CONFIG_NODE_BELT_DL_R: usize = 56;
+pub const CONFIG_NODE_BELT_D_LR: usize = 57;
+pub const CONFIG_NODE_BELT_D_R_L: usize = 58;
+pub const CONFIG_NODE_BELT__DR: usize = 59;
+pub const CONFIG_NODE_BELT_L_DR: usize = 60;
+pub const CONFIG_NODE_BELT__DLR: usize = 61;
+pub const CONFIG_NODE_BELT__DR_L: usize = 62;
+pub const CONFIG_NODE_BELT__R_D: usize = 63;
+pub const CONFIG_NODE_BELT_L_R_D: usize = 64;
+pub const CONFIG_NODE_BELT__LR_D: usize = 65;
+pub const CONFIG_NODE_BELT__R_DL: usize = 66;
+pub const CONFIG_NODE_BELT___R: usize = 67;
+pub const CONFIG_NODE_BELT_L__R: usize = 68;
+pub const CONFIG_NODE_BELT__L_R: usize = 69;
+pub const CONFIG_NODE_BELT___LR: usize = 70;
+pub const CONFIG_NODE_BELT_D__R: usize = 71;
+pub const CONFIG_NODE_BELT_DL__R: usize = 72;
+pub const CONFIG_NODE_BELT_D_L_R: usize = 73;
+pub const CONFIG_NODE_BELT_D__LR: usize = 74;
+pub const CONFIG_NODE_BELT__D_R: usize = 75;
+pub const CONFIG_NODE_BELT_L_D_R: usize = 76;
+pub const CONFIG_NODE_BELT__DL_R: usize = 77;
+pub const CONFIG_NODE_BELT__D_LR: usize = 78;
+pub const CONFIG_NODE_BELT___DR: usize = 79;
+pub const CONFIG_NODE_BELT_L__DR: usize = 80;
+pub const CONFIG_NODE_BELT__L_DR: usize = 81;
+pub const CONFIG_NODE_BELT___DLR: usize = 82;
+pub const CONFIG_NODE_BELT_U_: usize = 83;
+pub const CONFIG_NODE_BELT_LU_: usize = 84;
+pub const CONFIG_NODE_BELT_U_L: usize = 85;
+pub const CONFIG_NODE_BELT_U__L: usize = 86;
+pub const CONFIG_NODE_BELT_DU_: usize = 87;
+pub const CONFIG_NODE_BELT_DLU_: usize = 88;
+pub const CONFIG_NODE_BELT_DU_L: usize = 89;
+pub const CONFIG_NODE_BELT_DU__L: usize = 90;
+pub const CONFIG_NODE_BELT_U_D: usize = 91;
+pub const CONFIG_NODE_BELT_LU_D: usize = 92;
+pub const CONFIG_NODE_BELT_U_DL: usize = 93;
+pub const CONFIG_NODE_BELT_U_D_L: usize = 94;
+pub const CONFIG_NODE_BELT_U__D: usize = 95;
+pub const CONFIG_NODE_BELT_LU__D: usize = 96;
+pub const CONFIG_NODE_BELT_U_L_D: usize = 97;
+pub const CONFIG_NODE_BELT_U__DL: usize = 98;
+pub const CONFIG_NODE_BELT_RU_: usize = 99;
+pub const CONFIG_NODE_BELT_LRU_: usize = 100;
+pub const CONFIG_NODE_BELT_RU_L: usize = 101;
+pub const CONFIG_NODE_BELT_RU__L: usize = 102;
+pub const CONFIG_NODE_BELT_DRU_: usize = 103;
+pub const CONFIG_NODE_BELT_DLRU_: usize = 104;
+pub const CONFIG_NODE_BELT_DRU_L: usize = 105;
+pub const CONFIG_NODE_BELT_DRU__L: usize = 106;
+pub const CONFIG_NODE_BELT_RU_D: usize = 107;
+pub const CONFIG_NODE_BELT_LRU_D: usize = 108;
+pub const CONFIG_NODE_BELT_RU_DL: usize = 109;
+pub const CONFIG_NODE_BELT_RU_D_L: usize = 110;
+pub const CONFIG_NODE_BELT_RU__D: usize = 111;
+pub const CONFIG_NODE_BELT_LRU__D: usize = 112;
+pub const CONFIG_NODE_BELT_RU_L_D: usize = 113;
+pub const CONFIG_NODE_BELT_RU__DL: usize = 114;
+pub const CONFIG_NODE_BELT_U_R: usize = 115;
+pub const CONFIG_NODE_BELT_LU_R: usize = 116;
+pub const CONFIG_NODE_BELT_U_LR: usize = 117;
+pub const CONFIG_NODE_BELT_U_R_L: usize = 118;
+pub const CONFIG_NODE_BELT_DU_R: usize = 119;
+pub const CONFIG_NODE_BELT_DLU_R: usize = 120;
+pub const CONFIG_NODE_BELT_DU_LR: usize = 121;
+pub const CONFIG_NODE_BELT_DU_R_L: usize = 122;
+pub const CONFIG_NODE_BELT_U_DR: usize = 123;
+pub const CONFIG_NODE_BELT_LU_DR: usize = 124;
+pub const CONFIG_NODE_BELT_U_DLR: usize = 125;
+pub const CONFIG_NODE_BELT_U_DR_L: usize = 126;
+pub const CONFIG_NODE_BELT_U_R_D: usize = 127;
+pub const CONFIG_NODE_BELT_LU_R_D: usize = 128;
+pub const CONFIG_NODE_BELT_U_LR_D: usize = 129;
+pub const CONFIG_NODE_BELT_U_R_DL: usize = 130;
+pub const CONFIG_NODE_BELT_U__R: usize = 131;
+pub const CONFIG_NODE_BELT_LU__R: usize = 132;
+pub const CONFIG_NODE_BELT_U_L_R: usize = 133;
+pub const CONFIG_NODE_BELT_U__LR: usize = 134;
+pub const CONFIG_NODE_BELT_DU__R: usize = 135;
+pub const CONFIG_NODE_BELT_DLU__R: usize = 136;
+pub const CONFIG_NODE_BELT_DU_L_R: usize = 137;
+pub const CONFIG_NODE_BELT_DU__LR: usize = 138;
+pub const CONFIG_NODE_BELT_U_D_R: usize = 139;
+pub const CONFIG_NODE_BELT_LU_D_R: usize = 140;
+pub const CONFIG_NODE_BELT_U_DL_R: usize = 141;
+pub const CONFIG_NODE_BELT_U_D_LR: usize = 142;
+pub const CONFIG_NODE_BELT_U__DR: usize = 143;
+pub const CONFIG_NODE_BELT_LU__DR: usize = 144;
+pub const CONFIG_NODE_BELT_U_L_DR: usize = 145;
+pub const CONFIG_NODE_BELT_U__DLR: usize = 146;
+pub const CONFIG_NODE_BELT__U: usize = 147;
+pub const CONFIG_NODE_BELT_L_U: usize = 148;
+pub const CONFIG_NODE_BELT__LU: usize = 149;
+pub const CONFIG_NODE_BELT__U_L: usize = 150;
+pub const CONFIG_NODE_BELT_D_U: usize = 151;
+pub const CONFIG_NODE_BELT_DL_U: usize = 152;
+pub const CONFIG_NODE_BELT_D_LU: usize = 153;
+pub const CONFIG_NODE_BELT_D_U_L: usize = 154;
+pub const CONFIG_NODE_BELT__DU: usize = 155;
+pub const CONFIG_NODE_BELT_L_DU: usize = 156;
+pub const CONFIG_NODE_BELT__DLU: usize = 157;
+pub const CONFIG_NODE_BELT__DU_L: usize = 158;
+pub const CONFIG_NODE_BELT__U_D: usize = 159;
+pub const CONFIG_NODE_BELT_L_U_D: usize = 160;
+pub const CONFIG_NODE_BELT__LU_D: usize = 161;
+pub const CONFIG_NODE_BELT__U_DL: usize = 162;
+pub const CONFIG_NODE_BELT_R_U: usize = 163;
+pub const CONFIG_NODE_BELT_LR_U: usize = 164;
+pub const CONFIG_NODE_BELT_R_LU: usize = 165;
+pub const CONFIG_NODE_BELT_R_U_L: usize = 166;
+pub const CONFIG_NODE_BELT_DR_U: usize = 167;
+pub const CONFIG_NODE_BELT_DLR_U: usize = 168;
+pub const CONFIG_NODE_BELT_DR_LU: usize = 169;
+pub const CONFIG_NODE_BELT_DR_U_L: usize = 170;
+pub const CONFIG_NODE_BELT_R_DU: usize = 171;
+pub const CONFIG_NODE_BELT_LR_DU: usize = 172;
+pub const CONFIG_NODE_BELT_R_DLU: usize = 173;
+pub const CONFIG_NODE_BELT_R_DU_L: usize = 174;
+pub const CONFIG_NODE_BELT_R_U_D: usize = 175;
+pub const CONFIG_NODE_BELT_LR_U_D: usize = 176;
+pub const CONFIG_NODE_BELT_R_LU_D: usize = 177;
+pub const CONFIG_NODE_BELT_R_U_DL: usize = 178;
+pub const CONFIG_NODE_BELT__RU: usize = 179;
+pub const CONFIG_NODE_BELT_L_RU: usize = 180;
+pub const CONFIG_NODE_BELT__LRU: usize = 181;
+pub const CONFIG_NODE_BELT__RU_L: usize = 182;
+pub const CONFIG_NODE_BELT_D_RU: usize = 183;
+pub const CONFIG_NODE_BELT_DL_RU: usize = 184;
+pub const CONFIG_NODE_BELT_D_LRU: usize = 185;
+pub const CONFIG_NODE_BELT_D_RU_L: usize = 186;
+pub const CONFIG_NODE_BELT__DRU: usize = 187;
+pub const CONFIG_NODE_BELT_L_DRU: usize = 188;
+pub const CONFIG_NODE_BELT__DLRU: usize = 189;
+pub const CONFIG_NODE_BELT__DRU_L: usize = 190;
+pub const CONFIG_NODE_BELT__RU_D: usize = 191;
+pub const CONFIG_NODE_BELT_L_RU_D: usize = 192;
+pub const CONFIG_NODE_BELT__LRU_D: usize = 193;
+pub const CONFIG_NODE_BELT__RU_DL: usize = 194;
+pub const CONFIG_NODE_BELT__U_R: usize = 195;
+pub const CONFIG_NODE_BELT_L_U_R: usize = 196;
+pub const CONFIG_NODE_BELT__LU_R: usize = 197;
+pub const CONFIG_NODE_BELT__U_LR: usize = 198;
+pub const CONFIG_NODE_BELT_D_U_R: usize = 199;
+pub const CONFIG_NODE_BELT_DL_U_R: usize = 200;
+pub const CONFIG_NODE_BELT_D_LU_R: usize = 201;
+pub const CONFIG_NODE_BELT_D_U_LR: usize = 202;
+pub const CONFIG_NODE_BELT__DU_R: usize = 203;
+pub const CONFIG_NODE_BELT_L_DU_R: usize = 204;
+pub const CONFIG_NODE_BELT__DLU_R: usize = 205;
+pub const CONFIG_NODE_BELT__DU_LR: usize = 206;
+pub const CONFIG_NODE_BELT__U_DR: usize = 207;
+pub const CONFIG_NODE_BELT_L_U_DR: usize = 208;
+pub const CONFIG_NODE_BELT__LU_DR: usize = 209;
+pub const CONFIG_NODE_BELT__U_DLR: usize = 210;
+pub const CONFIG_NODE_BELT___U: usize = 211;
+pub const CONFIG_NODE_BELT_L__U: usize = 212;
+pub const CONFIG_NODE_BELT__L_U: usize = 213;
+pub const CONFIG_NODE_BELT___LU: usize = 214;
+pub const CONFIG_NODE_BELT_D__U: usize = 215;
+pub const CONFIG_NODE_BELT_DL__U: usize = 216;
+pub const CONFIG_NODE_BELT_D_L_U: usize = 217;
+pub const CONFIG_NODE_BELT_D__LU: usize = 218;
+pub const CONFIG_NODE_BELT__D_U: usize = 219;
+pub const CONFIG_NODE_BELT_L_D_U: usize = 220;
+pub const CONFIG_NODE_BELT__DL_U: usize = 221;
+pub const CONFIG_NODE_BELT__D_LU: usize = 222;
+pub const CONFIG_NODE_BELT___DU: usize = 223;
+pub const CONFIG_NODE_BELT_L__DU: usize = 224;
+pub const CONFIG_NODE_BELT__L_DU: usize = 225;
+pub const CONFIG_NODE_BELT___DLU: usize = 226;
+pub const CONFIG_NODE_BELT_R__U: usize = 227;
+pub const CONFIG_NODE_BELT_LR__U: usize = 228;
+pub const CONFIG_NODE_BELT_R_L_U: usize = 229;
+pub const CONFIG_NODE_BELT_R__LU: usize = 230;
+pub const CONFIG_NODE_BELT_DR__U: usize = 231;
+pub const CONFIG_NODE_BELT_DLR__U: usize = 232;
+pub const CONFIG_NODE_BELT_DR_L_U: usize = 233;
+pub const CONFIG_NODE_BELT_DR__LU: usize = 234;
+pub const CONFIG_NODE_BELT_R_D_U: usize = 235;
+pub const CONFIG_NODE_BELT_LR_D_U: usize = 236;
+pub const CONFIG_NODE_BELT_R_DL_U: usize = 237;
+pub const CONFIG_NODE_BELT_R_D_LU: usize = 238;
+pub const CONFIG_NODE_BELT_R__DU: usize = 239;
+pub const CONFIG_NODE_BELT_LR__DU: usize = 240;
+pub const CONFIG_NODE_BELT_R_L_DU: usize = 241;
+pub const CONFIG_NODE_BELT_R__DLU: usize = 242;
+pub const CONFIG_NODE_BELT__R_U: usize = 243;
+pub const CONFIG_NODE_BELT_L_R_U: usize = 244;
+pub const CONFIG_NODE_BELT__LR_U: usize = 245;
+pub const CONFIG_NODE_BELT__R_LU: usize = 246;
+pub const CONFIG_NODE_BELT_D_R_U: usize = 247;
+pub const CONFIG_NODE_BELT_DL_R_U: usize = 248;
+pub const CONFIG_NODE_BELT_D_LR_U: usize = 249;
+pub const CONFIG_NODE_BELT_D_R_LU: usize = 250;
+pub const CONFIG_NODE_BELT__DR_U: usize = 251;
+pub const CONFIG_NODE_BELT_L_DR_U: usize = 252;
+pub const CONFIG_NODE_BELT__DLR_U: usize = 253;
+pub const CONFIG_NODE_BELT__DR_LU: usize = 254;
+pub const CONFIG_NODE_BELT__R_DU: usize = 255;
+pub const CONFIG_NODE_BELT_L_R_DU: usize = 256;
+pub const CONFIG_NODE_BELT__LR_DU: usize = 257;
+pub const CONFIG_NODE_BELT__R_DLU: usize = 258;
+pub const CONFIG_NODE_BELT___RU: usize = 259;
+pub const CONFIG_NODE_BELT_L__RU: usize = 260;
+pub const CONFIG_NODE_BELT__L_RU: usize = 261;
+pub const CONFIG_NODE_BELT___LRU: usize = 262;
+pub const CONFIG_NODE_BELT_D__RU: usize = 263;
+pub const CONFIG_NODE_BELT_DL__RU: usize = 264;
+pub const CONFIG_NODE_BELT_D_L_RU: usize = 265;
+pub const CONFIG_NODE_BELT_D__LRU: usize = 266;
+pub const CONFIG_NODE_BELT__D_RU: usize = 267;
+pub const CONFIG_NODE_BELT_L_D_RU: usize = 268;
+pub const CONFIG_NODE_BELT__DL_RU: usize = 269;
+pub const CONFIG_NODE_BELT__D_LRU: usize = 270;
+pub const CONFIG_NODE_BELT___DRU: usize = 271;
+pub const CONFIG_NODE_BELT_L__DRU: usize = 272;
+pub const CONFIG_NODE_BELT__L_DRU: usize = 273;
+pub const CONFIG_NODE_BELT___DLRU: usize = 274;
 
 #[derive(Debug)]
 pub struct Config {
@@ -101,6 +302,7 @@ pub struct Config {
   pub sprite_cache_lookup: HashMap<String, usize>, // indexes into sprite_cache_canvas
   pub sprite_cache_order: Vec<String>, // srcs by index.
   pub sprite_cache_canvas: Vec<web_sys::HtmlImageElement>,
+  // pub belt_sprites: BeltSprites,
 }
 
 #[derive(Debug)]
@@ -210,7 +412,6 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   // - requires: 10 Part_A, 200 Part_B
 
   let mut nodes: Vec<ConfigNode> = get_system_nodes();
-  nodes.iter().enumerate().for_each(|(i, n)| assert!(n.index == i, "config.nodes should start with a set of nodes where each index is set correctly, index {} was not {}", n.index, i));
   // Indirect references to nodes. Can't share direct references so these index the nodes vec.
   let mut quest_nodes: Vec<usize> = vec!();
   let mut part_nodes: Vec<usize> = vec!(0, 1);
@@ -227,11 +428,14 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
           if print_fmd_trace { log(format!("Next header. Previous was: {:?}", nodes[nodes.len()-1])); }
           let rest = trimmed[1..].trim();
           let mut split = rest.split('_');
-          let kind = split.next().or(Some("Quest")).unwrap().trim(); // first
-          let name = split.next_back().or(Some("MissingName")).unwrap().trim(); // last
+          let kind = split.next().or(Some("UnknownPrefix")).unwrap().trim(); // first
+          let name = split.collect::<Vec<&str>>();
+          let name = name.join("_");
+          let name = name.trim();
+          // let mut name = split.next_back().or(Some("MissingName")).unwrap().trim(); // last
           let icon = if rest == "Part_None" { ' ' } else { '?' };
-          if print_fmd_trace { log(format!("- raw: `{}`, kind: `{}`, name: `{}`", rest, kind, name)); }
-          let node_index: usize = config_full_node_name_to_index(rest);
+          let node_index: usize = config_full_node_name_to_target_index(rest, kind, nodes.len());
+          if print_fmd_trace { log(format!("- raw: `{}`, kind: `{}`, name: `{}`, index: {}", rest, kind, name, node_index)); }
           let current_node = ConfigNode {
             index: node_index,
             kind:
@@ -492,8 +696,13 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
       indices.push((*count, index));
     });
     nodes[node_index].production_target_by_index = indices;
-
   });
+
+  if print_fmd_trace {
+    nodes.iter_mut().enumerate().for_each(|(i, node)| {
+      log(format!("- node {} is {}", i, node.raw_name));
+    });
+  }
 
   if print_fmd_trace { log(format!("+ prepare unique sprite map pointers")); }
   nodes.iter_mut().enumerate().for_each(|(i, node)| {
@@ -569,12 +778,31 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   if print_fmd_trace { log(format!("parsed map: {:?}", node_name_to_index)); }
   if print_fmd_trace { node_pattern_to_index.iter_mut().for_each(|(str, &mut kind)| log(format!("node_pattern_to_index: {} = {} = {}", nodes[kind].raw_name, str, kind))); }
 
-  return Config { nodes, quest_nodes, part_nodes, node_name_to_index, node_pattern_to_index, sprite_cache_lookup, sprite_cache_order, sprite_cache_canvas: vec!() };
+  if print_fmd_trace { log(format!("+ initialize the belt metas")); }
+  BELT_TYPES.iter().for_each(|&belt_type| {
+    // Create sprite image index pointers. There will be an array with a canvas loaded with
+    // that image and it will sit in a vector at the position of that index.
+    let node = &mut nodes[belt_type as usize];
+    let f = node.file.as_str();
+    match sprite_cache_lookup.get(f) {
+      Some(&index) => {
+        node.file_canvas_cache_index = index;
+      },
+      None => {
+        let index = sprite_cache_lookup.len();
+        let file = node.file.clone();
+        node.file_canvas_cache_index = index;
+        sprite_cache_lookup.insert(file.clone(), index);
+        sprite_cache_order.push(file);
+      }
+    }
+  });
+
+  return Config { nodes, /*belt_sprites,*/ quest_nodes, part_nodes, node_name_to_index, node_pattern_to_index, sprite_cache_lookup, sprite_cache_order, sprite_cache_canvas: vec!() };
 }
 
-fn config_full_node_name_to_index(name: &str) -> usize {
-  return
-    match name {
+fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usize) -> usize {
+  return match name {
     "Part_None" => PARTKIND_NONE,
     "Part_Trash" => PARTKIND_TRASH,
     "Supply_Up" => CONFIG_NODE_SUPPLY_UP,
@@ -590,71 +818,272 @@ fn config_full_node_name_to_index(name: &str) -> usize {
     "Dock_Down" => CONFIG_NODE_DOCK_DOWN,
     "Dock_Left" => CONFIG_NODE_DOCK_LEFT,
     "Machine_3x3" => CONFIG_NODE_MACHINE_3X3,
-    "Belt_D_U" => CONFIG_NODE_BELT_D_U,
-    "Belt_U_D" => CONFIG_NODE_BELT_U_D,
-    "Belt_DU" => CONFIG_NODE_BELT_DU,
-    "Belt_L_R" => CONFIG_NODE_BELT_L_R,
-    "Belt_R_L" => CONFIG_NODE_BELT_R_L,
-    "Belt_LR" => CONFIG_NODE_BELT_LR,
-    "Belt_L_U" => CONFIG_NODE_BELT_L_U,
-    "Belt_U_L" => CONFIG_NODE_BELT_U_L,
-    "Belt_LU" => CONFIG_NODE_BELT_LU,
-    "Belt_R_U" => CONFIG_NODE_BELT_R_U,
-    "Belt_U_R" => CONFIG_NODE_BELT_U_R,
-    "Belt_RU" => CONFIG_NODE_BELT_RU,
-    "Belt_D_R" => CONFIG_NODE_BELT_D_R,
-    "Belt_R_D" => CONFIG_NODE_BELT_R_D,
-    "Belt_DR" => CONFIG_NODE_BELT_DR,
-    "Belt_D_L" => CONFIG_NODE_BELT_D_L,
-    "Belt_L_D" => CONFIG_NODE_BELT_L_D,
-    "Belt_DL" => CONFIG_NODE_BELT_DL,
-    "Belt_DU_R" => CONFIG_NODE_BELT_DU_R,
-    "Belt_DR_U" => CONFIG_NODE_BELT_DR_U,
-    "Belt_D_RU" => CONFIG_NODE_BELT_D_RU,
-    "Belt_RU_D" => CONFIG_NODE_BELT_RU_D,
-    "Belt_R_DU" => CONFIG_NODE_BELT_R_DU,
-    "Belt_U_DR" => CONFIG_NODE_BELT_U_DR,
-    "Belt_DRU" => CONFIG_NODE_BELT_DRU,
-    "Belt_LU_R" => CONFIG_NODE_BELT_LU_R,
-    "Belt_LR_U" => CONFIG_NODE_BELT_LR_U,
-    "Belt_L_RU" => CONFIG_NODE_BELT_L_RU,
-    "Belt_RU_L" => CONFIG_NODE_BELT_RU_L,
-    "Belt_R_LU" => CONFIG_NODE_BELT_R_LU,
-    "Belt_U_LR" => CONFIG_NODE_BELT_U_LR,
-    "Belt_LRU" => CONFIG_NODE_BELT_LRU,
-    "Belt_DL_R" => CONFIG_NODE_BELT_DL_R,
-    "Belt_DR_L" => CONFIG_NODE_BELT_DR_L,
-    "Belt_D_LR" => CONFIG_NODE_BELT_D_LR,
-    "Belt_LR_D" => CONFIG_NODE_BELT_LR_D,
-    "Belt_R_DL" => CONFIG_NODE_BELT_R_DL,
-    "Belt_L_DR" => CONFIG_NODE_BELT_L_DR,
-    "Belt_DLR" => CONFIG_NODE_BELT_DLR,
-    "Belt_DL_U" => CONFIG_NODE_BELT_DL_U,
-    "Belt_DU_L" => CONFIG_NODE_BELT_DU_L,
-    "Belt_D_LU" => CONFIG_NODE_BELT_D_LU,
-    "Belt_LU_D" => CONFIG_NODE_BELT_LU_D,
-    "Belt_U_DL" => CONFIG_NODE_BELT_U_DL,
-    "Belt_L_DU" => CONFIG_NODE_BELT_L_DU,
-    "Belt_DLU" => CONFIG_NODE_BELT_DLU,
-    "Belt_DLR_U" => CONFIG_NODE_BELT_DLR_U,
-    "Belt_DLU_R" => CONFIG_NODE_BELT_DLU_R,
-    "Belt_DRU_L" => CONFIG_NODE_BELT_DRU_L,
-    "Belt_LRU_D" => CONFIG_NODE_BELT_LRU_D,
-    "Belt_DL_RU" => CONFIG_NODE_BELT_DL_RU,
-    "Belt_DR_LU" => CONFIG_NODE_BELT_DR_LU,
-    "Belt_DU_LR" => CONFIG_NODE_BELT_DU_LR,
-    "Belt_LR_DU" => CONFIG_NODE_BELT_LR_DU,
-    "Belt_LU_DR" => CONFIG_NODE_BELT_LU_DR,
-    "Belt_RU_DL" => CONFIG_NODE_BELT_RU_DL,
-    "Belt_D_LRU" => CONFIG_NODE_BELT_D_LRU,
-    "Belt_L_DRU" => CONFIG_NODE_BELT_L_DRU,
-    "Belt_R_DLU" => CONFIG_NODE_BELT_R_DLU,
-    "Belt_U_DLR" => CONFIG_NODE_BELT_U_DLR,
-    "Belt_DLRU" => CONFIG_NODE_BELT_DLRU,
     "Belt_None" => CONFIG_NODE_BELT_NONE,
     "Belt_Unknown" => CONFIG_NODE_BELT_UNKNOWN,
     "Belt_Invalid" => CONFIG_NODE_BELT_INVALID,
-    _ => CONFIG_NODE_BELT_INVALID,
+    "Belt_L_" => CONFIG_NODE_BELT_L_,
+    "Belt__L" => CONFIG_NODE_BELT__L,
+    "Belt___L" => CONFIG_NODE_BELT___L,
+    "Belt_D_" => CONFIG_NODE_BELT_D_,
+    "Belt_DL_" => CONFIG_NODE_BELT_DL_,
+    "Belt_D_L" => CONFIG_NODE_BELT_D_L,
+    "Belt_D__L" => CONFIG_NODE_BELT_D__L,
+    "Belt__D" => CONFIG_NODE_BELT__D,
+    "Belt_L_D" => CONFIG_NODE_BELT_L_D,
+    "Belt__DL" => CONFIG_NODE_BELT__DL,
+    "Belt__D_L" => CONFIG_NODE_BELT__D_L,
+    "Belt___D" => CONFIG_NODE_BELT___D,
+    "Belt_L__D" => CONFIG_NODE_BELT_L__D,
+    "Belt__L_D" => CONFIG_NODE_BELT__L_D,
+    "Belt___DL" => CONFIG_NODE_BELT___DL,
+    "Belt_R_" => CONFIG_NODE_BELT_R_,
+    "Belt_LR_" => CONFIG_NODE_BELT_LR_,
+    "Belt_R_L" => CONFIG_NODE_BELT_R_L,
+    "Belt_R__L" => CONFIG_NODE_BELT_R__L,
+    "Belt_DR_" => CONFIG_NODE_BELT_DR_,
+    "Belt_DLR_" => CONFIG_NODE_BELT_DLR_,
+    "Belt_DR_L" => CONFIG_NODE_BELT_DR_L,
+    "Belt_DR__L" => CONFIG_NODE_BELT_DR__L,
+    "Belt_R_D" => CONFIG_NODE_BELT_R_D,
+    "Belt_LR_D" => CONFIG_NODE_BELT_LR_D,
+    "Belt_R_DL" => CONFIG_NODE_BELT_R_DL,
+    "Belt_R_D_L" => CONFIG_NODE_BELT_R_D_L,
+    "Belt_R__D" => CONFIG_NODE_BELT_R__D,
+    "Belt_LR__D" => CONFIG_NODE_BELT_LR__D,
+    "Belt_R_L_D" => CONFIG_NODE_BELT_R_L_D,
+    "Belt_R__DL" => CONFIG_NODE_BELT_R__DL,
+    "Belt__R" => CONFIG_NODE_BELT__R,
+    "Belt_L_R" => CONFIG_NODE_BELT_L_R,
+    "Belt__LR" => CONFIG_NODE_BELT__LR,
+    "Belt__R_L" => CONFIG_NODE_BELT__R_L,
+    "Belt_D_R" => CONFIG_NODE_BELT_D_R,
+    "Belt_DL_R" => CONFIG_NODE_BELT_DL_R,
+    "Belt_D_LR" => CONFIG_NODE_BELT_D_LR,
+    "Belt_D_R_L" => CONFIG_NODE_BELT_D_R_L,
+    "Belt__DR" => CONFIG_NODE_BELT__DR,
+    "Belt_L_DR" => CONFIG_NODE_BELT_L_DR,
+    "Belt__DLR" => CONFIG_NODE_BELT__DLR,
+    "Belt__DR_L" => CONFIG_NODE_BELT__DR_L,
+    "Belt__R_D" => CONFIG_NODE_BELT__R_D,
+    "Belt_L_R_D" => CONFIG_NODE_BELT_L_R_D,
+    "Belt__LR_D" => CONFIG_NODE_BELT__LR_D,
+    "Belt__R_DL" => CONFIG_NODE_BELT__R_DL,
+    "Belt___R" => CONFIG_NODE_BELT___R,
+    "Belt_L__R" => CONFIG_NODE_BELT_L__R,
+    "Belt__L_R" => CONFIG_NODE_BELT__L_R,
+    "Belt___LR" => CONFIG_NODE_BELT___LR,
+    "Belt_D__R" => CONFIG_NODE_BELT_D__R,
+    "Belt_DL__R" => CONFIG_NODE_BELT_DL__R,
+    "Belt_D_L_R" => CONFIG_NODE_BELT_D_L_R,
+    "Belt_D__LR" => CONFIG_NODE_BELT_D__LR,
+    "Belt__D_R" => CONFIG_NODE_BELT__D_R,
+    "Belt_L_D_R" => CONFIG_NODE_BELT_L_D_R,
+    "Belt__DL_R" => CONFIG_NODE_BELT__DL_R,
+    "Belt__D_LR" => CONFIG_NODE_BELT__D_LR,
+    "Belt___DR" => CONFIG_NODE_BELT___DR,
+    "Belt_L__DR" => CONFIG_NODE_BELT_L__DR,
+    "Belt__L_DR" => CONFIG_NODE_BELT__L_DR,
+    "Belt___DLR" => CONFIG_NODE_BELT___DLR,
+    "Belt_U_" => CONFIG_NODE_BELT_U_,
+    "Belt_LU_" => CONFIG_NODE_BELT_LU_,
+    "Belt_U_L" => CONFIG_NODE_BELT_U_L,
+    "Belt_U__L" => CONFIG_NODE_BELT_U__L,
+    "Belt_DU_" => CONFIG_NODE_BELT_DU_,
+    "Belt_DLU_" => CONFIG_NODE_BELT_DLU_,
+    "Belt_DU_L" => CONFIG_NODE_BELT_DU_L,
+    "Belt_DU__L" => CONFIG_NODE_BELT_DU__L,
+    "Belt_U_D" => CONFIG_NODE_BELT_U_D,
+    "Belt_LU_D" => CONFIG_NODE_BELT_LU_D,
+    "Belt_U_DL" => CONFIG_NODE_BELT_U_DL,
+    "Belt_U_D_L" => CONFIG_NODE_BELT_U_D_L,
+    "Belt_U__D" => CONFIG_NODE_BELT_U__D,
+    "Belt_LU__D" => CONFIG_NODE_BELT_LU__D,
+    "Belt_U_L_D" => CONFIG_NODE_BELT_U_L_D,
+    "Belt_U__DL" => CONFIG_NODE_BELT_U__DL,
+    "Belt_RU_" => CONFIG_NODE_BELT_RU_,
+    "Belt_LRU_" => CONFIG_NODE_BELT_LRU_,
+    "Belt_RU_L" => CONFIG_NODE_BELT_RU_L,
+    "Belt_RU__L" => CONFIG_NODE_BELT_RU__L,
+    "Belt_DRU_" => CONFIG_NODE_BELT_DRU_,
+    "Belt_DLRU_" => CONFIG_NODE_BELT_DLRU_,
+    "Belt_DRU_L" => CONFIG_NODE_BELT_DRU_L,
+    "Belt_DRU__L" => CONFIG_NODE_BELT_DRU__L,
+    "Belt_RU_D" => CONFIG_NODE_BELT_RU_D,
+    "Belt_LRU_D" => CONFIG_NODE_BELT_LRU_D,
+    "Belt_RU_DL" => CONFIG_NODE_BELT_RU_DL,
+    "Belt_RU_D_L" => CONFIG_NODE_BELT_RU_D_L,
+    "Belt_RU__D" => CONFIG_NODE_BELT_RU__D,
+    "Belt_LRU__D" => CONFIG_NODE_BELT_LRU__D,
+    "Belt_RU_L_D" => CONFIG_NODE_BELT_RU_L_D,
+    "Belt_RU__DL" => CONFIG_NODE_BELT_RU__DL,
+    "Belt_U_R" => CONFIG_NODE_BELT_U_R,
+    "Belt_LU_R" => CONFIG_NODE_BELT_LU_R,
+    "Belt_U_LR" => CONFIG_NODE_BELT_U_LR,
+    "Belt_U_R_L" => CONFIG_NODE_BELT_U_R_L,
+    "Belt_DU_R" => CONFIG_NODE_BELT_DU_R,
+    "Belt_DLU_R" => CONFIG_NODE_BELT_DLU_R,
+    "Belt_DU_LR" => CONFIG_NODE_BELT_DU_LR,
+    "Belt_DU_R_L" => CONFIG_NODE_BELT_DU_R_L,
+    "Belt_U_DR" => CONFIG_NODE_BELT_U_DR,
+    "Belt_LU_DR" => CONFIG_NODE_BELT_LU_DR,
+    "Belt_U_DLR" => CONFIG_NODE_BELT_U_DLR,
+    "Belt_U_DR_L" => CONFIG_NODE_BELT_U_DR_L,
+    "Belt_U_R_D" => CONFIG_NODE_BELT_U_R_D,
+    "Belt_LU_R_D" => CONFIG_NODE_BELT_LU_R_D,
+    "Belt_U_LR_D" => CONFIG_NODE_BELT_U_LR_D,
+    "Belt_U_R_DL" => CONFIG_NODE_BELT_U_R_DL,
+    "Belt_U__R" => CONFIG_NODE_BELT_U__R,
+    "Belt_LU__R" => CONFIG_NODE_BELT_LU__R,
+    "Belt_U_L_R" => CONFIG_NODE_BELT_U_L_R,
+    "Belt_U__LR" => CONFIG_NODE_BELT_U__LR,
+    "Belt_DU__R" => CONFIG_NODE_BELT_DU__R,
+    "Belt_DLU__R" => CONFIG_NODE_BELT_DLU__R,
+    "Belt_DU_L_R" => CONFIG_NODE_BELT_DU_L_R,
+    "Belt_DU__LR" => CONFIG_NODE_BELT_DU__LR,
+    "Belt_U_D_R" => CONFIG_NODE_BELT_U_D_R,
+    "Belt_LU_D_R" => CONFIG_NODE_BELT_LU_D_R,
+    "Belt_U_DL_R" => CONFIG_NODE_BELT_U_DL_R,
+    "Belt_U_D_LR" => CONFIG_NODE_BELT_U_D_LR,
+    "Belt_U__DR" => CONFIG_NODE_BELT_U__DR,
+    "Belt_LU__DR" => CONFIG_NODE_BELT_LU__DR,
+    "Belt_U_L_DR" => CONFIG_NODE_BELT_U_L_DR,
+    "Belt_U__DLR" => CONFIG_NODE_BELT_U__DLR,
+    "Belt__U" => CONFIG_NODE_BELT__U,
+    "Belt_L_U" => CONFIG_NODE_BELT_L_U,
+    "Belt__LU" => CONFIG_NODE_BELT__LU,
+    "Belt__U_L" => CONFIG_NODE_BELT__U_L,
+    "Belt_D_U" => CONFIG_NODE_BELT_D_U,
+    "Belt_DL_U" => CONFIG_NODE_BELT_DL_U,
+    "Belt_D_LU" => CONFIG_NODE_BELT_D_LU,
+    "Belt_D_U_L" => CONFIG_NODE_BELT_D_U_L,
+    "Belt__DU" => CONFIG_NODE_BELT__DU,
+    "Belt_L_DU" => CONFIG_NODE_BELT_L_DU,
+    "Belt__DLU" => CONFIG_NODE_BELT__DLU,
+    "Belt__DU_L" => CONFIG_NODE_BELT__DU_L,
+    "Belt__U_D" => CONFIG_NODE_BELT__U_D,
+    "Belt_L_U_D" => CONFIG_NODE_BELT_L_U_D,
+    "Belt__LU_D" => CONFIG_NODE_BELT__LU_D,
+    "Belt__U_DL" => CONFIG_NODE_BELT__U_DL,
+    "Belt_R_U" => CONFIG_NODE_BELT_R_U,
+    "Belt_LR_U" => CONFIG_NODE_BELT_LR_U,
+    "Belt_R_LU" => CONFIG_NODE_BELT_R_LU,
+    "Belt_R_U_L" => CONFIG_NODE_BELT_R_U_L,
+    "Belt_DR_U" => CONFIG_NODE_BELT_DR_U,
+    "Belt_DLR_U" => CONFIG_NODE_BELT_DLR_U,
+    "Belt_DR_LU" => CONFIG_NODE_BELT_DR_LU,
+    "Belt_DR_U_L" => CONFIG_NODE_BELT_DR_U_L,
+    "Belt_R_DU" => CONFIG_NODE_BELT_R_DU,
+    "Belt_LR_DU" => CONFIG_NODE_BELT_LR_DU,
+    "Belt_R_DLU" => CONFIG_NODE_BELT_R_DLU,
+    "Belt_R_DU_L" => CONFIG_NODE_BELT_R_DU_L,
+    "Belt_R_U_D" => CONFIG_NODE_BELT_R_U_D,
+    "Belt_LR_U_D" => CONFIG_NODE_BELT_LR_U_D,
+    "Belt_R_LU_D" => CONFIG_NODE_BELT_R_LU_D,
+    "Belt_R_U_DL" => CONFIG_NODE_BELT_R_U_DL,
+    "Belt__RU" => CONFIG_NODE_BELT__RU,
+    "Belt_L_RU" => CONFIG_NODE_BELT_L_RU,
+    "Belt__LRU" => CONFIG_NODE_BELT__LRU,
+    "Belt__RU_L" => CONFIG_NODE_BELT__RU_L,
+    "Belt_D_RU" => CONFIG_NODE_BELT_D_RU,
+    "Belt_DL_RU" => CONFIG_NODE_BELT_DL_RU,
+    "Belt_D_LRU" => CONFIG_NODE_BELT_D_LRU,
+    "Belt_D_RU_L" => CONFIG_NODE_BELT_D_RU_L,
+    "Belt__DRU" => CONFIG_NODE_BELT__DRU,
+    "Belt_L_DRU" => CONFIG_NODE_BELT_L_DRU,
+    "Belt__DLRU" => CONFIG_NODE_BELT__DLRU,
+    "Belt__DRU_L" => CONFIG_NODE_BELT__DRU_L,
+    "Belt__RU_D" => CONFIG_NODE_BELT__RU_D,
+    "Belt_L_RU_D" => CONFIG_NODE_BELT_L_RU_D,
+    "Belt__LRU_D" => CONFIG_NODE_BELT__LRU_D,
+    "Belt__RU_DL" => CONFIG_NODE_BELT__RU_DL,
+    "Belt__U_R" => CONFIG_NODE_BELT__U_R,
+    "Belt_L_U_R" => CONFIG_NODE_BELT_L_U_R,
+    "Belt__LU_R" => CONFIG_NODE_BELT__LU_R,
+    "Belt__U_LR" => CONFIG_NODE_BELT__U_LR,
+    "Belt_D_U_R" => CONFIG_NODE_BELT_D_U_R,
+    "Belt_DL_U_R" => CONFIG_NODE_BELT_DL_U_R,
+    "Belt_D_LU_R" => CONFIG_NODE_BELT_D_LU_R,
+    "Belt_D_U_LR" => CONFIG_NODE_BELT_D_U_LR,
+    "Belt__DU_R" => CONFIG_NODE_BELT__DU_R,
+    "Belt_L_DU_R" => CONFIG_NODE_BELT_L_DU_R,
+    "Belt__DLU_R" => CONFIG_NODE_BELT__DLU_R,
+    "Belt__DU_LR" => CONFIG_NODE_BELT__DU_LR,
+    "Belt__U_DR" => CONFIG_NODE_BELT__U_DR,
+    "Belt_L_U_DR" => CONFIG_NODE_BELT_L_U_DR,
+    "Belt__LU_DR" => CONFIG_NODE_BELT__LU_DR,
+    "Belt__U_DLR" => CONFIG_NODE_BELT__U_DLR,
+    "Belt___U" => CONFIG_NODE_BELT___U,
+    "Belt_L__U" => CONFIG_NODE_BELT_L__U,
+    "Belt__L_U" => CONFIG_NODE_BELT__L_U,
+    "Belt___LU" => CONFIG_NODE_BELT___LU,
+    "Belt_D__U" => CONFIG_NODE_BELT_D__U,
+    "Belt_DL__U" => CONFIG_NODE_BELT_DL__U,
+    "Belt_D_L_U" => CONFIG_NODE_BELT_D_L_U,
+    "Belt_D__LU" => CONFIG_NODE_BELT_D__LU,
+    "Belt__D_U" => CONFIG_NODE_BELT__D_U,
+    "Belt_L_D_U" => CONFIG_NODE_BELT_L_D_U,
+    "Belt__DL_U" => CONFIG_NODE_BELT__DL_U,
+    "Belt__D_LU" => CONFIG_NODE_BELT__D_LU,
+    "Belt___DU" => CONFIG_NODE_BELT___DU,
+    "Belt_L__DU" => CONFIG_NODE_BELT_L__DU,
+    "Belt__L_DU" => CONFIG_NODE_BELT__L_DU,
+    "Belt___DLU" => CONFIG_NODE_BELT___DLU,
+    "Belt_R__U" => CONFIG_NODE_BELT_R__U,
+    "Belt_LR__U" => CONFIG_NODE_BELT_LR__U,
+    "Belt_R_L_U" => CONFIG_NODE_BELT_R_L_U,
+    "Belt_R__LU" => CONFIG_NODE_BELT_R__LU,
+    "Belt_DR__U" => CONFIG_NODE_BELT_DR__U,
+    "Belt_DLR__U" => CONFIG_NODE_BELT_DLR__U,
+    "Belt_DR_L_U" => CONFIG_NODE_BELT_DR_L_U,
+    "Belt_DR__LU" => CONFIG_NODE_BELT_DR__LU,
+    "Belt_R_D_U" => CONFIG_NODE_BELT_R_D_U,
+    "Belt_LR_D_U" => CONFIG_NODE_BELT_LR_D_U,
+    "Belt_R_DL_U" => CONFIG_NODE_BELT_R_DL_U,
+    "Belt_R_D_LU" => CONFIG_NODE_BELT_R_D_LU,
+    "Belt_R__DU" => CONFIG_NODE_BELT_R__DU,
+    "Belt_LR__DU" => CONFIG_NODE_BELT_LR__DU,
+    "Belt_R_L_DU" => CONFIG_NODE_BELT_R_L_DU,
+    "Belt_R__DLU" => CONFIG_NODE_BELT_R__DLU,
+    "Belt__R_U" => CONFIG_NODE_BELT__R_U,
+    "Belt_L_R_U" => CONFIG_NODE_BELT_L_R_U,
+    "Belt__LR_U" => CONFIG_NODE_BELT__LR_U,
+    "Belt__R_LU" => CONFIG_NODE_BELT__R_LU,
+    "Belt_D_R_U" => CONFIG_NODE_BELT_D_R_U,
+    "Belt_DL_R_U" => CONFIG_NODE_BELT_DL_R_U,
+    "Belt_D_LR_U" => CONFIG_NODE_BELT_D_LR_U,
+    "Belt_D_R_LU" => CONFIG_NODE_BELT_D_R_LU,
+    "Belt__DR_U" => CONFIG_NODE_BELT__DR_U,
+    "Belt_L_DR_U" => CONFIG_NODE_BELT_L_DR_U,
+    "Belt__DLR_U" => CONFIG_NODE_BELT__DLR_U,
+    "Belt__DR_LU" => CONFIG_NODE_BELT__DR_LU,
+    "Belt__R_DU" => CONFIG_NODE_BELT__R_DU,
+    "Belt_L_R_DU" => CONFIG_NODE_BELT_L_R_DU,
+    "Belt__LR_DU" => CONFIG_NODE_BELT__LR_DU,
+    "Belt__R_DLU" => CONFIG_NODE_BELT__R_DLU,
+    "Belt___RU" => CONFIG_NODE_BELT___RU,
+    "Belt_L__RU" => CONFIG_NODE_BELT_L__RU,
+    "Belt__L_RU" => CONFIG_NODE_BELT__L_RU,
+    "Belt___LRU" => CONFIG_NODE_BELT___LRU,
+    "Belt_D__RU" => CONFIG_NODE_BELT_D__RU,
+    "Belt_DL__RU" => CONFIG_NODE_BELT_DL__RU,
+    "Belt_D_L_RU" => CONFIG_NODE_BELT_D_L_RU,
+    "Belt_D__LRU" => CONFIG_NODE_BELT_D__LRU,
+    "Belt__D_RU" => CONFIG_NODE_BELT__D_RU,
+    "Belt_L_D_RU" => CONFIG_NODE_BELT_L_D_RU,
+    "Belt__DL_RU" => CONFIG_NODE_BELT__DL_RU,
+    "Belt__D_LRU" => CONFIG_NODE_BELT__D_LRU,
+    "Belt___DRU" => CONFIG_NODE_BELT___DRU,
+    "Belt_L__DRU" => CONFIG_NODE_BELT_L__DRU,
+    "Belt__L_DRU" => CONFIG_NODE_BELT__L_DRU,
+    "Belt___DLRU" => CONFIG_NODE_BELT___DLRU,
+    _ => {
+      log(format!("Warning: {} did not match a known node name! assigning fresh index: {}", name, def_index));
+      if kind != "Part" && kind != "Quest" {
+        panic!("Only expecting parts and quests to be of unknown node types. Detected kind as `{}` for `{}`", kind, name);
+      }
+      // If not known then return the next index (nodes.len())
+      def_index
+    },
   };
 }
 
@@ -679,70 +1108,264 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_machine(CONFIG_NODE_MACHINE_1X1, "1x1".to_string(), "./img/machine_1_1.png".to_string()),
     config_node_machine(CONFIG_NODE_MACHINE_2X2, "2x2".to_string(), "./img/machine_2_2.png".to_string()),
     config_node_machine(CONFIG_NODE_MACHINE_3X3, "3x3".to_string(), "./img/machine_1_1.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_D_U, "D_U".to_string(), "./img/d_u.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_U_D, "U_D".to_string(), "./img/u_d.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_DU, "DU".to_string(), "./img/du.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_L_R, "L_R".to_string(), "./img/l_r.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_R_L, "R_L".to_string(), "./img/r_l.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_LR, "LR".to_string(), "./img/lr.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_L_U, "L_U".to_string(), "./img/l_u.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_U_L, "U_L".to_string(), "./img/u_l.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_LU, "LU".to_string(), "./img/lu.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_R_U, "R_U".to_string(), "./img/r_u.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_U_R, "U_R".to_string(), "./img/u_r.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_RU, "RU".to_string(), "./img/ru.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_D_R, "D_R".to_string(), "./img/d_r.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_R_D, "R_D".to_string(), "./img/r_d.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_DR, "DR".to_string(), "./img/dr.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_D_L, "D_L".to_string(), "./img/d_l.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_L_D, "L_D".to_string(), "./img/l_d.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_DL, "DL".to_string(), "./img/dl.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_DU_R, "DU_R".to_string(), "./img/du_r.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_DR_U, "DR_U".to_string(), "./img/dr_u.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_D_RU, "D_RU".to_string(), "./img/d_ru.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_RU_D, "RU_D".to_string(), "./img/ru_d.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_R_DU, "R_DU".to_string(), "./img/r_du.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_U_DR, "U_DR".to_string(), "./img/u_dr.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_DRU, "DRU".to_string(), "./img/dru.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_LU_R, "LU_R".to_string(), "./img/lu_r.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_LR_U, "LR_U".to_string(), "./img/lr_u.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_L_RU, "L_RU".to_string(), "./img/l_ru.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_RU_L, "RU_L".to_string(), "./img/ru_l.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_R_LU, "R_LU".to_string(), "./img/r_lu.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_U_LR, "U_LR".to_string(), "./img/u_lr.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_LRU, "LRU".to_string(), "./img/lru.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_DL_R, "DL_R".to_string(), "./img/dl_r.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_DR_L, "DR_L".to_string(), "./img/dr_l.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_D_LR, "D_LR".to_string(), "./img/d_lr.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_LR_D, "LR_D".to_string(), "./img/lr_d.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_R_DL, "R_DL".to_string(), "./img/r_dl.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_L_DR, "L_DR".to_string(), "./img/l_dr.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_DLR, "DLR".to_string(), "./img/dlr.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_DL_U, "DL_U".to_string(), "./img/dl_u.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_DU_L, "DU_L".to_string(), "./img/du_l.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_D_LU, "D_LU".to_string(), "./img/d_lu.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_LU_D, "LU_D".to_string(), "./img/lu_d.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_U_DL, "U_DL".to_string(), "./img/u_dl.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_L_DU, "L_DU".to_string(), "./img/l_du.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_DLU, "DLU".to_string(), "./img/dlu.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_DLR_U, "DLR_U".to_string(), "./img/dlr_u.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_DLU_R, "DLU_R".to_string(), "./img/dlu_r.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_DRU_L, "DRU_L".to_string(), "./img/dru_l.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_LRU_D, "LRU_D".to_string(), "./img/lru_d.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_DL_RU, "DL_RU".to_string(), "./img/dl_ru.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_DR_LU, "DR_LU".to_string(), "./img/dr_lu.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_DU_LR, "DU_LR".to_string(), "./img/du_lr.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_LR_DU, "LR_DU".to_string(), "./img/lr_du.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_LU_DR, "LU_DR".to_string(), "./img/lu_dr.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_RU_DL, "RU_DL".to_string(), "./img/ru_dl.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_D_LRU, "D_LRU".to_string(), "./img/d_lru.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_L_DRU, "L_DRU".to_string(), "./img/l_dru.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_R_DLU, "R_DLU".to_string(), "./img/r_dlu.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_U_DLR, "U_DLR".to_string(), "./img/u_dlr.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_DLRU, "DLRU".to_string(), "./img/dlru.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_NONE, "NONE".to_string(), "./img/belt_none.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_UNKNOWN, "UNKNOWN".to_string(), "./img/belt_unknown.png".to_string()),
-    config_node_belt(CONFIG_NODE_BELT_INVALID, "INVALID".to_string(), "./img/belt_invalid.png".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_NONE, "NONE".to_string(), "./img/none".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_UNKNOWN, "UNKNOWN".to_string(), "./img/unknown".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_INVALID, "INVALID".to_string(), "./img/invalid".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L_, "L_".to_string(), "./img/l_".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__L, "_L".to_string(), "./img/_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT___L, "__L".to_string(), "./img/__l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D_, "D_".to_string(), "./img/d_".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DL_, "DL_".to_string(), "./img/dl_".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D_L, "D_L".to_string(), "./img/d_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D__L, "D__L".to_string(), "./img/d__l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__D, "_D".to_string(), "./img/_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L_D, "L_D".to_string(), "./img/l_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__DL, "_DL".to_string(), "./img/_dl".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__D_L, "_D_L".to_string(), "./img/_d_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT___D, "__D".to_string(), "./img/__d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L__D, "L__D".to_string(), "./img/l__d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__L_D, "_L_D".to_string(), "./img/_l_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT___DL, "__DL".to_string(), "./img/__dl".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R_, "R_".to_string(), "./img/r_".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_LR_, "LR_".to_string(), "./img/lr_".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R_L, "R_L".to_string(), "./img/r_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R__L, "R__L".to_string(), "./img/r__l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DR_, "DR_".to_string(), "./img/dr_".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DLR_, "DLR_".to_string(), "./img/dlr_".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DR_L, "DR_L".to_string(), "./img/dr_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DR__L, "DR__L".to_string(), "./img/dr__l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R_D, "R_D".to_string(), "./img/r_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_LR_D, "LR_D".to_string(), "./img/lr_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R_DL, "R_DL".to_string(), "./img/r_dl".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R_D_L, "R_D_L".to_string(), "./img/r_d_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R__D, "R__D".to_string(), "./img/r__d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_LR__D, "LR__D".to_string(), "./img/lr__d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R_L_D, "R_L_D".to_string(), "./img/r_l_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R__DL, "R__DL".to_string(), "./img/r__dl".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__R, "_R".to_string(), "./img/_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L_R, "L_R".to_string(), "./img/l_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__LR, "_LR".to_string(), "./img/_lr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__R_L, "_R_L".to_string(), "./img/_r_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D_R, "D_R".to_string(), "./img/d_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DL_R, "DL_R".to_string(), "./img/dl_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D_LR, "D_LR".to_string(), "./img/d_lr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D_R_L, "D_R_L".to_string(), "./img/d_r_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__DR, "_DR".to_string(), "./img/_dr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L_DR, "L_DR".to_string(), "./img/l_dr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__DLR, "_DLR".to_string(), "./img/_dlr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__DR_L, "_DR_L".to_string(), "./img/_dr_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__R_D, "_R_D".to_string(), "./img/_r_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L_R_D, "L_R_D".to_string(), "./img/l_r_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__LR_D, "_LR_D".to_string(), "./img/_lr_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__R_DL, "_R_DL".to_string(), "./img/_r_dl".to_string()),
+    config_node_belt(CONFIG_NODE_BELT___R, "__R".to_string(), "./img/__r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L__R, "L__R".to_string(), "./img/l__r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__L_R, "_L_R".to_string(), "./img/_l_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT___LR, "__LR".to_string(), "./img/__lr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D__R, "D__R".to_string(), "./img/d__r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DL__R, "DL__R".to_string(), "./img/dl__r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D_L_R, "D_L_R".to_string(), "./img/d_l_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D__LR, "D__LR".to_string(), "./img/d__lr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__D_R, "_D_R".to_string(), "./img/_d_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L_D_R, "L_D_R".to_string(), "./img/l_d_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__DL_R, "_DL_R".to_string(), "./img/_dl_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__D_LR, "_D_LR".to_string(), "./img/_d_lr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT___DR, "__DR".to_string(), "./img/__dr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L__DR, "L__DR".to_string(), "./img/l__dr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__L_DR, "_L_DR".to_string(), "./img/_l_dr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT___DLR, "__DLR".to_string(), "./img/__dlr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U_, "U_".to_string(), "./img/u_".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_LU_, "LU_".to_string(), "./img/lu_".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U_L, "U_L".to_string(), "./img/u_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U__L, "U__L".to_string(), "./img/u__l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DU_, "DU_".to_string(), "./img/du_".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DLU_, "DLU_".to_string(), "./img/dlu_".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DU_L, "DU_L".to_string(), "./img/du_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DU__L, "DU__L".to_string(), "./img/du__l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U_D, "U_D".to_string(), "./img/u_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_LU_D, "LU_D".to_string(), "./img/lu_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U_DL, "U_DL".to_string(), "./img/u_dl".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U_D_L, "U_D_L".to_string(), "./img/u_d_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U__D, "U__D".to_string(), "./img/u__d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_LU__D, "LU__D".to_string(), "./img/lu__d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U_L_D, "U_L_D".to_string(), "./img/u_l_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U__DL, "U__DL".to_string(), "./img/u__dl".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_RU_, "RU_".to_string(), "./img/ru_".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_LRU_, "LRU_".to_string(), "./img/lru_".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_RU_L, "RU_L".to_string(), "./img/ru_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_RU__L, "RU__L".to_string(), "./img/ru__l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DRU_, "DRU_".to_string(), "./img/dru_".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DLRU_, "DLRU_".to_string(), "./img/dlru_".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DRU_L, "DRU_L".to_string(), "./img/dru_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DRU__L, "DRU__L".to_string(), "./img/dru__l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_RU_D, "RU_D".to_string(), "./img/ru_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_LRU_D, "LRU_D".to_string(), "./img/lru_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_RU_DL, "RU_DL".to_string(), "./img/ru_dl".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_RU_D_L, "RU_D_L".to_string(), "./img/ru_d_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_RU__D, "RU__D".to_string(), "./img/ru__d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_LRU__D, "LRU__D".to_string(), "./img/lru__d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_RU_L_D, "RU_L_D".to_string(), "./img/ru_l_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_RU__DL, "RU__DL".to_string(), "./img/ru__dl".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U_R, "U_R".to_string(), "./img/u_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_LU_R, "LU_R".to_string(), "./img/lu_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U_LR, "U_LR".to_string(), "./img/u_lr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U_R_L, "U_R_L".to_string(), "./img/u_r_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DU_R, "DU_R".to_string(), "./img/du_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DLU_R, "DLU_R".to_string(), "./img/dlu_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DU_LR, "DU_LR".to_string(), "./img/du_lr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DU_R_L, "DU_R_L".to_string(), "./img/du_r_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U_DR, "U_DR".to_string(), "./img/u_dr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_LU_DR, "LU_DR".to_string(), "./img/lu_dr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U_DLR, "U_DLR".to_string(), "./img/u_dlr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U_DR_L, "U_DR_L".to_string(), "./img/u_dr_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U_R_D, "U_R_D".to_string(), "./img/u_r_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_LU_R_D, "LU_R_D".to_string(), "./img/lu_r_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U_LR_D, "U_LR_D".to_string(), "./img/u_lr_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U_R_DL, "U_R_DL".to_string(), "./img/u_r_dl".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U__R, "U__R".to_string(), "./img/u__r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_LU__R, "LU__R".to_string(), "./img/lu__r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U_L_R, "U_L_R".to_string(), "./img/u_l_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U__LR, "U__LR".to_string(), "./img/u__lr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DU__R, "DU__R".to_string(), "./img/du__r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DLU__R, "DLU__R".to_string(), "./img/dlu__r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DU_L_R, "DU_L_R".to_string(), "./img/du_l_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DU__LR, "DU__LR".to_string(), "./img/du__lr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U_D_R, "U_D_R".to_string(), "./img/u_d_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_LU_D_R, "LU_D_R".to_string(), "./img/lu_d_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U_DL_R, "U_DL_R".to_string(), "./img/u_dl_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U_D_LR, "U_D_LR".to_string(), "./img/u_d_lr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U__DR, "U__DR".to_string(), "./img/u__dr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_LU__DR, "LU__DR".to_string(), "./img/lu__dr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U_L_DR, "U_L_DR".to_string(), "./img/u_l_dr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_U__DLR, "U__DLR".to_string(), "./img/u__dlr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__U, "_U".to_string(), "./img/_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L_U, "L_U".to_string(), "./img/l_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__LU, "_LU".to_string(), "./img/_lu".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__U_L, "_U_L".to_string(), "./img/_u_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D_U, "D_U".to_string(), "./img/d_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DL_U, "DL_U".to_string(), "./img/dl_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D_LU, "D_LU".to_string(), "./img/d_lu".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D_U_L, "D_U_L".to_string(), "./img/d_u_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__DU, "_DU".to_string(), "./img/_du".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L_DU, "L_DU".to_string(), "./img/l_du".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__DLU, "_DLU".to_string(), "./img/_dlu".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__DU_L, "_DU_L".to_string(), "./img/_du_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__U_D, "_U_D".to_string(), "./img/_u_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L_U_D, "L_U_D".to_string(), "./img/l_u_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__LU_D, "_LU_D".to_string(), "./img/_lu_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__U_DL, "_U_DL".to_string(), "./img/_u_dl".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R_U, "R_U".to_string(), "./img/r_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_LR_U, "LR_U".to_string(), "./img/lr_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R_LU, "R_LU".to_string(), "./img/r_lu".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R_U_L, "R_U_L".to_string(), "./img/r_u_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DR_U, "DR_U".to_string(), "./img/dr_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DLR_U, "DLR_U".to_string(), "./img/dlr_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DR_LU, "DR_LU".to_string(), "./img/dr_lu".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DR_U_L, "DR_U_L".to_string(), "./img/dr_u_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R_DU, "R_DU".to_string(), "./img/r_du".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_LR_DU, "LR_DU".to_string(), "./img/lr_du".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R_DLU, "R_DLU".to_string(), "./img/r_dlu".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R_DU_L, "R_DU_L".to_string(), "./img/r_du_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R_U_D, "R_U_D".to_string(), "./img/r_u_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_LR_U_D, "LR_U_D".to_string(), "./img/lr_u_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R_LU_D, "R_LU_D".to_string(), "./img/r_lu_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R_U_DL, "R_U_DL".to_string(), "./img/r_u_dl".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__RU, "_RU".to_string(), "./img/_ru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L_RU, "L_RU".to_string(), "./img/l_ru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__LRU, "_LRU".to_string(), "./img/_lru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__RU_L, "_RU_L".to_string(), "./img/_ru_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D_RU, "D_RU".to_string(), "./img/d_ru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DL_RU, "DL_RU".to_string(), "./img/dl_ru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D_LRU, "D_LRU".to_string(), "./img/d_lru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D_RU_L, "D_RU_L".to_string(), "./img/d_ru_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__DRU, "_DRU".to_string(), "./img/_dru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L_DRU, "L_DRU".to_string(), "./img/l_dru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__DLRU, "_DLRU".to_string(), "./img/_dlru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__DRU_L, "_DRU_L".to_string(), "./img/_dru_l".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__RU_D, "_RU_D".to_string(), "./img/_ru_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L_RU_D, "L_RU_D".to_string(), "./img/l_ru_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__LRU_D, "_LRU_D".to_string(), "./img/_lru_d".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__RU_DL, "_RU_DL".to_string(), "./img/_ru_dl".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__U_R, "_U_R".to_string(), "./img/_u_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L_U_R, "L_U_R".to_string(), "./img/l_u_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__LU_R, "_LU_R".to_string(), "./img/_lu_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__U_LR, "_U_LR".to_string(), "./img/_u_lr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D_U_R, "D_U_R".to_string(), "./img/d_u_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DL_U_R, "DL_U_R".to_string(), "./img/dl_u_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D_LU_R, "D_LU_R".to_string(), "./img/d_lu_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D_U_LR, "D_U_LR".to_string(), "./img/d_u_lr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__DU_R, "_DU_R".to_string(), "./img/_du_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L_DU_R, "L_DU_R".to_string(), "./img/l_du_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__DLU_R, "_DLU_R".to_string(), "./img/_dlu_r".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__DU_LR, "_DU_LR".to_string(), "./img/_du_lr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__U_DR, "_U_DR".to_string(), "./img/_u_dr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L_U_DR, "L_U_DR".to_string(), "./img/l_u_dr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__LU_DR, "_LU_DR".to_string(), "./img/_lu_dr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__U_DLR, "_U_DLR".to_string(), "./img/_u_dlr".to_string()),
+    config_node_belt(CONFIG_NODE_BELT___U, "__U".to_string(), "./img/__u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L__U, "L__U".to_string(), "./img/l__u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__L_U, "_L_U".to_string(), "./img/_l_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT___LU, "__LU".to_string(), "./img/__lu".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D__U, "D__U".to_string(), "./img/d__u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DL__U, "DL__U".to_string(), "./img/dl__u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D_L_U, "D_L_U".to_string(), "./img/d_l_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D__LU, "D__LU".to_string(), "./img/d__lu".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__D_U, "_D_U".to_string(), "./img/_d_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L_D_U, "L_D_U".to_string(), "./img/l_d_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__DL_U, "_DL_U".to_string(), "./img/_dl_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__D_LU, "_D_LU".to_string(), "./img/_d_lu".to_string()),
+    config_node_belt(CONFIG_NODE_BELT___DU, "__DU".to_string(), "./img/__du".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L__DU, "L__DU".to_string(), "./img/l__du".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__L_DU, "_L_DU".to_string(), "./img/_l_du".to_string()),
+    config_node_belt(CONFIG_NODE_BELT___DLU, "__DLU".to_string(), "./img/__dlu".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R__U, "R__U".to_string(), "./img/r__u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_LR__U, "LR__U".to_string(), "./img/lr__u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R_L_U, "R_L_U".to_string(), "./img/r_l_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R__LU, "R__LU".to_string(), "./img/r__lu".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DR__U, "DR__U".to_string(), "./img/dr__u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DLR__U, "DLR__U".to_string(), "./img/dlr__u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DR_L_U, "DR_L_U".to_string(), "./img/dr_l_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DR__LU, "DR__LU".to_string(), "./img/dr__lu".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R_D_U, "R_D_U".to_string(), "./img/r_d_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_LR_D_U, "LR_D_U".to_string(), "./img/lr_d_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R_DL_U, "R_DL_U".to_string(), "./img/r_dl_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R_D_LU, "R_D_LU".to_string(), "./img/r_d_lu".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R__DU, "R__DU".to_string(), "./img/r__du".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_LR__DU, "LR__DU".to_string(), "./img/lr__du".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R_L_DU, "R_L_DU".to_string(), "./img/r_l_du".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_R__DLU, "R__DLU".to_string(), "./img/r__dlu".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__R_U, "_R_U".to_string(), "./img/_r_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L_R_U, "L_R_U".to_string(), "./img/l_r_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__LR_U, "_LR_U".to_string(), "./img/_lr_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__R_LU, "_R_LU".to_string(), "./img/_r_lu".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D_R_U, "D_R_U".to_string(), "./img/d_r_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DL_R_U, "DL_R_U".to_string(), "./img/dl_r_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D_LR_U, "D_LR_U".to_string(), "./img/d_lr_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D_R_LU, "D_R_LU".to_string(), "./img/d_r_lu".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__DR_U, "_DR_U".to_string(), "./img/_dr_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L_DR_U, "L_DR_U".to_string(), "./img/l_dr_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__DLR_U, "_DLR_U".to_string(), "./img/_dlr_u".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__DR_LU, "_DR_LU".to_string(), "./img/_dr_lu".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__R_DU, "_R_DU".to_string(), "./img/_r_du".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L_R_DU, "L_R_DU".to_string(), "./img/l_r_du".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__LR_DU, "_LR_DU".to_string(), "./img/_lr_du".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__R_DLU, "_R_DLU".to_string(), "./img/_r_dlu".to_string()),
+    config_node_belt(CONFIG_NODE_BELT___RU, "__RU".to_string(), "./img/__ru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L__RU, "L__RU".to_string(), "./img/l__ru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__L_RU, "_L_RU".to_string(), "./img/_l_ru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT___LRU, "__LRU".to_string(), "./img/__lru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D__RU, "D__RU".to_string(), "./img/d__ru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_DL__RU, "DL__RU".to_string(), "./img/dl__ru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D_L_RU, "D_L_RU".to_string(), "./img/d_l_ru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_D__LRU, "D__LRU".to_string(), "./img/d__lru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__D_RU, "_D_RU".to_string(), "./img/_d_ru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L_D_RU, "L_D_RU".to_string(), "./img/l_d_ru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__DL_RU, "_DL_RU".to_string(), "./img/_dl_ru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__D_LRU, "_D_LRU".to_string(), "./img/_d_lru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT___DRU, "__DRU".to_string(), "./img/__dru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT_L__DRU, "L__DRU".to_string(), "./img/l__dru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT__L_DRU, "_L_DRU".to_string(), "./img/_l_dru".to_string()),
+    config_node_belt(CONFIG_NODE_BELT___DLRU, "__DLRU".to_string(), "./img/__dlru".to_string()),
   );
 
   v.iter().enumerate().for_each(|(i, node)| assert!(node.index == i, "system node indexes must match their global constant value; mismatch for index {}", i));
@@ -921,9 +1544,12 @@ fn config_node_belt(index: PartKind, name: String, file: String) -> ConfigNode {
   };
 }
 
-pub fn config_get_sprite_details(config: &Config, kind: usize) -> ( f64, f64, f64, f64, &web_sys::HtmlImageElement ) {
-  assert!(kind < config.nodes.len(), "kind should be a node index: {} < {}", kind, config.nodes.len());
-  let node = &config.nodes[kind];
+pub fn config_get_sprite_details(config: &Config, config_index: usize) -> (f64, f64, f64, f64, &web_sys::HtmlImageElement ) {
+  assert!(config_index < config.nodes.len(), "config_index should be a node index: {} < {}", config_index, config.nodes.len());
+  let node = &config.nodes[config_index];
+  // if config_index >= CONFIG_NODE_BELT_NONE && config_index <= CONFIG_NODE_BELT___DLRU {
+    // log(format!("index {} will return ({}, {}, {}, {}, {})", config_index, node.x as f64, node.y as f64, node.w as f64, node.h as f64, node.file ));
+  // }
   return ( node.x as f64, node.y as f64, node.w as f64, node.h as f64, &config.sprite_cache_canvas[node.file_canvas_cache_index] );
 }
 
@@ -987,72 +1613,270 @@ pub fn config_to_jsvalue(config: &Config) -> JsValue {
 }
 
 pub fn config_get_sprite_for_belt_type(config: &Config, belt_type: BeltType) -> ( f64, f64, f64, f64, &web_sys::HtmlImageElement ) {
+  return config_get_sprite_details(config, belt_type as usize);
+
+  /*
   return match belt_type {
-    BeltType::D_U => config_get_sprite_details(config, CONFIG_NODE_BELT_D_U),
-    BeltType::U_D => config_get_sprite_details(config, CONFIG_NODE_BELT_U_D),
-    BeltType::DU => config_get_sprite_details(config, CONFIG_NODE_BELT_DU),
-    BeltType::L_R => config_get_sprite_details(config, CONFIG_NODE_BELT_L_R),
-    BeltType::R_L => config_get_sprite_details(config, CONFIG_NODE_BELT_R_L),
-    BeltType::LR => config_get_sprite_details(config, CONFIG_NODE_BELT_LR),
-    BeltType::L_U => config_get_sprite_details(config, CONFIG_NODE_BELT_L_U),
-    BeltType::U_L => config_get_sprite_details(config, CONFIG_NODE_BELT_U_L),
-    BeltType::LU => config_get_sprite_details(config, CONFIG_NODE_BELT_LU),
-    BeltType::R_U => config_get_sprite_details(config, CONFIG_NODE_BELT_R_U),
-    BeltType::U_R => config_get_sprite_details(config, CONFIG_NODE_BELT_U_R),
-    BeltType::RU => config_get_sprite_details(config, CONFIG_NODE_BELT_RU),
-    BeltType::D_R => config_get_sprite_details(config, CONFIG_NODE_BELT_D_R),
-    BeltType::R_D => config_get_sprite_details(config, CONFIG_NODE_BELT_R_D),
-    BeltType::DR => config_get_sprite_details(config, CONFIG_NODE_BELT_DR),
-    BeltType::D_L => config_get_sprite_details(config, CONFIG_NODE_BELT_D_L),
-    BeltType::L_D => config_get_sprite_details(config, CONFIG_NODE_BELT_L_D),
-    BeltType::DL => config_get_sprite_details(config, CONFIG_NODE_BELT_DL),
-    BeltType::DU_R => config_get_sprite_details(config, CONFIG_NODE_BELT_DU_R),
-    BeltType::DR_U => config_get_sprite_details(config, CONFIG_NODE_BELT_DR_U),
-    BeltType::D_RU => config_get_sprite_details(config, CONFIG_NODE_BELT_D_RU),
-    BeltType::RU_D => config_get_sprite_details(config, CONFIG_NODE_BELT_RU_D),
-    BeltType::R_DU => config_get_sprite_details(config, CONFIG_NODE_BELT_R_DU),
-    BeltType::U_DR => config_get_sprite_details(config, CONFIG_NODE_BELT_U_DR),
-    BeltType::DRU => config_get_sprite_details(config, CONFIG_NODE_BELT_DRU),
-    BeltType::LU_R => config_get_sprite_details(config, CONFIG_NODE_BELT_LU_R),
-    BeltType::LR_U => config_get_sprite_details(config, CONFIG_NODE_BELT_LR_U),
-    BeltType::L_RU => config_get_sprite_details(config, CONFIG_NODE_BELT_L_RU),
-    BeltType::RU_L => config_get_sprite_details(config, CONFIG_NODE_BELT_RU_L),
-    BeltType::R_LU => config_get_sprite_details(config, CONFIG_NODE_BELT_R_LU),
-    BeltType::U_LR => config_get_sprite_details(config, CONFIG_NODE_BELT_U_LR),
-    BeltType::LRU => config_get_sprite_details(config, CONFIG_NODE_BELT_LRU),
-    BeltType::DL_R => config_get_sprite_details(config, CONFIG_NODE_BELT_DL_R),
-    BeltType::DR_L => config_get_sprite_details(config, CONFIG_NODE_BELT_DR_L),
-    BeltType::D_LR => config_get_sprite_details(config, CONFIG_NODE_BELT_D_LR),
-    BeltType::LR_D => config_get_sprite_details(config, CONFIG_NODE_BELT_LR_D),
-    BeltType::R_DL => config_get_sprite_details(config, CONFIG_NODE_BELT_R_DL),
-    BeltType::L_DR => config_get_sprite_details(config, CONFIG_NODE_BELT_L_DR),
-    BeltType::DLR => config_get_sprite_details(config, CONFIG_NODE_BELT_DLR),
-    BeltType::DL_U => config_get_sprite_details(config, CONFIG_NODE_BELT_DL_U),
-    BeltType::DU_L => config_get_sprite_details(config, CONFIG_NODE_BELT_DU_L),
-    BeltType::D_LU => config_get_sprite_details(config, CONFIG_NODE_BELT_D_LU),
-    BeltType::LU_D => config_get_sprite_details(config, CONFIG_NODE_BELT_LU_D),
-    BeltType::U_DL => config_get_sprite_details(config, CONFIG_NODE_BELT_U_DL),
-    BeltType::L_DU => config_get_sprite_details(config, CONFIG_NODE_BELT_L_DU),
-    BeltType::DLU => config_get_sprite_details(config, CONFIG_NODE_BELT_DLU),
-    BeltType::DLR_U => config_get_sprite_details(config, CONFIG_NODE_BELT_DLR_U),
-    BeltType::DLU_R => config_get_sprite_details(config, CONFIG_NODE_BELT_DLU_R),
-    BeltType::DRU_L => config_get_sprite_details(config, CONFIG_NODE_BELT_DRU_L),
-    BeltType::LRU_D => config_get_sprite_details(config, CONFIG_NODE_BELT_LRU_D),
-    BeltType::DL_RU => config_get_sprite_details(config, CONFIG_NODE_BELT_DL_RU),
-    BeltType::DR_LU => config_get_sprite_details(config, CONFIG_NODE_BELT_DR_LU),
-    BeltType::DU_LR => config_get_sprite_details(config, CONFIG_NODE_BELT_DU_LR),
-    BeltType::LR_DU => config_get_sprite_details(config, CONFIG_NODE_BELT_LR_DU),
-    BeltType::LU_DR => config_get_sprite_details(config, CONFIG_NODE_BELT_LU_DR),
-    BeltType::RU_DL => config_get_sprite_details(config, CONFIG_NODE_BELT_RU_DL),
-    BeltType::D_LRU => config_get_sprite_details(config, CONFIG_NODE_BELT_D_LRU),
-    BeltType::L_DRU => config_get_sprite_details(config, CONFIG_NODE_BELT_L_DRU),
-    BeltType::R_DLU => config_get_sprite_details(config, CONFIG_NODE_BELT_R_DLU),
-    BeltType::U_DLR => config_get_sprite_details(config, CONFIG_NODE_BELT_U_DLR),
-    BeltType::DLRU => config_get_sprite_details(config, CONFIG_NODE_BELT_DLRU),
     BeltType::NONE => config_get_sprite_details(config, CONFIG_NODE_BELT_NONE),
     BeltType::UNKNOWN => config_get_sprite_details(config, CONFIG_NODE_BELT_UNKNOWN),
     BeltType::INVALID => config_get_sprite_details(config, CONFIG_NODE_BELT_INVALID),
+    BeltType::L_ => config_get_sprite_details(config, CONFIG_NODE_BELT_L_),
+    BeltType::_L => config_get_sprite_details(config, CONFIG_NODE_BELT__L),
+    BeltType::__L => config_get_sprite_details(config, CONFIG_NODE_BELT___L),
+    BeltType::D_ => config_get_sprite_details(config, CONFIG_NODE_BELT_D_),
+    BeltType::DL_ => config_get_sprite_details(config, CONFIG_NODE_BELT_DL_),
+    BeltType::D_L => config_get_sprite_details(config, CONFIG_NODE_BELT_D_L),
+    BeltType::D__L => config_get_sprite_details(config, CONFIG_NODE_BELT_D__L),
+    BeltType::_D => config_get_sprite_details(config, CONFIG_NODE_BELT__D),
+    BeltType::L_D => config_get_sprite_details(config, CONFIG_NODE_BELT_L_D),
+    BeltType::_DL => config_get_sprite_details(config, CONFIG_NODE_BELT__DL),
+    BeltType::_D_L => config_get_sprite_details(config, CONFIG_NODE_BELT__D_L),
+    BeltType::__D => config_get_sprite_details(config, CONFIG_NODE_BELT___D),
+    BeltType::L__D => config_get_sprite_details(config, CONFIG_NODE_BELT_L__D),
+    BeltType::_L_D => config_get_sprite_details(config, CONFIG_NODE_BELT__L_D),
+    BeltType::__DL => config_get_sprite_details(config, CONFIG_NODE_BELT___DL),
+    BeltType::R_ => config_get_sprite_details(config, CONFIG_NODE_BELT_R_),
+    BeltType::LR_ => config_get_sprite_details(config, CONFIG_NODE_BELT_LR_),
+    BeltType::R_L => config_get_sprite_details(config, CONFIG_NODE_BELT_R_L),
+    BeltType::R__L => config_get_sprite_details(config, CONFIG_NODE_BELT_R__L),
+    BeltType::DR_ => config_get_sprite_details(config, CONFIG_NODE_BELT_DR_),
+    BeltType::DLR_ => config_get_sprite_details(config, CONFIG_NODE_BELT_DLR_),
+    BeltType::DR_L => config_get_sprite_details(config, CONFIG_NODE_BELT_DR_L),
+    BeltType::DR__L => config_get_sprite_details(config, CONFIG_NODE_BELT_DR__L),
+    BeltType::R_D => config_get_sprite_details(config, CONFIG_NODE_BELT_R_D),
+    BeltType::LR_D => config_get_sprite_details(config, CONFIG_NODE_BELT_LR_D),
+    BeltType::R_DL => config_get_sprite_details(config, CONFIG_NODE_BELT_R_DL),
+    BeltType::R_D_L => config_get_sprite_details(config, CONFIG_NODE_BELT_R_D_L),
+    BeltType::R__D => config_get_sprite_details(config, CONFIG_NODE_BELT_R__D),
+    BeltType::LR__D => config_get_sprite_details(config, CONFIG_NODE_BELT_LR__D),
+    BeltType::R_L_D => config_get_sprite_details(config, CONFIG_NODE_BELT_R_L_D),
+    BeltType::R__DL => config_get_sprite_details(config, CONFIG_NODE_BELT_R__DL),
+    BeltType::_R => config_get_sprite_details(config, CONFIG_NODE_BELT__R),
+    BeltType::L_R => config_get_sprite_details(config, CONFIG_NODE_BELT_L_R),
+    BeltType::_LR => config_get_sprite_details(config, CONFIG_NODE_BELT__LR),
+    BeltType::_R_L => config_get_sprite_details(config, CONFIG_NODE_BELT__R_L),
+    BeltType::D_R => config_get_sprite_details(config, CONFIG_NODE_BELT_D_R),
+    BeltType::DL_R => config_get_sprite_details(config, CONFIG_NODE_BELT_DL_R),
+    BeltType::D_LR => config_get_sprite_details(config, CONFIG_NODE_BELT_D_LR),
+    BeltType::D_R_L => config_get_sprite_details(config, CONFIG_NODE_BELT_D_R_L),
+    BeltType::_DR => config_get_sprite_details(config, CONFIG_NODE_BELT__DR),
+    BeltType::L_DR => config_get_sprite_details(config, CONFIG_NODE_BELT_L_DR),
+    BeltType::_DLR => config_get_sprite_details(config, CONFIG_NODE_BELT__DLR),
+    BeltType::_DR_L => config_get_sprite_details(config, CONFIG_NODE_BELT__DR_L),
+    BeltType::_R_D => config_get_sprite_details(config, CONFIG_NODE_BELT__R_D),
+    BeltType::L_R_D => config_get_sprite_details(config, CONFIG_NODE_BELT_L_R_D),
+    BeltType::_LR_D => config_get_sprite_details(config, CONFIG_NODE_BELT__LR_D),
+    BeltType::_R_DL => config_get_sprite_details(config, CONFIG_NODE_BELT__R_DL),
+    BeltType::__R => config_get_sprite_details(config, CONFIG_NODE_BELT___R),
+    BeltType::L__R => config_get_sprite_details(config, CONFIG_NODE_BELT_L__R),
+    BeltType::_L_R => config_get_sprite_details(config, CONFIG_NODE_BELT__L_R),
+    BeltType::__LR => config_get_sprite_details(config, CONFIG_NODE_BELT___LR),
+    BeltType::D__R => config_get_sprite_details(config, CONFIG_NODE_BELT_D__R),
+    BeltType::DL__R => config_get_sprite_details(config, CONFIG_NODE_BELT_DL__R),
+    BeltType::D_L_R => config_get_sprite_details(config, CONFIG_NODE_BELT_D_L_R),
+    BeltType::D__LR => config_get_sprite_details(config, CONFIG_NODE_BELT_D__LR),
+    BeltType::_D_R => config_get_sprite_details(config, CONFIG_NODE_BELT__D_R),
+    BeltType::L_D_R => config_get_sprite_details(config, CONFIG_NODE_BELT_L_D_R),
+    BeltType::_DL_R => config_get_sprite_details(config, CONFIG_NODE_BELT__DL_R),
+    BeltType::_D_LR => config_get_sprite_details(config, CONFIG_NODE_BELT__D_LR),
+    BeltType::__DR => config_get_sprite_details(config, CONFIG_NODE_BELT___DR),
+    BeltType::L__DR => config_get_sprite_details(config, CONFIG_NODE_BELT_L__DR),
+    BeltType::_L_DR => config_get_sprite_details(config, CONFIG_NODE_BELT__L_DR),
+    BeltType::__DLR => config_get_sprite_details(config, CONFIG_NODE_BELT___DLR),
+    BeltType::U_ => config_get_sprite_details(config, CONFIG_NODE_BELT_U_),
+    BeltType::LU_ => config_get_sprite_details(config, CONFIG_NODE_BELT_LU_),
+    BeltType::U_L => config_get_sprite_details(config, CONFIG_NODE_BELT_U_L),
+    BeltType::U__L => config_get_sprite_details(config, CONFIG_NODE_BELT_U__L),
+    BeltType::DU_ => config_get_sprite_details(config, CONFIG_NODE_BELT_DU_),
+    BeltType::DLU_ => config_get_sprite_details(config, CONFIG_NODE_BELT_DLU_),
+    BeltType::DU_L => config_get_sprite_details(config, CONFIG_NODE_BELT_DU_L),
+    BeltType::DU__L => config_get_sprite_details(config, CONFIG_NODE_BELT_DU__L),
+    BeltType::U_D => config_get_sprite_details(config, CONFIG_NODE_BELT_U_D),
+    BeltType::LU_D => config_get_sprite_details(config, CONFIG_NODE_BELT_LU_D),
+    BeltType::U_DL => config_get_sprite_details(config, CONFIG_NODE_BELT_U_DL),
+    BeltType::U_D_L => config_get_sprite_details(config, CONFIG_NODE_BELT_U_D_L),
+    BeltType::U__D => config_get_sprite_details(config, CONFIG_NODE_BELT_U__D),
+    BeltType::LU__D => config_get_sprite_details(config, CONFIG_NODE_BELT_LU__D),
+    BeltType::U_L_D => config_get_sprite_details(config, CONFIG_NODE_BELT_U_L_D),
+    BeltType::U__DL => config_get_sprite_details(config, CONFIG_NODE_BELT_U__DL),
+    BeltType::RU_ => config_get_sprite_details(config, CONFIG_NODE_BELT_RU_),
+    BeltType::LRU_ => config_get_sprite_details(config, CONFIG_NODE_BELT_LRU_),
+    BeltType::RU_L => config_get_sprite_details(config, CONFIG_NODE_BELT_RU_L),
+    BeltType::RU__L => config_get_sprite_details(config, CONFIG_NODE_BELT_RU__L),
+    BeltType::DRU_ => config_get_sprite_details(config, CONFIG_NODE_BELT_DRU_),
+    BeltType::DLRU_ => config_get_sprite_details(config, CONFIG_NODE_BELT_DLRU_),
+    BeltType::DRU_L => config_get_sprite_details(config, CONFIG_NODE_BELT_DRU_L),
+    BeltType::DRU__L => config_get_sprite_details(config, CONFIG_NODE_BELT_DRU__L),
+    BeltType::RU_D => config_get_sprite_details(config, CONFIG_NODE_BELT_RU_D),
+    BeltType::LRU_D => config_get_sprite_details(config, CONFIG_NODE_BELT_LRU_D),
+    BeltType::RU_DL => config_get_sprite_details(config, CONFIG_NODE_BELT_RU_DL),
+    BeltType::RU_D_L => config_get_sprite_details(config, CONFIG_NODE_BELT_RU_D_L),
+    BeltType::RU__D => config_get_sprite_details(config, CONFIG_NODE_BELT_RU__D),
+    BeltType::LRU__D => config_get_sprite_details(config, CONFIG_NODE_BELT_LRU__D),
+    BeltType::RU_L_D => config_get_sprite_details(config, CONFIG_NODE_BELT_RU_L_D),
+    BeltType::RU__DL => config_get_sprite_details(config, CONFIG_NODE_BELT_RU__DL),
+    BeltType::U_R => config_get_sprite_details(config, CONFIG_NODE_BELT_U_R),
+    BeltType::LU_R => config_get_sprite_details(config, CONFIG_NODE_BELT_LU_R),
+    BeltType::U_LR => config_get_sprite_details(config, CONFIG_NODE_BELT_U_LR),
+    BeltType::U_R_L => config_get_sprite_details(config, CONFIG_NODE_BELT_U_R_L),
+    BeltType::DU_R => config_get_sprite_details(config, CONFIG_NODE_BELT_DU_R),
+    BeltType::DLU_R => config_get_sprite_details(config, CONFIG_NODE_BELT_DLU_R),
+    BeltType::DU_LR => config_get_sprite_details(config, CONFIG_NODE_BELT_DU_LR),
+    BeltType::DU_R_L => config_get_sprite_details(config, CONFIG_NODE_BELT_DU_R_L),
+    BeltType::U_DR => config_get_sprite_details(config, CONFIG_NODE_BELT_U_DR),
+    BeltType::LU_DR => config_get_sprite_details(config, CONFIG_NODE_BELT_LU_DR),
+    BeltType::U_DLR => config_get_sprite_details(config, CONFIG_NODE_BELT_U_DLR),
+    BeltType::U_DR_L => config_get_sprite_details(config, CONFIG_NODE_BELT_U_DR_L),
+    BeltType::U_R_D => config_get_sprite_details(config, CONFIG_NODE_BELT_U_R_D),
+    BeltType::LU_R_D => config_get_sprite_details(config, CONFIG_NODE_BELT_LU_R_D),
+    BeltType::U_LR_D => config_get_sprite_details(config, CONFIG_NODE_BELT_U_LR_D),
+    BeltType::U_R_DL => config_get_sprite_details(config, CONFIG_NODE_BELT_U_R_DL),
+    BeltType::U__R => config_get_sprite_details(config, CONFIG_NODE_BELT_U__R),
+    BeltType::LU__R => config_get_sprite_details(config, CONFIG_NODE_BELT_LU__R),
+    BeltType::U_L_R => config_get_sprite_details(config, CONFIG_NODE_BELT_U_L_R),
+    BeltType::U__LR => config_get_sprite_details(config, CONFIG_NODE_BELT_U__LR),
+    BeltType::DU__R => config_get_sprite_details(config, CONFIG_NODE_BELT_DU__R),
+    BeltType::DLU__R => config_get_sprite_details(config, CONFIG_NODE_BELT_DLU__R),
+    BeltType::DU_L_R => config_get_sprite_details(config, CONFIG_NODE_BELT_DU_L_R),
+    BeltType::DU__LR => config_get_sprite_details(config, CONFIG_NODE_BELT_DU__LR),
+    BeltType::U_D_R => config_get_sprite_details(config, CONFIG_NODE_BELT_U_D_R),
+    BeltType::LU_D_R => config_get_sprite_details(config, CONFIG_NODE_BELT_LU_D_R),
+    BeltType::U_DL_R => config_get_sprite_details(config, CONFIG_NODE_BELT_U_DL_R),
+    BeltType::U_D_LR => config_get_sprite_details(config, CONFIG_NODE_BELT_U_D_LR),
+    BeltType::U__DR => config_get_sprite_details(config, CONFIG_NODE_BELT_U__DR),
+    BeltType::LU__DR => config_get_sprite_details(config, CONFIG_NODE_BELT_LU__DR),
+    BeltType::U_L_DR => config_get_sprite_details(config, CONFIG_NODE_BELT_U_L_DR),
+    BeltType::U__DLR => config_get_sprite_details(config, CONFIG_NODE_BELT_U__DLR),
+    BeltType::_U => config_get_sprite_details(config, CONFIG_NODE_BELT__U),
+    BeltType::L_U => config_get_sprite_details(config, CONFIG_NODE_BELT_L_U),
+    BeltType::_LU => config_get_sprite_details(config, CONFIG_NODE_BELT__LU),
+    BeltType::_U_L => config_get_sprite_details(config, CONFIG_NODE_BELT__U_L),
+    BeltType::D_U => config_get_sprite_details(config, CONFIG_NODE_BELT_D_U),
+    BeltType::DL_U => config_get_sprite_details(config, CONFIG_NODE_BELT_DL_U),
+    BeltType::D_LU => config_get_sprite_details(config, CONFIG_NODE_BELT_D_LU),
+    BeltType::D_U_L => config_get_sprite_details(config, CONFIG_NODE_BELT_D_U_L),
+    BeltType::_DU => config_get_sprite_details(config, CONFIG_NODE_BELT__DU),
+    BeltType::L_DU => config_get_sprite_details(config, CONFIG_NODE_BELT_L_DU),
+    BeltType::_DLU => config_get_sprite_details(config, CONFIG_NODE_BELT__DLU),
+    BeltType::_DU_L => config_get_sprite_details(config, CONFIG_NODE_BELT__DU_L),
+    BeltType::_U_D => config_get_sprite_details(config, CONFIG_NODE_BELT__U_D),
+    BeltType::L_U_D => config_get_sprite_details(config, CONFIG_NODE_BELT_L_U_D),
+    BeltType::_LU_D => config_get_sprite_details(config, CONFIG_NODE_BELT__LU_D),
+    BeltType::_U_DL => config_get_sprite_details(config, CONFIG_NODE_BELT__U_DL),
+    BeltType::R_U => config_get_sprite_details(config, CONFIG_NODE_BELT_R_U),
+    BeltType::LR_U => config_get_sprite_details(config, CONFIG_NODE_BELT_LR_U),
+    BeltType::R_LU => config_get_sprite_details(config, CONFIG_NODE_BELT_R_LU),
+    BeltType::R_U_L => config_get_sprite_details(config, CONFIG_NODE_BELT_R_U_L),
+    BeltType::DR_U => config_get_sprite_details(config, CONFIG_NODE_BELT_DR_U),
+    BeltType::DLR_U => config_get_sprite_details(config, CONFIG_NODE_BELT_DLR_U),
+    BeltType::DR_LU => config_get_sprite_details(config, CONFIG_NODE_BELT_DR_LU),
+    BeltType::DR_U_L => config_get_sprite_details(config, CONFIG_NODE_BELT_DR_U_L),
+    BeltType::R_DU => config_get_sprite_details(config, CONFIG_NODE_BELT_R_DU),
+    BeltType::LR_DU => config_get_sprite_details(config, CONFIG_NODE_BELT_LR_DU),
+    BeltType::R_DLU => config_get_sprite_details(config, CONFIG_NODE_BELT_R_DLU),
+    BeltType::R_DU_L => config_get_sprite_details(config, CONFIG_NODE_BELT_R_DU_L),
+    BeltType::R_U_D => config_get_sprite_details(config, CONFIG_NODE_BELT_R_U_D),
+    BeltType::LR_U_D => config_get_sprite_details(config, CONFIG_NODE_BELT_LR_U_D),
+    BeltType::R_LU_D => config_get_sprite_details(config, CONFIG_NODE_BELT_R_LU_D),
+    BeltType::R_U_DL => config_get_sprite_details(config, CONFIG_NODE_BELT_R_U_DL),
+    BeltType::_RU => config_get_sprite_details(config, CONFIG_NODE_BELT__RU),
+    BeltType::L_RU => config_get_sprite_details(config, CONFIG_NODE_BELT_L_RU),
+    BeltType::_LRU => config_get_sprite_details(config, CONFIG_NODE_BELT__LRU),
+    BeltType::_RU_L => config_get_sprite_details(config, CONFIG_NODE_BELT__RU_L),
+    BeltType::D_RU => config_get_sprite_details(config, CONFIG_NODE_BELT_D_RU),
+    BeltType::DL_RU => config_get_sprite_details(config, CONFIG_NODE_BELT_DL_RU),
+    BeltType::D_LRU => config_get_sprite_details(config, CONFIG_NODE_BELT_D_LRU),
+    BeltType::D_RU_L => config_get_sprite_details(config, CONFIG_NODE_BELT_D_RU_L),
+    BeltType::_DRU => config_get_sprite_details(config, CONFIG_NODE_BELT__DRU),
+    BeltType::L_DRU => config_get_sprite_details(config, CONFIG_NODE_BELT_L_DRU),
+    BeltType::_DLRU => config_get_sprite_details(config, CONFIG_NODE_BELT__DLRU),
+    BeltType::_DRU_L => config_get_sprite_details(config, CONFIG_NODE_BELT__DRU_L),
+    BeltType::_RU_D => config_get_sprite_details(config, CONFIG_NODE_BELT__RU_D),
+    BeltType::L_RU_D => config_get_sprite_details(config, CONFIG_NODE_BELT_L_RU_D),
+    BeltType::_LRU_D => config_get_sprite_details(config, CONFIG_NODE_BELT__LRU_D),
+    BeltType::_RU_DL => config_get_sprite_details(config, CONFIG_NODE_BELT__RU_DL),
+    BeltType::_U_R => config_get_sprite_details(config, CONFIG_NODE_BELT__U_R),
+    BeltType::L_U_R => config_get_sprite_details(config, CONFIG_NODE_BELT_L_U_R),
+    BeltType::_LU_R => config_get_sprite_details(config, CONFIG_NODE_BELT__LU_R),
+    BeltType::_U_LR => config_get_sprite_details(config, CONFIG_NODE_BELT__U_LR),
+    BeltType::D_U_R => config_get_sprite_details(config, CONFIG_NODE_BELT_D_U_R),
+    BeltType::DL_U_R => config_get_sprite_details(config, CONFIG_NODE_BELT_DL_U_R),
+    BeltType::D_LU_R => config_get_sprite_details(config, CONFIG_NODE_BELT_D_LU_R),
+    BeltType::D_U_LR => config_get_sprite_details(config, CONFIG_NODE_BELT_D_U_LR),
+    BeltType::_DU_R => config_get_sprite_details(config, CONFIG_NODE_BELT__DU_R),
+    BeltType::L_DU_R => config_get_sprite_details(config, CONFIG_NODE_BELT_L_DU_R),
+    BeltType::_DLU_R => config_get_sprite_details(config, CONFIG_NODE_BELT__DLU_R),
+    BeltType::_DU_LR => config_get_sprite_details(config, CONFIG_NODE_BELT__DU_LR),
+    BeltType::_U_DR => config_get_sprite_details(config, CONFIG_NODE_BELT__U_DR),
+    BeltType::L_U_DR => config_get_sprite_details(config, CONFIG_NODE_BELT_L_U_DR),
+    BeltType::_LU_DR => config_get_sprite_details(config, CONFIG_NODE_BELT__LU_DR),
+    BeltType::_U_DLR => config_get_sprite_details(config, CONFIG_NODE_BELT__U_DLR),
+    BeltType::__U => config_get_sprite_details(config, CONFIG_NODE_BELT___U),
+    BeltType::L__U => config_get_sprite_details(config, CONFIG_NODE_BELT_L__U),
+    BeltType::_L_U => config_get_sprite_details(config, CONFIG_NODE_BELT__L_U),
+    BeltType::__LU => config_get_sprite_details(config, CONFIG_NODE_BELT___LU),
+    BeltType::D__U => config_get_sprite_details(config, CONFIG_NODE_BELT_D__U),
+    BeltType::DL__U => config_get_sprite_details(config, CONFIG_NODE_BELT_DL__U),
+    BeltType::D_L_U => config_get_sprite_details(config, CONFIG_NODE_BELT_D_L_U),
+    BeltType::D__LU => config_get_sprite_details(config, CONFIG_NODE_BELT_D__LU),
+    BeltType::_D_U => config_get_sprite_details(config, CONFIG_NODE_BELT__D_U),
+    BeltType::L_D_U => config_get_sprite_details(config, CONFIG_NODE_BELT_L_D_U),
+    BeltType::_DL_U => config_get_sprite_details(config, CONFIG_NODE_BELT__DL_U),
+    BeltType::_D_LU => config_get_sprite_details(config, CONFIG_NODE_BELT__D_LU),
+    BeltType::__DU => config_get_sprite_details(config, CONFIG_NODE_BELT___DU),
+    BeltType::L__DU => config_get_sprite_details(config, CONFIG_NODE_BELT_L__DU),
+    BeltType::_L_DU => config_get_sprite_details(config, CONFIG_NODE_BELT__L_DU),
+    BeltType::__DLU => config_get_sprite_details(config, CONFIG_NODE_BELT___DLU),
+    BeltType::R__U => config_get_sprite_details(config, CONFIG_NODE_BELT_R__U),
+    BeltType::LR__U => config_get_sprite_details(config, CONFIG_NODE_BELT_LR__U),
+    BeltType::R_L_U => config_get_sprite_details(config, CONFIG_NODE_BELT_R_L_U),
+    BeltType::R__LU => config_get_sprite_details(config, CONFIG_NODE_BELT_R__LU),
+    BeltType::DR__U => config_get_sprite_details(config, CONFIG_NODE_BELT_DR__U),
+    BeltType::DLR__U => config_get_sprite_details(config, CONFIG_NODE_BELT_DLR__U),
+    BeltType::DR_L_U => config_get_sprite_details(config, CONFIG_NODE_BELT_DR_L_U),
+    BeltType::DR__LU => config_get_sprite_details(config, CONFIG_NODE_BELT_DR__LU),
+    BeltType::R_D_U => config_get_sprite_details(config, CONFIG_NODE_BELT_R_D_U),
+    BeltType::LR_D_U => config_get_sprite_details(config, CONFIG_NODE_BELT_LR_D_U),
+    BeltType::R_DL_U => config_get_sprite_details(config, CONFIG_NODE_BELT_R_DL_U),
+    BeltType::R_D_LU => config_get_sprite_details(config, CONFIG_NODE_BELT_R_D_LU),
+    BeltType::R__DU => config_get_sprite_details(config, CONFIG_NODE_BELT_R__DU),
+    BeltType::LR__DU => config_get_sprite_details(config, CONFIG_NODE_BELT_LR__DU),
+    BeltType::R_L_DU => config_get_sprite_details(config, CONFIG_NODE_BELT_R_L_DU),
+    BeltType::R__DLU => config_get_sprite_details(config, CONFIG_NODE_BELT_R__DLU),
+    BeltType::_R_U => config_get_sprite_details(config, CONFIG_NODE_BELT__R_U),
+    BeltType::L_R_U => config_get_sprite_details(config, CONFIG_NODE_BELT_L_R_U),
+    BeltType::_LR_U => config_get_sprite_details(config, CONFIG_NODE_BELT__LR_U),
+    BeltType::_R_LU => config_get_sprite_details(config, CONFIG_NODE_BELT__R_LU),
+    BeltType::D_R_U => config_get_sprite_details(config, CONFIG_NODE_BELT_D_R_U),
+    BeltType::DL_R_U => config_get_sprite_details(config, CONFIG_NODE_BELT_DL_R_U),
+    BeltType::D_LR_U => config_get_sprite_details(config, CONFIG_NODE_BELT_D_LR_U),
+    BeltType::D_R_LU => config_get_sprite_details(config, CONFIG_NODE_BELT_D_R_LU),
+    BeltType::_DR_U => config_get_sprite_details(config, CONFIG_NODE_BELT__DR_U),
+    BeltType::L_DR_U => config_get_sprite_details(config, CONFIG_NODE_BELT_L_DR_U),
+    BeltType::_DLR_U => config_get_sprite_details(config, CONFIG_NODE_BELT__DLR_U),
+    BeltType::_DR_LU => config_get_sprite_details(config, CONFIG_NODE_BELT__DR_LU),
+    BeltType::_R_DU => config_get_sprite_details(config, CONFIG_NODE_BELT__R_DU),
+    BeltType::L_R_DU => config_get_sprite_details(config, CONFIG_NODE_BELT_L_R_DU),
+    BeltType::_LR_DU => config_get_sprite_details(config, CONFIG_NODE_BELT__LR_DU),
+    BeltType::_R_DLU => config_get_sprite_details(config, CONFIG_NODE_BELT__R_DLU),
+    BeltType::__RU => config_get_sprite_details(config, CONFIG_NODE_BELT___RU),
+    BeltType::L__RU => config_get_sprite_details(config, CONFIG_NODE_BELT_L__RU),
+    BeltType::_L_RU => config_get_sprite_details(config, CONFIG_NODE_BELT__L_RU),
+    BeltType::__LRU => config_get_sprite_details(config, CONFIG_NODE_BELT___LRU),
+    BeltType::D__RU => config_get_sprite_details(config, CONFIG_NODE_BELT_D__RU),
+    BeltType::DL__RU => config_get_sprite_details(config, CONFIG_NODE_BELT_DL__RU),
+    BeltType::D_L_RU => config_get_sprite_details(config, CONFIG_NODE_BELT_D_L_RU),
+    BeltType::D__LRU => config_get_sprite_details(config, CONFIG_NODE_BELT_D__LRU),
+    BeltType::_D_RU => config_get_sprite_details(config, CONFIG_NODE_BELT__D_RU),
+    BeltType::L_D_RU => config_get_sprite_details(config, CONFIG_NODE_BELT_L_D_RU),
+    BeltType::_DL_RU => config_get_sprite_details(config, CONFIG_NODE_BELT__DL_RU),
+    BeltType::_D_LRU => config_get_sprite_details(config, CONFIG_NODE_BELT__D_LRU),
+    BeltType::__DRU => config_get_sprite_details(config, CONFIG_NODE_BELT___DRU),
+    BeltType::L__DRU => config_get_sprite_details(config, CONFIG_NODE_BELT_L__DRU),
+    BeltType::_L_DRU => config_get_sprite_details(config, CONFIG_NODE_BELT__L_DRU),
+    BeltType::__DLRU => config_get_sprite_details(config, CONFIG_NODE_BELT___DLRU),
   };
+   */
 }
 
 pub const EXAMPLE_CONFIG: &str = "

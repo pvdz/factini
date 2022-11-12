@@ -698,452 +698,1815 @@ This is the edge area where suppliers and demanders can be placed
 - part_h: 20
 
 
-# Belt_D_U
-- file: ./img/d_u_cb.png
+
+
+# Belt_None
+- file: ./img/belt/belt_none.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_U_D
-- file: ./img/u_d_cb.png
+# Belt_Unknown
+- file: ./img/belt/belt_unknown.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_DU
-- file: ./img/du_cb.png
+# Belt_Invalid
+- file: ./img/belt/belt_invalid.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_L_R
-- file: ./img/l_r_cb.png
+
+# Belt_L_
+- file: ./img/belt/l_.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_R_L
-- file: ./img/r_l_cb.png
+# Belt__L
+- file: ./img/belt/_l.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_LR
-- file: ./img/lr_cb.png
+# Belt___L
+- file: ./img/belt/__l.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_L_U
-- file: ./img/l_u_cb.png
+# Belt_D_
+- file: ./img/belt/d_.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_U_L
-- file: ./img/u_l_cb.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
-
-# Belt_LU
-- file: ./img/lu_cb2.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
-
-# Belt_R_U
-- file: ./img/r_u_cb.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
-
-# Belt_U_R
-- file: ./img/u_r_cb.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
-
-# Belt_RU
-- file: ./img/ru_cb2.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
-
-# Belt_D_R
-- file: ./img/d_r_cb.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
-
-# Belt_R_D
-- file: ./img/r_d_cb.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
-
-# Belt_DR
-- file: ./img/dr_cb2.png
+# Belt_DL_
+- file: ./img/belt/dl_.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
 # Belt_D_L
-- file: ./img/d_l_cb2.png
+- file: ./img/belt/d_l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D__L
+- file: ./img/belt/d__l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__D
+- file: ./img/belt/_d.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
 # Belt_L_D
-- file: ./img/l_d_cb.png
+- file: ./img/belt/l_d.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_DL
-- file: ./img/dl_cb2.png
+# Belt__DL
+- file: ./img/belt/_dl.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_DU_R
-- file: ./img/du_r_cb.png
+# Belt__D_L
+- file: ./img/belt/_d_l.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_DR_U
-- file: ./img/dr_u_cb.png
+# Belt___D
+- file: ./img/belt/__d.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_D_RU
-- file: ./img/d_ru_cb.png
+# Belt_L__D
+- file: ./img/belt/l__d.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_RU_D
-- file: ./img/ru_d_cb.png
+# Belt__L_D
+- file: ./img/belt/_l_d.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_R_DU
-- file: ./img/r_du_cb.png
+# Belt___DL
+- file: ./img/belt/__dl.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_U_DR
-- file: ./img/u_dr_cb.png
+# Belt_R_
+- file: ./img/belt/r_.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_DRU
-- file: ./img/dru_cb.png
+# Belt_LR_
+- file: ./img/belt/lr_.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_LU_R
-- file: ./img/lu_r.png
+# Belt_R_L
+- file: ./img/belt/r_l.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_LR_U
-- file: ./img/lr_u_cb.png
+# Belt_R__L
+- file: ./img/belt/r__l.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_L_RU
-- file: ./img/l_ru_cb.png
+# Belt_DR_
+- file: ./img/belt/dr_.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_RU_L
-- file: ./img/ru_l_cb.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
-
-# Belt_R_LU
-- file: ./img/r_lu_cb.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
-
-# Belt_U_LR
-- file: ./img/u_lr_cb.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
-
-# Belt_LRU
-- file: ./img/lru_cb.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
-
-# Belt_DL_R
-- file: ./img/dl_r_cb.png
+# Belt_DLR_
+- file: ./img/belt/dlr_.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
 # Belt_DR_L
-- file: ./img/dr_l_cb.png
+- file: ./img/belt/dr_l.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_D_LR
-- file: ./img/d_lr_cb.png
+# Belt_DR__L
+- file: ./img/belt/dr__l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_R_D
+- file: ./img/belt/r_d.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
 # Belt_LR_D
-- file: ./img/lr_d_cb.png
+- file: ./img/belt/lr_d.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
 # Belt_R_DL
-- file: ./img/r_dl_cb.png
+- file: ./img/belt/r_dl.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_R_D_L
+- file: ./img/belt/r_d_l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_R__D
+- file: ./img/belt/r__d.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_LR__D
+- file: ./img/belt/lr__d.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_R_L_D
+- file: ./img/belt/r_l_d.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_R__DL
+- file: ./img/belt/r__dl.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__R
+- file: ./img/belt/_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_L_R
+- file: ./img/belt/l_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__LR
+- file: ./img/belt/_lr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__R_L
+- file: ./img/belt/_r_l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D_R
+- file: ./img/belt/d_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DL_R
+- file: ./img/belt/dl_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D_LR
+- file: ./img/belt/d_lr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D_R_L
+- file: ./img/belt/d_r_l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__DR
+- file: ./img/belt/_dr.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
 # Belt_L_DR
-- file: ./img/l_dr_cb.png
+- file: ./img/belt/l_dr.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_DLR
-- file: ./img/dlr_cb.png
+# Belt__DLR
+- file: ./img/belt/_dlr.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_DL_U
-- file: ./img/dl_u_cb.png
+# Belt__DR_L
+- file: ./img/belt/_dr_l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__R_D
+- file: ./img/belt/_r_d.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_L_R_D
+- file: ./img/belt/l_r_d.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__LR_D
+- file: ./img/belt/_lr_d.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__R_DL
+- file: ./img/belt/_r_dl.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt___R
+- file: ./img/belt/__r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_L__R
+- file: ./img/belt/l__r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__L_R
+- file: ./img/belt/_l_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt___LR
+- file: ./img/belt/__lr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D__R
+- file: ./img/belt/d__r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DL__R
+- file: ./img/belt/dl__r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D_L_R
+- file: ./img/belt/d_l_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D__LR
+- file: ./img/belt/d__lr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__D_R
+- file: ./img/belt/_d_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_L_D_R
+- file: ./img/belt/l_d_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__DL_R
+- file: ./img/belt/_dl_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__D_LR
+- file: ./img/belt/_d_lr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt___DR
+- file: ./img/belt/__dr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_L__DR
+- file: ./img/belt/l__dr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__L_DR
+- file: ./img/belt/_l_dr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt___DLR
+- file: ./img/belt/__dlr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_U_
+- file: ./img/belt/u_.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_LU_
+- file: ./img/belt/lu_.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_U_L
+- file: ./img/belt/u_l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_U__L
+- file: ./img/belt/u__l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DU_
+- file: ./img/belt/du_.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DLU_
+- file: ./img/belt/dlu_.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
 # Belt_DU_L
-- file: ./img/du_l_cb.png
+- file: ./img/belt/du_l.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_D_LU
-- file: ./img/d_lu_cb.png
+# Belt_DU__L
+- file: ./img/belt/du__l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_U_D
+- file: ./img/belt/u_d.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
 # Belt_LU_D
-- file: ./img/lu_d_cb.png
+- file: ./img/belt/lu_d.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
 # Belt_U_DL
-- file: ./img/u_dl_cb.png
+- file: ./img/belt/u_dl.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_L_DU
-- file: ./img/l_du_cb.png
+# Belt_U_D_L
+- file: ./img/belt/u_d_l.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_DLU
-- file: ./img/dlu_cb.png
+# Belt_U__D
+- file: ./img/belt/u__d.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_DLR_U
-- file: ./img/dlr_u_cb.png
+# Belt_LU__D
+- file: ./img/belt/lu__d.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_DLU_R
-- file: ./img/dlu_r_cb.png
+# Belt_U_L_D
+- file: ./img/belt/u_l_d.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_U__DL
+- file: ./img/belt/u__dl.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_RU_
+- file: ./img/belt/ru_.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_LRU_
+- file: ./img/belt/lru_.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_RU_L
+- file: ./img/belt/ru_l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_RU__L
+- file: ./img/belt/ru__l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DRU_
+- file: ./img/belt/dru_.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DLRU_
+- file: ./img/belt/dlru_.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
 # Belt_DRU_L
-- file: ./img/dru_l_cb.png
+- file: ./img/belt/dru_l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DRU__L
+- file: ./img/belt/dru__l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_RU_D
+- file: ./img/belt/ru_d.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
 # Belt_LRU_D
-- file: ./img/lru_d_cb.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
-
-# Belt_DL_RU
-- file: ./img/dl_ru_cb.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
-
-# Belt_DR_LU
-- file: ./img/dr_lu_cb.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
-
-# Belt_DU_LR
-- file: ./img/du_lr_cb.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
-
-# Belt_LR_DU
-- file: ./img/lr_du_cb.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
-
-# Belt_LU_DR
-- file: ./img/lu_dr_cb.png
+- file: ./img/belt/lru_d.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
 # Belt_RU_DL
-- file: ./img/ru_dl_cb.png
+- file: ./img/belt/ru_dl.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_D_LRU
-- file: ./img/d_lru_cb.png
+# Belt_RU_D_L
+- file: ./img/belt/ru_d_l.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_L_DRU
-- file: ./img/l_dru_cb.png
+# Belt_RU__D
+- file: ./img/belt/ru__d.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_R_DLU
-- file: ./img/r_dlu_cb.png
+# Belt_LRU__D
+- file: ./img/belt/lru__d.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_RU_L_D
+- file: ./img/belt/ru_l_d.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_RU__DL
+- file: ./img/belt/ru__dl.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_U_R
+- file: ./img/belt/u_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_LU_R
+- file: ./img/belt/lu_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_U_LR
+- file: ./img/belt/u_lr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_U_R_L
+- file: ./img/belt/u_r_l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DU_R
+- file: ./img/belt/du_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DLU_R
+- file: ./img/belt/dlu_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DU_LR
+- file: ./img/belt/du_lr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DU_R_L
+- file: ./img/belt/du_r_l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_U_DR
+- file: ./img/belt/u_dr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_LU_DR
+- file: ./img/belt/lu_dr.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
 # Belt_U_DLR
-- file: ./img/u_dlr_cb.png
+- file: ./img/belt/u_dlr.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_DLRU
-- file: ./img/dlru_cb1.png
+# Belt_U_DR_L
+- file: ./img/belt/u_dr_l.png
 - x: 0
 - y: 0
 - w: 160
 - h: 160
 
-# Belt_None
-- file: ./img/belt_none.png
+# Belt_U_R_D
+- file: ./img/belt/u_r_d.png
 - x: 0
 - y: 0
-- w: 64
-- h: 64
+- w: 160
+- h: 160
 
-# Belt_Unknown
-- file: ./img/belt_unknown.png
+# Belt_LU_R_D
+- file: ./img/belt/lu_r_d.png
 - x: 0
 - y: 0
-- w: 64
-- h: 64
+- w: 160
+- h: 160
 
-# Belt_Invalid
-- file: ./img/belt_invalid.png
+# Belt_U_LR_D
+- file: ./img/belt/u_lr_d.png
 - x: 0
 - y: 0
-- w: 64
-- h: 64
+- w: 160
+- h: 160
+
+# Belt_U_R_DL
+- file: ./img/belt/u_r_dl.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_U__R
+- file: ./img/belt/u__r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_LU__R
+- file: ./img/belt/lu__r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_U_L_R
+- file: ./img/belt/u_l_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_U__LR
+- file: ./img/belt/u__lr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DU__R
+- file: ./img/belt/du__r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DLU__R
+- file: ./img/belt/dlu__r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DU_L_R
+- file: ./img/belt/du_l_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DU__LR
+- file: ./img/belt/du__lr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_U_D_R
+- file: ./img/belt/u_d_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_LU_D_R
+- file: ./img/belt/lu_d_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_U_DL_R
+- file: ./img/belt/u_dl_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_U_D_LR
+- file: ./img/belt/u_d_lr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_U__DR
+- file: ./img/belt/u__dr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_LU__DR
+- file: ./img/belt/lu__dr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_U_L_DR
+- file: ./img/belt/u_l_dr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_U__DLR
+- file: ./img/belt/u__dlr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__U
+- file: ./img/belt/_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_L_U
+- file: ./img/belt/l_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__LU
+- file: ./img/belt/_lu.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__U_L
+- file: ./img/belt/_u_l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D_U
+- file: ./img/belt/d_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DL_U
+- file: ./img/belt/dl_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D_LU
+- file: ./img/belt/d_lu.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D_U_L
+- file: ./img/belt/d_u_l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__DU
+- file: ./img/belt/_du.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_L_DU
+- file: ./img/belt/l_du.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__DLU
+- file: ./img/belt/_dlu.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__DU_L
+- file: ./img/belt/_du_l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__U_D
+- file: ./img/belt/_u_d.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_L_U_D
+- file: ./img/belt/l_u_d.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__LU_D
+- file: ./img/belt/_lu_d.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__U_DL
+- file: ./img/belt/_u_dl.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_R_U
+- file: ./img/belt/r_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_LR_U
+- file: ./img/belt/lr_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_R_LU
+- file: ./img/belt/r_lu.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_R_U_L
+- file: ./img/belt/r_u_l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DR_U
+- file: ./img/belt/dr_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DLR_U
+- file: ./img/belt/dlr_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DR_LU
+- file: ./img/belt/dr_lu.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DR_U_L
+- file: ./img/belt/dr_u_l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_R_DU
+- file: ./img/belt/r_du.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_LR_DU
+- file: ./img/belt/lr_du.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_R_DLU
+- file: ./img/belt/r_dlu.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_R_DU_L
+- file: ./img/belt/r_du_l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_R_U_D
+- file: ./img/belt/r_u_d.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_LR_U_D
+- file: ./img/belt/lr_u_d.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_R_LU_D
+- file: ./img/belt/r_lu_d.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_R_U_DL
+- file: ./img/belt/r_u_dl.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__RU
+- file: ./img/belt/_ru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_L_RU
+- file: ./img/belt/l_ru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__LRU
+- file: ./img/belt/_lru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__RU_L
+- file: ./img/belt/_ru_l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D_RU
+- file: ./img/belt/d_ru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DL_RU
+- file: ./img/belt/dl_ru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D_LRU
+- file: ./img/belt/d_lru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D_RU_L
+- file: ./img/belt/d_ru_l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__DRU
+- file: ./img/belt/_dru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_L_DRU
+- file: ./img/belt/l_dru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__DLRU
+- file: ./img/belt/_dlru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__DRU_L
+- file: ./img/belt/_dru_l.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__RU_D
+- file: ./img/belt/_ru_d.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_L_RU_D
+- file: ./img/belt/l_ru_d.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__LRU_D
+- file: ./img/belt/_lru_d.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__RU_DL
+- file: ./img/belt/_ru_dl.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__U_R
+- file: ./img/belt/_u_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_L_U_R
+- file: ./img/belt/l_u_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__LU_R
+- file: ./img/belt/_lu_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__U_LR
+- file: ./img/belt/_u_lr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D_U_R
+- file: ./img/belt/d_u_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DL_U_R
+- file: ./img/belt/dl_u_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D_LU_R
+- file: ./img/belt/d_lu_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D_U_LR
+- file: ./img/belt/d_u_lr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__DU_R
+- file: ./img/belt/_du_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_L_DU_R
+- file: ./img/belt/l_du_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__DLU_R
+- file: ./img/belt/_dlu_r.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__DU_LR
+- file: ./img/belt/_du_lr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__U_DR
+- file: ./img/belt/_u_dr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_L_U_DR
+- file: ./img/belt/l_u_dr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__LU_DR
+- file: ./img/belt/_lu_dr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__U_DLR
+- file: ./img/belt/_u_dlr.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt___U
+- file: ./img/belt/__u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_L__U
+- file: ./img/belt/l__u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__L_U
+- file: ./img/belt/_l_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt___LU
+- file: ./img/belt/__lu.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D__U
+- file: ./img/belt/d__u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DL__U
+- file: ./img/belt/dl__u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D_L_U
+- file: ./img/belt/d_l_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D__LU
+- file: ./img/belt/d__lu.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__D_U
+- file: ./img/belt/_d_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_L_D_U
+- file: ./img/belt/l_d_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__DL_U
+- file: ./img/belt/_dl_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__D_LU
+- file: ./img/belt/_d_lu.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt___DU
+- file: ./img/belt/__du.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_L__DU
+- file: ./img/belt/l__du.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__L_DU
+- file: ./img/belt/_l_du.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt___DLU
+- file: ./img/belt/__dlu.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_R__U
+- file: ./img/belt/r__u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_LR__U
+- file: ./img/belt/lr__u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_R_L_U
+- file: ./img/belt/r_l_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_R__LU
+- file: ./img/belt/r__lu.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DR__U
+- file: ./img/belt/dr__u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DLR__U
+- file: ./img/belt/dlr__u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DR_L_U
+- file: ./img/belt/dr_l_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DR__LU
+- file: ./img/belt/dr__lu.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_R_D_U
+- file: ./img/belt/r_d_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_LR_D_U
+- file: ./img/belt/lr_d_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_R_DL_U
+- file: ./img/belt/r_dl_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_R_D_LU
+- file: ./img/belt/r_d_lu.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_R__DU
+- file: ./img/belt/r__du.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_LR__DU
+- file: ./img/belt/lr__du.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_R_L_DU
+- file: ./img/belt/r_l_du.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_R__DLU
+- file: ./img/belt/r__dlu.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__R_U
+- file: ./img/belt/_r_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_L_R_U
+- file: ./img/belt/l_r_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__LR_U
+- file: ./img/belt/_lr_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__R_LU
+- file: ./img/belt/_r_lu.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D_R_U
+- file: ./img/belt/d_r_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DL_R_U
+- file: ./img/belt/dl_r_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D_LR_U
+- file: ./img/belt/d_lr_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D_R_LU
+- file: ./img/belt/d_r_lu.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__DR_U
+- file: ./img/belt/_dr_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_L_DR_U
+- file: ./img/belt/l_dr_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__DLR_U
+- file: ./img/belt/_dlr_u.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__DR_LU
+- file: ./img/belt/_dr_lu.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__R_DU
+- file: ./img/belt/_r_du.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_L_R_DU
+- file: ./img/belt/l_r_du.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__LR_DU
+- file: ./img/belt/_lr_du.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__R_DLU
+- file: ./img/belt/_r_dlu.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt___RU
+- file: ./img/belt/__ru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_L__RU
+- file: ./img/belt/l__ru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__L_RU
+- file: ./img/belt/_l_ru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt___LRU
+- file: ./img/belt/__lru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D__RU
+- file: ./img/belt/d__ru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_DL__RU
+- file: ./img/belt/dl__ru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D_L_RU
+- file: ./img/belt/d_l_ru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_D__LRU
+- file: ./img/belt/d__lru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__D_RU
+- file: ./img/belt/_d_ru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_L_D_RU
+- file: ./img/belt/l_d_ru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__DL_RU
+- file: ./img/belt/_dl_ru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__D_LRU
+- file: ./img/belt/_d_lru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt___DRU
+- file: ./img/belt/__dru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt_L__DRU
+- file: ./img/belt/l__dru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt__L_DRU
+- file: ./img/belt/_l_dru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+# Belt___DLRU
+- file: ./img/belt/__dlru.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
+
+
 
 `;
