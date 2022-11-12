@@ -373,7 +373,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
           if cell_kind == '╹' {
             log(format!("REMOVEME check1: {:?} {:?} {:?} {:?} -> {:?}", belt_meta.port_u, belt_meta.port_r, belt_meta.port_d, belt_meta.port_l, belt_meta.dbg));
           }
-          let mut cell = belt_cell(config, i, j, belt_meta);
+          let cell = belt_cell(config, i, j, belt_meta);
           if cell_kind == '╹' {
             log(format!("REMOVEME check2: {:?} {:?} {:?} {:?} -> {:?} -> {:?}", cell.port_u, cell.port_r, cell.port_d, cell.port_l, cell.belt.meta.dbg, cell.belt.meta.src));
           }

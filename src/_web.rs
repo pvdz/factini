@@ -1347,7 +1347,7 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
     return;
   }
 
-  if let Some((canvas, mapString)) = &saves[mouse_state.up_save_map_index] {
+  if let Some((canvas, map_string)) = &saves[mouse_state.up_save_map_index] {
     let (row, col) = match mouse_state.up_save_map_index {
       0 => (0.0, 0.0),
       1 => (0.0, 1.0),
@@ -1365,7 +1365,7 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
       log(format!("  loading saved map"));
       state.snapshot_pointer += 1;
       state.snapshot_undo_pointer = state.snapshot_pointer;
-      state.snapshot_stack[state.snapshot_pointer % UNDO_STACK_SIZE] = mapString.clone();
+      state.snapshot_stack[state.snapshot_pointer % UNDO_STACK_SIZE] = map_string.clone();
       state.load_snapshot_next_frame = true;
     }
 
@@ -1388,7 +1388,7 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
       &game_map,
       UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_WIDTH, UI_FLOOR_HEIGHT,
       0.0, 0.0, UI_SAVE_THUMB_WIDTH * 0.66, UI_SAVE_THUMB_HEIGHT
-    );
+    ).expect("canvas api call to work");
 
     // Get string of map
     let snap = generate_floor_dump(&options, &state, &factory, dnow()).join("\n");
@@ -4343,7 +4343,7 @@ fn paint_map_load_button(col: f64, row: f64, button_index: usize, context: &Rc<w
   let ox = GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN);
   let oy = GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN);
   round_rect(context, ox, oy, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT);
-  if let Some((canvas, String)) = save {
+  if let Some((canvas, name)) = save {
     // I'm using patterns to get around rounded corners but maybe should just use the mask
     // appraoch instead? Neither is very portable anyways so why not make it a simple blit...
     if let Some(ptrn) = context.create_pattern_with_html_canvas_element(&canvas, "repeat").expect("trying to load thumb") {
@@ -4351,7 +4351,7 @@ fn paint_map_load_button(col: f64, row: f64, button_index: usize, context: &Rc<w
 
       context.save();
       // Note: the translate is necessary because the pattern anchor point is always 0.0 of window, not the canvas
-      context.translate(ox, oy);
+      context.translate(ox, oy).expect("canvas api call to work");
       context.set_fill_style(&ptrn);
       context.fill();
       context.restore();
@@ -4369,7 +4369,7 @@ fn paint_map_load_button(col: f64, row: f64, button_index: usize, context: &Rc<w
       context.set_stroke_style(&"black".into());
       context.stroke();
       context.set_fill_style(&"red".into());
-      context.fill_text("X", ox + UI_SAVE_THUMB_WIDTH - 20.0, oy + UI_SAVE_THUMB_HEIGHT / 2.0 + 5.0);
+      context.fill_text("X", ox + UI_SAVE_THUMB_WIDTH - 20.0, oy + UI_SAVE_THUMB_HEIGHT / 2.0 + 5.0).expect("canvas api call to work");
     } else {
       context.set_fill_style(&"orange".into());
       context.fill();
@@ -4389,7 +4389,7 @@ fn paint_map_load_button(col: f64, row: f64, button_index: usize, context: &Rc<w
       oy + UI_SAVE_THUMB_HEIGHT * 0.2,
       UI_SAVE_THUMB_WIDTH / 3.0,
       UI_SAVE_THUMB_HEIGHT / 2.0
-    );
+    ).expect("canvas api call to work");
     context.set_stroke_style(&"black".into());
     context.stroke();
   }
@@ -4403,10 +4403,10 @@ fn round_rect(context: &Rc<web_sys::CanvasRenderingContext2d>, x: f64, y: f64, w
   if h < 2.0 * r { r = h / 2.0; }
   context.begin_path();
   context.move_to(x+r, y);
-  context.arc_to(x+w, y,   x+w, y+h, r);
-  context.arc_to(x+w, y+h, x,   y+h, r);
-  context.arc_to(x,   y+h, x,   y,   r);
-  context.arc_to(x,   y,   x+w, y,   r);
+  context.arc_to(x+w, y,   x+w, y+h, r).expect("canvas api call to work");
+  context.arc_to(x+w, y+h, x,   y+h, r).expect("canvas api call to work");
+  context.arc_to(x,   y+h, x,   y,   r).expect("canvas api call to work");
+  context.arc_to(x,   y,   x+w, y,   r).expect("canvas api call to work");
   context.close_path();
 }
 
