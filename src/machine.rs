@@ -94,7 +94,9 @@ pub fn machine_new(options: &mut Options, state: &mut State, config: &Config, ki
     haves.push(part_none(config));
   }
 
+  // log(format!("machine_new(), wants: {:?}", wants.iter().map(|p| p.kind)));
   let output = machine_discover_output_wants(options, state, config, &wants, main_coord);
+  // log(format!("  - machine_new(), yields: {:?}", config.nodes[output].kind));
 
   assert_eq!(wants.len(), haves.len(), "machines should start with same len wants as haves");
 
@@ -349,7 +351,7 @@ pub fn machine_discover_ins_and_outs_floor(floor: &mut [Cell; FLOOR_CELLS_WH], m
   }
 }
 
-pub fn machine_normalize_wants(wants: Vec<PartKind>) -> Vec<PartKind> {
+pub fn machine_normalize_wants(wants: &Vec<PartKind>) -> Vec<PartKind> {
   let mut wants = wants.iter()
     .map(|&p| p)
     .filter(|&part_index| part_index != PARTKIND_NONE)
@@ -366,16 +368,10 @@ pub fn machine_change_want_kind(options: &Options, state: &State, config: &Confi
   factory.floor[main_coord].machine.output_want = part_from_part_index(config, new_out);
   factory.changed = true;
 }
-pub fn machine_change_want_kind_floor(options: &Options, state: &State, config: &Config, floor: &mut [Cell; FLOOR_CELLS_WH], main_coord: usize, index: usize, kind: PartKind) {
-  floor[main_coord].machine.wants[index] = part_from_part_index(config, kind);
-
-  let new_out = machine_discover_output_floor(options, state, config, floor, main_coord);
-  log(format!("machine_change_want() -> {:?}", new_out));
-  floor[main_coord].machine.output_want = part_from_part_index(config, new_out);
-}
 pub fn machine_discover_output_unmut(options: &Options, state: &State, config: &Config, factory: &Factory, main_coord: usize, index: usize, kind: PartKind) -> PartKind {
+  log(format!("machine_discover_output_unmut()"));
   // Work around slicing muts. why this does work is beyond me rn.
-  machine_discover_output_floor(options, state, config, &factory.floor, main_coord)
+  return machine_discover_output_floor(options, state, config, &factory.floor, main_coord);
 }
 pub fn machine_discover_output_floor(options: &Options, state: &State, config: &Config, floor: &[Cell; FLOOR_CELLS_WH], main_coord: usize) -> PartKind {
   // Given a set of wants, determine what the output should be
@@ -386,19 +382,20 @@ pub fn machine_discover_output_floor(options: &Options, state: &State, config: &
   // - level limitations / specials (?)
 
   // Probably only a subset of these? with expansion options
-
   return machine_discover_output_wants(options, state, config, &floor[main_coord].machine.wants, main_coord);
 }
 pub fn machine_discover_output_wants(options: &Options, state: &State, config: &Config, wants: &Vec<Part>, main_coord: usize) -> PartKind {
-  log(format!("machine_discover_output_wants({})", main_coord));
-  let pattern_str_untrimmed = wants.iter().map(|part| part.icon).collect::<String>().to_string();
-  let pattern_str = pattern_str_untrimmed.trim();
+  // log(format!("machine_discover_output_wants({}): {:?}", main_coord, wants));
+  let mut ordered_icons = wants.iter().map(|part| part.icon).collect::<Vec<char>>();
+  ordered_icons.sort();
+  let pattern_str_untrimmed = ordered_icons.iter().collect::<String>().to_string();
+  let pattern_str = str::replace(pattern_str_untrimmed.trim(), " ", "");
   if pattern_str == "" {
-    log(format!("  Machine has no inputs so it has no output"));
+    // log(format!("  Machine has no inputs so it has no output"));
     return PARTKIND_NONE;
   }
-  let target_kind = *config.node_pattern_to_index.get(pattern_str).or(Some(&PARTKIND_NONE)).unwrap();
-  log(format!("  Looking in node_pattern_to_index for: `{}` --> {}", pattern_str, target_kind));
+  let target_kind = *config.node_pattern_to_index.get(pattern_str.as_str()).or(Some(&PARTKIND_NONE)).unwrap();
+  // log(format!("  Looking in node_pattern_to_index for: `{}` --> resulting target kind: {} -> {:?}", pattern_str, target_kind, config.nodes[target_kind]));
   assert!(config.nodes[target_kind].kind == ConfigNodeKind::Part, "the pattern should resolve to a part node...");
   return target_kind;
 }

@@ -325,6 +325,7 @@ pub struct ConfigNode {
   pub pattern_by_index: Vec<PartKind>, // Machine pattern that generates this part (part_index)
   pub pattern_by_name: Vec<String>, // Actual names. Used while parsing. Should only be used for debugging afterwards
   pub pattern_by_icon: Vec<char>, // Char icons. Should only be used for debugging
+  pub pattern: String, // pattern_by_icon as a string cached (or "prerendered")
   pub pattern_unique_kinds: Vec<PartKind>, // Unique non-empty part kinds. We can use this to quickly find machines that have received these parts.
   pub icon: char, // Single (unique) character that also represents this part internally
   pub file: String, // Sprite image location
@@ -461,6 +462,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
             pattern_by_index: vec!(),
             pattern_by_name: vec!(),
             pattern_by_icon: vec!(),
+            pattern: "".to_string(),
             pattern_unique_kinds: vec!(),
             icon,
             file: "".to_string(),
@@ -549,7 +551,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
                   }
                   let name = split[split.len() - 1]; // Ignore multiple spaces between, :shrug:
                   let name = if name == "" { "MissingName" } else { name };
-                  log(format!("Parsing counts: `{}` into `{:?}` -> `{}` and `{}`", pair, split, count, name));
+                  if print_fmd_trace { log(format!("Parsing counts: `{}` into `{:?}` -> `{}` and `{}`", pair, split, count, name)); }
                   nodes[current_node_index].production_target_by_name.push((count, name.to_string()));
                 }
               }
@@ -655,15 +657,20 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
           return *node_name_to_index.get(t).unwrap_or_else(| | panic!("pattern_by_name to index: what happened here: unlock name=`{}` of names=`{:?}`", name, node_name_to_index.keys()))
         })
         .collect::<Vec<PartKind>>();
-    let pattern_by_index = machine_normalize_wants(pattern_by_index);
+    let pattern_by_index = machine_normalize_wants(&pattern_by_index);
 
     // Clean up the pattern by name (should only be used for parsing and debugging)
     nodes[i].pattern_by_name = pattern_by_index.iter().map(|&kind| nodes[kind].name.clone()).collect::<Vec<String>>();
     // Should only be used for debugging and serialization
     nodes[i].pattern_by_icon = pattern_by_index.iter().map(|&index| nodes[index].icon).collect::<Vec<char>>();
+    nodes[i].pattern_by_icon.sort();
 
+    // Sort by char to normalize it
     let pattern_str = nodes[i].pattern_by_icon.iter().collect::<String>();
-    node_pattern_to_index.insert(pattern_str, i);
+    let pattern_str = str::replace(&pattern_str, " ", "");
+    let pattern_str = str::replace(&pattern_str, ".", "");
+    node_pattern_to_index.insert(pattern_str.clone(), i);
+    nodes[i].pattern = pattern_str;
 
     // Get all unique required parts, convert them to their icon, order them, create a string
     // If we do the same for the machines then we can do string comparisons.
@@ -776,7 +783,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
 
   // log(format!("parsed nodes: {:?}", &nodes[1..]));
   if print_fmd_trace { log(format!("parsed map: {:?}", node_name_to_index)); }
-  if print_fmd_trace { node_pattern_to_index.iter_mut().for_each(|(str, &mut kind)| log(format!("node_pattern_to_index: {} = {} = {}", nodes[kind].raw_name, str, kind))); }
+  if print_fmd_trace { node_pattern_to_index.iter_mut().for_each(|(str, &mut kind)| log(format!("- node_pattern_to_index: {} = pattern({}) -> kind: {}", nodes[kind].raw_name, str, kind))); }
 
   if print_fmd_trace { log(format!("+ initialize the belt metas")); }
   BELT_TYPES.iter().for_each(|&belt_type| {
@@ -1077,7 +1084,9 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Belt__L_DRU" => CONFIG_NODE_BELT__L_DRU,
     "Belt___DLRU" => CONFIG_NODE_BELT___DLRU,
     _ => {
-      log(format!("Warning: {} did not match a known node name! assigning fresh index: {}", name, def_index));
+      if !name.starts_with("Part_") && !name.starts_with("Quest_") {
+        log(format!("Warning: {} did not match a known node name and was not Quest or Part! assigning fresh index: {}", name, def_index));
+      }
       if kind != "Part" && kind != "Quest" {
         panic!("Only expecting parts and quests to be of unknown node types. Detected kind as `{}` for `{}`", kind, name);
       }
@@ -1390,6 +1399,7 @@ fn config_node_part(index: PartKind, name: String, icon: char) -> ConfigNode {
     pattern_by_index: vec!(),
     pattern_by_name: vec!(),
     pattern_by_icon: vec!(),
+    pattern: "".to_string(),
     pattern_unique_kinds: vec!(),
     icon,
     file: "".to_string(),
@@ -1419,6 +1429,7 @@ fn config_node_supply(index: PartKind, name: String) -> ConfigNode {
     pattern_by_index: vec!(),
     pattern_by_name: vec!(),
     pattern_by_icon: vec!(),
+    pattern: "".to_string(),
     icon: '?',
     file: "./img/supply.png".to_string(),
     file_canvas_cache_index: 0,
@@ -1447,6 +1458,7 @@ fn config_node_demand(index: PartKind, name: String) -> ConfigNode {
     pattern_by_index: vec!(),
     pattern_by_name: vec!(),
     pattern_by_icon: vec!(),
+    pattern: "".to_string(),
     icon: '?',
     file: "./img/demand.png".to_string(),
     file_canvas_cache_index: 0,
@@ -1475,6 +1487,7 @@ fn config_node_dock(index: PartKind, name: String) -> ConfigNode {
     pattern_by_index: vec!(),
     pattern_by_name: vec!(),
     pattern_by_icon: vec!(),
+    pattern: "".to_string(),
     icon: '?',
     file: "./img/dock.png".to_string(),
     file_canvas_cache_index: 0,
@@ -1503,6 +1516,7 @@ fn config_node_machine(index: PartKind, name: &str, file: &str) -> ConfigNode {
     pattern_by_index: vec!(),
     pattern_by_name: vec!(),
     pattern_by_icon: vec!(),
+    pattern: "".to_string(),
     icon: '?',
     file: file.to_string(),
     file_canvas_cache_index: 0,
@@ -1532,6 +1546,7 @@ fn config_node_belt(index: PartKind, name: &str, file: &str) -> ConfigNode {
     pattern_by_index: vec!(),
     pattern_by_name: vec!(),
     pattern_by_icon: vec!(),
+    pattern: "".to_string(),
     icon: '?',
     file: file.to_string(),
     file_canvas_cache_index: 0,
@@ -1593,6 +1608,7 @@ fn config_node_to_jsvalue(node: &ConfigNode) -> JsValue {
     convert_js_to_pair("pattern_by_index", convert_vec_usize_to_jsvalue(&node.pattern_by_index)),
     convert_js_to_pair("pattern_by_name", convert_vec_string_to_jsvalue(&node.pattern_by_name)),
     convert_js_to_pair("pattern_by_icon", convert_vec_char_to_jsvalue(&node.pattern_by_icon)),
+    convert_js_to_pair("pattern", JsValue::from(node.pattern.clone())),
     convert_js_to_pair("pattern_unique_kinds", convert_vec_usize_to_jsvalue(&node.pattern_unique_kinds)),
     convert_string_to_pair("icon", format!("{}", node.icon).as_str()),
     convert_string_to_pair("file", &node.file),

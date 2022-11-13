@@ -177,19 +177,21 @@ pub fn start() -> Result<(), JsValue> {
   pub fn load_config(print_fmd_trace: bool, config_str: String) -> Config {
     let mut config = parse_fmd(print_fmd_trace, config_str);
 
-    config.nodes.iter().for_each(|node| {
-      if node.file != "" {
-        log(format!("node `{}` wants to load `{}` at canvas index {}", node.raw_name, node.file, node.file_canvas_cache_index))
-      }
-    });
+    if print_fmd_trace {
+      config.nodes.iter().for_each(|node| {
+        if node.file != "" {
+          log(format!("node `{}` wants to load `{}` at canvas index {}", node.raw_name, node.file, node.file_canvas_cache_index))
+        }
+      });
+    }
 
     // Load sprite maps. Once per image.
     config.sprite_cache_canvas = config.sprite_cache_order.iter().enumerate().map(|(_index, src)| {
       // log(format!("Canvas {} src {}", _index, src));
       return load_tile(src.clone().as_str()).expect("worky worky");
     }).collect();
-    log(format!("Loading {} sprite maps for the parts: {:?}", config.sprite_cache_canvas.len(), config.sprite_cache_lookup));
-
+    if print_fmd_trace { log(format!("Loading {} sprite files for the parts: {:?}", config.sprite_cache_canvas.len(), config.sprite_cache_lookup)); }
+    else { log(format!("Loading {} sprite files (enable print_fmd_trace for details)", config.sprite_cache_canvas.len())); }
 
     {
       let kinds: JsValue = [ConfigNodeKind::Part, ConfigNodeKind::Quest, ConfigNodeKind::Supply, ConfigNodeKind::Demand, ConfigNodeKind::Dock, ConfigNodeKind::Machine, ConfigNodeKind::Belt].iter().map(|&kind| {

@@ -27,7 +27,7 @@
         const e = $option_bools.appendChild(document.createElement('label'));
         e.className = 'option-label';
         e.onclick = () => {
-          console.log('Toggling option', [key], 'to', [!!i.checked]);
+          console.log('[js] Toggling option', [key], 'to', [!!i.checked]);
           $game_options.value = $game_options.value.replace(new RegExp(`- ${key}: (?:true|false)`), `- ${key}: ${Boolean(i.checked)}`);
           queuedAction = 'apply_options';
         };
@@ -44,7 +44,7 @@
   function getExamples() { return GAME_EXAMPLES; }
   function getAction() { let x = queuedAction; queuedAction = ''; return x; }
   function receiveConfigNode(name, pairs) {
-    //console.log(name, '->', pairs);
+    //console.log('[js] receiveConfigNode:', name, '->', pairs);
 
     const nodeKinds = new Set;
     const nodes = new Map;
@@ -56,7 +56,7 @@
         }
 
         case "nodes": {
-          console.log('raw nodes:', value);
+          console.log('[js] raw nodes:', value);
           value.forEach(([raw_name, pairs]) => {
             const node = pairs.reduce((node, [prop, value]) => { node[prop] = value; return node; }, {});
             node.parents = [];
@@ -78,14 +78,14 @@
       }
     });
 
-    console.log('-->', nodeKinds);
-    console.log('-->', nodes);
+    console.log('[js] nodeKinds -->', nodeKinds);
+    console.log('[js] nodes -->', nodes);
 
-    nodes.forEach(node => {
-      if (node.kind === 'Quest') {
-        console.log('Quest', node.raw_name, '->', node);
-      }
-    });
+    //nodes.forEach(node => {
+    //  if (node.kind === 'Quest') {
+    //    console.log('[js] Quest', node.raw_name, '->', node);
+    //  }
+    //});
 
     function updateKinds() {
       const titles = [];
@@ -122,7 +122,7 @@
     $config_node_list.onchange = $config_node_list.onupdate = showNode;
 
     function show(prop, value) {
-      console.log('->', prop);
+      console.log('[js] ->', prop);
       document.getElementById('$config_node_' + prop).innerText = value;
       document.getElementById('$p_config_node_' + prop).style.display = 'block';
     }
@@ -306,7 +306,7 @@
           });
         }
       });
-      console.log('flowchart.fun code:\n' + arr.join('\n'));
+      console.log('[js] flowchart.fun code:\n' + arr.join('\n'));
     }
 
     updateMermaid(nodes);
@@ -381,7 +381,7 @@
           `.replace(/\n/g, ''));
       }
     });
-    console.log('mermaid.live code (may need to remove special descs):\n' + arr.join('\n'));
+    console.log('[js] mermaid.live code (may need to remove special descs):\n' + arr.join('\n'));
     $mermaid.removeAttribute('data-processed'); // :facepalm: not obvious but ok. ht https://stackoverflow.com/questions/73056709/mermaid-in-react-turns-into-plaintext-when-re-rendered
     $mermaid.innerHTML = arr.join('\n');
     mermaid.init();

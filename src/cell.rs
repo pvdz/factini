@@ -424,7 +424,9 @@ pub fn fix_belt_meta_floor(options: &Options, state: &State, floor: &mut [Cell; 
     floor[coord].port_d,
     floor[coord].port_l,
   );
-  log(format!("    -- fix_belt_meta() @{} current {:?}, new {:?} ;; {:?} {:?} {:?} {:?}", coord, floor[coord].belt.meta.btype, belt_type, floor[coord].port_u, floor[coord].port_r, floor[coord].port_d, floor[coord].port_l));
+  if floor[coord].belt.meta.btype != belt_type {
+    log(format!("    -- fix_belt_meta() modifying @{}! current {:?}, new {:?} ;; {:?} {:?} {:?} {:?}", coord, floor[coord].belt.meta.btype, belt_type, floor[coord].port_u, floor[coord].port_r, floor[coord].port_d, floor[coord].port_l));
+  }
   let belt_meta = belt_type_to_belt_meta(belt_type);
   floor[coord].belt.meta = belt_meta;
 }
