@@ -3482,6 +3482,8 @@ fn paint_debug_selected_belt_cell(context: &Rc<web_sys::CanvasRenderingContext2d
   }
 
   context.fill_text(format!("cell code: {}", factory.floor[selected_coord].belt.meta.dbg).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (6.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to paint cell code");
+  context.fill_text(format!("cell icon: {}", factory.floor[selected_coord].belt.meta.cli_icon).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (7.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to paint cell code");
+  context.fill_text(format!("url: {}", factory.floor[selected_coord].belt.meta.src).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (8.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to paint cell code");
 
   // TODO: could print neighbor progress decision stuff
 }

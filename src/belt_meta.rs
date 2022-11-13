@@ -52,11 +52,12 @@ const fn prebelt(u: Port, r: Port, d: Port, l: Port, cli_icon: char, src: &'stat
   return prebelt_meta(u, r, d, l, cli_icon, bt, src);
 }
 const fn prebelt_meta(u: Port, r: Port, d: Port, l: Port, cli_icon: char, belt_type: BeltType, src: &'static str) -> BeltMeta {
+  let code = belt_code_from_ports(u, r, d, l);
   return BeltMeta {
     btype: belt_type,
     // sprite_id: belt_type_from_ports(u, r, d, l) as usize,
     src,
-    dbg: belt_code_from_ports(u, r, d, l),
+    dbg: code,
     port_u: u,
     port_r: r,
     port_d: d,
@@ -91,49 +92,49 @@ pub const BELT_LR_: BeltMeta = prebelt(Port::None, Port::Inbound, Port::None, Po
 pub const BELT_R_L: BeltMeta = prebelt(Port::None, Port::Inbound, Port::None, Port::Outbound, '═', "./img/belt/r_l_cb.png");
 pub const BELT_R__L: BeltMeta = prebelt(Port::None, Port::Inbound, Port::None, Port::Unknown, '═', "./img/belt/r__l_cb.png");
 pub const BELT_DR_: BeltMeta = prebelt(Port::None, Port::Inbound, Port::Inbound, Port::None, '╔', "./img/belt/dr__cb.png");
-pub const BELT_DLR_: BeltMeta = prebelt(Port::None, Port::Inbound, Port::Inbound, Port::Inbound, '╩', "./img/belt/dlr__cb.png");
-pub const BELT_DR_L: BeltMeta = prebelt(Port::None, Port::Inbound, Port::Inbound, Port::Outbound, '╩', "./img/belt/dr_l_cb.png");
-pub const BELT_DR__L: BeltMeta = prebelt(Port::None, Port::Inbound, Port::Inbound, Port::Unknown, '╩', "./img/belt/dr__l_cb.png");
+pub const BELT_DLR_: BeltMeta = prebelt(Port::None, Port::Inbound, Port::Inbound, Port::Inbound, '╦', "./img/belt/dlr__cb.png");
+pub const BELT_DR_L: BeltMeta = prebelt(Port::None, Port::Inbound, Port::Inbound, Port::Outbound, '╦', "./img/belt/dr_l_cb.png");
+pub const BELT_DR__L: BeltMeta = prebelt(Port::None, Port::Inbound, Port::Inbound, Port::Unknown, '╦', "./img/belt/dr__l_cb.png");
 pub const BELT_R_D: BeltMeta = prebelt(Port::None, Port::Inbound, Port::Outbound, Port::None, '╔', "./img/belt/r_d_cb.png");
-pub const BELT_LR_D: BeltMeta = prebelt(Port::None, Port::Inbound, Port::Outbound, Port::Inbound, '╩', "./img/belt/lr_d_cb.png");
-pub const BELT_R_DL: BeltMeta = prebelt(Port::None, Port::Inbound, Port::Outbound, Port::Outbound, '╩', "./img/belt/r_dl_cb.png");
-pub const BELT_R_D_L: BeltMeta = prebelt(Port::None, Port::Inbound, Port::Outbound, Port::Unknown, '╩', "./img/belt/r_d_l_cb.png");
+pub const BELT_LR_D: BeltMeta = prebelt(Port::None, Port::Inbound, Port::Outbound, Port::Inbound, '╦', "./img/belt/lr_d_cb.png");
+pub const BELT_R_DL: BeltMeta = prebelt(Port::None, Port::Inbound, Port::Outbound, Port::Outbound, '╦', "./img/belt/r_dl_cb.png");
+pub const BELT_R_D_L: BeltMeta = prebelt(Port::None, Port::Inbound, Port::Outbound, Port::Unknown, '╦', "./img/belt/r_d_l_cb.png");
 pub const BELT_R__D: BeltMeta = prebelt(Port::None, Port::Inbound, Port::Unknown, Port::None, '╔', "./img/belt/r__d_cb.png");
-pub const BELT_LR__D: BeltMeta = prebelt(Port::None, Port::Inbound, Port::Unknown, Port::Inbound, '╩', "./img/belt/lr__d_cb.png");
-pub const BELT_R_L_D: BeltMeta = prebelt(Port::None, Port::Inbound, Port::Unknown, Port::Outbound, '╩', "./img/belt/r_l_d_cb.png");
-pub const BELT_R__DL: BeltMeta = prebelt(Port::None, Port::Inbound, Port::Unknown, Port::None, '╩', "./img/belt/r__dl_cb.png");
+pub const BELT_LR__D: BeltMeta = prebelt(Port::None, Port::Inbound, Port::Unknown, Port::Inbound, '╦', "./img/belt/lr__d_cb.png");
+pub const BELT_R_L_D: BeltMeta = prebelt(Port::None, Port::Inbound, Port::Unknown, Port::Outbound, '╦', "./img/belt/r_l_d_cb.png");
+pub const BELT_R__DL: BeltMeta = prebelt(Port::None, Port::Inbound, Port::Unknown, Port::None, '╦', "./img/belt/r__dl_cb.png");
 pub const BELT__R: BeltMeta = prebelt(Port::None, Port::Outbound, Port::None, Port::None, '╶', "./img/belt/_r_cb.png");
 pub const BELT_L_R: BeltMeta = prebelt(Port::None, Port::Outbound, Port::None, Port::Inbound, '═', "./img/belt/l_r_cb.png");
 pub const BELT__LR: BeltMeta = prebelt(Port::None, Port::Outbound, Port::None, Port::Outbound, '═', "./img/belt/_lr_cb.png");
 pub const BELT__R_L: BeltMeta = prebelt(Port::None, Port::Outbound, Port::None, Port::Unknown, '═', "./img/belt/_r_l_cb.png");
 pub const BELT_D_R: BeltMeta = prebelt(Port::None, Port::Outbound, Port::Inbound, Port::None, '╔', "./img/belt/d_r_cb.png");
-pub const BELT_DL_R: BeltMeta = prebelt(Port::None, Port::Outbound, Port::Inbound, Port::Inbound, '╩', "./img/belt/dl_r_cb.png");
-pub const BELT_D_LR: BeltMeta = prebelt(Port::None, Port::Outbound, Port::Inbound, Port::Outbound, '╩', "./img/belt/d_lr_cb.png");
-pub const BELT_D_R_L: BeltMeta = prebelt(Port::None, Port::Outbound, Port::Inbound, Port::Unknown, '╩', "./img/belt/d_r_l_cb.png");
+pub const BELT_DL_R: BeltMeta = prebelt(Port::None, Port::Outbound, Port::Inbound, Port::Inbound, '╦', "./img/belt/dl_r_cb.png");
+pub const BELT_D_LR: BeltMeta = prebelt(Port::None, Port::Outbound, Port::Inbound, Port::Outbound, '╦', "./img/belt/d_lr_cb.png");
+pub const BELT_D_R_L: BeltMeta = prebelt(Port::None, Port::Outbound, Port::Inbound, Port::Unknown, '╦', "./img/belt/d_r_l_cb.png");
 pub const BELT__DR: BeltMeta = prebelt(Port::None, Port::Outbound, Port::Outbound, Port::None, '╔', "./img/belt/_dr_cb.png");
-pub const BELT_L_DR: BeltMeta = prebelt(Port::None, Port::Outbound, Port::Outbound, Port::Inbound, '╩', "./img/belt/l_dr_cb.png");
-pub const BELT__DLR: BeltMeta = prebelt(Port::None, Port::Outbound, Port::Outbound, Port::Outbound, '╩', "./img/belt/_dlr_cb.png");
-pub const BELT__DR_L: BeltMeta = prebelt(Port::None, Port::Outbound, Port::Outbound, Port::Unknown, '╩', "./img/belt/_dr_l_cb.png");
+pub const BELT_L_DR: BeltMeta = prebelt(Port::None, Port::Outbound, Port::Outbound, Port::Inbound, '╦', "./img/belt/l_dr_cb.png");
+pub const BELT__DLR: BeltMeta = prebelt(Port::None, Port::Outbound, Port::Outbound, Port::Outbound, '╦', "./img/belt/_dlr_cb.png");
+pub const BELT__DR_L: BeltMeta = prebelt(Port::None, Port::Outbound, Port::Outbound, Port::Unknown, '╦', "./img/belt/_dr_l_cb.png");
 pub const BELT__R_D: BeltMeta = prebelt(Port::None, Port::Outbound, Port::Unknown, Port::None, '╔', "./img/belt/_r_d_cb.png");
-pub const BELT_L_R_D: BeltMeta = prebelt(Port::None, Port::Outbound, Port::Unknown, Port::Inbound, '╩', "./img/belt/l_r_d_cb.png");
-pub const BELT__LR_D: BeltMeta = prebelt(Port::None, Port::Outbound, Port::Unknown, Port::Outbound, '╩', "./img/belt/_lr_d_cb.png");
-pub const BELT__R_DL: BeltMeta = prebelt(Port::None, Port::Outbound, Port::Unknown, Port::Unknown, '╩', "./img/belt/_r_dl_cb.png");
+pub const BELT_L_R_D: BeltMeta = prebelt(Port::None, Port::Outbound, Port::Unknown, Port::Inbound, '╦', "./img/belt/l_r_d_cb.png");
+pub const BELT__LR_D: BeltMeta = prebelt(Port::None, Port::Outbound, Port::Unknown, Port::Outbound, '╦', "./img/belt/_lr_d_cb.png");
+pub const BELT__R_DL: BeltMeta = prebelt(Port::None, Port::Outbound, Port::Unknown, Port::Unknown, '╦', "./img/belt/_r_dl_cb.png");
 pub const BELT___R: BeltMeta = prebelt(Port::None, Port::Unknown, Port::None, Port::None, '╶', "./img/belt/__r_cb.png");
 pub const BELT_L__R: BeltMeta = prebelt(Port::None, Port::Unknown, Port::None, Port::Inbound, '═', "./img/belt/l__r_cb.png");
 pub const BELT__L_R: BeltMeta = prebelt(Port::None, Port::Unknown, Port::None, Port::Outbound, '═', "./img/belt/_l_r_cb.png");
 pub const BELT___LR: BeltMeta = prebelt(Port::None, Port::Unknown, Port::None, Port::Unknown, '═', "./img/belt/__lr_cb.png");
 pub const BELT_D__R: BeltMeta = prebelt(Port::None, Port::Unknown, Port::Inbound, Port::None, '╔', "./img/belt/d__r_cb.png");
-pub const BELT_DL__R: BeltMeta = prebelt(Port::None, Port::Unknown, Port::Inbound, Port::Inbound, '╩', "./img/belt/dl__r_cb.png");
-pub const BELT_D_L_R: BeltMeta = prebelt(Port::None, Port::Unknown, Port::Inbound, Port::Outbound, '╩', "./img/belt/d_l_r_cb.png");
-pub const BELT_D__LR: BeltMeta = prebelt(Port::None, Port::Unknown, Port::Inbound, Port::Unknown, '╩', "./img/belt/d__lr_cb.png");
+pub const BELT_DL__R: BeltMeta = prebelt(Port::None, Port::Unknown, Port::Inbound, Port::Inbound, '╦', "./img/belt/dl__r_cb.png");
+pub const BELT_D_L_R: BeltMeta = prebelt(Port::None, Port::Unknown, Port::Inbound, Port::Outbound, '╦', "./img/belt/d_l_r_cb.png");
+pub const BELT_D__LR: BeltMeta = prebelt(Port::None, Port::Unknown, Port::Inbound, Port::Unknown, '╦', "./img/belt/d__lr_cb.png");
 pub const BELT__D_R: BeltMeta = prebelt(Port::None, Port::Unknown, Port::Outbound, Port::None, '╔', "./img/belt/_d_r_cb.png");
-pub const BELT_L_D_R: BeltMeta = prebelt(Port::None, Port::Unknown, Port::Outbound, Port::Inbound, '╩', "./img/belt/l_d_r_cb.png");
-pub const BELT__DL_R: BeltMeta = prebelt(Port::None, Port::Unknown, Port::Outbound, Port::Outbound, '╩', "./img/belt/_dl_r_cb.png");
-pub const BELT__D_LR: BeltMeta = prebelt(Port::None, Port::Unknown, Port::Outbound, Port::Unknown, '╩', "./img/belt/_d_lr_cb.png");
+pub const BELT_L_D_R: BeltMeta = prebelt(Port::None, Port::Unknown, Port::Outbound, Port::Inbound, '╦', "./img/belt/l_d_r_cb.png");
+pub const BELT__DL_R: BeltMeta = prebelt(Port::None, Port::Unknown, Port::Outbound, Port::Outbound, '╦', "./img/belt/_dl_r_cb.png");
+pub const BELT__D_LR: BeltMeta = prebelt(Port::None, Port::Unknown, Port::Outbound, Port::Unknown, '╦', "./img/belt/_d_lr_cb.png");
 pub const BELT___DR: BeltMeta = prebelt(Port::None, Port::Unknown, Port::Unknown, Port::None, '╔', "./img/belt/__dr_cb.png");
-pub const BELT_L__DR: BeltMeta = prebelt(Port::None, Port::Unknown, Port::Unknown, Port::Inbound, '╩', "./img/belt/l__dr_cb.png");
-pub const BELT__L_DR: BeltMeta = prebelt(Port::None, Port::Unknown, Port::Unknown, Port::Outbound, '╩', "./img/belt/_l_dr_cb.png");
-pub const BELT___DLR: BeltMeta = prebelt(Port::None, Port::Unknown, Port::Unknown, Port::Unknown, '╩', "./img/belt/__dlr_cb.png");
+pub const BELT_L__DR: BeltMeta = prebelt(Port::None, Port::Unknown, Port::Unknown, Port::Inbound, '╦', "./img/belt/l__dr_cb.png");
+pub const BELT__L_DR: BeltMeta = prebelt(Port::None, Port::Unknown, Port::Unknown, Port::Outbound, '╦', "./img/belt/_l_dr_cb.png");
+pub const BELT___DLR: BeltMeta = prebelt(Port::None, Port::Unknown, Port::Unknown, Port::Unknown, '╦', "./img/belt/__dlr_cb.png");
 pub const BELT_U_: BeltMeta = prebelt(Port::Inbound, Port::None, Port::None, Port::None, '╵', "./img/belt/u__cb.png");
 pub const BELT_LU_: BeltMeta = prebelt(Port::Inbound, Port::None, Port::None, Port::Inbound, '╝', "./img/belt/lu__cb.png");
 pub const BELT_U_L: BeltMeta = prebelt(Port::Inbound, Port::None, Port::None, Port::Outbound, '╝', "./img/belt/u_l_cb.png");

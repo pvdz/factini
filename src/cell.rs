@@ -414,15 +414,19 @@ pub fn demand_cell(config: &Config, x: usize, y: usize) -> Cell {
 }
 
 pub fn fix_belt_meta(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord: usize) {
+  fix_belt_meta_floor(options, state, &mut factory.floor, coord);
+}
+
+pub fn fix_belt_meta_floor(options: &Options, state: &State, floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize) {
   let belt_type = belt_type_from_ports(
-    factory.floor[coord].port_u,
-    factory.floor[coord].port_r,
-    factory.floor[coord].port_d,
-    factory.floor[coord].port_l,
+    floor[coord].port_u,
+    floor[coord].port_r,
+    floor[coord].port_d,
+    floor[coord].port_l,
   );
-  log(format!("    -- fix_belt_meta() @{} current {:?}, new {:?} ;; {:?} {:?} {:?} {:?}", coord, factory.floor[coord].belt.meta.btype, belt_type, factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
+  log(format!("    -- fix_belt_meta() @{} current {:?}, new {:?} ;; {:?} {:?} {:?} {:?}", coord, floor[coord].belt.meta.btype, belt_type, floor[coord].port_u, floor[coord].port_r, floor[coord].port_d, floor[coord].port_l));
   let belt_meta = belt_type_to_belt_meta(belt_type);
-  factory.floor[coord].belt.meta = belt_meta;
+  floor[coord].belt.meta = belt_meta;
 }
 
 // Unused

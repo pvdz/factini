@@ -114,9 +114,9 @@ pub fn auto_port_cell_belt2(options: &Options, state: &State, floor: &mut [Cell;
   return (true, false); // One unknown, no changes
 }
 pub fn auto_ins_outs(options: &mut Options, state: &mut State, factory: &mut Factory) {
-  auto_ins_outs_floor(&mut factory.floor);
+  auto_ins_outs_floor(options, state, &mut factory.floor);
 }
-pub fn auto_ins_outs_floor(floor: &mut [Cell; FLOOR_CELLS_WH]) {
+pub fn auto_ins_outs_floor(options: &mut Options, state: &mut State, floor: &mut [Cell; FLOOR_CELLS_WH]) {
   // Clear .ins and .outs and discover them for the entire floor.
   // Only checks own ports, not if they're actually connected.
 
@@ -157,6 +157,11 @@ pub fn auto_ins_outs_floor(floor: &mut [Cell; FLOOR_CELLS_WH]) {
         Port::Unknown => (),
         Port::None => (),
       };
+      // If we don't do this then in some cases the initial map might load incorrect tiles (show sprite for unknown ports even when port is known)
+      // TODO: I think this is making another step redundant but I don't think it should really matter?
+      if floor[coord].kind == CellKind::Belt {
+        fix_belt_meta_floor(options, state, floor, coord);
+      }
     }
   }
 }
