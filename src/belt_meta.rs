@@ -55,7 +55,6 @@ const fn prebelt_meta(u: Port, r: Port, d: Port, l: Port, cli_icon: char, belt_t
   let code = belt_code_from_ports(u, r, d, l);
   return BeltMeta {
     btype: belt_type,
-    // sprite_id: belt_type_from_ports(u, r, d, l) as usize,
     src,
     dbg: code,
     port_u: u,

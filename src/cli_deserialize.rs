@@ -370,13 +370,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
             match port_l as char { '<' => Port::Outbound, '>' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port left indicators must be `<`, `>`, `?` or a space, this was `{}`", port_u)},
           );
           let belt_meta = belt_type_to_belt_meta(belt_type);
-          // if cell_kind == '╹' {
-          //   log(format!("REMOVEME check1: {:?} {:?} {:?} {:?} -> {:?}", belt_meta.port_u, belt_meta.port_r, belt_meta.port_d, belt_meta.port_l, belt_meta.dbg));
-          // }
           let cell = belt_cell(config, i, j, belt_meta);
-          // if cell_kind == '╹' {
-          //   log(format!("REMOVEME check2: {:?} {:?} {:?} {:?} -> {:?} -> {:?}", cell.port_u, cell.port_r, cell.port_d, cell.port_l, cell.belt.meta.dbg, cell.belt.meta.src));
-          // }
           floor[coord] = cell;
         }
 
@@ -598,7 +592,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
   }
 
   // Set the .ins and .outs of each cell cause otherwise nothing happens.
-  auto_ins_outs_floor(options, state, &mut floor);
+  auto_ins_outs_floor(options, state, config, &mut floor);
 
   return floor;
 }

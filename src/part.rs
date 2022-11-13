@@ -7,7 +7,7 @@ pub struct Part {
   pub icon: char,
 }
 
-// Note: 0 is hardcoded to None, 1 is hardcoded to Trash. The rest is user defined.
+// Note: This is the ConfigKind. The first 260 or so are hardcoded, like Part_None and Belt_U_D
 // #[derive(Clone, Copy, Debug, PartialEq)]
 pub type PartKind = usize;
 

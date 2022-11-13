@@ -2892,9 +2892,7 @@ fn paint_belt_dbg_id(options: &Options, state: &State, config: &Config, context:
 
       if factory.floor[coord].kind == CellKind::Belt {
         context.set_fill_style(&"white".into());
-        let wat = factory.floor[coord].belt.meta.src.rsplit_once('/').unwrap();
-        let wat = wat.1.split_once('.').unwrap().0;
-        let mut wat = wat.split('_');
+        let mut wat = factory.floor[coord].belt.meta.dbg.split('_');
         // let prefix = wat.next().unwrap();
         let ins = wat.next().or(Some("")).unwrap().trim();
         let outs = wat.next().or(Some("")).unwrap().trim();

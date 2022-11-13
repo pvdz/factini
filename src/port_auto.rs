@@ -1,5 +1,6 @@
 use super::belt::*;
 use super::cell::*;
+use super::config::*;
 use super::demand::*;
 use super::direction::*;
 use super::factory::*;
@@ -113,10 +114,10 @@ pub fn auto_port_cell_belt2(options: &Options, state: &State, floor: &mut [Cell;
 
   return (true, false); // One unknown, no changes
 }
-pub fn auto_ins_outs(options: &mut Options, state: &mut State, factory: &mut Factory) {
-  auto_ins_outs_floor(options, state, &mut factory.floor);
+pub fn auto_ins_outs(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
+  auto_ins_outs_floor(options, state, config, &mut factory.floor);
 }
-pub fn auto_ins_outs_floor(options: &mut Options, state: &mut State, floor: &mut [Cell; FLOOR_CELLS_WH]) {
+pub fn auto_ins_outs_floor(options: &mut Options, state: &mut State, config: &Config, floor: &mut [Cell; FLOOR_CELLS_WH]) {
   // Clear .ins and .outs and discover them for the entire floor.
   // Only checks own ports, not if they're actually connected.
 

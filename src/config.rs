@@ -8,7 +8,6 @@ use super::belt::*;
 use super::belt_codes::*;
 use super::belt_frame::*;
 use super::belt_meta::*;
-use super::belt_sprite::*;
 use super::belt_type::*;
 use super::belt_type::*;
 use super::machine::*;
@@ -302,7 +301,6 @@ pub struct Config {
   pub sprite_cache_lookup: HashMap<String, usize>, // indexes into sprite_cache_canvas
   pub sprite_cache_order: Vec<String>, // srcs by index.
   pub sprite_cache_canvas: Vec<web_sys::HtmlImageElement>,
-  // pub belt_sprites: BeltSprites,
 }
 
 #[derive(Debug)]
@@ -805,7 +803,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
     }
   });
 
-  return Config { nodes, /*belt_sprites,*/ quest_nodes, part_nodes, node_name_to_index, node_pattern_to_index, sprite_cache_lookup, sprite_cache_order, sprite_cache_canvas: vec!() };
+  return Config { nodes, quest_nodes, part_nodes, node_name_to_index, node_pattern_to_index, sprite_cache_lookup, sprite_cache_order, sprite_cache_canvas: vec!() };
 }
 
 fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usize) -> usize {

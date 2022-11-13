@@ -13,7 +13,6 @@ pub mod belt;
 pub mod belt_codes;
 pub mod belt_frame;
 pub mod belt_meta;
-pub mod belt_sprite;
 pub mod belt_type;
 pub mod bouncer;
 pub mod cell;

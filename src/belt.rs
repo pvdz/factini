@@ -1,7 +1,6 @@
 use super::belt_codes::*;
 use super::belt_frame::*;
 use super::belt_meta::*;
-use super::belt_sprite::*;
 use super::belt_type::*;
 use super::belt_type::*;
 use super::cell::*;

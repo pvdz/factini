@@ -78,7 +78,7 @@ pub fn create_factory(options: &mut Options, state: &mut State, config: &Config,
   };
   log(format!("available quotes: {:?}", factory.quotes));
   auto_layout(options, state, config, &mut factory);
-  auto_ins_outs(options, state, &mut factory);
+  auto_ins_outs(options, state, config, &mut factory);
   let prio = create_prio_list(options, config, &mut factory.floor);
   factory.prio = prio;
   factory.changed = false;
@@ -219,7 +219,7 @@ pub fn factory_load_map(options: &mut Options, state: &mut State, config: &Confi
   log(format!("available quotes: {:?}", factory.quotes));
   factory.floor = floor;
   auto_layout(options, state, config, factory);
-  auto_ins_outs(options, state, factory);
+  auto_ins_outs(options, state, config, factory);
   // TODO: I think we can move this (and other steps) to the factory.changed steps but there's some time between this place and the changed place
   let prio = create_prio_list(options, config, &mut factory.floor);
   factory.prio = prio;
