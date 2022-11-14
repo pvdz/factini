@@ -136,7 +136,7 @@ pub fn belt_cell(config: &Config, x: usize, y: usize, meta: BeltMeta) -> Cell {
     ins: vec!(), // To be filled by the auto layout func
     outs: vec!(), // To be filled by the auto layout func
 
-    port_u: meta.port_u, // Port::Unknown,
+    port_u: meta.port_u,
     port_r: meta.port_r,
     port_d: meta.port_d,
     port_l: meta.port_l,
