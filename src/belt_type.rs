@@ -1,3 +1,4 @@
+use std::convert::TryInto;
 use super::belt::*;
 use super::belt_codes::*;
 use super::belt_meta::*;
@@ -302,7 +303,8 @@ pub enum BeltType {
 // Keep in sync...
 pub const BELT_TYPE_COUNT: usize = (BeltType::INVALID as usize) + 1;
 
-pub const BELT_TYPES: [BeltType; 258] = [
+// Naming _is_ hard
+pub const BELT_TYPES_NOT_INDEXABLE_BY_TYPE_BUT_BY_CODE_POS: [BeltType; 258] = [
   BeltType::NONE,
   BeltType::UNKNOWN,
   BeltType::INVALID,
@@ -1128,11 +1130,16 @@ pub const fn belt_type_from_ports(up: Port, right: Port, down: Port, left: Port)
 }
 
 pub fn belt_index_to_belt_type(index: usize) -> BeltType {
-  let t = BELT_TYPES[index];
+  let t = BELT_TYPES_NOT_INDEXABLE_BY_TYPE_BUT_BY_CODE_POS[index];
   assert_eq!(t as usize, index, "index should map to a belt type with the same index value");
   return t;
 }
 
 pub fn belt_name_to_belt_type(code: &str) -> BeltType {
-  return belt_index_to_belt_type(BELT_CODES.iter().position(|&s| s == code).or(Some(BeltType::INVALID as usize)).unwrap());
+  let pos = BELT_CODES.iter().position(|&s| s == code);
+
+  return match pos {
+    Some(pos) => BELT_TYPES_NOT_INDEXABLE_BY_TYPE_BUT_BY_CODE_POS[pos - BeltType::NONE as usize], // TODO: unhappy about the sub but it'll have to do for now
+    None => panic!("Belt code {} was not found in the belt name list", code),
+  };
 }

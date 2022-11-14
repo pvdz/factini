@@ -179,8 +179,8 @@ pub fn start() -> Result<(), JsValue> {
 
     if print_fmd_trace {
       config.nodes.iter().for_each(|node| {
-        if node.file != "" {
-          log(format!("node `{}` wants to load `{}` at canvas index {}", node.raw_name, node.file, node.file_canvas_cache_index))
+        if node.sprite_config.frames[0].file != "" {
+          log(format!("node `{}` wants to load `{}` at canvas index {}", node.raw_name, node.sprite_config.frames[0].file, node.sprite_config.frames[0].file_canvas_cache_index))
         }
       });
     }
@@ -2680,8 +2680,8 @@ fn paint_supply_and_part_for_edge(options: &Options, state: &State, config: &Con
     };
   // TODO: should we offer the option to draw the dock behind in case of semi-transparent supply imgs?
   context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-    &config.sprite_cache_canvas[config.nodes[dock_target].file_canvas_cache_index],
-    config.nodes[dock_target].x, config.nodes[dock_target].y, config.nodes[dock_target].w, config.nodes[dock_target].h,
+    &config.sprite_cache_canvas[config.nodes[dock_target].sprite_config.frames[0].file_canvas_cache_index],
+    config.nodes[dock_target].sprite_config.frames[0].x, config.nodes[dock_target].sprite_config.frames[0].y, config.nodes[dock_target].sprite_config.frames[0].w, config.nodes[dock_target].sprite_config.frames[0].h,
     ox, oy, CELL_W, CELL_H
   ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
   paint_segment_part_from_config(options, state, config, context, part_index, ox + CELL_W/4.0, oy + CELL_H/4.0, CELL_W/2.0, CELL_H/2.0);
@@ -2733,8 +2733,8 @@ fn paint_dock_stripes(
   context.set_global_alpha(0.5); // TODO: the alpha should probably be governed by the image (semi-trans) or a configurable setting...
   // Paint the dock image for non-corner edge cells
   context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-    &config.sprite_cache_canvas[config.nodes[dock_target].file_canvas_cache_index],
-    config.nodes[dock_target].x, config.nodes[dock_target].y, config.nodes[dock_target].w, config.nodes[dock_target].h,
+    &config.sprite_cache_canvas[config.nodes[dock_target].sprite_config.frames[0].file_canvas_cache_index],
+    config.nodes[dock_target].sprite_config.frames[0].x, config.nodes[dock_target].sprite_config.frames[0].y, config.nodes[dock_target].sprite_config.frames[0].w, config.nodes[dock_target].sprite_config.frames[0].h,
     ox, oy, w, h
   ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
   context.set_global_alpha(1.0);
@@ -2791,19 +2791,19 @@ fn paint_background_tiles(
         // TODO: each machine size should have a unique, customized, sprite
         if factory.floor[coord].machine.main_coord == coord {
           let machine_img = match ( factory.floor[coord].machine.cell_width, factory.floor[coord].machine.cell_height ) {
-            ( 1, 1 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_1X1].file_canvas_cache_index],
-            ( 2, 2 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_2X2].file_canvas_cache_index],
-            ( 3, 3 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].file_canvas_cache_index],
+            ( 1, 1 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_1X1].sprite_config.frames[0].file_canvas_cache_index],
+            ( 2, 2 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_2X2].sprite_config.frames[0].file_canvas_cache_index],
+            ( 3, 3 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].file_canvas_cache_index],
             ( 4, 4 ) => img_machine_1_1,
             ( 2, 1 ) => img_machine_2_1,
             ( 4, 2 ) => img_machine_2_1,
             ( 3, 2 ) => img_machine_3_2,
-            _ => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].file_canvas_cache_index],
+            _ => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].file_canvas_cache_index],
           };
           context.draw_image_with_html_image_element_and_dw_and_dh(machine_img, ox, oy, factory.floor[coord].machine.cell_width as f64 * CELL_W, factory.floor[coord].machine.cell_height as f64 * CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
 
           // Paint tiny output part
-          paint_segment_part_from_config(options, state, config, context, factory.floor[coord].machine.output_want.kind, ox + config.nodes[CONFIG_NODE_MACHINE_3X3].x, oy + config.nodes[CONFIG_NODE_MACHINE_3X3].y, config.nodes[CONFIG_NODE_MACHINE_3X3].w, config.nodes[CONFIG_NODE_MACHINE_3X3].h);
+          paint_segment_part_from_config(options, state, config, context, factory.floor[coord].machine.output_want.kind, ox + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].x, oy + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].y, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].w, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].h);
         }
       },
       CellKind::Supply => {
@@ -4083,7 +4083,7 @@ fn paint_ui_offer(
       let x = GRID_X2 + 15.0;
       let y = GRID_Y0 + 10.0;
 
-      let machine_img = &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].file_canvas_cache_index];
+      let machine_img = &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].file_canvas_cache_index];
       context.draw_image_with_html_image_element_and_dw_and_dh(machine_img, x, y, 0.75 * CELL_W, 0.75 * CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
 
       for i in 0..config.nodes[part_index].pattern_unique_kinds.len() {
@@ -4439,8 +4439,8 @@ fn draw_supplier(options: &Options, state: &State, config: &Config, context: &Rc
 
   // TODO: should we offer the option to draw the dock behind in case of semi-transparent supply imgs?
   context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-    &config.sprite_cache_canvas[config.nodes[dpck_dir].file_canvas_cache_index],
-    config.nodes[dpck_dir].x, config.nodes[dpck_dir].y, config.nodes[dpck_dir].w, config.nodes[dpck_dir].h,
+    &config.sprite_cache_canvas[config.nodes[dpck_dir].sprite_config.frames[0].file_canvas_cache_index],
+    config.nodes[dpck_dir].sprite_config.frames[0].x, config.nodes[dpck_dir].sprite_config.frames[0].y, config.nodes[dpck_dir].sprite_config.frames[0].w, config.nodes[dpck_dir].sprite_config.frames[0].h,
     ox, oy, dw, dh
   ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
 }
@@ -4456,8 +4456,8 @@ fn draw_demander(options: &Options, state: &State, config: &Config, context: &Rc
 
   // TODO: should we offer the option to draw the dock behind in case of semi-transparent supply imgs?
   context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-    &config.sprite_cache_canvas[config.nodes[dock_dir].file_canvas_cache_index],
-    config.nodes[dock_dir].x, config.nodes[dock_dir].y, config.nodes[dock_dir].w, config.nodes[dock_dir].h,
+    &config.sprite_cache_canvas[config.nodes[dock_dir].sprite_config.frames[0].file_canvas_cache_index],
+    config.nodes[dock_dir].sprite_config.frames[0].x, config.nodes[dock_dir].sprite_config.frames[0].y, config.nodes[dock_dir].sprite_config.frames[0].w, config.nodes[dock_dir].sprite_config.frames[0].h,
     ox, oy, dw, dh
   ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
 }

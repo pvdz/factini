@@ -13,6 +13,8 @@ use super::belt_type::*;
 use super::machine::*;
 use super::options::*;
 use super::part::*;
+use super::sprite_config::*;
+use super::sprite_frame::*;
 use super::state::*;
 use super::utils::*;
 
@@ -326,13 +328,9 @@ pub struct ConfigNode {
   pub pattern: String, // pattern_by_icon as a string cached (or "prerendered")
   pub pattern_unique_kinds: Vec<PartKind>, // Unique non-empty part kinds. We can use this to quickly find machines that have received these parts.
   pub icon: char, // Single (unique) character that also represents this part internally
-  pub file: String, // Sprite image location
-  pub file_canvas_cache_index: usize, // The canvas with the sprite image loaded
-  // Coord of the part on the sprite
-  pub x: f64,
-  pub y: f64,
-  pub w: f64,
-  pub h: f64,
+
+  pub sprite_config: SpriteConfig,
+
   // Mostly for debugging
   pub current_state: ConfigNodeState,
 }
@@ -463,12 +461,19 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
             pattern: "".to_string(),
             pattern_unique_kinds: vec!(),
             icon,
-            file: "".to_string(),
-            file_canvas_cache_index: 0,
-            x: 0.0,
-            y: 0.0,
-            w: 0.0,
-            h: 0.0,
+            sprite_config: SpriteConfig {
+              pause_between: 0,
+              initial_delay: 0,
+              looping: false,
+              frames: vec![SpriteFrame {
+                file: "".to_string(),
+                file_canvas_cache_index: 0,
+                x: 0.0,
+                y: 0.0,
+                w: 0.0,
+                h: 0.0
+              }]
+            },
             current_state: ConfigNodeState::Waiting,
           };
           if node_index == nodes.len() {
@@ -574,31 +579,31 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
             }
             "file" => {
               // The sprite file
-              nodes[current_node_index].file = value_raw.trim().to_string();
+              nodes[current_node_index].sprite_config.frames[0].file = value_raw.trim().to_string();
             }
             | "part_x"
             | "x"
             => {
               // x coord in the sprite file where this sprite begins
-              nodes[current_node_index].x = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
+              nodes[current_node_index].sprite_config.frames[0].x = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
             }
             | "part_y"
             | "y"
             => {
               // y coord in the sprite file where this sprite begins
-              nodes[current_node_index].y = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
+              nodes[current_node_index].sprite_config.frames[0].y = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
             }
             | "part_w"
             | "w"
             => {
               // width in the sprite file of this sprite
-              nodes[current_node_index].w = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
+              nodes[current_node_index].sprite_config.frames[0].w = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
             }
             | "part_h"
             | "h"
             => {
               // height in the sprite file of this sprite
-              nodes[current_node_index].h = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
+              nodes[current_node_index].sprite_config.frames[0].h = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
             }
             "state" => {
               match value_raw {
@@ -718,15 +723,15 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
 
     // Create sprite image index pointers. There will be an array with a canvas loaded with
     // that image and it will sit in a vector at the position of that index.
-    let f = node.file.as_str();
+    let f = node.sprite_config.frames[0].file.as_str();
     match sprite_cache_lookup.get(f) {
       Some(&index) => {
-        node.file_canvas_cache_index = index;
+        node.sprite_config.frames[0].file_canvas_cache_index = index;
       },
       None => {
         let index = sprite_cache_lookup.len();
-        let file = node.file.clone();
-        node.file_canvas_cache_index = index;
+        let file = node.sprite_config.frames[0].file.clone();
+        node.sprite_config.frames[0].file_canvas_cache_index = index;
         sprite_cache_lookup.insert(file.clone(), index);
         sprite_cache_order.push(file);
       }
@@ -784,19 +789,19 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   if print_fmd_trace { node_pattern_to_index.iter_mut().for_each(|(str, &mut kind)| log(format!("- node_pattern_to_index: {} = pattern({}) -> kind: {}", nodes[kind].raw_name, str, kind))); }
 
   if print_fmd_trace { log(format!("+ initialize the belt metas")); }
-  BELT_TYPES.iter().for_each(|&belt_type| {
+  BELT_TYPES_NOT_INDEXABLE_BY_TYPE_BUT_BY_CODE_POS.iter().for_each(|&belt_type| {
     // Create sprite image index pointers. There will be an array with a canvas loaded with
     // that image and it will sit in a vector at the position of that index.
     let node = &mut nodes[belt_type as usize];
-    let f = node.file.as_str();
+    let f = node.sprite_config.frames[0].file.as_str();
     match sprite_cache_lookup.get(f) {
       Some(&index) => {
-        node.file_canvas_cache_index = index;
+        node.sprite_config.frames[0].file_canvas_cache_index = index;
       },
       None => {
         let index = sprite_cache_lookup.len();
-        let file = node.file.clone();
-        node.file_canvas_cache_index = index;
+        let file = node.sprite_config.frames[0].file.clone();
+        node.sprite_config.frames[0].file_canvas_cache_index = index;
         sprite_cache_lookup.insert(file.clone(), index);
         sprite_cache_order.push(file);
       }
@@ -1115,264 +1120,264 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_machine(CONFIG_NODE_MACHINE_1X1, "1x1", "./img/machine_1_1.png"),
     config_node_machine(CONFIG_NODE_MACHINE_2X2, "2x2", "./img/machine_2_2.png"),
     config_node_machine(CONFIG_NODE_MACHINE_3X3, "3x3", "./img/machine_1_1.png"),
-    config_node_belt(CONFIG_NODE_BELT_NONE, "NONE", "./img/none"),
-    config_node_belt(CONFIG_NODE_BELT_UNKNOWN, "UNKNOWN", "./img/unknown"),
-    config_node_belt(CONFIG_NODE_BELT_INVALID, "INVALID", "./img/invalid"),
-    config_node_belt(CONFIG_NODE_BELT_L_, "L_", "./img/l_"),
-    config_node_belt(CONFIG_NODE_BELT__L, "_L", "./img/_l"),
-    config_node_belt(CONFIG_NODE_BELT___L, "__L", "./img/__l"),
-    config_node_belt(CONFIG_NODE_BELT_D_, "D_", "./img/d_"),
-    config_node_belt(CONFIG_NODE_BELT_DL_, "DL_", "./img/dl_"),
-    config_node_belt(CONFIG_NODE_BELT_D_L, "D_L", "./img/d_l"),
-    config_node_belt(CONFIG_NODE_BELT_D__L, "D__L", "./img/d__l"),
-    config_node_belt(CONFIG_NODE_BELT__D, "_D", "./img/_d"),
-    config_node_belt(CONFIG_NODE_BELT_L_D, "L_D", "./img/l_d"),
-    config_node_belt(CONFIG_NODE_BELT__DL, "_DL", "./img/_dl"),
-    config_node_belt(CONFIG_NODE_BELT__D_L, "_D_L", "./img/_d_l"),
-    config_node_belt(CONFIG_NODE_BELT___D, "__D", "./img/__d"),
-    config_node_belt(CONFIG_NODE_BELT_L__D, "L__D", "./img/l__d"),
-    config_node_belt(CONFIG_NODE_BELT__L_D, "_L_D", "./img/_l_d"),
-    config_node_belt(CONFIG_NODE_BELT___DL, "__DL", "./img/__dl"),
-    config_node_belt(CONFIG_NODE_BELT_R_, "R_", "./img/r_"),
-    config_node_belt(CONFIG_NODE_BELT_LR_, "LR_", "./img/lr_"),
-    config_node_belt(CONFIG_NODE_BELT_R_L, "R_L", "./img/r_l"),
-    config_node_belt(CONFIG_NODE_BELT_R__L, "R__L", "./img/r__l"),
-    config_node_belt(CONFIG_NODE_BELT_DR_, "DR_", "./img/dr_"),
-    config_node_belt(CONFIG_NODE_BELT_DLR_, "DLR_", "./img/dlr_"),
-    config_node_belt(CONFIG_NODE_BELT_DR_L, "DR_L", "./img/dr_l"),
-    config_node_belt(CONFIG_NODE_BELT_DR__L, "DR__L", "./img/dr__l"),
-    config_node_belt(CONFIG_NODE_BELT_R_D, "R_D", "./img/r_d"),
-    config_node_belt(CONFIG_NODE_BELT_LR_D, "LR_D", "./img/lr_d"),
-    config_node_belt(CONFIG_NODE_BELT_R_DL, "R_DL", "./img/r_dl"),
-    config_node_belt(CONFIG_NODE_BELT_R_D_L, "R_D_L", "./img/r_d_l"),
-    config_node_belt(CONFIG_NODE_BELT_R__D, "R__D", "./img/r__d"),
-    config_node_belt(CONFIG_NODE_BELT_LR__D, "LR__D", "./img/lr__d"),
-    config_node_belt(CONFIG_NODE_BELT_R_L_D, "R_L_D", "./img/r_l_d"),
-    config_node_belt(CONFIG_NODE_BELT_R__DL, "R__DL", "./img/r__dl"),
-    config_node_belt(CONFIG_NODE_BELT__R, "_R", "./img/_r"),
-    config_node_belt(CONFIG_NODE_BELT_L_R, "L_R", "./img/l_r"),
-    config_node_belt(CONFIG_NODE_BELT__LR, "_LR", "./img/_lr"),
-    config_node_belt(CONFIG_NODE_BELT__R_L, "_R_L", "./img/_r_l"),
-    config_node_belt(CONFIG_NODE_BELT_D_R, "D_R", "./img/d_r"),
-    config_node_belt(CONFIG_NODE_BELT_DL_R, "DL_R", "./img/dl_r"),
-    config_node_belt(CONFIG_NODE_BELT_D_LR, "D_LR", "./img/d_lr"),
-    config_node_belt(CONFIG_NODE_BELT_D_R_L, "D_R_L", "./img/d_r_l"),
-    config_node_belt(CONFIG_NODE_BELT__DR, "_DR", "./img/_dr"),
-    config_node_belt(CONFIG_NODE_BELT_L_DR, "L_DR", "./img/l_dr"),
-    config_node_belt(CONFIG_NODE_BELT__DLR, "_DLR", "./img/_dlr"),
-    config_node_belt(CONFIG_NODE_BELT__DR_L, "_DR_L", "./img/_dr_l"),
-    config_node_belt(CONFIG_NODE_BELT__R_D, "_R_D", "./img/_r_d"),
-    config_node_belt(CONFIG_NODE_BELT_L_R_D, "L_R_D", "./img/l_r_d"),
-    config_node_belt(CONFIG_NODE_BELT__LR_D, "_LR_D", "./img/_lr_d"),
-    config_node_belt(CONFIG_NODE_BELT__R_DL, "_R_DL", "./img/_r_dl"),
-    config_node_belt(CONFIG_NODE_BELT___R, "__R", "./img/__r"),
-    config_node_belt(CONFIG_NODE_BELT_L__R, "L__R", "./img/l__r"),
-    config_node_belt(CONFIG_NODE_BELT__L_R, "_L_R", "./img/_l_r"),
-    config_node_belt(CONFIG_NODE_BELT___LR, "__LR", "./img/__lr"),
-    config_node_belt(CONFIG_NODE_BELT_D__R, "D__R", "./img/d__r"),
-    config_node_belt(CONFIG_NODE_BELT_DL__R, "DL__R", "./img/dl__r"),
-    config_node_belt(CONFIG_NODE_BELT_D_L_R, "D_L_R", "./img/d_l_r"),
-    config_node_belt(CONFIG_NODE_BELT_D__LR, "D__LR", "./img/d__lr"),
-    config_node_belt(CONFIG_NODE_BELT__D_R, "_D_R", "./img/_d_r"),
-    config_node_belt(CONFIG_NODE_BELT_L_D_R, "L_D_R", "./img/l_d_r"),
-    config_node_belt(CONFIG_NODE_BELT__DL_R, "_DL_R", "./img/_dl_r"),
-    config_node_belt(CONFIG_NODE_BELT__D_LR, "_D_LR", "./img/_d_lr"),
-    config_node_belt(CONFIG_NODE_BELT___DR, "__DR", "./img/__dr"),
-    config_node_belt(CONFIG_NODE_BELT_L__DR, "L__DR", "./img/l__dr"),
-    config_node_belt(CONFIG_NODE_BELT__L_DR, "_L_DR", "./img/_l_dr"),
-    config_node_belt(CONFIG_NODE_BELT___DLR, "__DLR", "./img/__dlr"),
-    config_node_belt(CONFIG_NODE_BELT_U_, "U_", "./img/u_"),
-    config_node_belt(CONFIG_NODE_BELT_LU_, "LU_", "./img/lu_"),
-    config_node_belt(CONFIG_NODE_BELT_U_L, "U_L", "./img/u_l"),
-    config_node_belt(CONFIG_NODE_BELT_U__L, "U__L", "./img/u__l"),
-    config_node_belt(CONFIG_NODE_BELT_DU_, "DU_", "./img/du_"),
-    config_node_belt(CONFIG_NODE_BELT_DLU_, "DLU_", "./img/dlu_"),
-    config_node_belt(CONFIG_NODE_BELT_DU_L, "DU_L", "./img/du_l"),
-    config_node_belt(CONFIG_NODE_BELT_DU__L, "DU__L", "./img/du__l"),
-    config_node_belt(CONFIG_NODE_BELT_U_D, "U_D", "./img/u_d"),
-    config_node_belt(CONFIG_NODE_BELT_LU_D, "LU_D", "./img/lu_d"),
-    config_node_belt(CONFIG_NODE_BELT_U_DL, "U_DL", "./img/u_dl"),
-    config_node_belt(CONFIG_NODE_BELT_U_D_L, "U_D_L", "./img/u_d_l"),
-    config_node_belt(CONFIG_NODE_BELT_U__D, "U__D", "./img/u__d"),
-    config_node_belt(CONFIG_NODE_BELT_LU__D, "LU__D", "./img/lu__d"),
-    config_node_belt(CONFIG_NODE_BELT_U_L_D, "U_L_D", "./img/u_l_d"),
-    config_node_belt(CONFIG_NODE_BELT_U__DL, "U__DL", "./img/u__dl"),
-    config_node_belt(CONFIG_NODE_BELT_RU_, "RU_", "./img/ru_"),
-    config_node_belt(CONFIG_NODE_BELT_LRU_, "LRU_", "./img/lru_"),
-    config_node_belt(CONFIG_NODE_BELT_RU_L, "RU_L", "./img/ru_l"),
-    config_node_belt(CONFIG_NODE_BELT_RU__L, "RU__L", "./img/ru__l"),
-    config_node_belt(CONFIG_NODE_BELT_DRU_, "DRU_", "./img/dru_"),
-    config_node_belt(CONFIG_NODE_BELT_DLRU_, "DLRU_", "./img/dlru_"),
-    config_node_belt(CONFIG_NODE_BELT_DRU_L, "DRU_L", "./img/dru_l"),
-    config_node_belt(CONFIG_NODE_BELT_DRU__L, "DRU__L", "./img/dru__l"),
-    config_node_belt(CONFIG_NODE_BELT_RU_D, "RU_D", "./img/ru_d"),
-    config_node_belt(CONFIG_NODE_BELT_LRU_D, "LRU_D", "./img/lru_d"),
-    config_node_belt(CONFIG_NODE_BELT_RU_DL, "RU_DL", "./img/ru_dl"),
-    config_node_belt(CONFIG_NODE_BELT_RU_D_L, "RU_D_L", "./img/ru_d_l"),
-    config_node_belt(CONFIG_NODE_BELT_RU__D, "RU__D", "./img/ru__d"),
-    config_node_belt(CONFIG_NODE_BELT_LRU__D, "LRU__D", "./img/lru__d"),
-    config_node_belt(CONFIG_NODE_BELT_RU_L_D, "RU_L_D", "./img/ru_l_d"),
-    config_node_belt(CONFIG_NODE_BELT_RU__DL, "RU__DL", "./img/ru__dl"),
-    config_node_belt(CONFIG_NODE_BELT_U_R, "U_R", "./img/u_r"),
-    config_node_belt(CONFIG_NODE_BELT_LU_R, "LU_R", "./img/lu_r"),
-    config_node_belt(CONFIG_NODE_BELT_U_LR, "U_LR", "./img/u_lr"),
-    config_node_belt(CONFIG_NODE_BELT_U_R_L, "U_R_L", "./img/u_r_l"),
-    config_node_belt(CONFIG_NODE_BELT_DU_R, "DU_R", "./img/du_r"),
-    config_node_belt(CONFIG_NODE_BELT_DLU_R, "DLU_R", "./img/dlu_r"),
-    config_node_belt(CONFIG_NODE_BELT_DU_LR, "DU_LR", "./img/du_lr"),
-    config_node_belt(CONFIG_NODE_BELT_DU_R_L, "DU_R_L", "./img/du_r_l"),
-    config_node_belt(CONFIG_NODE_BELT_U_DR, "U_DR", "./img/u_dr"),
-    config_node_belt(CONFIG_NODE_BELT_LU_DR, "LU_DR", "./img/lu_dr"),
-    config_node_belt(CONFIG_NODE_BELT_U_DLR, "U_DLR", "./img/u_dlr"),
-    config_node_belt(CONFIG_NODE_BELT_U_DR_L, "U_DR_L", "./img/u_dr_l"),
-    config_node_belt(CONFIG_NODE_BELT_U_R_D, "U_R_D", "./img/u_r_d"),
-    config_node_belt(CONFIG_NODE_BELT_LU_R_D, "LU_R_D", "./img/lu_r_d"),
-    config_node_belt(CONFIG_NODE_BELT_U_LR_D, "U_LR_D", "./img/u_lr_d"),
-    config_node_belt(CONFIG_NODE_BELT_U_R_DL, "U_R_DL", "./img/u_r_dl"),
-    config_node_belt(CONFIG_NODE_BELT_U__R, "U__R", "./img/u__r"),
-    config_node_belt(CONFIG_NODE_BELT_LU__R, "LU__R", "./img/lu__r"),
-    config_node_belt(CONFIG_NODE_BELT_U_L_R, "U_L_R", "./img/u_l_r"),
-    config_node_belt(CONFIG_NODE_BELT_U__LR, "U__LR", "./img/u__lr"),
-    config_node_belt(CONFIG_NODE_BELT_DU__R, "DU__R", "./img/du__r"),
-    config_node_belt(CONFIG_NODE_BELT_DLU__R, "DLU__R", "./img/dlu__r"),
-    config_node_belt(CONFIG_NODE_BELT_DU_L_R, "DU_L_R", "./img/du_l_r"),
-    config_node_belt(CONFIG_NODE_BELT_DU__LR, "DU__LR", "./img/du__lr"),
-    config_node_belt(CONFIG_NODE_BELT_U_D_R, "U_D_R", "./img/u_d_r"),
-    config_node_belt(CONFIG_NODE_BELT_LU_D_R, "LU_D_R", "./img/lu_d_r"),
-    config_node_belt(CONFIG_NODE_BELT_U_DL_R, "U_DL_R", "./img/u_dl_r"),
-    config_node_belt(CONFIG_NODE_BELT_U_D_LR, "U_D_LR", "./img/u_d_lr"),
-    config_node_belt(CONFIG_NODE_BELT_U__DR, "U__DR", "./img/u__dr"),
-    config_node_belt(CONFIG_NODE_BELT_LU__DR, "LU__DR", "./img/lu__dr"),
-    config_node_belt(CONFIG_NODE_BELT_U_L_DR, "U_L_DR", "./img/u_l_dr"),
-    config_node_belt(CONFIG_NODE_BELT_U__DLR, "U__DLR", "./img/u__dlr"),
-    config_node_belt(CONFIG_NODE_BELT__U, "_U", "./img/_u"),
-    config_node_belt(CONFIG_NODE_BELT_L_U, "L_U", "./img/l_u"),
-    config_node_belt(CONFIG_NODE_BELT__LU, "_LU", "./img/_lu"),
-    config_node_belt(CONFIG_NODE_BELT__U_L, "_U_L", "./img/_u_l"),
-    config_node_belt(CONFIG_NODE_BELT_D_U, "D_U", "./img/d_u"),
-    config_node_belt(CONFIG_NODE_BELT_DL_U, "DL_U", "./img/dl_u"),
-    config_node_belt(CONFIG_NODE_BELT_D_LU, "D_LU", "./img/d_lu"),
-    config_node_belt(CONFIG_NODE_BELT_D_U_L, "D_U_L", "./img/d_u_l"),
-    config_node_belt(CONFIG_NODE_BELT__DU, "_DU", "./img/_du"),
-    config_node_belt(CONFIG_NODE_BELT_L_DU, "L_DU", "./img/l_du"),
-    config_node_belt(CONFIG_NODE_BELT__DLU, "_DLU", "./img/_dlu"),
-    config_node_belt(CONFIG_NODE_BELT__DU_L, "_DU_L", "./img/_du_l"),
-    config_node_belt(CONFIG_NODE_BELT__U_D, "_U_D", "./img/_u_d"),
-    config_node_belt(CONFIG_NODE_BELT_L_U_D, "L_U_D", "./img/l_u_d"),
-    config_node_belt(CONFIG_NODE_BELT__LU_D, "_LU_D", "./img/_lu_d"),
-    config_node_belt(CONFIG_NODE_BELT__U_DL, "_U_DL", "./img/_u_dl"),
-    config_node_belt(CONFIG_NODE_BELT_R_U, "R_U", "./img/r_u"),
-    config_node_belt(CONFIG_NODE_BELT_LR_U, "LR_U", "./img/lr_u"),
-    config_node_belt(CONFIG_NODE_BELT_R_LU, "R_LU", "./img/r_lu"),
-    config_node_belt(CONFIG_NODE_BELT_R_U_L, "R_U_L", "./img/r_u_l"),
-    config_node_belt(CONFIG_NODE_BELT_DR_U, "DR_U", "./img/dr_u"),
-    config_node_belt(CONFIG_NODE_BELT_DLR_U, "DLR_U", "./img/dlr_u"),
-    config_node_belt(CONFIG_NODE_BELT_DR_LU, "DR_LU", "./img/dr_lu"),
-    config_node_belt(CONFIG_NODE_BELT_DR_U_L, "DR_U_L", "./img/dr_u_l"),
-    config_node_belt(CONFIG_NODE_BELT_R_DU, "R_DU", "./img/r_du"),
-    config_node_belt(CONFIG_NODE_BELT_LR_DU, "LR_DU", "./img/lr_du"),
-    config_node_belt(CONFIG_NODE_BELT_R_DLU, "R_DLU", "./img/r_dlu"),
-    config_node_belt(CONFIG_NODE_BELT_R_DU_L, "R_DU_L", "./img/r_du_l"),
-    config_node_belt(CONFIG_NODE_BELT_R_U_D, "R_U_D", "./img/r_u_d"),
-    config_node_belt(CONFIG_NODE_BELT_LR_U_D, "LR_U_D", "./img/lr_u_d"),
-    config_node_belt(CONFIG_NODE_BELT_R_LU_D, "R_LU_D", "./img/r_lu_d"),
-    config_node_belt(CONFIG_NODE_BELT_R_U_DL, "R_U_DL", "./img/r_u_dl"),
-    config_node_belt(CONFIG_NODE_BELT__RU, "_RU", "./img/_ru"),
-    config_node_belt(CONFIG_NODE_BELT_L_RU, "L_RU", "./img/l_ru"),
-    config_node_belt(CONFIG_NODE_BELT__LRU, "_LRU", "./img/_lru"),
-    config_node_belt(CONFIG_NODE_BELT__RU_L, "_RU_L", "./img/_ru_l"),
-    config_node_belt(CONFIG_NODE_BELT_D_RU, "D_RU", "./img/d_ru"),
-    config_node_belt(CONFIG_NODE_BELT_DL_RU, "DL_RU", "./img/dl_ru"),
-    config_node_belt(CONFIG_NODE_BELT_D_LRU, "D_LRU", "./img/d_lru"),
-    config_node_belt(CONFIG_NODE_BELT_D_RU_L, "D_RU_L", "./img/d_ru_l"),
-    config_node_belt(CONFIG_NODE_BELT__DRU, "_DRU", "./img/_dru"),
-    config_node_belt(CONFIG_NODE_BELT_L_DRU, "L_DRU", "./img/l_dru"),
-    config_node_belt(CONFIG_NODE_BELT__DLRU, "_DLRU", "./img/_dlru"),
-    config_node_belt(CONFIG_NODE_BELT__DRU_L, "_DRU_L", "./img/_dru_l"),
-    config_node_belt(CONFIG_NODE_BELT__RU_D, "_RU_D", "./img/_ru_d"),
-    config_node_belt(CONFIG_NODE_BELT_L_RU_D, "L_RU_D", "./img/l_ru_d"),
-    config_node_belt(CONFIG_NODE_BELT__LRU_D, "_LRU_D", "./img/_lru_d"),
-    config_node_belt(CONFIG_NODE_BELT__RU_DL, "_RU_DL", "./img/_ru_dl"),
-    config_node_belt(CONFIG_NODE_BELT__U_R, "_U_R", "./img/_u_r"),
-    config_node_belt(CONFIG_NODE_BELT_L_U_R, "L_U_R", "./img/l_u_r"),
-    config_node_belt(CONFIG_NODE_BELT__LU_R, "_LU_R", "./img/_lu_r"),
-    config_node_belt(CONFIG_NODE_BELT__U_LR, "_U_LR", "./img/_u_lr"),
-    config_node_belt(CONFIG_NODE_BELT_D_U_R, "D_U_R", "./img/d_u_r"),
-    config_node_belt(CONFIG_NODE_BELT_DL_U_R, "DL_U_R", "./img/dl_u_r"),
-    config_node_belt(CONFIG_NODE_BELT_D_LU_R, "D_LU_R", "./img/d_lu_r"),
-    config_node_belt(CONFIG_NODE_BELT_D_U_LR, "D_U_LR", "./img/d_u_lr"),
-    config_node_belt(CONFIG_NODE_BELT__DU_R, "_DU_R", "./img/_du_r"),
-    config_node_belt(CONFIG_NODE_BELT_L_DU_R, "L_DU_R", "./img/l_du_r"),
-    config_node_belt(CONFIG_NODE_BELT__DLU_R, "_DLU_R", "./img/_dlu_r"),
-    config_node_belt(CONFIG_NODE_BELT__DU_LR, "_DU_LR", "./img/_du_lr"),
-    config_node_belt(CONFIG_NODE_BELT__U_DR, "_U_DR", "./img/_u_dr"),
-    config_node_belt(CONFIG_NODE_BELT_L_U_DR, "L_U_DR", "./img/l_u_dr"),
-    config_node_belt(CONFIG_NODE_BELT__LU_DR, "_LU_DR", "./img/_lu_dr"),
-    config_node_belt(CONFIG_NODE_BELT__U_DLR, "_U_DLR", "./img/_u_dlr"),
-    config_node_belt(CONFIG_NODE_BELT___U, "__U", "./img/__u"),
-    config_node_belt(CONFIG_NODE_BELT_L__U, "L__U", "./img/l__u"),
-    config_node_belt(CONFIG_NODE_BELT__L_U, "_L_U", "./img/_l_u"),
-    config_node_belt(CONFIG_NODE_BELT___LU, "__LU", "./img/__lu"),
-    config_node_belt(CONFIG_NODE_BELT_D__U, "D__U", "./img/d__u"),
-    config_node_belt(CONFIG_NODE_BELT_DL__U, "DL__U", "./img/dl__u"),
-    config_node_belt(CONFIG_NODE_BELT_D_L_U, "D_L_U", "./img/d_l_u"),
-    config_node_belt(CONFIG_NODE_BELT_D__LU, "D__LU", "./img/d__lu"),
-    config_node_belt(CONFIG_NODE_BELT__D_U, "_D_U", "./img/_d_u"),
-    config_node_belt(CONFIG_NODE_BELT_L_D_U, "L_D_U", "./img/l_d_u"),
-    config_node_belt(CONFIG_NODE_BELT__DL_U, "_DL_U", "./img/_dl_u"),
-    config_node_belt(CONFIG_NODE_BELT__D_LU, "_D_LU", "./img/_d_lu"),
-    config_node_belt(CONFIG_NODE_BELT___DU, "__DU", "./img/__du"),
-    config_node_belt(CONFIG_NODE_BELT_L__DU, "L__DU", "./img/l__du"),
-    config_node_belt(CONFIG_NODE_BELT__L_DU, "_L_DU", "./img/_l_du"),
-    config_node_belt(CONFIG_NODE_BELT___DLU, "__DLU", "./img/__dlu"),
-    config_node_belt(CONFIG_NODE_BELT_R__U, "R__U", "./img/r__u"),
-    config_node_belt(CONFIG_NODE_BELT_LR__U, "LR__U", "./img/lr__u"),
-    config_node_belt(CONFIG_NODE_BELT_R_L_U, "R_L_U", "./img/r_l_u"),
-    config_node_belt(CONFIG_NODE_BELT_R__LU, "R__LU", "./img/r__lu"),
-    config_node_belt(CONFIG_NODE_BELT_DR__U, "DR__U", "./img/dr__u"),
-    config_node_belt(CONFIG_NODE_BELT_DLR__U, "DLR__U", "./img/dlr__u"),
-    config_node_belt(CONFIG_NODE_BELT_DR_L_U, "DR_L_U", "./img/dr_l_u"),
-    config_node_belt(CONFIG_NODE_BELT_DR__LU, "DR__LU", "./img/dr__lu"),
-    config_node_belt(CONFIG_NODE_BELT_R_D_U, "R_D_U", "./img/r_d_u"),
-    config_node_belt(CONFIG_NODE_BELT_LR_D_U, "LR_D_U", "./img/lr_d_u"),
-    config_node_belt(CONFIG_NODE_BELT_R_DL_U, "R_DL_U", "./img/r_dl_u"),
-    config_node_belt(CONFIG_NODE_BELT_R_D_LU, "R_D_LU", "./img/r_d_lu"),
-    config_node_belt(CONFIG_NODE_BELT_R__DU, "R__DU", "./img/r__du"),
-    config_node_belt(CONFIG_NODE_BELT_LR__DU, "LR__DU", "./img/lr__du"),
-    config_node_belt(CONFIG_NODE_BELT_R_L_DU, "R_L_DU", "./img/r_l_du"),
-    config_node_belt(CONFIG_NODE_BELT_R__DLU, "R__DLU", "./img/r__dlu"),
-    config_node_belt(CONFIG_NODE_BELT__R_U, "_R_U", "./img/_r_u"),
-    config_node_belt(CONFIG_NODE_BELT_L_R_U, "L_R_U", "./img/l_r_u"),
-    config_node_belt(CONFIG_NODE_BELT__LR_U, "_LR_U", "./img/_lr_u"),
-    config_node_belt(CONFIG_NODE_BELT__R_LU, "_R_LU", "./img/_r_lu"),
-    config_node_belt(CONFIG_NODE_BELT_D_R_U, "D_R_U", "./img/d_r_u"),
-    config_node_belt(CONFIG_NODE_BELT_DL_R_U, "DL_R_U", "./img/dl_r_u"),
-    config_node_belt(CONFIG_NODE_BELT_D_LR_U, "D_LR_U", "./img/d_lr_u"),
-    config_node_belt(CONFIG_NODE_BELT_D_R_LU, "D_R_LU", "./img/d_r_lu"),
-    config_node_belt(CONFIG_NODE_BELT__DR_U, "_DR_U", "./img/_dr_u"),
-    config_node_belt(CONFIG_NODE_BELT_L_DR_U, "L_DR_U", "./img/l_dr_u"),
-    config_node_belt(CONFIG_NODE_BELT__DLR_U, "_DLR_U", "./img/_dlr_u"),
-    config_node_belt(CONFIG_NODE_BELT__DR_LU, "_DR_LU", "./img/_dr_lu"),
-    config_node_belt(CONFIG_NODE_BELT__R_DU, "_R_DU", "./img/_r_du"),
-    config_node_belt(CONFIG_NODE_BELT_L_R_DU, "L_R_DU", "./img/l_r_du"),
-    config_node_belt(CONFIG_NODE_BELT__LR_DU, "_LR_DU", "./img/_lr_du"),
-    config_node_belt(CONFIG_NODE_BELT__R_DLU, "_R_DLU", "./img/_r_dlu"),
-    config_node_belt(CONFIG_NODE_BELT___RU, "__RU", "./img/__ru"),
-    config_node_belt(CONFIG_NODE_BELT_L__RU, "L__RU", "./img/l__ru"),
-    config_node_belt(CONFIG_NODE_BELT__L_RU, "_L_RU", "./img/_l_ru"),
-    config_node_belt(CONFIG_NODE_BELT___LRU, "__LRU", "./img/__lru"),
-    config_node_belt(CONFIG_NODE_BELT_D__RU, "D__RU", "./img/d__ru"),
-    config_node_belt(CONFIG_NODE_BELT_DL__RU, "DL__RU", "./img/dl__ru"),
-    config_node_belt(CONFIG_NODE_BELT_D_L_RU, "D_L_RU", "./img/d_l_ru"),
-    config_node_belt(CONFIG_NODE_BELT_D__LRU, "D__LRU", "./img/d__lru"),
-    config_node_belt(CONFIG_NODE_BELT__D_RU, "_D_RU", "./img/_d_ru"),
-    config_node_belt(CONFIG_NODE_BELT_L_D_RU, "L_D_RU", "./img/l_d_ru"),
-    config_node_belt(CONFIG_NODE_BELT__DL_RU, "_DL_RU", "./img/_dl_ru"),
-    config_node_belt(CONFIG_NODE_BELT__D_LRU, "_D_LRU", "./img/_d_lru"),
-    config_node_belt(CONFIG_NODE_BELT___DRU, "__DRU", "./img/__dru"),
-    config_node_belt(CONFIG_NODE_BELT_L__DRU, "L__DRU", "./img/l__dru"),
-    config_node_belt(CONFIG_NODE_BELT__L_DRU, "_L_DRU", "./img/_l_dru"),
-    config_node_belt(CONFIG_NODE_BELT___DLRU, "__DLRU", "./img/__dlru"),
+    config_node_belt(CONFIG_NODE_BELT_NONE, "NONE"),
+    config_node_belt(CONFIG_NODE_BELT_UNKNOWN, "UNKNOWN"),
+    config_node_belt(CONFIG_NODE_BELT_INVALID, "INVALID"),
+    config_node_belt(CONFIG_NODE_BELT_L_, "L_"),
+    config_node_belt(CONFIG_NODE_BELT__L, "_L"),
+    config_node_belt(CONFIG_NODE_BELT___L, "__L"),
+    config_node_belt(CONFIG_NODE_BELT_D_, "D_"),
+    config_node_belt(CONFIG_NODE_BELT_DL_, "DL_"),
+    config_node_belt(CONFIG_NODE_BELT_D_L, "D_L"),
+    config_node_belt(CONFIG_NODE_BELT_D__L, "D__L"),
+    config_node_belt(CONFIG_NODE_BELT__D, "_D"),
+    config_node_belt(CONFIG_NODE_BELT_L_D, "L_D"),
+    config_node_belt(CONFIG_NODE_BELT__DL, "_DL"),
+    config_node_belt(CONFIG_NODE_BELT__D_L, "_D_L"),
+    config_node_belt(CONFIG_NODE_BELT___D, "__D"),
+    config_node_belt(CONFIG_NODE_BELT_L__D, "L__D"),
+    config_node_belt(CONFIG_NODE_BELT__L_D, "_L_D"),
+    config_node_belt(CONFIG_NODE_BELT___DL, "__DL"),
+    config_node_belt(CONFIG_NODE_BELT_R_, "R_"),
+    config_node_belt(CONFIG_NODE_BELT_LR_, "LR_"),
+    config_node_belt(CONFIG_NODE_BELT_R_L, "R_L"),
+    config_node_belt(CONFIG_NODE_BELT_R__L, "R__L"),
+    config_node_belt(CONFIG_NODE_BELT_DR_, "DR_"),
+    config_node_belt(CONFIG_NODE_BELT_DLR_, "DLR_"),
+    config_node_belt(CONFIG_NODE_BELT_DR_L, "DR_L"),
+    config_node_belt(CONFIG_NODE_BELT_DR__L, "DR__L"),
+    config_node_belt(CONFIG_NODE_BELT_R_D, "R_D"),
+    config_node_belt(CONFIG_NODE_BELT_LR_D, "LR_D"),
+    config_node_belt(CONFIG_NODE_BELT_R_DL, "R_DL"),
+    config_node_belt(CONFIG_NODE_BELT_R_D_L, "R_D_L"),
+    config_node_belt(CONFIG_NODE_BELT_R__D, "R__D"),
+    config_node_belt(CONFIG_NODE_BELT_LR__D, "LR__D"),
+    config_node_belt(CONFIG_NODE_BELT_R_L_D, "R_L_D"),
+    config_node_belt(CONFIG_NODE_BELT_R__DL, "R__DL"),
+    config_node_belt(CONFIG_NODE_BELT__R, "_R"),
+    config_node_belt(CONFIG_NODE_BELT_L_R, "L_R"),
+    config_node_belt(CONFIG_NODE_BELT__LR, "_LR"),
+    config_node_belt(CONFIG_NODE_BELT__R_L, "_R_L"),
+    config_node_belt(CONFIG_NODE_BELT_D_R, "D_R"),
+    config_node_belt(CONFIG_NODE_BELT_DL_R, "DL_R"),
+    config_node_belt(CONFIG_NODE_BELT_D_LR, "D_LR"),
+    config_node_belt(CONFIG_NODE_BELT_D_R_L, "D_R_L"),
+    config_node_belt(CONFIG_NODE_BELT__DR, "_DR"),
+    config_node_belt(CONFIG_NODE_BELT_L_DR, "L_DR"),
+    config_node_belt(CONFIG_NODE_BELT__DLR, "_DLR"),
+    config_node_belt(CONFIG_NODE_BELT__DR_L, "_DR_L"),
+    config_node_belt(CONFIG_NODE_BELT__R_D, "_R_D"),
+    config_node_belt(CONFIG_NODE_BELT_L_R_D, "L_R_D"),
+    config_node_belt(CONFIG_NODE_BELT__LR_D, "_LR_D"),
+    config_node_belt(CONFIG_NODE_BELT__R_DL, "_R_DL"),
+    config_node_belt(CONFIG_NODE_BELT___R, "__R"),
+    config_node_belt(CONFIG_NODE_BELT_L__R, "L__R"),
+    config_node_belt(CONFIG_NODE_BELT__L_R, "_L_R"),
+    config_node_belt(CONFIG_NODE_BELT___LR, "__LR"),
+    config_node_belt(CONFIG_NODE_BELT_D__R, "D__R"),
+    config_node_belt(CONFIG_NODE_BELT_DL__R, "DL__R"),
+    config_node_belt(CONFIG_NODE_BELT_D_L_R, "D_L_R"),
+    config_node_belt(CONFIG_NODE_BELT_D__LR, "D__LR"),
+    config_node_belt(CONFIG_NODE_BELT__D_R, "_D_R"),
+    config_node_belt(CONFIG_NODE_BELT_L_D_R, "L_D_R"),
+    config_node_belt(CONFIG_NODE_BELT__DL_R, "_DL_R"),
+    config_node_belt(CONFIG_NODE_BELT__D_LR, "_D_LR"),
+    config_node_belt(CONFIG_NODE_BELT___DR, "__DR"),
+    config_node_belt(CONFIG_NODE_BELT_L__DR, "L__DR"),
+    config_node_belt(CONFIG_NODE_BELT__L_DR, "_L_DR"),
+    config_node_belt(CONFIG_NODE_BELT___DLR, "__DLR"),
+    config_node_belt(CONFIG_NODE_BELT_U_, "U_"),
+    config_node_belt(CONFIG_NODE_BELT_LU_, "LU_"),
+    config_node_belt(CONFIG_NODE_BELT_U_L, "U_L"),
+    config_node_belt(CONFIG_NODE_BELT_U__L, "U__L"),
+    config_node_belt(CONFIG_NODE_BELT_DU_, "DU_"),
+    config_node_belt(CONFIG_NODE_BELT_DLU_, "DLU_"),
+    config_node_belt(CONFIG_NODE_BELT_DU_L, "DU_L"),
+    config_node_belt(CONFIG_NODE_BELT_DU__L, "DU__L"),
+    config_node_belt(CONFIG_NODE_BELT_U_D, "U_D"),
+    config_node_belt(CONFIG_NODE_BELT_LU_D, "LU_D"),
+    config_node_belt(CONFIG_NODE_BELT_U_DL, "U_DL"),
+    config_node_belt(CONFIG_NODE_BELT_U_D_L, "U_D_L"),
+    config_node_belt(CONFIG_NODE_BELT_U__D, "U__D"),
+    config_node_belt(CONFIG_NODE_BELT_LU__D, "LU__D"),
+    config_node_belt(CONFIG_NODE_BELT_U_L_D, "U_L_D"),
+    config_node_belt(CONFIG_NODE_BELT_U__DL, "U__DL"),
+    config_node_belt(CONFIG_NODE_BELT_RU_, "RU_"),
+    config_node_belt(CONFIG_NODE_BELT_LRU_, "LRU_"),
+    config_node_belt(CONFIG_NODE_BELT_RU_L, "RU_L"),
+    config_node_belt(CONFIG_NODE_BELT_RU__L, "RU__L"),
+    config_node_belt(CONFIG_NODE_BELT_DRU_, "DRU_"),
+    config_node_belt(CONFIG_NODE_BELT_DLRU_, "DLRU_"),
+    config_node_belt(CONFIG_NODE_BELT_DRU_L, "DRU_L"),
+    config_node_belt(CONFIG_NODE_BELT_DRU__L, "DRU__L"),
+    config_node_belt(CONFIG_NODE_BELT_RU_D, "RU_D"),
+    config_node_belt(CONFIG_NODE_BELT_LRU_D, "LRU_D"),
+    config_node_belt(CONFIG_NODE_BELT_RU_DL, "RU_DL"),
+    config_node_belt(CONFIG_NODE_BELT_RU_D_L, "RU_D_L"),
+    config_node_belt(CONFIG_NODE_BELT_RU__D, "RU__D"),
+    config_node_belt(CONFIG_NODE_BELT_LRU__D, "LRU__D"),
+    config_node_belt(CONFIG_NODE_BELT_RU_L_D, "RU_L_D"),
+    config_node_belt(CONFIG_NODE_BELT_RU__DL, "RU__DL"),
+    config_node_belt(CONFIG_NODE_BELT_U_R, "U_R"),
+    config_node_belt(CONFIG_NODE_BELT_LU_R, "LU_R"),
+    config_node_belt(CONFIG_NODE_BELT_U_LR, "U_LR"),
+    config_node_belt(CONFIG_NODE_BELT_U_R_L, "U_R_L"),
+    config_node_belt(CONFIG_NODE_BELT_DU_R, "DU_R"),
+    config_node_belt(CONFIG_NODE_BELT_DLU_R, "DLU_R"),
+    config_node_belt(CONFIG_NODE_BELT_DU_LR, "DU_LR"),
+    config_node_belt(CONFIG_NODE_BELT_DU_R_L, "DU_R_L"),
+    config_node_belt(CONFIG_NODE_BELT_U_DR, "U_DR"),
+    config_node_belt(CONFIG_NODE_BELT_LU_DR, "LU_DR"),
+    config_node_belt(CONFIG_NODE_BELT_U_DLR, "U_DLR"),
+    config_node_belt(CONFIG_NODE_BELT_U_DR_L, "U_DR_L"),
+    config_node_belt(CONFIG_NODE_BELT_U_R_D, "U_R_D"),
+    config_node_belt(CONFIG_NODE_BELT_LU_R_D, "LU_R_D"),
+    config_node_belt(CONFIG_NODE_BELT_U_LR_D, "U_LR_D"),
+    config_node_belt(CONFIG_NODE_BELT_U_R_DL, "U_R_DL"),
+    config_node_belt(CONFIG_NODE_BELT_U__R, "U__R"),
+    config_node_belt(CONFIG_NODE_BELT_LU__R, "LU__R"),
+    config_node_belt(CONFIG_NODE_BELT_U_L_R, "U_L_R"),
+    config_node_belt(CONFIG_NODE_BELT_U__LR, "U__LR"),
+    config_node_belt(CONFIG_NODE_BELT_DU__R, "DU__R"),
+    config_node_belt(CONFIG_NODE_BELT_DLU__R, "DLU__R"),
+    config_node_belt(CONFIG_NODE_BELT_DU_L_R, "DU_L_R"),
+    config_node_belt(CONFIG_NODE_BELT_DU__LR, "DU__LR"),
+    config_node_belt(CONFIG_NODE_BELT_U_D_R, "U_D_R"),
+    config_node_belt(CONFIG_NODE_BELT_LU_D_R, "LU_D_R"),
+    config_node_belt(CONFIG_NODE_BELT_U_DL_R, "U_DL_R"),
+    config_node_belt(CONFIG_NODE_BELT_U_D_LR, "U_D_LR"),
+    config_node_belt(CONFIG_NODE_BELT_U__DR, "U__DR"),
+    config_node_belt(CONFIG_NODE_BELT_LU__DR, "LU__DR"),
+    config_node_belt(CONFIG_NODE_BELT_U_L_DR, "U_L_DR"),
+    config_node_belt(CONFIG_NODE_BELT_U__DLR, "U__DLR"),
+    config_node_belt(CONFIG_NODE_BELT__U, "_U"),
+    config_node_belt(CONFIG_NODE_BELT_L_U, "L_U"),
+    config_node_belt(CONFIG_NODE_BELT__LU, "_LU"),
+    config_node_belt(CONFIG_NODE_BELT__U_L, "_U_L"),
+    config_node_belt(CONFIG_NODE_BELT_D_U, "D_U"),
+    config_node_belt(CONFIG_NODE_BELT_DL_U, "DL_U"),
+    config_node_belt(CONFIG_NODE_BELT_D_LU, "D_LU"),
+    config_node_belt(CONFIG_NODE_BELT_D_U_L, "D_U_L"),
+    config_node_belt(CONFIG_NODE_BELT__DU, "_DU"),
+    config_node_belt(CONFIG_NODE_BELT_L_DU, "L_DU"),
+    config_node_belt(CONFIG_NODE_BELT__DLU, "_DLU"),
+    config_node_belt(CONFIG_NODE_BELT__DU_L, "_DU_L"),
+    config_node_belt(CONFIG_NODE_BELT__U_D, "_U_D"),
+    config_node_belt(CONFIG_NODE_BELT_L_U_D, "L_U_D"),
+    config_node_belt(CONFIG_NODE_BELT__LU_D, "_LU_D"),
+    config_node_belt(CONFIG_NODE_BELT__U_DL, "_U_DL"),
+    config_node_belt(CONFIG_NODE_BELT_R_U, "R_U"),
+    config_node_belt(CONFIG_NODE_BELT_LR_U, "LR_U"),
+    config_node_belt(CONFIG_NODE_BELT_R_LU, "R_LU"),
+    config_node_belt(CONFIG_NODE_BELT_R_U_L, "R_U_L"),
+    config_node_belt(CONFIG_NODE_BELT_DR_U, "DR_U"),
+    config_node_belt(CONFIG_NODE_BELT_DLR_U, "DLR_U"),
+    config_node_belt(CONFIG_NODE_BELT_DR_LU, "DR_LU"),
+    config_node_belt(CONFIG_NODE_BELT_DR_U_L, "DR_U_L"),
+    config_node_belt(CONFIG_NODE_BELT_R_DU, "R_DU"),
+    config_node_belt(CONFIG_NODE_BELT_LR_DU, "LR_DU"),
+    config_node_belt(CONFIG_NODE_BELT_R_DLU, "R_DLU"),
+    config_node_belt(CONFIG_NODE_BELT_R_DU_L, "R_DU_L"),
+    config_node_belt(CONFIG_NODE_BELT_R_U_D, "R_U_D"),
+    config_node_belt(CONFIG_NODE_BELT_LR_U_D, "LR_U_D"),
+    config_node_belt(CONFIG_NODE_BELT_R_LU_D, "R_LU_D"),
+    config_node_belt(CONFIG_NODE_BELT_R_U_DL, "R_U_DL"),
+    config_node_belt(CONFIG_NODE_BELT__RU, "_RU"),
+    config_node_belt(CONFIG_NODE_BELT_L_RU, "L_RU"),
+    config_node_belt(CONFIG_NODE_BELT__LRU, "_LRU"),
+    config_node_belt(CONFIG_NODE_BELT__RU_L, "_RU_L"),
+    config_node_belt(CONFIG_NODE_BELT_D_RU, "D_RU"),
+    config_node_belt(CONFIG_NODE_BELT_DL_RU, "DL_RU"),
+    config_node_belt(CONFIG_NODE_BELT_D_LRU, "D_LRU"),
+    config_node_belt(CONFIG_NODE_BELT_D_RU_L, "D_RU_L"),
+    config_node_belt(CONFIG_NODE_BELT__DRU, "_DRU"),
+    config_node_belt(CONFIG_NODE_BELT_L_DRU, "L_DRU"),
+    config_node_belt(CONFIG_NODE_BELT__DLRU, "_DLRU"),
+    config_node_belt(CONFIG_NODE_BELT__DRU_L, "_DRU_L"),
+    config_node_belt(CONFIG_NODE_BELT__RU_D, "_RU_D"),
+    config_node_belt(CONFIG_NODE_BELT_L_RU_D, "L_RU_D"),
+    config_node_belt(CONFIG_NODE_BELT__LRU_D, "_LRU_D"),
+    config_node_belt(CONFIG_NODE_BELT__RU_DL, "_RU_DL"),
+    config_node_belt(CONFIG_NODE_BELT__U_R, "_U_R"),
+    config_node_belt(CONFIG_NODE_BELT_L_U_R, "L_U_R"),
+    config_node_belt(CONFIG_NODE_BELT__LU_R, "_LU_R"),
+    config_node_belt(CONFIG_NODE_BELT__U_LR, "_U_LR"),
+    config_node_belt(CONFIG_NODE_BELT_D_U_R, "D_U_R"),
+    config_node_belt(CONFIG_NODE_BELT_DL_U_R, "DL_U_R"),
+    config_node_belt(CONFIG_NODE_BELT_D_LU_R, "D_LU_R"),
+    config_node_belt(CONFIG_NODE_BELT_D_U_LR, "D_U_LR"),
+    config_node_belt(CONFIG_NODE_BELT__DU_R, "_DU_R"),
+    config_node_belt(CONFIG_NODE_BELT_L_DU_R, "L_DU_R"),
+    config_node_belt(CONFIG_NODE_BELT__DLU_R, "_DLU_R"),
+    config_node_belt(CONFIG_NODE_BELT__DU_LR, "_DU_LR"),
+    config_node_belt(CONFIG_NODE_BELT__U_DR, "_U_DR"),
+    config_node_belt(CONFIG_NODE_BELT_L_U_DR, "L_U_DR"),
+    config_node_belt(CONFIG_NODE_BELT__LU_DR, "_LU_DR"),
+    config_node_belt(CONFIG_NODE_BELT__U_DLR, "_U_DLR"),
+    config_node_belt(CONFIG_NODE_BELT___U, "__U"),
+    config_node_belt(CONFIG_NODE_BELT_L__U, "L__U"),
+    config_node_belt(CONFIG_NODE_BELT__L_U, "_L_U"),
+    config_node_belt(CONFIG_NODE_BELT___LU, "__LU"),
+    config_node_belt(CONFIG_NODE_BELT_D__U, "D__U"),
+    config_node_belt(CONFIG_NODE_BELT_DL__U, "DL__U"),
+    config_node_belt(CONFIG_NODE_BELT_D_L_U, "D_L_U"),
+    config_node_belt(CONFIG_NODE_BELT_D__LU, "D__LU"),
+    config_node_belt(CONFIG_NODE_BELT__D_U, "_D_U"),
+    config_node_belt(CONFIG_NODE_BELT_L_D_U, "L_D_U"),
+    config_node_belt(CONFIG_NODE_BELT__DL_U, "_DL_U"),
+    config_node_belt(CONFIG_NODE_BELT__D_LU, "_D_LU"),
+    config_node_belt(CONFIG_NODE_BELT___DU, "__DU"),
+    config_node_belt(CONFIG_NODE_BELT_L__DU, "L__DU"),
+    config_node_belt(CONFIG_NODE_BELT__L_DU, "_L_DU"),
+    config_node_belt(CONFIG_NODE_BELT___DLU, "__DLU"),
+    config_node_belt(CONFIG_NODE_BELT_R__U, "R__U"),
+    config_node_belt(CONFIG_NODE_BELT_LR__U, "LR__U"),
+    config_node_belt(CONFIG_NODE_BELT_R_L_U, "R_L_U"),
+    config_node_belt(CONFIG_NODE_BELT_R__LU, "R__LU"),
+    config_node_belt(CONFIG_NODE_BELT_DR__U, "DR__U"),
+    config_node_belt(CONFIG_NODE_BELT_DLR__U, "DLR__U"),
+    config_node_belt(CONFIG_NODE_BELT_DR_L_U, "DR_L_U"),
+    config_node_belt(CONFIG_NODE_BELT_DR__LU, "DR__LU"),
+    config_node_belt(CONFIG_NODE_BELT_R_D_U, "R_D_U"),
+    config_node_belt(CONFIG_NODE_BELT_LR_D_U, "LR_D_U"),
+    config_node_belt(CONFIG_NODE_BELT_R_DL_U, "R_DL_U"),
+    config_node_belt(CONFIG_NODE_BELT_R_D_LU, "R_D_LU"),
+    config_node_belt(CONFIG_NODE_BELT_R__DU, "R__DU"),
+    config_node_belt(CONFIG_NODE_BELT_LR__DU, "LR__DU"),
+    config_node_belt(CONFIG_NODE_BELT_R_L_DU, "R_L_DU"),
+    config_node_belt(CONFIG_NODE_BELT_R__DLU, "R__DLU"),
+    config_node_belt(CONFIG_NODE_BELT__R_U, "_R_U"),
+    config_node_belt(CONFIG_NODE_BELT_L_R_U, "L_R_U"),
+    config_node_belt(CONFIG_NODE_BELT__LR_U, "_LR_U"),
+    config_node_belt(CONFIG_NODE_BELT__R_LU, "_R_LU"),
+    config_node_belt(CONFIG_NODE_BELT_D_R_U, "D_R_U"),
+    config_node_belt(CONFIG_NODE_BELT_DL_R_U, "DL_R_U"),
+    config_node_belt(CONFIG_NODE_BELT_D_LR_U, "D_LR_U"),
+    config_node_belt(CONFIG_NODE_BELT_D_R_LU, "D_R_LU"),
+    config_node_belt(CONFIG_NODE_BELT__DR_U, "_DR_U"),
+    config_node_belt(CONFIG_NODE_BELT_L_DR_U, "L_DR_U"),
+    config_node_belt(CONFIG_NODE_BELT__DLR_U, "_DLR_U"),
+    config_node_belt(CONFIG_NODE_BELT__DR_LU, "_DR_LU"),
+    config_node_belt(CONFIG_NODE_BELT__R_DU, "_R_DU"),
+    config_node_belt(CONFIG_NODE_BELT_L_R_DU, "L_R_DU"),
+    config_node_belt(CONFIG_NODE_BELT__LR_DU, "_LR_DU"),
+    config_node_belt(CONFIG_NODE_BELT__R_DLU, "_R_DLU"),
+    config_node_belt(CONFIG_NODE_BELT___RU, "__RU"),
+    config_node_belt(CONFIG_NODE_BELT_L__RU, "L__RU"),
+    config_node_belt(CONFIG_NODE_BELT__L_RU, "_L_RU"),
+    config_node_belt(CONFIG_NODE_BELT___LRU, "__LRU"),
+    config_node_belt(CONFIG_NODE_BELT_D__RU, "D__RU"),
+    config_node_belt(CONFIG_NODE_BELT_DL__RU, "DL__RU"),
+    config_node_belt(CONFIG_NODE_BELT_D_L_RU, "D_L_RU"),
+    config_node_belt(CONFIG_NODE_BELT_D__LRU, "D__LRU"),
+    config_node_belt(CONFIG_NODE_BELT__D_RU, "_D_RU"),
+    config_node_belt(CONFIG_NODE_BELT_L_D_RU, "L_D_RU"),
+    config_node_belt(CONFIG_NODE_BELT__DL_RU, "_DL_RU"),
+    config_node_belt(CONFIG_NODE_BELT__D_LRU, "_D_LRU"),
+    config_node_belt(CONFIG_NODE_BELT___DRU, "__DRU"),
+    config_node_belt(CONFIG_NODE_BELT_L__DRU, "L__DRU"),
+    config_node_belt(CONFIG_NODE_BELT__L_DRU, "_L_DRU"),
+    config_node_belt(CONFIG_NODE_BELT___DLRU, "__DLRU"),
   );
 
   v.iter().enumerate().for_each(|(i, node)| assert!(node.index == i, "system node indexes must match their global constant value; mismatch for index {}", i));
@@ -1400,12 +1405,23 @@ fn config_node_part(index: PartKind, name: String, icon: char) -> ConfigNode {
     pattern: "".to_string(),
     pattern_unique_kinds: vec!(),
     icon,
-    file: "".to_string(),
-    file_canvas_cache_index: 0,
-    x: 0.0,
-    y: 0.0,
-    w: 0.0,
-    h: 0.0,
+
+    sprite_config: SpriteConfig {
+      pause_between: 10,
+      initial_delay: 10,
+      looping: true,
+      frames: vec!(
+        SpriteFrame {
+          file: "".to_string(),
+          file_canvas_cache_index: 0,
+          x: 0.0,
+          y: 0.0,
+          w: 0.0,
+          h: 0.0,
+        }
+      )
+    },
+
     current_state: ConfigNodeState::Available,
   };
 }
@@ -1429,12 +1445,23 @@ fn config_node_supply(index: PartKind, name: String) -> ConfigNode {
     pattern_by_icon: vec!(),
     pattern: "".to_string(),
     icon: '?',
-    file: "./img/supply.png".to_string(),
-    file_canvas_cache_index: 0,
-    x: 0.0,
-    y: 0.0,
-    w: 32.0,
-    h: 32.0,
+
+    sprite_config: SpriteConfig {
+      pause_between: 10,
+      initial_delay: 10,
+      looping: true,
+      frames: vec!(
+        SpriteFrame {
+          file: "./img/supply.png".to_string(),
+          file_canvas_cache_index: 0,
+          x: 0.0,
+          y: 0.0,
+          w: 32.0,
+          h: 32.0,
+        }
+      )
+    },
+
     current_state: ConfigNodeState::Available,
   };
 }
@@ -1458,12 +1485,23 @@ fn config_node_demand(index: PartKind, name: String) -> ConfigNode {
     pattern_by_icon: vec!(),
     pattern: "".to_string(),
     icon: '?',
-    file: "./img/demand.png".to_string(),
-    file_canvas_cache_index: 0,
-    x: 0.0,
-    y: 0.0,
-    w: 32.0,
-    h: 32.0,
+
+    sprite_config: SpriteConfig {
+      pause_between: 10,
+      initial_delay: 10,
+      looping: true,
+      frames: vec!(
+        SpriteFrame {
+          file: "./img/demand.png".to_string(),
+          file_canvas_cache_index: 0,
+          x: 0.0,
+          y: 0.0,
+          w: 32.0,
+          h: 32.0,
+        }
+      )
+    },
+
     current_state: ConfigNodeState::Available,
   };
 }
@@ -1487,12 +1525,23 @@ fn config_node_dock(index: PartKind, name: String) -> ConfigNode {
     pattern_by_icon: vec!(),
     pattern: "".to_string(),
     icon: '?',
-    file: "./img/dock.png".to_string(),
-    file_canvas_cache_index: 0,
-    x: 0.0,
-    y: 0.0,
-    w: 64.0,
-    h: 64.0,
+
+    sprite_config: SpriteConfig {
+      pause_between: 10,
+      initial_delay: 10,
+      looping: true,
+      frames: vec!(
+        SpriteFrame {
+          file: "./img/dock.png".to_string(),
+          file_canvas_cache_index: 0,
+          x: 0.0,
+          y: 0.0,
+          w: 64.0,
+          h: 64.0,
+        }
+      )
+    },
+
     current_state: ConfigNodeState::Available,
   };
 }
@@ -1516,18 +1565,31 @@ fn config_node_machine(index: PartKind, name: &str, file: &str) -> ConfigNode {
     pattern_by_icon: vec!(),
     pattern: "".to_string(),
     icon: '?',
-    file: file.to_string(),
-    file_canvas_cache_index: 0,
+
+    sprite_config: SpriteConfig {
+      pause_between: 10,
+      initial_delay: 10,
+      looping: true,
+      frames: vec!(
+        SpriteFrame {
+          file: file.to_string(),
+          file_canvas_cache_index: 0,
+          x: 5.0,
+          y: 5.0,
+          w: 5.0,
+          h: 5.0,
+        }
+      )
+    },
+
     // This hints where on this machine tile the output part icon of this machine should be painted
-    x: 5.0,
-    y: 5.0,
-    w: 5.0,
-    h: 5.0,
     current_state: ConfigNodeState::Available,
   };
 }
-fn config_node_belt(index: PartKind, name: &str, file: &str) -> ConfigNode {
+fn config_node_belt(index: PartKind, name: &str) -> ConfigNode {
   let raw_name = format!("Belt_{}", name);
+  let belt_type = belt_name_to_belt_type(name);
+  let belt_meta = belt_type_to_belt_meta(belt_type);
   return ConfigNode {
     index,
     kind: ConfigNodeKind::Machine,
@@ -1546,13 +1608,23 @@ fn config_node_belt(index: PartKind, name: &str, file: &str) -> ConfigNode {
     pattern_by_icon: vec!(),
     pattern: "".to_string(),
     icon: '?',
-    file: file.to_string(),
-    file_canvas_cache_index: 0,
-    // This hints where on this machine tile the output part icon of this machine should be painted
-    x: 0.0,
-    y: 0.0,
-    w: 160.0,
-    h: 160.0,
+
+    sprite_config: SpriteConfig {
+      pause_between: 10,
+      initial_delay: 10,
+      looping: true,
+      frames: vec!(
+        SpriteFrame {
+          file: belt_meta.src.to_string(),
+          file_canvas_cache_index: 0,
+          x: 0.0,
+          y: 0.0,
+          w: 160.0,
+          h: 160.0
+        }
+      )
+    },
+
     current_state: ConfigNodeState::Available,
   };
 }
@@ -1560,10 +1632,7 @@ fn config_node_belt(index: PartKind, name: &str, file: &str) -> ConfigNode {
 pub fn config_get_sprite_details(config: &Config, config_index: usize) -> (f64, f64, f64, f64, &web_sys::HtmlImageElement ) {
   assert!(config_index < config.nodes.len(), "config_index should be a node index: {} < {}", config_index, config.nodes.len());
   let node = &config.nodes[config_index];
-  // if config_index >= CONFIG_NODE_BELT_NONE && config_index <= CONFIG_NODE_BELT___DLRU {
-    // log(format!("index {} will return ({}, {}, {}, {}, {})", config_index, node.x as f64, node.y as f64, node.w as f64, node.h as f64, node.file ));
-  // }
-  return ( node.x as f64, node.y as f64, node.w as f64, node.h as f64, &config.sprite_cache_canvas[node.file_canvas_cache_index] );
+  return ( node.sprite_config.frames[0].x, node.sprite_config.frames[0].y, node.sprite_config.frames[0].w, node.sprite_config.frames[0].h, &config.sprite_cache_canvas[node.sprite_config.frames[0].file_canvas_cache_index] );
 }
 
 // Convert a config node to jsvalue (sorta) so we can send it to the html for debug/editor
@@ -1609,12 +1678,12 @@ fn config_node_to_jsvalue(node: &ConfigNode) -> JsValue {
     convert_js_to_pair("pattern", JsValue::from(node.pattern.clone())),
     convert_js_to_pair("pattern_unique_kinds", convert_vec_usize_to_jsvalue(&node.pattern_unique_kinds)),
     convert_string_to_pair("icon", format!("{}", node.icon).as_str()),
-    convert_string_to_pair("file", &node.file),
-    convert_js_to_pair("file_canvas_cache_index", JsValue::from(node.file_canvas_cache_index)),
-    convert_js_to_pair("x", JsValue::from(node.x)),
-    convert_js_to_pair("y", JsValue::from(node.y)),
-    convert_js_to_pair("w", JsValue::from(node.w)),
-    convert_js_to_pair("h", JsValue::from(node.h)),
+    convert_string_to_pair("file", &node.sprite_config.frames[0].file),
+    convert_js_to_pair("file_canvas_cache_index", JsValue::from(node.sprite_config.frames[0].file_canvas_cache_index)),
+    convert_js_to_pair("x", JsValue::from(node.sprite_config.frames[0].x)),
+    convert_js_to_pair("y", JsValue::from(node.sprite_config.frames[0].y)),
+    convert_js_to_pair("w", JsValue::from(node.sprite_config.frames[0].w)),
+    convert_js_to_pair("h", JsValue::from(node.sprite_config.frames[0].h)),
     convert_js_to_pair("current_state", JsValue::from(format!("{:?}", node.current_state))),
   ).iter().collect::<js_sys::Array>().into();
 }

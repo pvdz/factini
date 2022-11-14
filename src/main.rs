@@ -33,6 +33,8 @@ pub mod port;
 pub mod port_auto;
 pub mod prio;
 pub mod quote;
+pub mod sprite_config;
+pub mod sprite_frame;
 pub mod state;
 pub mod supply;
 pub mod truck;
