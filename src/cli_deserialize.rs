@@ -345,10 +345,14 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
         }
 
         // Explicit tiles use box art but are exclusively defined by the ports
-        | '╸' // double lines have no one-arm glyph :rolls-eys: so we use thick line instead
-        | '╹'
+        | '╹' // double lines have no one-arm glyph :rolls-eys: so we use thick line instead
         | '╺'
         | '╻'
+        | '╸'
+        | '╷'
+        | '╴'
+        | '╵'
+        | '╶'
         | '╚'
         | '╔'
         | '╗'
