@@ -2782,9 +2782,7 @@ fn paint_background_tiles(
         paint_dock_stripes(options, state, config, context, dock_target, ox, oy, CELL_W, CELL_H);
       },
       CellKind::Belt => {
-        let belt_meta = &factory.floor[coord].belt.meta;
-
-        paint_belt(options, state, config, context, belt_meta.btype, ox, oy, CELL_W, CELL_H);
+        paint_factory_belt(options, state, config, factory, coord, context, ox, oy, CELL_W, CELL_H);
       },
       CellKind::Machine => {
         // For machines, paint the top-left cell only but make the painted area cover the whole machine
@@ -3385,7 +3383,7 @@ fn paint_ghost_belt_of_type(options: &Options, state: &State, config: &Config, c
 
   if !skip_tile {
     context.set_global_alpha(0.7);
-    paint_belt(options, state, config, context, belt_type, UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + 5.0, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + 5.0, CELL_W - 10.0, CELL_H - 10.0);
+    paint_zero_belt(options, state, config, context, UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + 5.0, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + 5.0, CELL_W - 10.0, CELL_H - 10.0, belt_type);
     context.set_global_alpha(1.0);
   }
 }
@@ -4412,12 +4410,26 @@ fn round_rect(context: &Rc<web_sys::CanvasRenderingContext2d>, x: f64, y: f64, w
   context.close_path();
 }
 
-fn paint_belt(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, belt_type: BeltType, dx: f64, dy: f64, dw: f64, dh: f64) {
+fn paint_factory_belt(options: &Options, state: &State, config: &Config, factory: &Factory, coord: usize, context: &Rc<web_sys::CanvasRenderingContext2d>, dx: f64, dy: f64, dw: f64, dh: f64) {
   if !options.paint_belts {
     return;
   }
 
-  let (spx, spy, spw, sph, canvas) = config_get_sprite_for_belt_type(config, belt_type);
+  let belt_type = factory.floor[coord].belt.meta.btype;
+  let sprite_offset = factory.floor[coord].belt.sprite_offset;
+
+  paint_belt(options, state, config, context, dx, dy, dw, dh, belt_type, sprite_offset, factory.ticks);
+}
+fn paint_zero_belt(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, dx: f64, dy: f64, dw: f64, dh: f64, belt_type: BeltType) {
+  paint_belt(options, state, config, context, dx, dy, dw, dh, belt_type, 0, 0);
+}
+fn paint_belt(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, dx: f64, dy: f64, dw: f64, dh: f64, belt_type: BeltType, sprite_offset: u64, ticks: u64) {
+  if !options.paint_belts {
+    return;
+  }
+
+  // let (spx, spy, spw, sph, canvas) = config_get_sprite_for_belt_type(config, belt_type, sprite_offset, ticks);
+  let (spx, spy, spw, sph, canvas) = config_get_sprite_for_belt_type(config, belt_type, 0, ticks);
 
   context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
     &canvas,

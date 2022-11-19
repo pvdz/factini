@@ -31,7 +31,7 @@ const GAME_OPTIONS = `
 - ui_section_border_color: "white"
 - short_term_window: 10000
 - long_term_window: 600000
-- speed_modifier: 1.0
+- speed_modifier: 0.2
 - touch_drag_compensation: false
 - web_output_cli: false
 - dbg_trash_is_joker: true

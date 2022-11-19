@@ -413,6 +413,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   let mut quest_nodes: Vec<usize> = vec!();
   let mut part_nodes: Vec<usize> = vec!(0, 1);
 
+  let mut first_frame = true;
   let mut seen_header = false;
   let mut current_node_index = 0;
   config.lines().for_each(
@@ -421,6 +422,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
       match trimmed.chars().nth(0) {
         Some('#') => {
           seen_header = true;
+          first_frame = true;
 
           if print_fmd_trace { log(format!("Next header. Previous was: {:?}", nodes[nodes.len()-1])); }
           let rest = trimmed[1..].trim();
@@ -463,10 +465,12 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
             icon,
             sprite_config: SpriteConfig {
               pause_between: 0,
+              frame_offset: 0,
               initial_delay: 0,
               looping: false,
               frames: vec![SpriteFrame {
                 file: "".to_string(),
+                name: "untitled frame".to_string(),
                 file_canvas_cache_index: 0,
                 x: 0.0,
                 y: 0.0,
@@ -579,31 +583,36 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
             }
             "file" => {
               // The sprite file
-              nodes[current_node_index].sprite_config.frames[0].file = value_raw.trim().to_string();
+              let last = nodes[current_node_index].sprite_config.frames.len() - 1;
+              nodes[current_node_index].sprite_config.frames[last].file = value_raw.trim().to_string();
             }
             | "part_x"
             | "x"
             => {
               // x coord in the sprite file where this sprite begins
-              nodes[current_node_index].sprite_config.frames[0].x = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
+              let last = nodes[current_node_index].sprite_config.frames.len() - 1;
+              nodes[current_node_index].sprite_config.frames[last].x = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
             }
             | "part_y"
             | "y"
             => {
               // y coord in the sprite file where this sprite begins
-              nodes[current_node_index].sprite_config.frames[0].y = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
+              let last = nodes[current_node_index].sprite_config.frames.len() - 1;
+              nodes[current_node_index].sprite_config.frames[last].y = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
             }
             | "part_w"
             | "w"
             => {
               // width in the sprite file of this sprite
-              nodes[current_node_index].sprite_config.frames[0].w = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
+              let last = nodes[current_node_index].sprite_config.frames.len() - 1;
+              nodes[current_node_index].sprite_config.frames[last].w = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
             }
             | "part_h"
             | "h"
             => {
               // height in the sprite file of this sprite
-              nodes[current_node_index].sprite_config.frames[0].h = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
+              let last = nodes[current_node_index].sprite_config.frames.len() - 1;
+              nodes[current_node_index].sprite_config.frames[last].h = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
             }
             "state" => {
               match value_raw {
@@ -612,6 +621,22 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
                 "waiting" => nodes[current_node_index].current_state = ConfigNodeState::Waiting,
                   _ => panic!("Only valid states are valid; Expecting one if 'active', 'finished', or 'waiting', got: {}", value_raw),
               }
+            }
+            "frame" => {
+              if first_frame {
+                // Ignore. Keep the only frame that's already in this sprite and overwrite parts of it.
+                first_frame = false;
+              } else {
+                // Clone the last frame and push it as a new frame.
+                let last = nodes[current_node_index].sprite_config.frames.len() - 1;
+                let c = nodes[current_node_index].sprite_config.frames[last].clone();
+                nodes[current_node_index].sprite_config.frames.push(c);
+              }
+              let last = nodes[current_node_index].sprite_config.frames.len() - 1;
+              nodes[current_node_index].sprite_config.frames[last].name = value_raw.to_string();
+            }
+            "frame_offset" => {
+              nodes[current_node_index].sprite_config.frame_offset = value_raw.parse::<u64>().or::<Result<u32, &str>>(Ok(0)).unwrap();
             }
             _ => panic!("Unsupported node option. Node options must be one of a hard coded set but was `{:?}`", label),
           }
@@ -723,19 +748,21 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
 
     // Create sprite image index pointers. There will be an array with a canvas loaded with
     // that image and it will sit in a vector at the position of that index.
-    let f = node.sprite_config.frames[0].file.as_str();
-    match sprite_cache_lookup.get(f) {
-      Some(&index) => {
-        node.sprite_config.frames[0].file_canvas_cache_index = index;
-      },
-      None => {
-        let index = sprite_cache_lookup.len();
-        let file = node.sprite_config.frames[0].file.clone();
-        node.sprite_config.frames[0].file_canvas_cache_index = index;
-        sprite_cache_lookup.insert(file.clone(), index);
-        sprite_cache_order.push(file);
+    node.sprite_config.frames.iter_mut().for_each(|frame| {
+      let f = frame.file.as_str();
+      match sprite_cache_lookup.get(f) {
+        Some(&index) => {
+          frame.file_canvas_cache_index = index;
+        },
+        None => {
+          let index = sprite_cache_lookup.len();
+          let file = frame.file.clone();
+          frame.file_canvas_cache_index = index;
+          sprite_cache_lookup.insert(file.clone(), index);
+          sprite_cache_order.push(file);
+        }
       }
-    }
+    });
   });
 
   if print_fmd_trace { log(format!("+ initialize the quest node states")); }
@@ -787,26 +814,6 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   // log(format!("parsed nodes: {:?}", &nodes[1..]));
   if print_fmd_trace { log(format!("parsed map: {:?}", node_name_to_index)); }
   if print_fmd_trace { node_pattern_to_index.iter_mut().for_each(|(str, &mut kind)| log(format!("- node_pattern_to_index: {} = pattern({}) -> kind: {}", nodes[kind].raw_name, str, kind))); }
-
-  if print_fmd_trace { log(format!("+ initialize the belt metas")); }
-  BELT_TYPES_NOT_INDEXABLE_BY_TYPE_BUT_BY_CODE_POS.iter().for_each(|&belt_type| {
-    // Create sprite image index pointers. There will be an array with a canvas loaded with
-    // that image and it will sit in a vector at the position of that index.
-    let node = &mut nodes[belt_type as usize];
-    let f = node.sprite_config.frames[0].file.as_str();
-    match sprite_cache_lookup.get(f) {
-      Some(&index) => {
-        node.sprite_config.frames[0].file_canvas_cache_index = index;
-      },
-      None => {
-        let index = sprite_cache_lookup.len();
-        let file = node.sprite_config.frames[0].file.clone();
-        node.sprite_config.frames[0].file_canvas_cache_index = index;
-        sprite_cache_lookup.insert(file.clone(), index);
-        sprite_cache_order.push(file);
-      }
-    }
-  });
 
   return Config { nodes, quest_nodes, part_nodes, node_name_to_index, node_pattern_to_index, sprite_cache_lookup, sprite_cache_order, sprite_cache_canvas: vec!() };
 }
@@ -1408,11 +1415,13 @@ fn config_node_part(index: PartKind, name: String, icon: char) -> ConfigNode {
 
     sprite_config: SpriteConfig {
       pause_between: 10,
+      frame_offset: 0,
       initial_delay: 10,
       looping: true,
       frames: vec!(
         SpriteFrame {
           file: "".to_string(),
+          name: "do not use me; part".to_string(),
           file_canvas_cache_index: 0,
           x: 0.0,
           y: 0.0,
@@ -1448,11 +1457,13 @@ fn config_node_supply(index: PartKind, name: String) -> ConfigNode {
 
     sprite_config: SpriteConfig {
       pause_between: 10,
+      frame_offset: 0,
       initial_delay: 10,
       looping: true,
       frames: vec!(
         SpriteFrame {
           file: "./img/supply.png".to_string(),
+          name: "do not use me; supply".to_string(),
           file_canvas_cache_index: 0,
           x: 0.0,
           y: 0.0,
@@ -1488,11 +1499,13 @@ fn config_node_demand(index: PartKind, name: String) -> ConfigNode {
 
     sprite_config: SpriteConfig {
       pause_between: 10,
+      frame_offset: 0,
       initial_delay: 10,
       looping: true,
       frames: vec!(
         SpriteFrame {
           file: "./img/demand.png".to_string(),
+          name: "do not use me; demand".to_string(),
           file_canvas_cache_index: 0,
           x: 0.0,
           y: 0.0,
@@ -1528,11 +1541,13 @@ fn config_node_dock(index: PartKind, name: String) -> ConfigNode {
 
     sprite_config: SpriteConfig {
       pause_between: 10,
+      frame_offset: 0,
       initial_delay: 10,
       looping: true,
       frames: vec!(
         SpriteFrame {
           file: "./img/dock.png".to_string(),
+          name: "do not use me; dock".to_string(),
           file_canvas_cache_index: 0,
           x: 0.0,
           y: 0.0,
@@ -1568,11 +1583,13 @@ fn config_node_machine(index: PartKind, name: &str, file: &str) -> ConfigNode {
 
     sprite_config: SpriteConfig {
       pause_between: 10,
+      frame_offset: 0,
       initial_delay: 10,
       looping: true,
       frames: vec!(
         SpriteFrame {
           file: file.to_string(),
+          name: "do not use me; machine".to_string(),
           file_canvas_cache_index: 0,
           x: 5.0,
           y: 5.0,
@@ -1611,11 +1628,13 @@ fn config_node_belt(index: PartKind, name: &str) -> ConfigNode {
 
     sprite_config: SpriteConfig {
       pause_between: 10,
+      frame_offset: 0,
       initial_delay: 10,
       looping: true,
       frames: vec!(
         SpriteFrame {
           file: belt_meta.src.to_string(),
+          name: "do not use me; belt".to_string(),
           file_canvas_cache_index: 0,
           x: 0.0,
           y: 0.0,
@@ -1629,10 +1648,12 @@ fn config_node_belt(index: PartKind, name: &str) -> ConfigNode {
   };
 }
 
-pub fn config_get_sprite_details(config: &Config, config_index: usize) -> (f64, f64, f64, f64, &web_sys::HtmlImageElement ) {
+pub fn config_get_sprite_details(config: &Config, config_index: usize, sprite_offset: u64, ticks: u64) -> (f64, f64, f64, f64, &web_sys::HtmlImageElement) {
   assert!(config_index < config.nodes.len(), "config_index should be a node index: {} < {}", config_index, config.nodes.len());
   let node = &config.nodes[config_index];
-  return ( node.sprite_config.frames[0].x, node.sprite_config.frames[0].y, node.sprite_config.frames[0].w, node.sprite_config.frames[0].h, &config.sprite_cache_canvas[node.sprite_config.frames[0].file_canvas_cache_index] );
+  let sprite_index = ((((ticks - sprite_offset) + (node.sprite_config.frame_offset * 62)) % ((node.sprite_config.frames.len() as u64) * 62)) / 62) as usize;
+  let sprite = &node.sprite_config.frames[sprite_index];
+  return ( sprite.x, sprite.y, sprite.w, sprite.h, &config.sprite_cache_canvas[sprite.file_canvas_cache_index] );
 }
 
 // Convert a config node to jsvalue (sorta) so we can send it to the html for debug/editor
@@ -1678,12 +1699,21 @@ fn config_node_to_jsvalue(node: &ConfigNode) -> JsValue {
     convert_js_to_pair("pattern", JsValue::from(node.pattern.clone())),
     convert_js_to_pair("pattern_unique_kinds", convert_vec_usize_to_jsvalue(&node.pattern_unique_kinds)),
     convert_string_to_pair("icon", format!("{}", node.icon).as_str()),
-    convert_string_to_pair("file", &node.sprite_config.frames[0].file),
-    convert_js_to_pair("file_canvas_cache_index", JsValue::from(node.sprite_config.frames[0].file_canvas_cache_index)),
-    convert_js_to_pair("x", JsValue::from(node.sprite_config.frames[0].x)),
-    convert_js_to_pair("y", JsValue::from(node.sprite_config.frames[0].y)),
-    convert_js_to_pair("w", JsValue::from(node.sprite_config.frames[0].w)),
-    convert_js_to_pair("h", JsValue::from(node.sprite_config.frames[0].h)),
+
+    convert_js_to_pair(
+      "sprite_config",
+      node.sprite_config.frames.iter().map(|frame| {
+        JsValue::from(vec!(
+          convert_string_to_pair("file", frame.file.as_str()),
+          convert_js_to_pair("file_canvas_cache_index", JsValue::from(frame.file_canvas_cache_index)),
+          convert_js_to_pair("x", JsValue::from(frame.x)),
+          convert_js_to_pair("y", JsValue::from(frame.y)),
+          convert_js_to_pair("w", JsValue::from(frame.w)),
+          convert_js_to_pair("h", JsValue::from(frame.h)),
+          ).iter().collect::<js_sys::Array>())
+      }).collect::<js_sys::Array>().into()
+    ),
+
     convert_js_to_pair("current_state", JsValue::from(format!("{:?}", node.current_state))),
   ).iter().collect::<js_sys::Array>().into();
 }
@@ -1695,271 +1725,8 @@ pub fn config_to_jsvalue(config: &Config) -> JsValue {
   }).collect::<js_sys::Array>().into();
 }
 
-pub fn config_get_sprite_for_belt_type(config: &Config, belt_type: BeltType) -> ( f64, f64, f64, f64, &web_sys::HtmlImageElement ) {
-  return config_get_sprite_details(config, belt_type as usize);
-
-  /*
-  return match belt_type {
-    BeltType::NONE => config_get_sprite_details(config, CONFIG_NODE_BELT_NONE),
-    BeltType::UNKNOWN => config_get_sprite_details(config, CONFIG_NODE_BELT_UNKNOWN),
-    BeltType::INVALID => config_get_sprite_details(config, CONFIG_NODE_BELT_INVALID),
-    BeltType::L_ => config_get_sprite_details(config, CONFIG_NODE_BELT_L_),
-    BeltType::_L => config_get_sprite_details(config, CONFIG_NODE_BELT__L),
-    BeltType::__L => config_get_sprite_details(config, CONFIG_NODE_BELT___L),
-    BeltType::D_ => config_get_sprite_details(config, CONFIG_NODE_BELT_D_),
-    BeltType::DL_ => config_get_sprite_details(config, CONFIG_NODE_BELT_DL_),
-    BeltType::D_L => config_get_sprite_details(config, CONFIG_NODE_BELT_D_L),
-    BeltType::D__L => config_get_sprite_details(config, CONFIG_NODE_BELT_D__L),
-    BeltType::_D => config_get_sprite_details(config, CONFIG_NODE_BELT__D),
-    BeltType::L_D => config_get_sprite_details(config, CONFIG_NODE_BELT_L_D),
-    BeltType::_DL => config_get_sprite_details(config, CONFIG_NODE_BELT__DL),
-    BeltType::_D_L => config_get_sprite_details(config, CONFIG_NODE_BELT__D_L),
-    BeltType::__D => config_get_sprite_details(config, CONFIG_NODE_BELT___D),
-    BeltType::L__D => config_get_sprite_details(config, CONFIG_NODE_BELT_L__D),
-    BeltType::_L_D => config_get_sprite_details(config, CONFIG_NODE_BELT__L_D),
-    BeltType::__DL => config_get_sprite_details(config, CONFIG_NODE_BELT___DL),
-    BeltType::R_ => config_get_sprite_details(config, CONFIG_NODE_BELT_R_),
-    BeltType::LR_ => config_get_sprite_details(config, CONFIG_NODE_BELT_LR_),
-    BeltType::R_L => config_get_sprite_details(config, CONFIG_NODE_BELT_R_L),
-    BeltType::R__L => config_get_sprite_details(config, CONFIG_NODE_BELT_R__L),
-    BeltType::DR_ => config_get_sprite_details(config, CONFIG_NODE_BELT_DR_),
-    BeltType::DLR_ => config_get_sprite_details(config, CONFIG_NODE_BELT_DLR_),
-    BeltType::DR_L => config_get_sprite_details(config, CONFIG_NODE_BELT_DR_L),
-    BeltType::DR__L => config_get_sprite_details(config, CONFIG_NODE_BELT_DR__L),
-    BeltType::R_D => config_get_sprite_details(config, CONFIG_NODE_BELT_R_D),
-    BeltType::LR_D => config_get_sprite_details(config, CONFIG_NODE_BELT_LR_D),
-    BeltType::R_DL => config_get_sprite_details(config, CONFIG_NODE_BELT_R_DL),
-    BeltType::R_D_L => config_get_sprite_details(config, CONFIG_NODE_BELT_R_D_L),
-    BeltType::R__D => config_get_sprite_details(config, CONFIG_NODE_BELT_R__D),
-    BeltType::LR__D => config_get_sprite_details(config, CONFIG_NODE_BELT_LR__D),
-    BeltType::R_L_D => config_get_sprite_details(config, CONFIG_NODE_BELT_R_L_D),
-    BeltType::R__DL => config_get_sprite_details(config, CONFIG_NODE_BELT_R__DL),
-    BeltType::_R => config_get_sprite_details(config, CONFIG_NODE_BELT__R),
-    BeltType::L_R => config_get_sprite_details(config, CONFIG_NODE_BELT_L_R),
-    BeltType::_LR => config_get_sprite_details(config, CONFIG_NODE_BELT__LR),
-    BeltType::_R_L => config_get_sprite_details(config, CONFIG_NODE_BELT__R_L),
-    BeltType::D_R => config_get_sprite_details(config, CONFIG_NODE_BELT_D_R),
-    BeltType::DL_R => config_get_sprite_details(config, CONFIG_NODE_BELT_DL_R),
-    BeltType::D_LR => config_get_sprite_details(config, CONFIG_NODE_BELT_D_LR),
-    BeltType::D_R_L => config_get_sprite_details(config, CONFIG_NODE_BELT_D_R_L),
-    BeltType::_DR => config_get_sprite_details(config, CONFIG_NODE_BELT__DR),
-    BeltType::L_DR => config_get_sprite_details(config, CONFIG_NODE_BELT_L_DR),
-    BeltType::_DLR => config_get_sprite_details(config, CONFIG_NODE_BELT__DLR),
-    BeltType::_DR_L => config_get_sprite_details(config, CONFIG_NODE_BELT__DR_L),
-    BeltType::_R_D => config_get_sprite_details(config, CONFIG_NODE_BELT__R_D),
-    BeltType::L_R_D => config_get_sprite_details(config, CONFIG_NODE_BELT_L_R_D),
-    BeltType::_LR_D => config_get_sprite_details(config, CONFIG_NODE_BELT__LR_D),
-    BeltType::_R_DL => config_get_sprite_details(config, CONFIG_NODE_BELT__R_DL),
-    BeltType::__R => config_get_sprite_details(config, CONFIG_NODE_BELT___R),
-    BeltType::L__R => config_get_sprite_details(config, CONFIG_NODE_BELT_L__R),
-    BeltType::_L_R => config_get_sprite_details(config, CONFIG_NODE_BELT__L_R),
-    BeltType::__LR => config_get_sprite_details(config, CONFIG_NODE_BELT___LR),
-    BeltType::D__R => config_get_sprite_details(config, CONFIG_NODE_BELT_D__R),
-    BeltType::DL__R => config_get_sprite_details(config, CONFIG_NODE_BELT_DL__R),
-    BeltType::D_L_R => config_get_sprite_details(config, CONFIG_NODE_BELT_D_L_R),
-    BeltType::D__LR => config_get_sprite_details(config, CONFIG_NODE_BELT_D__LR),
-    BeltType::_D_R => config_get_sprite_details(config, CONFIG_NODE_BELT__D_R),
-    BeltType::L_D_R => config_get_sprite_details(config, CONFIG_NODE_BELT_L_D_R),
-    BeltType::_DL_R => config_get_sprite_details(config, CONFIG_NODE_BELT__DL_R),
-    BeltType::_D_LR => config_get_sprite_details(config, CONFIG_NODE_BELT__D_LR),
-    BeltType::__DR => config_get_sprite_details(config, CONFIG_NODE_BELT___DR),
-    BeltType::L__DR => config_get_sprite_details(config, CONFIG_NODE_BELT_L__DR),
-    BeltType::_L_DR => config_get_sprite_details(config, CONFIG_NODE_BELT__L_DR),
-    BeltType::__DLR => config_get_sprite_details(config, CONFIG_NODE_BELT___DLR),
-    BeltType::U_ => config_get_sprite_details(config, CONFIG_NODE_BELT_U_),
-    BeltType::LU_ => config_get_sprite_details(config, CONFIG_NODE_BELT_LU_),
-    BeltType::U_L => config_get_sprite_details(config, CONFIG_NODE_BELT_U_L),
-    BeltType::U__L => config_get_sprite_details(config, CONFIG_NODE_BELT_U__L),
-    BeltType::DU_ => config_get_sprite_details(config, CONFIG_NODE_BELT_DU_),
-    BeltType::DLU_ => config_get_sprite_details(config, CONFIG_NODE_BELT_DLU_),
-    BeltType::DU_L => config_get_sprite_details(config, CONFIG_NODE_BELT_DU_L),
-    BeltType::DU__L => config_get_sprite_details(config, CONFIG_NODE_BELT_DU__L),
-    BeltType::U_D => config_get_sprite_details(config, CONFIG_NODE_BELT_U_D),
-    BeltType::LU_D => config_get_sprite_details(config, CONFIG_NODE_BELT_LU_D),
-    BeltType::U_DL => config_get_sprite_details(config, CONFIG_NODE_BELT_U_DL),
-    BeltType::U_D_L => config_get_sprite_details(config, CONFIG_NODE_BELT_U_D_L),
-    BeltType::U__D => config_get_sprite_details(config, CONFIG_NODE_BELT_U__D),
-    BeltType::LU__D => config_get_sprite_details(config, CONFIG_NODE_BELT_LU__D),
-    BeltType::U_L_D => config_get_sprite_details(config, CONFIG_NODE_BELT_U_L_D),
-    BeltType::U__DL => config_get_sprite_details(config, CONFIG_NODE_BELT_U__DL),
-    BeltType::RU_ => config_get_sprite_details(config, CONFIG_NODE_BELT_RU_),
-    BeltType::LRU_ => config_get_sprite_details(config, CONFIG_NODE_BELT_LRU_),
-    BeltType::RU_L => config_get_sprite_details(config, CONFIG_NODE_BELT_RU_L),
-    BeltType::RU__L => config_get_sprite_details(config, CONFIG_NODE_BELT_RU__L),
-    BeltType::DRU_ => config_get_sprite_details(config, CONFIG_NODE_BELT_DRU_),
-    BeltType::DLRU_ => config_get_sprite_details(config, CONFIG_NODE_BELT_DLRU_),
-    BeltType::DRU_L => config_get_sprite_details(config, CONFIG_NODE_BELT_DRU_L),
-    BeltType::DRU__L => config_get_sprite_details(config, CONFIG_NODE_BELT_DRU__L),
-    BeltType::RU_D => config_get_sprite_details(config, CONFIG_NODE_BELT_RU_D),
-    BeltType::LRU_D => config_get_sprite_details(config, CONFIG_NODE_BELT_LRU_D),
-    BeltType::RU_DL => config_get_sprite_details(config, CONFIG_NODE_BELT_RU_DL),
-    BeltType::RU_D_L => config_get_sprite_details(config, CONFIG_NODE_BELT_RU_D_L),
-    BeltType::RU__D => config_get_sprite_details(config, CONFIG_NODE_BELT_RU__D),
-    BeltType::LRU__D => config_get_sprite_details(config, CONFIG_NODE_BELT_LRU__D),
-    BeltType::RU_L_D => config_get_sprite_details(config, CONFIG_NODE_BELT_RU_L_D),
-    BeltType::RU__DL => config_get_sprite_details(config, CONFIG_NODE_BELT_RU__DL),
-    BeltType::U_R => config_get_sprite_details(config, CONFIG_NODE_BELT_U_R),
-    BeltType::LU_R => config_get_sprite_details(config, CONFIG_NODE_BELT_LU_R),
-    BeltType::U_LR => config_get_sprite_details(config, CONFIG_NODE_BELT_U_LR),
-    BeltType::U_R_L => config_get_sprite_details(config, CONFIG_NODE_BELT_U_R_L),
-    BeltType::DU_R => config_get_sprite_details(config, CONFIG_NODE_BELT_DU_R),
-    BeltType::DLU_R => config_get_sprite_details(config, CONFIG_NODE_BELT_DLU_R),
-    BeltType::DU_LR => config_get_sprite_details(config, CONFIG_NODE_BELT_DU_LR),
-    BeltType::DU_R_L => config_get_sprite_details(config, CONFIG_NODE_BELT_DU_R_L),
-    BeltType::U_DR => config_get_sprite_details(config, CONFIG_NODE_BELT_U_DR),
-    BeltType::LU_DR => config_get_sprite_details(config, CONFIG_NODE_BELT_LU_DR),
-    BeltType::U_DLR => config_get_sprite_details(config, CONFIG_NODE_BELT_U_DLR),
-    BeltType::U_DR_L => config_get_sprite_details(config, CONFIG_NODE_BELT_U_DR_L),
-    BeltType::U_R_D => config_get_sprite_details(config, CONFIG_NODE_BELT_U_R_D),
-    BeltType::LU_R_D => config_get_sprite_details(config, CONFIG_NODE_BELT_LU_R_D),
-    BeltType::U_LR_D => config_get_sprite_details(config, CONFIG_NODE_BELT_U_LR_D),
-    BeltType::U_R_DL => config_get_sprite_details(config, CONFIG_NODE_BELT_U_R_DL),
-    BeltType::U__R => config_get_sprite_details(config, CONFIG_NODE_BELT_U__R),
-    BeltType::LU__R => config_get_sprite_details(config, CONFIG_NODE_BELT_LU__R),
-    BeltType::U_L_R => config_get_sprite_details(config, CONFIG_NODE_BELT_U_L_R),
-    BeltType::U__LR => config_get_sprite_details(config, CONFIG_NODE_BELT_U__LR),
-    BeltType::DU__R => config_get_sprite_details(config, CONFIG_NODE_BELT_DU__R),
-    BeltType::DLU__R => config_get_sprite_details(config, CONFIG_NODE_BELT_DLU__R),
-    BeltType::DU_L_R => config_get_sprite_details(config, CONFIG_NODE_BELT_DU_L_R),
-    BeltType::DU__LR => config_get_sprite_details(config, CONFIG_NODE_BELT_DU__LR),
-    BeltType::U_D_R => config_get_sprite_details(config, CONFIG_NODE_BELT_U_D_R),
-    BeltType::LU_D_R => config_get_sprite_details(config, CONFIG_NODE_BELT_LU_D_R),
-    BeltType::U_DL_R => config_get_sprite_details(config, CONFIG_NODE_BELT_U_DL_R),
-    BeltType::U_D_LR => config_get_sprite_details(config, CONFIG_NODE_BELT_U_D_LR),
-    BeltType::U__DR => config_get_sprite_details(config, CONFIG_NODE_BELT_U__DR),
-    BeltType::LU__DR => config_get_sprite_details(config, CONFIG_NODE_BELT_LU__DR),
-    BeltType::U_L_DR => config_get_sprite_details(config, CONFIG_NODE_BELT_U_L_DR),
-    BeltType::U__DLR => config_get_sprite_details(config, CONFIG_NODE_BELT_U__DLR),
-    BeltType::_U => config_get_sprite_details(config, CONFIG_NODE_BELT__U),
-    BeltType::L_U => config_get_sprite_details(config, CONFIG_NODE_BELT_L_U),
-    BeltType::_LU => config_get_sprite_details(config, CONFIG_NODE_BELT__LU),
-    BeltType::_U_L => config_get_sprite_details(config, CONFIG_NODE_BELT__U_L),
-    BeltType::D_U => config_get_sprite_details(config, CONFIG_NODE_BELT_D_U),
-    BeltType::DL_U => config_get_sprite_details(config, CONFIG_NODE_BELT_DL_U),
-    BeltType::D_LU => config_get_sprite_details(config, CONFIG_NODE_BELT_D_LU),
-    BeltType::D_U_L => config_get_sprite_details(config, CONFIG_NODE_BELT_D_U_L),
-    BeltType::_DU => config_get_sprite_details(config, CONFIG_NODE_BELT__DU),
-    BeltType::L_DU => config_get_sprite_details(config, CONFIG_NODE_BELT_L_DU),
-    BeltType::_DLU => config_get_sprite_details(config, CONFIG_NODE_BELT__DLU),
-    BeltType::_DU_L => config_get_sprite_details(config, CONFIG_NODE_BELT__DU_L),
-    BeltType::_U_D => config_get_sprite_details(config, CONFIG_NODE_BELT__U_D),
-    BeltType::L_U_D => config_get_sprite_details(config, CONFIG_NODE_BELT_L_U_D),
-    BeltType::_LU_D => config_get_sprite_details(config, CONFIG_NODE_BELT__LU_D),
-    BeltType::_U_DL => config_get_sprite_details(config, CONFIG_NODE_BELT__U_DL),
-    BeltType::R_U => config_get_sprite_details(config, CONFIG_NODE_BELT_R_U),
-    BeltType::LR_U => config_get_sprite_details(config, CONFIG_NODE_BELT_LR_U),
-    BeltType::R_LU => config_get_sprite_details(config, CONFIG_NODE_BELT_R_LU),
-    BeltType::R_U_L => config_get_sprite_details(config, CONFIG_NODE_BELT_R_U_L),
-    BeltType::DR_U => config_get_sprite_details(config, CONFIG_NODE_BELT_DR_U),
-    BeltType::DLR_U => config_get_sprite_details(config, CONFIG_NODE_BELT_DLR_U),
-    BeltType::DR_LU => config_get_sprite_details(config, CONFIG_NODE_BELT_DR_LU),
-    BeltType::DR_U_L => config_get_sprite_details(config, CONFIG_NODE_BELT_DR_U_L),
-    BeltType::R_DU => config_get_sprite_details(config, CONFIG_NODE_BELT_R_DU),
-    BeltType::LR_DU => config_get_sprite_details(config, CONFIG_NODE_BELT_LR_DU),
-    BeltType::R_DLU => config_get_sprite_details(config, CONFIG_NODE_BELT_R_DLU),
-    BeltType::R_DU_L => config_get_sprite_details(config, CONFIG_NODE_BELT_R_DU_L),
-    BeltType::R_U_D => config_get_sprite_details(config, CONFIG_NODE_BELT_R_U_D),
-    BeltType::LR_U_D => config_get_sprite_details(config, CONFIG_NODE_BELT_LR_U_D),
-    BeltType::R_LU_D => config_get_sprite_details(config, CONFIG_NODE_BELT_R_LU_D),
-    BeltType::R_U_DL => config_get_sprite_details(config, CONFIG_NODE_BELT_R_U_DL),
-    BeltType::_RU => config_get_sprite_details(config, CONFIG_NODE_BELT__RU),
-    BeltType::L_RU => config_get_sprite_details(config, CONFIG_NODE_BELT_L_RU),
-    BeltType::_LRU => config_get_sprite_details(config, CONFIG_NODE_BELT__LRU),
-    BeltType::_RU_L => config_get_sprite_details(config, CONFIG_NODE_BELT__RU_L),
-    BeltType::D_RU => config_get_sprite_details(config, CONFIG_NODE_BELT_D_RU),
-    BeltType::DL_RU => config_get_sprite_details(config, CONFIG_NODE_BELT_DL_RU),
-    BeltType::D_LRU => config_get_sprite_details(config, CONFIG_NODE_BELT_D_LRU),
-    BeltType::D_RU_L => config_get_sprite_details(config, CONFIG_NODE_BELT_D_RU_L),
-    BeltType::_DRU => config_get_sprite_details(config, CONFIG_NODE_BELT__DRU),
-    BeltType::L_DRU => config_get_sprite_details(config, CONFIG_NODE_BELT_L_DRU),
-    BeltType::_DLRU => config_get_sprite_details(config, CONFIG_NODE_BELT__DLRU),
-    BeltType::_DRU_L => config_get_sprite_details(config, CONFIG_NODE_BELT__DRU_L),
-    BeltType::_RU_D => config_get_sprite_details(config, CONFIG_NODE_BELT__RU_D),
-    BeltType::L_RU_D => config_get_sprite_details(config, CONFIG_NODE_BELT_L_RU_D),
-    BeltType::_LRU_D => config_get_sprite_details(config, CONFIG_NODE_BELT__LRU_D),
-    BeltType::_RU_DL => config_get_sprite_details(config, CONFIG_NODE_BELT__RU_DL),
-    BeltType::_U_R => config_get_sprite_details(config, CONFIG_NODE_BELT__U_R),
-    BeltType::L_U_R => config_get_sprite_details(config, CONFIG_NODE_BELT_L_U_R),
-    BeltType::_LU_R => config_get_sprite_details(config, CONFIG_NODE_BELT__LU_R),
-    BeltType::_U_LR => config_get_sprite_details(config, CONFIG_NODE_BELT__U_LR),
-    BeltType::D_U_R => config_get_sprite_details(config, CONFIG_NODE_BELT_D_U_R),
-    BeltType::DL_U_R => config_get_sprite_details(config, CONFIG_NODE_BELT_DL_U_R),
-    BeltType::D_LU_R => config_get_sprite_details(config, CONFIG_NODE_BELT_D_LU_R),
-    BeltType::D_U_LR => config_get_sprite_details(config, CONFIG_NODE_BELT_D_U_LR),
-    BeltType::_DU_R => config_get_sprite_details(config, CONFIG_NODE_BELT__DU_R),
-    BeltType::L_DU_R => config_get_sprite_details(config, CONFIG_NODE_BELT_L_DU_R),
-    BeltType::_DLU_R => config_get_sprite_details(config, CONFIG_NODE_BELT__DLU_R),
-    BeltType::_DU_LR => config_get_sprite_details(config, CONFIG_NODE_BELT__DU_LR),
-    BeltType::_U_DR => config_get_sprite_details(config, CONFIG_NODE_BELT__U_DR),
-    BeltType::L_U_DR => config_get_sprite_details(config, CONFIG_NODE_BELT_L_U_DR),
-    BeltType::_LU_DR => config_get_sprite_details(config, CONFIG_NODE_BELT__LU_DR),
-    BeltType::_U_DLR => config_get_sprite_details(config, CONFIG_NODE_BELT__U_DLR),
-    BeltType::__U => config_get_sprite_details(config, CONFIG_NODE_BELT___U),
-    BeltType::L__U => config_get_sprite_details(config, CONFIG_NODE_BELT_L__U),
-    BeltType::_L_U => config_get_sprite_details(config, CONFIG_NODE_BELT__L_U),
-    BeltType::__LU => config_get_sprite_details(config, CONFIG_NODE_BELT___LU),
-    BeltType::D__U => config_get_sprite_details(config, CONFIG_NODE_BELT_D__U),
-    BeltType::DL__U => config_get_sprite_details(config, CONFIG_NODE_BELT_DL__U),
-    BeltType::D_L_U => config_get_sprite_details(config, CONFIG_NODE_BELT_D_L_U),
-    BeltType::D__LU => config_get_sprite_details(config, CONFIG_NODE_BELT_D__LU),
-    BeltType::_D_U => config_get_sprite_details(config, CONFIG_NODE_BELT__D_U),
-    BeltType::L_D_U => config_get_sprite_details(config, CONFIG_NODE_BELT_L_D_U),
-    BeltType::_DL_U => config_get_sprite_details(config, CONFIG_NODE_BELT__DL_U),
-    BeltType::_D_LU => config_get_sprite_details(config, CONFIG_NODE_BELT__D_LU),
-    BeltType::__DU => config_get_sprite_details(config, CONFIG_NODE_BELT___DU),
-    BeltType::L__DU => config_get_sprite_details(config, CONFIG_NODE_BELT_L__DU),
-    BeltType::_L_DU => config_get_sprite_details(config, CONFIG_NODE_BELT__L_DU),
-    BeltType::__DLU => config_get_sprite_details(config, CONFIG_NODE_BELT___DLU),
-    BeltType::R__U => config_get_sprite_details(config, CONFIG_NODE_BELT_R__U),
-    BeltType::LR__U => config_get_sprite_details(config, CONFIG_NODE_BELT_LR__U),
-    BeltType::R_L_U => config_get_sprite_details(config, CONFIG_NODE_BELT_R_L_U),
-    BeltType::R__LU => config_get_sprite_details(config, CONFIG_NODE_BELT_R__LU),
-    BeltType::DR__U => config_get_sprite_details(config, CONFIG_NODE_BELT_DR__U),
-    BeltType::DLR__U => config_get_sprite_details(config, CONFIG_NODE_BELT_DLR__U),
-    BeltType::DR_L_U => config_get_sprite_details(config, CONFIG_NODE_BELT_DR_L_U),
-    BeltType::DR__LU => config_get_sprite_details(config, CONFIG_NODE_BELT_DR__LU),
-    BeltType::R_D_U => config_get_sprite_details(config, CONFIG_NODE_BELT_R_D_U),
-    BeltType::LR_D_U => config_get_sprite_details(config, CONFIG_NODE_BELT_LR_D_U),
-    BeltType::R_DL_U => config_get_sprite_details(config, CONFIG_NODE_BELT_R_DL_U),
-    BeltType::R_D_LU => config_get_sprite_details(config, CONFIG_NODE_BELT_R_D_LU),
-    BeltType::R__DU => config_get_sprite_details(config, CONFIG_NODE_BELT_R__DU),
-    BeltType::LR__DU => config_get_sprite_details(config, CONFIG_NODE_BELT_LR__DU),
-    BeltType::R_L_DU => config_get_sprite_details(config, CONFIG_NODE_BELT_R_L_DU),
-    BeltType::R__DLU => config_get_sprite_details(config, CONFIG_NODE_BELT_R__DLU),
-    BeltType::_R_U => config_get_sprite_details(config, CONFIG_NODE_BELT__R_U),
-    BeltType::L_R_U => config_get_sprite_details(config, CONFIG_NODE_BELT_L_R_U),
-    BeltType::_LR_U => config_get_sprite_details(config, CONFIG_NODE_BELT__LR_U),
-    BeltType::_R_LU => config_get_sprite_details(config, CONFIG_NODE_BELT__R_LU),
-    BeltType::D_R_U => config_get_sprite_details(config, CONFIG_NODE_BELT_D_R_U),
-    BeltType::DL_R_U => config_get_sprite_details(config, CONFIG_NODE_BELT_DL_R_U),
-    BeltType::D_LR_U => config_get_sprite_details(config, CONFIG_NODE_BELT_D_LR_U),
-    BeltType::D_R_LU => config_get_sprite_details(config, CONFIG_NODE_BELT_D_R_LU),
-    BeltType::_DR_U => config_get_sprite_details(config, CONFIG_NODE_BELT__DR_U),
-    BeltType::L_DR_U => config_get_sprite_details(config, CONFIG_NODE_BELT_L_DR_U),
-    BeltType::_DLR_U => config_get_sprite_details(config, CONFIG_NODE_BELT__DLR_U),
-    BeltType::_DR_LU => config_get_sprite_details(config, CONFIG_NODE_BELT__DR_LU),
-    BeltType::_R_DU => config_get_sprite_details(config, CONFIG_NODE_BELT__R_DU),
-    BeltType::L_R_DU => config_get_sprite_details(config, CONFIG_NODE_BELT_L_R_DU),
-    BeltType::_LR_DU => config_get_sprite_details(config, CONFIG_NODE_BELT__LR_DU),
-    BeltType::_R_DLU => config_get_sprite_details(config, CONFIG_NODE_BELT__R_DLU),
-    BeltType::__RU => config_get_sprite_details(config, CONFIG_NODE_BELT___RU),
-    BeltType::L__RU => config_get_sprite_details(config, CONFIG_NODE_BELT_L__RU),
-    BeltType::_L_RU => config_get_sprite_details(config, CONFIG_NODE_BELT__L_RU),
-    BeltType::__LRU => config_get_sprite_details(config, CONFIG_NODE_BELT___LRU),
-    BeltType::D__RU => config_get_sprite_details(config, CONFIG_NODE_BELT_D__RU),
-    BeltType::DL__RU => config_get_sprite_details(config, CONFIG_NODE_BELT_DL__RU),
-    BeltType::D_L_RU => config_get_sprite_details(config, CONFIG_NODE_BELT_D_L_RU),
-    BeltType::D__LRU => config_get_sprite_details(config, CONFIG_NODE_BELT_D__LRU),
-    BeltType::_D_RU => config_get_sprite_details(config, CONFIG_NODE_BELT__D_RU),
-    BeltType::L_D_RU => config_get_sprite_details(config, CONFIG_NODE_BELT_L_D_RU),
-    BeltType::_DL_RU => config_get_sprite_details(config, CONFIG_NODE_BELT__DL_RU),
-    BeltType::_D_LRU => config_get_sprite_details(config, CONFIG_NODE_BELT__D_LRU),
-    BeltType::__DRU => config_get_sprite_details(config, CONFIG_NODE_BELT___DRU),
-    BeltType::L__DRU => config_get_sprite_details(config, CONFIG_NODE_BELT_L__DRU),
-    BeltType::_L_DRU => config_get_sprite_details(config, CONFIG_NODE_BELT__L_DRU),
-    BeltType::__DLRU => config_get_sprite_details(config, CONFIG_NODE_BELT___DLRU),
-  };
-   */
+pub fn config_get_sprite_for_belt_type(config: &Config, belt_type: BeltType, sprite_offset: u64, ticks: u64) -> ( f64, f64, f64, f64, &web_sys::HtmlImageElement) {
+  return config_get_sprite_details(config, belt_type as usize, sprite_offset, ticks);
 }
 
 pub const EXAMPLE_CONFIG: &str = "

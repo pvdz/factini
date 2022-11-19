@@ -3,6 +3,9 @@ pub struct SpriteFrame {
   // Image file to load
   pub file: String,
 
+  // Name (for debugging). Anything after the `- frame` is put in here for no reason.
+  pub name: String,
+
   // Canvas index that has loaded this image
   pub file_canvas_cache_index: usize,
 

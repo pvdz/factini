@@ -21,7 +21,7 @@
       const key = keyy.trim();
       const value = valueParts.join(':').trim();
 
-      //console.log('checking', [key], [value]);
+      //console.log('[js] checking', [key], [value]);
 
       if (value === 'true' || value === 'false') {
         const e = $option_bools.appendChild(document.createElement('label'));
@@ -48,7 +48,7 @@
 
     const nodeKinds = new Set;
     const nodes = new Map;
-    pairs.forEach(([key, value]) => {
+    pairs.forEach(([key, value], i) => {
       switch (key) {
         case "kinds": {
           value.forEach(name => nodeKinds.add(name));
@@ -57,10 +57,15 @@
 
         case "nodes": {
           console.log('[js] raw nodes:', value);
-          value.forEach(([raw_name, pairs]) => {
+          value.forEach(([raw_name, pairs], j) => {
             const node = pairs.reduce((node, [prop, value]) => { node[prop] = value; return node; }, {});
             node.parents = [];
             node.children = [];
+            if (node.sprite_config) {
+              node.sprite_config = node.sprite_config.map(pairs => {
+                return pairs.reduce((node, [prop, value]) => { node[prop] = value; return node; }, {});
+              });
+            }
             nodes.set(raw_name, node);
           });
           break;
@@ -84,6 +89,12 @@
     //nodes.forEach(node => {
     //  if (node.kind === 'Quest') {
     //    console.log('[js] Quest', node.raw_name, '->', node);
+    //  }
+    //});
+
+    //nodes.forEach(node => {
+    //  if (node.kind === 'Belt') {
+    //    console.log('[js] Belt', node.raw_name, '->', node);
     //  }
     //});
 
@@ -140,28 +151,21 @@
 
       $sprite_preview.innerHTML = '(no sprite)';
       function showSprite() {
-        show('icon', node.icon);
-        show('file', node.file);
-        show('file_canvas_cache_index', node.file_canvas_cache_index);
-        show('x', node.x);
-        show('y', node.y);
-        show('w', node.w);
-        show('h', node.h);
+        console.log('[js] sprite:', node);
 
-        const finalWidth = 64;
-        const finalHeight = 64;
-        const scalex = finalWidth / node.w;
-        const scaley = finalHeight / node.h;
+        const sprite = node.sprite_config[0] || node;
 
+        hide('icon', node.icon);
+        show('file', sprite.file);
+        show('file_canvas_cache_index', sprite.file_canvas_cache_index);
+        show('x', sprite.x);
+        show('y', sprite.y);
+        show('w', sprite.w);
+        show('h', sprite.h);
+
+        const tile = createSprite(0);
         $sprite_preview.innerHTML = '';
-
-        // The outer gives a viewport on the inner, scaled, div. Cutting away the overflow.
-        const outer = $sprite_preview.appendChild(document.createElement('div'));
-        // The inner has the image as background with a zoom factor to scale the sprite
-        const inner = outer.appendChild(document.createElement('img'));
-        inner.src = node.file;
-        outer.style = `position: relative; width: ${finalWidth}px; height: ${finalHeight}px; overflow: hidden; float: right; border: 1px solid black;`;
-        inner.style = `position: absolute; left: -${Math.round(scalex * node.x)}px; top: -${Math.round(scaley * node.y)}px; transform: scale(${scalex}, ${scaley}); transform-origin: top left;`;
+        $sprite_preview.appendChild(tile);
       }
 
       switch (node.kind) {
@@ -273,6 +277,34 @@
       }
 
       $config_node_current_state.innerText = node.current_state;
+    }
+    function createSprite(frameIndex) {
+      const rawName = $config_node_list.children[$config_node_list.selectedIndex].value;
+      const node = nodes.get(rawName);
+      const sprite = node.sprite_config[frameIndex];
+
+      const finalWidth = 64;
+      const finalHeight = 64;
+      const scalex = finalWidth / sprite.w;
+      const scaley = finalHeight / sprite.h;
+
+      // The outer gives a viewport on the inner, scaled, div. Cutting away the overflow.
+      const outer = document.createElement('div');
+      // The inner has the image as background with a zoom factor to scale the sprite
+      const inner = outer.appendChild(document.createElement('img'));
+      inner.src = sprite.file;
+      outer.style = `position: relative; width: ${finalWidth}px; height: ${finalHeight}px; overflow: hidden; float: right; border: 1px solid black;`;
+      inner.style = `position: absolute; left: -${Math.round(scalex * sprite.x)}px; top: -${Math.round(scaley * sprite.y)}px; transform: scale(${scalex}, ${scaley}); transform-origin: top left;`;
+
+      return outer;
+    }
+
+    function createNewDraggableTile() {
+      const tile = createSprite(0);
+      const wrapper = document.createElementById('div');
+      wrapper.appendChild(tile);
+      $sprite_preview.parentNode.insertBefore(wrapper, $sprite_preview);
+      return tile;
     }
 
     updateKinds();
