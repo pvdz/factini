@@ -15,6 +15,7 @@ use super::port_auto::*;
 use super::supply::*;
 use super::state::*;
 use super::utils::*;
+use super::log;
 
 // Meant for animated belts
 

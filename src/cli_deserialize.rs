@@ -19,6 +19,7 @@ use super::port_auto::*;
 use super::state::*;
 use super::supply::*;
 use super::utils::*;
+use super::log;
 
 pub fn floor_from_str(options: &mut Options, state: &mut State, config: &Config, str: String) -> ( [Cell; FLOOR_CELLS_WH] ) {
   if str.trim().len() == 0 {
@@ -109,7 +110,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
   // om = b         -> g s:0  d:3x3
   // om = b         -> g s:0  d:4x4
 
-  log(format!("str_to_floor2(options.trace_map_parsing={}):\n{}", options.trace_map_parsing, str));
+  log!("str_to_floor2(options.trace_map_parsing={}):\n{}", options.trace_map_parsing, str);
 
   let mut floor: [Cell; FLOOR_CELLS_WH] = floor_empty(config);
 
@@ -123,7 +124,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
   let mut lines = lines.iter_mut(); // hafta or the compiler complains
 
   let mut first_line = lines.next().unwrap(); // Bust if there's no input.
-  if options.trace_map_parsing { log(format!("first First line: {:?}", first_line)); }
+  if options.trace_map_parsing { log!("first First line: {:?}", first_line); }
   loop {
     while first_line.peek().or(Some(&'#')).unwrap() == &' ' { first_line.next(); }
     // Keep skipping lines that start with comments and empty lines (only containing spaces)
@@ -132,7 +133,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
     }
     first_line = lines.next().unwrap(); // Bust if there's no more input.
   }
-  if options.trace_map_parsing { log(format!("First line after comments: {:?}", first_line)); }
+  if options.trace_map_parsing { log!("First line after comments: {:?}", first_line); }
 
   // We should now be at the start of the first non-comment line.
   // It is asserted to be the map header line.
@@ -190,7 +191,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
         }
 
         // Okay, we now have a proper width and height and it matches the current hardcoded values. Move along.
-        log(format!("Map size: {} x {}", w, h));
+        log!("Map size: {} x {}", w, h);
       }
       _ => {}
     }
@@ -248,7 +249,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
       let h = line3.next().or(Some('#')).unwrap();
       let _i = line3.next().or(Some('#')).unwrap();
 
-      // log(format!("{}x{}:\n   {} {} {}\n   {} {} {}\n   {} {} {}", i, j, _a, b, _c, d, e, f, _g, h, _i));
+      // log!("{}x{}:\n   {} {} {}\n   {} {} {}\n   {} {} {}", i, j, _a, b, _c, d, e, f, _g, h, _i);
 
       let cell_kind = e;
       let port_u = b;
@@ -294,7 +295,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
                 panic!("Error parsing floor cell: Encountered an `s` inside the floor; this should be a Supply, which is bound to the edge");
               };
             // The speed and cooldown of the supply have to be added below the floor so use placeholder values for now; TODO: wire that up
-            if options.trace_map_parsing { log(format!("Supply")); }
+            if options.trace_map_parsing { log!("Supply"); }
             let cell = supply_cell(config, i, j, part_c(config, 't'), 1, 1, 1);
             floor[coord] = cell;
           }
@@ -316,7 +317,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
             } else {
               panic!("Error parsing floor cell: Encountered an `d` inside the floor; this should be a Demand, which is bound to the edge");
             };
-            if options.trace_map_parsing { log(format!("Demand")); }
+            if options.trace_map_parsing { log!("Demand"); }
             let cell = demand_cell(config, i, j);
             floor[coord] = cell;
           }
@@ -399,7 +400,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
     match lines.next() {
       None => break,
       Some(line) => {
-        if options.trace_map_parsing { log(format!("Next line({}): {}", line_no, line.clone().collect::<String>())); }
+        if options.trace_map_parsing { log!("Next line({}): {}", line_no, line.clone().collect::<String>()); }
         while line.peek().or(Some(&'#')).unwrap() == &' ' { line.next(); }
         // Keep skipping lines that start with comments and empty lines (only containing spaces)
         if line.peek().or(Some(&'#')).unwrap() != &'#' {
@@ -480,7 +481,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
               for coord in 0..FLOOR_CELLS_WH {
                 if floor[coord].kind == CellKind::Supply {
                   if n == nth {
-                    if options.trace_map_parsing { log(format!("Updating supply {} @{} with part {} and speed {} and cooldown {}", nth, coord, gives, speed, cooldown)); }
+                    if options.trace_map_parsing { log!("Updating supply {} @{} with part {} and speed {} and cooldown {}", nth, coord, gives, speed, cooldown); }
                     floor[coord].supply.speed = speed;
                     floor[coord].supply.cooldown = cooldown;
                     floor[coord].supply.gives = part_c(config, gives);
@@ -575,7 +576,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
                 let want_part_kinds = wants.iter().map(|p| p.kind).collect::<Vec<PartKind>>();
 
                 let normalized_wants = machine_normalize_wants(&want_part_kinds);
-                if options.trace_map_parsing { log(format!("The wants after normalization are: {:?}", normalized_wants)); }
+                if options.trace_map_parsing { log!("The wants after normalization are: {:?}", normalized_wants); }
 
                 // Note: auto discovery will have to make sure that wants.len and haves.len are equal and at least >= w*h
                 floor[main_coord].machine.wants = want_part_kinds.iter().map(|&p| part_from_part_index(config, p)).collect::<Vec<Part>>();
@@ -585,7 +586,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
                 let output_want = machine_discover_output_floor(options, state, config, &mut floor, main_coord);
                 floor[main_coord].machine.output_want = part_from_part_index(config, output_want);
               } else {
-                if options.trace_map_parsing { log(format!("Machine {} was defined as having inputs {:?} and output {} at speed {} but its main_coord was not found", nth, wants, output, speed)); }
+                if options.trace_map_parsing { log!("Machine {} was defined as having inputs {:?} and output {} at speed {} but its main_coord was not found", nth, wants, output, speed); }
               }
             },
             _ => panic!("Unexpected input on line {} while parsing input augments: wanted start of augment line, found `{}`", line_no, c),

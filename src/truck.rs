@@ -4,6 +4,7 @@ use super::belt::*;
 use super::cell::*;
 use super::cli_serialize::*;
 use super::config::*;
+use crate::craft::*;
 use super::direction::*;
 use super::factory::*;
 use super::floor::*;
@@ -16,7 +17,7 @@ use super::port::*;
 use super::port_auto::*;
 use super::prio::*;
 use super::utils::*;
-use crate::craft::CraftInteractable;
+use super::log;
 
 const GRAV: f64 = 0.008;      // How fast it drops
 const BOUNCINESS: f64 = 0.80; // Velocity retained after a bounce

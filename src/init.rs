@@ -16,6 +16,7 @@ use super::prio::*;
 use super::state::*;
 use super::truck::*;
 use super::utils::*;
+use super::log;
 
 pub fn init(config: &Config, map_str: String) -> ( Options, State, Factory ) {
   // Static state configuration (can still be changed by user)
@@ -28,8 +29,8 @@ pub fn init(config: &Config, map_str: String) -> ( Options, State, Factory ) {
   let parts = config_get_available_parts(config);
   factory.available_parts_rhs_menu = parts.iter().map(|&p| ( p, true )).collect::<Vec<(PartKind, bool)>>();
 
-  // log(format!("eh? paint_ui_offers {:?}", config.part_nodes));
-  // log(format!("pushing {:?} to paint_ui_offers", factory.available_parts_rhs_menu));
+  // log!("eh? paint_ui_offers {:?}", config.part_nodes);
+  // log!("pushing {:?} to paint_ui_offers", factory.available_parts_rhs_menu);
 
   factory.changed = true; // Store the initial map
 

@@ -14,6 +14,18 @@ pub fn log(s: String) {
   web_sys::console::log_2(&"(rust)".into(), &s.into());
 }
 
+// Simple wrapper for `log(format!())` into `log!()`
+#[macro_export]
+macro_rules! log {
+  ($fmt_str:literal) => {
+      log(format!($fmt_str))
+  };
+
+  ($fmt_str:literal, $($args:expr),*) => {
+      log(format!($fmt_str, $($args),*))
+  };
+}
+
 // pub fn error(s: String) {
   // 1.65.0
   // std::backtrace::Backtrace

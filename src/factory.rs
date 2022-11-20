@@ -20,6 +20,7 @@ use super::state::*;
 use super::supply::*;
 use super::truck::*;
 use super::utils::*;
+use super::log;
 
 pub struct Factory {
   pub ticks: u64,
@@ -76,7 +77,7 @@ pub fn create_factory(options: &mut Options, state: &mut State, config: &Config,
     finished_quotes: vec!(),
     day_corrupted: false,
   };
-  log(format!("available quotes: {:?}", factory.quotes));
+  log!("available quotes: {:?}", factory.quotes);
   auto_layout(options, state, config, &mut factory);
   auto_ins_outs(options, state, config, &mut factory);
   let prio = create_prio_list(options, config, &mut factory.floor);
@@ -136,8 +137,8 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
       CellKind::Belt => {} // Ignore
       CellKind::Demand => {
         for i in 0..factory.floor[coord].demand.received.len() {
-          if factory.floor.len() <= coord  { log(format!("coord was incorrect... {} {}", factory.floor.len(), coord)); }
-          if factory.floor[coord].demand.received.len() <= i { log(format!("i was incorrect... {} {}", factory.floor[coord].demand.received.len(), i)); }
+          if factory.floor.len() <= coord  { log!("coord was incorrect... {} {}", factory.floor.len(), coord); }
+          if factory.floor[coord].demand.received.len() <= i { log!("i was incorrect... {} {}", factory.floor[coord].demand.received.len(), i); }
           let (received_part_index, received_count) = factory.floor[coord].demand.received[i];
 
           // Update the quote counts (expensive search but these arrays should be tiny, sub-10)
@@ -182,7 +183,7 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
 }
 
 pub fn factory_finish_quote(factory: &mut Factory, quote_index: usize) {
-  log(format!("finished quote {} with {} of {}", factory.quotes[quote_index].name, factory.quotes[quote_index].current_count, factory.quotes[quote_index].target_count));
+  log!("finished quote {} with {} of {}", factory.quotes[quote_index].name, factory.quotes[quote_index].current_count, factory.quotes[quote_index].target_count);
   // This quote is finished so end the day // TODO: multiple parts one quote
   factory.finished_at = factory.ticks;
   factory.finished_quotes.push(quote_index); // Start visual candy for this quote in next frame
@@ -216,7 +217,7 @@ pub fn factory_reset_stats(options: &mut Options, state: &mut State, factory: &m
 
 pub fn factory_load_map(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, floor_str: String) {
   let floor = floor_from_str(options, state, config, floor_str);
-  log(format!("available quotes: {:?}", factory.quotes));
+  log!("available quotes: {:?}", factory.quotes);
   factory.floor = floor;
   auto_layout(options, state, config, factory);
   auto_ins_outs(options, state, config, factory);

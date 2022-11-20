@@ -12,6 +12,7 @@ use super::part::*;
 use super::port::*;
 use super::state::*;
 use super::utils::*;
+use super::log;
 
 fn serialize(options: &mut Options, state: &mut State, factory: &Factory, dump: bool) -> String {
   let mut out = vec!();
@@ -198,7 +199,7 @@ fn serialize_cb(options: &mut Options, state: &mut State, factory: &Factory, cb:
 pub fn print_floor_with_views(options: &mut Options, state: &mut State, factory: &Factory) {
   let lines = generate_floor_with_views(options, state, factory);
   for line in lines {
-    log(format!("{}", line));
+    log!("{}", line);
   }
 }
 pub fn generate_floor_with_views(options: &mut Options, state: &mut State, factory: &Factory) -> Vec<String>{
@@ -273,7 +274,7 @@ pub fn generate_floor_with_views(options: &mut Options, state: &mut State, facto
 pub fn print_floor_without_views(options: &mut Options, state: &mut State, factory: &Factory) {
   let lines = generate_floor_without_views(options, state, factory);
   for line in lines {
-    log(format!("{}", line));
+    log!("{}", line);
   }
 }
 pub fn snapshot(options: &mut Options, state: &mut State, factory: &Factory) -> String {
@@ -335,7 +336,7 @@ pub fn serialize2(options: &Options, state: &State, factory: &Factory, dump: boo
   for coord in 0..FLOOR_CELLS_WH {
 
     // if factory.floor[coord].kind == CellKind::Machine && factory.floor[coord].machine.main_coord == coord {
-    //   log(format!("machine size: {} {}", factory.floor[coord].machine.cell_width, factory.floor[coord].machine.cell_height));
+    //   log!("machine size: {} {}", factory.floor[coord].machine.cell_width, factory.floor[coord].machine.cell_height);
     // }
 
     let center_char = match factory.floor[coord].kind {
@@ -382,7 +383,7 @@ pub fn serialize2(options: &Options, state: &State, factory: &Factory, dump: boo
     let m_y = (coord / FLOOR_CELLS_W) - (main_coord / FLOOR_CELLS_W);
     let m_w = factory.floor[main_coord].machine.cell_width;
     let m_h = factory.floor[main_coord].machine.cell_height;
-    // if is_m { log(format!("{}x{}", m_w, m_h)); }
+    // if is_m { log!("{}x{}", m_w, m_h); }
     let m_dl = main_coord + FLOOR_CELLS_W * (m_h - 1);
     let m_dr = m_dl + m_w - 1;
 

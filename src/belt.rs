@@ -17,6 +17,7 @@ use super::port_auto::*;
 use super::supply::*;
 use super::state::*;
 use super::utils::*;
+use super::log;
 
 // Clone but not Copy... I don't want to accidentally clone cells when I want to move them
 #[derive(Debug, Clone)]
@@ -66,11 +67,11 @@ pub fn belt_new(config: &Config, meta: BeltMeta) -> Belt {
 fn tick_belt_take_from_belt(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, curr_coord: usize, curr_dir: Direction, from_coord: usize, from_dir: Direction) -> bool {
   // Take from neighbor belt if and only if the part is heading this way and at at least 100%
 
-  // if curr_coord == 52 { log(format!("tick_belt_one_inbound_dir {:?}", curr_dir)); }
+  // if curr_coord == 52 { log!("tick_belt_one_inbound_dir {:?}", curr_dir); }
 
   if factory.floor[from_coord].belt.part.kind == PARTKIND_NONE {
     // if curr_coord == 52 {
-    //   log(format!("        - no part, bailing"));
+    //   log!("        - no part, bailing");
     // }
     // Nothing to take here.
     return false;
@@ -78,7 +79,7 @@ fn tick_belt_take_from_belt(options: &mut Options, state: &mut State, config: &C
 
   if factory.floor[from_coord].belt.part_to != from_dir {
     // if curr_coord == 52 {
-    //   log(format!("        - part not going here, bailing"));
+    //   log!("        - part not going here, bailing");
     // }
     // Part is not moving into the same direction as from which we are looking right now, bail.
     return false;
@@ -86,18 +87,18 @@ fn tick_belt_take_from_belt(options: &mut Options, state: &mut State, config: &C
 
   if factory.floor[from_coord].belt.part_progress < factory.floor[from_coord].belt.speed {
     // if curr_coord == 52 {
-    //   log(format!("        - part not at 100%, bailing, {} < {}", factory.floor[from_coord].belt.part_progress, factory.floor[from_coord].belt.speed));
+    //   log!("        - part not at 100%, bailing, {} < {}", factory.floor[from_coord].belt.part_progress, factory.floor[from_coord].belt.speed);
     // }
     // Did not complete traversing the cell yet
     return false;
   }
 
   // if curr_coord == 52 {
-  //   log(format!("        - ok"));
+  //   log!("        - ok");
   // }
 
   // Okay, ready to move that part
-  if options.print_moves || options.print_moves_belt { log(format!("({}) Moved {:?} from belt @{} to belt @{}", factory.ticks, factory.floor[from_coord].belt.part, from_coord, curr_coord)); }
+  if options.print_moves || options.print_moves_belt { log!("({}) Moved {:?} from belt @{} to belt @{}", factory.ticks, factory.floor[from_coord].belt.part, from_coord, curr_coord); }
   belt_receive_part(factory, curr_coord, curr_dir, factory.floor[from_coord].belt.part.clone());
   belt_receive_part(factory, from_coord, from_dir, part_none(config));
 
@@ -118,7 +119,7 @@ fn tick_belt_take_from_supply(options: &mut Options, state: &mut State, factory:
     }
     else {
       if factory.floor[supply_coord].supply.part_progress >= factory.floor[supply_coord].supply.speed {
-        if options.print_moves || options.print_moves_supply { log(format!("({}) Supply {:?} from @{} to belt @{}", factory.ticks, factory.floor[supply_coord].supply.gives.kind, supply_coord, belt_coord)); }
+        if options.print_moves || options.print_moves_supply { log!("({}) Supply {:?} from @{} to belt @{}", factory.ticks, factory.floor[supply_coord].supply.gives.kind, supply_coord, belt_coord); }
         belt_receive_part(factory, belt_coord, factory.floor[supply_coord].supply.neighbor_incoming_dir, factory.floor[supply_coord].supply.gives.clone());
         supply_clear_part(factory, supply_coord);
         return true;
@@ -136,7 +137,7 @@ fn tick_belt_give_to_demand(options: &mut Options, state: &mut State, config: &C
   if factory.floor[belt_coord].belt.part.kind != PARTKIND_NONE {
     if factory.floor[belt_coord].belt.part_to == belt_dir_towards_demand {
       if factory.floor[belt_coord].belt.part_at > 0 && factory.floor[belt_coord].belt.part_progress >= factory.floor[belt_coord].belt.speed {
-        if options.print_moves || options.print_moves_demand { log(format!("({}) Demand takes {:?} at @{} from belt @{}. belt.part_at={:?}, belt_dir={:?}", factory.ticks, factory.floor[belt_coord].belt.part.kind, demand_coord, belt_coord, factory.floor[belt_coord].belt.part_to, belt_dir_towards_demand)); }
+        if options.print_moves || options.print_moves_demand { log!("({}) Demand takes {:?} at @{} from belt @{}. belt.part_at={:?}, belt_dir={:?}", factory.ticks, factory.floor[belt_coord].belt.part.kind, demand_coord, belt_coord, factory.floor[belt_coord].belt.part_to, belt_dir_towards_demand); }
         demand_receive_part(options, state, config, factory, demand_coord, belt_coord);
         belt_receive_part(factory, belt_coord, Direction::Up, part_none(config));
         return true;
@@ -151,7 +152,7 @@ fn tick_belt_one_outbound_dir(options: &mut Options, state: &mut State, config: 
     CellKind::Empty => {
       // if !state.test {
         panic!("empty cells should not be part of .outs vector")
-        // log(format!("TODO: empty cells should not be part of .outs vector"));
+        // log!("TODO: empty cells should not be part of .outs vector");
         // state.test = true;
       // }
       // return false;
@@ -176,13 +177,13 @@ fn tick_belt_one_outbound_dir(options: &mut Options, state: &mut State, config: 
 }
 
 fn tick_belt_one_inbound_dir(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, curr_coord: usize, curr_dir: Direction, from_coord: usize, from_dir: Direction) -> bool {
-  // if curr_coord == 52 { log(format!("tick_belt_one_inbound_dir {:?} {:?}", curr_dir, factory.floor[from_coord].kind)); }
+  // if curr_coord == 52 { log!("tick_belt_one_inbound_dir {:?} {:?}", curr_dir, factory.floor[from_coord].kind); }
 
   match factory.floor[from_coord].kind {
     CellKind::Empty => {
       // panic!("empty cells should not be part of .ins vector")
       if !state.test {
-        log(format!("TODO: empty cells should not be part of .ins vector"));
+        log!("TODO: empty cells should not be part of .ins vector");
         state.test = true;
       }
       return false;
@@ -328,7 +329,7 @@ pub fn add_two_ports_to_cell(factory: &Factory, coord: usize, dir1: Direction, d
 }
 
 pub fn belt_discover_ins_and_outs(factory: &mut Factory, coord: usize) {
-  // log(format!("belt_discover_ins_and_outs({}) {:?} {:?} {:?} {:?}", coord, factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l));
+  // log!("belt_discover_ins_and_outs({}) {:?} {:?} {:?} {:?}", coord, factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l);
 
   factory.floor[coord].ins.clear();
   factory.floor[coord].outs.clear();
@@ -360,7 +361,7 @@ pub fn belt_discover_ins_and_outs(factory: &mut Factory, coord: usize) {
 }
 
 pub fn connect_to_neighbor_dead_end_belts(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, coord: usize) {
-  // log(format!("connect_to_neighbor_dead_end_belts({})", coord));
+  // log!("connect_to_neighbor_dead_end_belts({})", coord);
 
   let from_machine = factory.floor[coord].kind == CellKind::Machine;
   // Connect if the neighbor belt is a dead end or has no ports at all

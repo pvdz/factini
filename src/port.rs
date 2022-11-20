@@ -16,6 +16,7 @@ use super::part::*;
 use super::state::*;
 use super::supply::*;
 use super::utils::*;
+use super::log;
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum Port {

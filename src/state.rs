@@ -20,6 +20,7 @@ use super::prio::*;
 use super::truck::*;
 use super::utils::*;
 use super::zone::*;
+use super::log;
 
 pub const UNDO_STACK_SIZE: usize = 100;
 

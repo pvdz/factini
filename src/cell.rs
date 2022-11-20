@@ -17,6 +17,7 @@ use super::port_auto::*;
 use super::supply::*;
 use super::state::*;
 use super::utils::*;
+use super::log;
 
 // Clone but not Copy... I don't want to accidentally clone cells when I want to move them
 #[derive(Debug, Clone)]
@@ -424,7 +425,7 @@ pub fn fix_belt_meta_floor(options: &Options, state: &State, floor: &mut [Cell; 
     floor[coord].port_l,
   );
   if floor[coord].belt.meta.btype != belt_type {
-    log(format!("    -- fix_belt_meta() modifying @{}! current {:?}, new {:?} ;; {:?} {:?} {:?} {:?}", coord, floor[coord].belt.meta.btype, belt_type, floor[coord].port_u, floor[coord].port_r, floor[coord].port_d, floor[coord].port_l));
+    log!("    -- fix_belt_meta() modifying @{}! current {:?}, new {:?} ;; {:?} {:?} {:?} {:?}", coord, floor[coord].belt.meta.btype, belt_type, floor[coord].port_u, floor[coord].port_r, floor[coord].port_d, floor[coord].port_l);
   }
   let belt_meta = belt_type_to_belt_meta(belt_type);
   floor[coord].belt.meta = belt_meta;
@@ -481,7 +482,7 @@ pub fn update_meta_to_belt_type_and_replace_cell(options: &Options, state: &Stat
 
 pub fn connect_belt_to_existing_neighbor_cells(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord: usize) {
   // Note: this still requires factory prio update but it should take care of all the other things
-  log(format!("connect_belt_to_existing_neighbor_cells({})", coord));
+  log!("connect_belt_to_existing_neighbor_cells({})", coord);
 
   if let Some(ocoord) = factory.floor[coord].coord_u {
     match factory.floor[ocoord].kind {
@@ -725,7 +726,7 @@ pub fn cell_set_port_l_to(options: &Options, state: &State, config: &Config, fac
 pub fn cell_connect_if_possible(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord_from: usize, coord_to: usize, dx: i8, dy: i8) {
   // Note: this still requires factory prio update but it should take care of all the other things
 
-  log(format!("cell_connect_if_possible({} <-> {}) {} {}", coord_from, coord_to, dx, dy));
+  log!("cell_connect_if_possible({} <-> {}) {} {}", coord_from, coord_to, dx, dy);
 
   // The dx and dy values should reflect the coords' deltas. We assume the cells _are_ adjacent and belts or machines.
   assert!((dx == 0) != (dy == 0), "one and only one of dx or dy is zero");
@@ -740,7 +741,7 @@ pub fn cell_connect_if_possible(options: &Options, state: &State, config: &Confi
 
   let from_kind = factory.floor[coord_from].kind;
   let to_kind = factory.floor[coord_to].kind;
-  log(format!("  - to: {:?}, from: {:?}", to_kind, from_kind));
+  log!("  - to: {:?}, from: {:?}", to_kind, from_kind);
 
   // Doing a match is going to complicate the code a lot so it'll just be if-elses to apply the rules
 
@@ -789,7 +790,7 @@ pub fn cell_connect_if_possible(options: &Options, state: &State, config: &Confi
   }
   else if to_kind == CellKind::Empty || from_kind == CellKind::Empty {
     // Ignore :shrug:
-    log(format!("connecting to empty? nope"));
+    log!("connecting to empty? nope");
     match ( dx, dy ) {
       ( 0 , -1 ) => {
         cell_set_port_u_to(options, state, config, factory, coord_from, Port::None, coord_to);
@@ -841,7 +842,7 @@ pub fn cell_connect_if_possible(options: &Options, state: &State, config: &Confi
   }
 
   // Only rediscover for belts and machines
-  log(format!("  - rediscover .ins and .outs..."));
+  log!("  - rediscover .ins and .outs...");
   if from_kind == CellKind::Belt {
     belt_discover_ins_and_outs(factory, get_main_coord(factory, coord_from));
   } else if from_kind == CellKind::Machine {
@@ -853,10 +854,10 @@ pub fn cell_connect_if_possible(options: &Options, state: &State, config: &Confi
     machine_discover_ins_and_outs(factory, get_main_coord(factory, coord_to));
   }
 
-  log(format!("    - .ins[@{}]: {:?}", coord_from, factory.floor[get_main_coord(factory, coord_from)].ins.iter().map(|(dir, c, _, _)| ( dir, c ) ).collect::<Vec<(&Direction, &usize)>>()));
-  log(format!("    - .outs[@{}]: {:?}", coord_from, factory.floor[get_main_coord(factory, coord_from)].outs.iter().map(|(dir, c, _, _)| ( dir, c ) ).collect::<Vec<(&Direction, &usize)>>()));
-  log(format!("    - .ins[@{}]: {:?}", coord_to, factory.floor[get_main_coord(factory, coord_to)].ins.iter().map(|(dir, c, _, _)| ( dir, c ) ).collect::<Vec<(&Direction, &usize)>>()));
-  log(format!("    - .outs[@{}]: {:?}", coord_to, factory.floor[get_main_coord(factory, coord_to)].outs.iter().map(|(dir, c, _, _)| ( dir, c ) ).collect::<Vec<(&Direction, &usize)>>()));
+  log!("    - .ins[@{}]: {:?}", coord_from, factory.floor[get_main_coord(factory, coord_from)].ins.iter().map(|(dir, c, _, _)| ( dir, c ) ).collect::<Vec<(&Direction, &usize)>>());
+  log!("    - .outs[@{}]: {:?}", coord_from, factory.floor[get_main_coord(factory, coord_from)].outs.iter().map(|(dir, c, _, _)| ( dir, c ) ).collect::<Vec<(&Direction, &usize)>>());
+  log!("    - .ins[@{}]: {:?}", coord_to, factory.floor[get_main_coord(factory, coord_to)].ins.iter().map(|(dir, c, _, _)| ( dir, c ) ).collect::<Vec<(&Direction, &usize)>>());
+  log!("    - .outs[@{}]: {:?}", coord_to, factory.floor[get_main_coord(factory, coord_to)].outs.iter().map(|(dir, c, _, _)| ( dir, c ) ).collect::<Vec<(&Direction, &usize)>>());
 }
 
 fn get_main_coord(factory: &Factory, coord: usize) -> usize {
@@ -932,7 +933,7 @@ pub fn cell_ports_to_str(cell: &super::cell::Cell) -> String {
 }
 
 pub fn cell_neighbors_to_auto_belt_meta(up: CellKind, right: CellKind, down: CellKind, left: CellKind) -> BeltMeta {
-  // log(format!("cell_neighbors_to_auto_belt_meta({:?}, {:?}, {:?}, {:?})", up, right, down, left));
+  // log!("cell_neighbors_to_auto_belt_meta({:?}, {:?}, {:?}, {:?})", up, right, down, left);
   return match (up, right, down, left) {
     // Empty
     (CellKind::Empty, CellKind::Empty, CellKind::Empty, CellKind::Empty) =>

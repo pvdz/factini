@@ -8,6 +8,7 @@ use super::options::*;
 use super::part::*;
 use super::state::*;
 use super::utils::*;
+use super::log;
 
 // Clone but not Copy... I don't want to accidentally clone cells when I want to move them
 #[derive(Debug, Clone)]

@@ -15,6 +15,7 @@ use super::port_auto::*;
 use super::supply::*;
 use super::state::*;
 use super::utils::*;
+use super::log;
 
 // Clone but not Copy... I don't want to accidentally clone cells when I want to move them
 #[derive(Debug, Clone)]

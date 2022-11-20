@@ -10,6 +10,7 @@ use super::port::*;
 use super::port_auto::*;
 use super::state::*;
 use super::utils::*;
+use super::log;
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum MachineKind {
@@ -94,9 +95,9 @@ pub fn machine_new(options: &mut Options, state: &mut State, config: &Config, ki
     haves.push(part_none(config));
   }
 
-  // log(format!("machine_new(), wants: {:?}", wants.iter().map(|p| p.kind)));
+  // log!("machine_new(), wants: {:?}", wants.iter().map(|p| p.kind));
   let output = machine_discover_output_wants(options, state, config, &wants, main_coord);
-  // log(format!("  - machine_new(), yields: {:?}", config.nodes[output].kind));
+  // log!("  - machine_new(), yields: {:?}", config.nodes[output].kind);
 
   assert_eq!(wants.len(), haves.len(), "machines should start with same len wants as haves");
 
@@ -133,7 +134,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, f
 
   // Finished
   if factory.floor[main_coord].machine.start_at > 0 && factory.ticks - factory.floor[main_coord].machine.start_at >= factory.floor[main_coord].machine.speed {
-    // log(format!("part {} is finished", factory.floor[main_coord].machine.output_want.icon));
+    // log!("part {} is finished", factory.floor[main_coord].machine.output_want.icon);
     // Finished! Find an available outlet.
     let mut handed_off = false;
     let outlen = factory.floor[main_coord].outs.len();
@@ -149,7 +150,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, f
         if factory.floor[to_coord].kind == CellKind::Belt && factory.floor[to_coord].belt.part.kind == PARTKIND_NONE {
           // The neighbor is a belt that is empty
           if options.print_moves || options.print_moves_machine {
-            log(format!("({}) Machine @{} (sub @{}) finished part {:?}! Moving to belt @{}", factory.ticks, main_coord, sub_coord, factory.floor[main_coord].machine.output_want.kind, to_coord));
+            log!("({}) Machine @{} (sub @{}) finished part {:?}! Moving to belt @{}", factory.ticks, main_coord, sub_coord, factory.floor[main_coord].machine.output_want.kind, to_coord);
           }
 
           belt_receive_part(factory, to_coord, to_dir, factory.floor[main_coord].machine.output_want.clone());
@@ -227,7 +228,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, f
                         factory.day_corrupted = true;
                       }
                       if options.print_moves || options.print_moves_machine {
-                        log(format!("({}) Machine @{} (sub @{}) accepting part {:?} as input {} from belt @{}, had {:?}", factory.ticks, main_coord, sub_coord, belt_part, i, from_coord, have));
+                        log!("({}) Machine @{} (sub @{}) accepting part {:?} as input {} from belt @{}, had {:?}", factory.ticks, main_coord, sub_coord, belt_part, i, from_coord, have);
                       }
                       machine_receive_part(factory, main_coord, i, part_from_part_index(config, want));
                       belt_receive_part(factory, from_coord, incoming_dir, part_none(config));
@@ -241,7 +242,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, f
 
             if trash {
               if options.print_moves || options.print_moves_machine {
-                log(format!("({}) Machine @{} (sub @{}) trashing part {:?} from belt @{}", factory.ticks, main_coord, sub_coord, belt_part, from_coord));
+                log!("({}) Machine @{} (sub @{}) trashing part {:?} from belt @{}", factory.ticks, main_coord, sub_coord, belt_part, from_coord);
               }
               let part = factory.floor[from_coord].belt.part.clone();
               machine_update_oldest_list(factory, main_coord, &part);
@@ -270,7 +271,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, f
 
     if ready {
       // Ready to produce a new part
-      if options.print_moves || options.print_moves_machine { log(format!("({}) Machine @{} started to create new part", factory.ticks, main_coord)); }
+      if options.print_moves || options.print_moves_machine { log!("({}) Machine @{} started to create new part", factory.ticks, main_coord); }
       for i in 0..factory.floor[main_coord].machine.haves.len() {
         factory.floor[main_coord].machine.haves[i] = part_none(config);
       }
@@ -364,12 +365,12 @@ pub fn machine_change_want_kind(options: &Options, state: &State, config: &Confi
   factory.floor[main_coord].machine.wants[index] = part_from_part_index(config, kind);
 
   let new_out = machine_discover_output_unmut(options, state, config, factory, main_coord, index, kind);
-  log(format!("machine_change_want() -> {:?}", new_out));
+  log!("machine_change_want() -> {:?}", new_out);
   factory.floor[main_coord].machine.output_want = part_from_part_index(config, new_out);
   factory.changed = true;
 }
 pub fn machine_discover_output_unmut(options: &Options, state: &State, config: &Config, factory: &Factory, main_coord: usize, index: usize, kind: PartKind) -> PartKind {
-  log(format!("machine_discover_output_unmut()"));
+  log!("machine_discover_output_unmut()");
   // Work around slicing muts. why this does work is beyond me rn.
   return machine_discover_output_floor(options, state, config, &factory.floor, main_coord);
 }
@@ -385,17 +386,17 @@ pub fn machine_discover_output_floor(options: &Options, state: &State, config: &
   return machine_discover_output_wants(options, state, config, &floor[main_coord].machine.wants, main_coord);
 }
 pub fn machine_discover_output_wants(options: &Options, state: &State, config: &Config, wants: &Vec<Part>, main_coord: usize) -> PartKind {
-  // log(format!("machine_discover_output_wants({}): {:?}", main_coord, wants));
+  // log!("machine_discover_output_wants({}): {:?}", main_coord, wants);
   let mut ordered_icons = wants.iter().map(|part| part.icon).collect::<Vec<char>>();
   ordered_icons.sort();
   let pattern_str_untrimmed = ordered_icons.iter().collect::<String>().to_string();
   let pattern_str = str::replace(pattern_str_untrimmed.trim(), " ", "");
   if pattern_str == "" {
-    // log(format!("  Machine has no inputs so it has no output"));
+    // log!("  Machine has no inputs so it has no output");
     return PARTKIND_NONE;
   }
   let target_kind = *config.node_pattern_to_index.get(pattern_str.as_str()).or(Some(&PARTKIND_NONE)).unwrap();
-  // log(format!("  Looking in node_pattern_to_index for: `{}` --> resulting target kind: {} -> {:?}", pattern_str, target_kind, config.nodes[target_kind]));
+  // log!("  Looking in node_pattern_to_index for: `{}` --> resulting target kind: {} -> {:?}", pattern_str, target_kind, config.nodes[target_kind]);
   assert!(config.nodes[target_kind].kind == ConfigNodeKind::Part, "the pattern should resolve to a part node...");
   return target_kind;
 }

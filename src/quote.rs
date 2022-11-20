@@ -8,6 +8,7 @@ use futures::TryStreamExt;
 use super::config::*;
 use super::part::*;
 use super::utils::*;
+use super::log;
 
 // A Quote represents a single requirement for a quest.
 #[derive(Debug)]
@@ -39,19 +40,19 @@ pub fn quest_available(config: &Config, quest_index: usize) -> bool {
 
 pub fn quotes_get_available(config: &Config, ticks: u64) -> Vec<Quote> {
   // Find all config nodes that are available
-  log(format!("quotes_get_available()"));
+  log!("quotes_get_available()");
   return config.quest_nodes.iter()
     .filter(|&&quest_index| {
       let b = config.nodes[quest_index].current_state == ConfigNodeState::Available || (config.nodes[quest_index].current_state == ConfigNodeState::Waiting && quest_available(config, quest_index));
-      log(format!("- finished? {}: {}, state = {:?}", config.nodes[quest_index].name, b, config.nodes[quest_index].current_state));
+      log!("- finished? {}: {}, state = {:?}", config.nodes[quest_index].name, b, config.nodes[quest_index].current_state);
       // Keep quests which have finished, where all parent unlocks have unlocked
       return b;
     })
     .flat_map(|&quest_index| {
-      log(format!("- generating quotes for {}: wants {:?} ({:?})", config.nodes[quest_index].name, config.nodes[quest_index].production_target_by_name, config.nodes[quest_index].production_target_by_index));
+      log!("- generating quotes for {}: wants {:?} ({:?})", config.nodes[quest_index].name, config.nodes[quest_index].production_target_by_name, config.nodes[quest_index].production_target_by_index);
       // Quests can require multiple parts before completion
       let x = quote_create(config, quest_index, ticks);
-      log(format!("-> {:?}", x));
+      log!("-> {:?}", x);
       return x;
     }).collect();
 }

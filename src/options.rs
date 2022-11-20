@@ -1,4 +1,5 @@
 use super::utils::*;
+use super::log;
 
 // Design is for the default speed to run 10k ticks per real world second
 pub const ONE_MS: u64 = 10;
@@ -125,7 +126,7 @@ fn parse_bool(value: &str, key: &str, strict: bool, def: bool) -> bool {
       if strict {
         panic!("Invalid value for options.{}; expecting a boolean, received `{}`", key, value)
       } else {
-        log(format!("Invalid value for options.{}; expecting a boolean, received `{}`", key, value));
+        log!("Invalid value for options.{}; expecting a boolean, received `{}`", key, value);
         def
       }
     },
@@ -158,7 +159,7 @@ fn parse_string(value: &str, key: &str, strict: bool, def: &String) -> String {
       if strict {
         panic!("Missing double quote at end of value; options.{}, value = `{}`", key, value);
       } else {
-        log(format!("Missing double quote at end of value; options.{}, value = `{}`", key, value));
+        log!("Missing double quote at end of value; options.{}, value = `{}`", key, value);
         return def.clone();
       }
     }
@@ -168,7 +169,7 @@ fn parse_string(value: &str, key: &str, strict: bool, def: &String) -> String {
       if strict {
         panic!("Missing single quote at end of value; options.{}, value = `{}`", key, value);
       } else {
-        log(format!("Missing single quote at end of value; options.{}, value = `{}`", key, value));
+        log!("Missing single quote at end of value; options.{}, value = `{}`", key, value);
         return def.clone();
       }
     }
@@ -177,7 +178,7 @@ fn parse_string(value: &str, key: &str, strict: bool, def: &String) -> String {
     if strict {
       panic!("Unable to parse string for options.{}; value was `{}`", key, value);
     } else {
-      log(format!("Unable to parse string for options.{}; value was `{}`", key, value));
+      log!("Unable to parse string for options.{}; value was `{}`", key, value);
       return def.clone();
     }
   }
@@ -186,7 +187,7 @@ fn parse_string(value: &str, key: &str, strict: bool, def: &String) -> String {
 }
 
 pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
-  log(format!("parse_options_into()"));
+  log!("parse_options_into()");
 
   let trimmed = input.trim().clone().split('\n');
   trimmed.for_each(|line| {
@@ -198,7 +199,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
         Some((name, value)) => {
           let name = name.trim();
           let value = value.trim();
-          log(format!("- updating options.{} to `{}`", name, value));
+          log!("- updating options.{} to `{}`", name, value);
 
           match name {
             "print_choices" => options.print_choices = parse_bool(value, name, strict, options.print_choices),
@@ -242,7 +243,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "dbg_clickable_quotes" => options.dbg_clickable_quotes = parse_bool(value, name, strict, options.dbg_clickable_quotes),
             "test" => options.test = parse_u64(value, name, strict, options.test),
             _ => {
-              log(format!("  - ignoring `{}` because it is an unknown option or because it needs to be added to the options parser", name));
+              log!("  - ignoring `{}` because it is an unknown option or because it needs to be added to the options parser", name);
             }
           }
         }
