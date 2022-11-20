@@ -40,6 +40,7 @@
 // - should certain animation speeds scale with factory speed?
 // - click edge to add supplier. click supplier/demander to toggle.
 
+// prepare for xmas.
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
