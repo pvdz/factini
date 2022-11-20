@@ -8,7 +8,6 @@
 // - small problem with tick_belt_take_from_belt when a belt crossing is next to a supply and another belt; it will ignore the other belt as input. because the belt will not let a part proceed to the next port unless it's free and the processing order will process the neighbor belt first and then the crossing so by the time it's free, the part will still be at 50% whereas the supply part is always ready. fix is probably to make supply parts take a tick to be ready, or whatever.
 //   - affects machine speed so should be fixed
 // - machines
-//   - change machine recipes to be like margo suggested; ditch form and just use counts in arbitrary order
 //   - investigate different machine speeds at different configs
 //   - allow smaller machines still?
 //   - throughput problem. part has to wait at 50% for next part to clear, causing delays. if there's enough outputs there's always room and no such delay. if supply-to-machine is one belt there's also no queueing so it's faster
@@ -21,7 +20,6 @@
 //   - first/last part of belt preview while dragging should be fixed, or be hardcoded dead ends
 //     - first part is always "up". last piece is always "invalid". should just mimic the final state by the same abstracted func.
 //   - a part that reaches 100% of a cell but can't be moved to the side should not block the next part from entering the cell until all ports are taken like that. the part can sit in the port and a belt can only take parts if it has an available port.
-//   - prepare belt animations?
 // - make sun move across the day bar? in a sort of rainbow path?
 // - what's up with these assertion traps :(
 //   - `let (received_part_index, received_count) = factory.floor[coord].demand.received[i];` threw oob (1 while len=0). i thin it's somehow related to dropping a demander on the edge
@@ -39,6 +37,9 @@
 // - touchmove may need to put the pointer above the finger?
 // - need to figure out how to create bigger buttons
 // - bouncers are taking bouncer index as offsets rather than visible offsets. the last bouncer animations are completely broken
+// - should certain animation speeds scale with factory speed?
+// - click edge to add supplier. click supplier/demander to toggle.
+
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -747,7 +748,8 @@ pub fn start() -> Result<(), JsValue> {
           context.stroke_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, FLOOR_CELLS_W as f64 * CELL_W, FLOOR_CELLS_H as f64 * CELL_H);
         }
         // Put a semi-transparent layer over the inner floor part to make it darker
-        context.set_fill_style(&"#00000077".into());
+        // context.set_fill_style(&"#00000077".into());
+        context.set_fill_style(&"#ffcf8e".into());
         context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y + CELL_H, (FLOOR_CELLS_W - 2) as f64 * CELL_W, (FLOOR_CELLS_H - 2) as f64 * CELL_H);
 
         paint_zone_hovers(&options, &state, &context, &mouse_state);

@@ -721,20 +721,51 @@ This is the edge area where suppliers and demanders can be placed
 - w: 160
 - h: 160
 
-
 # Belt_L_
-- file: ./img/belt/l_.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/l_frames2.png
+  - y: 0
+  - x: 0
+  - w: 160
+  - h: 160
+- frame: 2
+  - y: 160
+- frame: 3
+  - y: 320
+- frame: 4
+  - y: 480
+- frame: 5
+  - y: 640
+- frame: 6
+  - y: 800
+- frame: 7
+  - y: 960
+- frame: 8
+  - y: 1120
 
 # Belt__L
-- file: ./img/belt/_l.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 6
+- frame: 1
+  - file: ./img/belt/_l_frames2.png
+  - y: 0
+  - x: 0
+  - w: 160
+  - h: 160
+- frame: 2
+  - y: 160
+- frame: 3
+  - y: 320
+- frame: 4
+  - y: 480
+- frame: 5
+  - y: 640
+- frame: 6
+  - y: 800
+- frame: 7
+  - y: 960
+- frame: 8
+  - y: 1120
 
 # Belt___L
 - file: ./img/belt/__l.png
@@ -744,11 +775,27 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt_D_
-- file: ./img/belt/d_.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/d_frames2.png
+  - y: 0
+  - x: 0
+  - w: 160
+  - h: 160
+- frame: 2
+  - x: 160
+- frame: 3
+  - x: 320
+- frame: 4
+  - x: 480
+- frame: 5
+  - x: 640
+- frame: 6
+  - x: 800
+- frame: 7
+  - x: 960
+- frame: 8
+  - x: 1120
 
 # Belt_DL_
 - file: ./img/belt/dl_.png
@@ -788,11 +835,27 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt__D
-- file: ./img/belt/_d.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 6
+- frame: 1
+  - file: ./img/belt/_d_frames2.png
+  - y: 0
+  - x: 0
+  - w: 160
+  - h: 160
+- frame: 2
+  - x: 160
+- frame: 3
+  - x: 320
+- frame: 4
+  - x: 480
+- frame: 5
+  - x: 640
+- frame: 6
+  - x: 800
+- frame: 7
+  - x: 960
+- frame: 8
+  - x: 1120
 
 # Belt_L_D
 - frame_offset: 0
@@ -860,11 +923,27 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt_R_
-- file: ./img/belt/r_.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/r_frames2.png
+  - y: 0
+  - x: 0
+  - w: 160
+  - h: 160
+- frame: 2
+  - y: 160
+- frame: 3
+  - y: 320
+- frame: 4
+  - y: 480
+- frame: 5
+  - y: 640
+- frame: 6
+  - y: 800
+- frame: 7
+  - y: 960
+- frame: 8
+  - y: 1120
 
 # Belt_LR_
 - file: ./img/belt/lr_.png
@@ -911,18 +990,50 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt_DLR_
-- file: ./img/belt/dlr_.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/dlr_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt_DR_L
-- file: ./img/belt/dr_l.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/dr_l_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt_DR__L
 - file: ./img/belt/dr__l.png
@@ -955,18 +1066,51 @@ This is the edge area where suppliers and demanders can be placed
   - x: 1120
 
 # Belt_LR_D
-- file: ./img/belt/lr_d.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/lr_d_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt_R_DL
-- file: ./img/belt/r_dl.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/r_dl_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
+
 
 # Belt_R_D_L
 - file: ./img/belt/r_d_l.png
@@ -1004,11 +1148,27 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt__R
-- file: ./img/belt/_r.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 6
+- frame: 1
+  - file: ./img/belt/_r_frames2.png
+  - y: 0
+  - x: 0
+  - w: 160
+  - h: 160
+- frame: 2
+  - y: 160
+- frame: 3
+  - y: 320
+- frame: 4
+  - y: 480
+- frame: 5
+  - y: 640
+- frame: 6
+  - y: 800
+- frame: 7
+  - y: 960
+- frame: 8
+  - y: 1120
 
 # Belt_L_R
 - frame_offset: 0
@@ -1071,18 +1231,50 @@ This is the edge area where suppliers and demanders can be placed
   - y: 1120
 
 # Belt_DL_R
-- file: ./img/belt/dl_r.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/dl_r_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt_D_LR
-- file: ./img/belt/d_lr.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/d_lr_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt_D_R_L
 - file: ./img/belt/d_r_l.png
@@ -1099,18 +1291,50 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt_L_DR
-- file: ./img/belt/l_dr.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/l_dr_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt__DLR
-- file: ./img/belt/_dlr.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/_dlr_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt__DR_L
 - file: ./img/belt/_dr_l.png
@@ -1260,11 +1484,27 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt_U_
-- file: ./img/belt/u_.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/u_frames2.png
+  - y: 0
+  - x: 0
+  - w: 160
+  - h: 160
+- frame: 2
+  - x: 160
+- frame: 3
+  - x: 320
+- frame: 4
+  - x: 480
+- frame: 5
+  - x: 640
+- frame: 6
+  - x: 800
+- frame: 7
+  - x: 960
+- frame: 8
+  - x: 1120
 
 # Belt_LU_
 - file: ./img/belt/lu_.png
@@ -1311,18 +1551,50 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt_DLU_
-- file: ./img/belt/dlu_.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/dlu_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - y: 32
+- frame: 3
+  - y: 64
+- frame: 4
+  - y: 96
+- frame: 5
+  - y: 128
+- frame: 6
+  - y: 160
+- frame: 7
+  - y: 192
+- frame: 8
+  - y: 224
 
 # Belt_DU_L
-- file: ./img/belt/du_l.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/du_l_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - y: 32
+- frame: 3
+  - y: 64
+- frame: 4
+  - y: 96
+- frame: 5
+  - y: 128
+- frame: 6
+  - y: 160
+- frame: 7
+  - y: 192
+- frame: 8
+  - y: 224
 
 # Belt_DU__L
 - file: ./img/belt/du__l.png
@@ -1355,18 +1627,50 @@ This is the edge area where suppliers and demanders can be placed
   - x: 1120
 
 # Belt_LU_D
-- file: ./img/belt/lu_d.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/lu_d_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - y: 32
+- frame: 3
+  - y: 64
+- frame: 4
+  - y: 96
+- frame: 5
+  - y: 128
+- frame: 6
+  - y: 160
+- frame: 7
+  - y: 192
+- frame: 8
+  - y: 224
 
 # Belt_U_DL
-- file: ./img/belt/u_dl.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/u_dl_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - y: 32
+- frame: 3
+  - y: 64
+- frame: 4
+  - y: 96
+- frame: 5
+  - y: 128
+- frame: 6
+  - y: 160
+- frame: 7
+  - y: 192
+- frame: 8
+  - y: 224
 
 # Belt_U_D_L
 - file: ./img/belt/u_d_l.png
@@ -1411,18 +1715,50 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt_LRU_
-- file: ./img/belt/lru_.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/lru_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt_RU_L
-- file: ./img/belt/ru_l.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/ru_l_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt_RU__L
 - file: ./img/belt/ru__l.png
@@ -1432,25 +1768,73 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt_DRU_
-- file: ./img/belt/dru_.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/dru_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - y: 32
+- frame: 3
+  - y: 64
+- frame: 4
+  - y: 96
+- frame: 5
+  - y: 128
+- frame: 6
+  - y: 160
+- frame: 7
+  - y: 192
+- frame: 8
+  - y: 224
 
 # Belt_DLRU_
-- file: ./img/belt/dlru_.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/dlru_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt_DRU_L
-- file: ./img/belt/dru_l.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/dru_l_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - y: 32
+- frame: 3
+  - y: 64
+- frame: 4
+  - y: 96
+- frame: 5
+  - y: 128
+- frame: 6
+  - y: 160
+- frame: 7
+  - y: 192
+- frame: 8
+  - y: 224
 
 # Belt_DRU__L
 - file: ./img/belt/dru__l.png
@@ -1460,25 +1844,73 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt_RU_D
-- file: ./img/belt/ru_d.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/ru_d_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - y: 32
+- frame: 3
+  - y: 64
+- frame: 4
+  - y: 96
+- frame: 5
+  - y: 128
+- frame: 6
+  - y: 160
+- frame: 7
+  - y: 192
+- frame: 8
+  - y: 224
 
 # Belt_LRU_D
-- file: ./img/belt/lru_d.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/lru_d_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt_RU_DL
-- file: ./img/belt/ru_dl.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/ru_dl_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt_RU_D_L
 - file: ./img/belt/ru_d_l.png
@@ -1540,18 +1972,50 @@ This is the edge area where suppliers and demanders can be placed
 
 
 # Belt_LU_R
-- file: ./img/belt/lu_r.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/lu_r_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt_U_LR
-- file: ./img/belt/u_lr.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/u_lr_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt_U_R_L
 - file: ./img/belt/u_r_l.png
@@ -1561,25 +2025,73 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt_DU_R
-- file: ./img/belt/du_r.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/du_r_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - y: 32
+- frame: 3
+  - y: 64
+- frame: 4
+  - y: 96
+- frame: 5
+  - y: 128
+- frame: 6
+  - y: 160
+- frame: 7
+  - y: 192
+- frame: 8
+  - y: 224
 
 # Belt_DLU_R
-- file: ./img/belt/dlu_r.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/dlu_r_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - y: 32
+- frame: 3
+  - y: 64
+- frame: 4
+  - y: 96
+- frame: 5
+  - y: 128
+- frame: 6
+  - y: 160
+- frame: 7
+  - y: 192
+- frame: 8
+  - y: 224
 
 # Belt_DU_LR
-- file: ./img/belt/du_lr.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/du_lr_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - y: 32
+- frame: 3
+  - y: 64
+- frame: 4
+  - y: 96
+- frame: 5
+  - y: 128
+- frame: 6
+  - y: 160
+- frame: 7
+  - y: 192
+- frame: 8
+  - y: 224
 
 # Belt_DU_R_L
 - file: ./img/belt/du_r_l.png
@@ -1589,25 +2101,73 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt_U_DR
-- file: ./img/belt/u_dr.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/u_dr_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - y: 32
+- frame: 3
+  - y: 64
+- frame: 4
+  - y: 96
+- frame: 5
+  - y: 128
+- frame: 6
+  - y: 160
+- frame: 7
+  - y: 192
+- frame: 8
+  - y: 224
 
 # Belt_LU_DR
-- file: ./img/belt/lu_dr.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/lu_dr_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt_U_DLR
-- file: ./img/belt/u_dlr.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/u_dlr_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt_U_DR_L
 - file: ./img/belt/u_dr_l.png
@@ -1757,11 +2317,27 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt__U
-- file: ./img/belt/_u.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 6
+- frame: 1
+  - file: ./img/belt/_u_frames2.png
+  - y: 0
+  - x: 0
+  - w: 160
+  - h: 160
+- frame: 2
+  - x: 160
+- frame: 3
+  - x: 320
+- frame: 4
+  - x: 480
+- frame: 5
+  - x: 640
+- frame: 6
+  - x: 800
+- frame: 7
+  - x: 960
+- frame: 8
+  - x: 1120
 
 # Belt_L_U
 - frame_offset: 0
@@ -1824,18 +2400,50 @@ This is the edge area where suppliers and demanders can be placed
   - x: 1120
 
 # Belt_DL_U
-- file: ./img/belt/dl_u.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/dl_u_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - y: 32
+- frame: 3
+  - y: 64
+- frame: 4
+  - y: 96
+- frame: 5
+  - y: 128
+- frame: 6
+  - y: 160
+- frame: 7
+  - y: 192
+- frame: 8
+  - y: 224
 
 # Belt_D_LU
-- file: ./img/belt/d_lu.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/d_lu_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - y: 32
+- frame: 3
+  - y: 64
+- frame: 4
+  - y: 96
+- frame: 5
+  - y: 128
+- frame: 6
+  - y: 160
+- frame: 7
+  - y: 192
+- frame: 8
+  - y: 224
 
 # Belt_D_U_L
 - file: ./img/belt/d_u_l.png
@@ -1852,18 +2460,50 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt_L_DU
-- file: ./img/belt/l_du.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/l_du_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - y: 32
+- frame: 3
+  - y: 64
+- frame: 4
+  - y: 96
+- frame: 5
+  - y: 128
+- frame: 6
+  - y: 160
+- frame: 7
+  - y: 192
+- frame: 8
+  - y: 224
 
 # Belt__DLU
-- file: ./img/belt/_dlu.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/_dlu_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - y: 32
+- frame: 3
+  - y: 64
+- frame: 4
+  - y: 96
+- frame: 5
+  - y: 128
+- frame: 6
+  - y: 160
+- frame: 7
+  - y: 192
+- frame: 8
+  - y: 224
 
 # Belt__DU_L
 - file: ./img/belt/_du_l.png
@@ -1924,18 +2564,50 @@ This is the edge area where suppliers and demanders can be placed
   - x: 1120
 
 # Belt_LR_U
-- file: ./img/belt/lr_u.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/lr_u_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt_R_LU
-- file: ./img/belt/r_lu.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/r_lu_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt_R_U_L
 - file: ./img/belt/r_u_l.png
@@ -1945,25 +2617,73 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt_DR_U
-- file: ./img/belt/dr_u.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/dr_u_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - y: 32
+- frame: 3
+  - y: 64
+- frame: 4
+  - y: 96
+- frame: 5
+  - y: 128
+- frame: 6
+  - y: 160
+- frame: 7
+  - y: 192
+- frame: 8
+  - y: 224
 
 # Belt_DLR_U
-- file: ./img/belt/dlr_u.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/dlr_u_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt_DR_LU
-- file: ./img/belt/dr_lu.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/dr_lu_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt_DR_U_L
 - file: ./img/belt/dr_u_l.png
@@ -1973,25 +2693,73 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt_R_DU
-- file: ./img/belt/r_du.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/r_du_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - y: 32
+- frame: 3
+  - y: 64
+- frame: 4
+  - y: 96
+- frame: 5
+  - y: 128
+- frame: 6
+  - y: 160
+- frame: 7
+  - y: 192
+- frame: 8
+  - y: 224
 
 # Belt_LR_DU
-- file: ./img/belt/lr_du.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/lr_du_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt_R_DLU
-- file: ./img/belt/r_dlu.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/r_dlu_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt_R_DU_L
 - file: ./img/belt/r_du_l.png
@@ -2036,46 +2804,126 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt_L_RU
-- file: ./img/belt/l_ru.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/l_ru_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt__LRU
-- file: ./img/belt/_lru.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/_lru_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt__RU_L
 - file: ./img/belt/_ru_l.png
 - x: 0
-- y: 0
+- y: 0 
 - w: 160
 - h: 160
 
 # Belt_D_RU
-- file: ./img/belt/d_ru.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/d_ru_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - y: 32
+- frame: 3
+  - y: 64
+- frame: 4
+  - y: 96
+- frame: 5
+  - y: 128
+- frame: 6
+  - y: 160
+- frame: 7
+  - y: 192
+- frame: 8
+  - y: 224
 
 # Belt_DL_RU
-- file: ./img/belt/dl_ru.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/dl_ru_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - y: 32
+- frame: 3
+  - y: 64
+- frame: 4
+  - y: 96
+- frame: 5
+  - y: 128
+- frame: 6
+  - y: 160
+- frame: 7
+  - y: 192
+- frame: 8
+  - y: 224
 
 # Belt_D_LRU
-- file: ./img/belt/d_lru.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/d_lru_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt_D_RU_L
 - file: ./img/belt/d_ru_l.png
@@ -2085,28 +2933,76 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt__DRU
-- file: ./img/belt/_dru.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
-
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/_dru_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - y: 32
+- frame: 3
+  - y: 64
+- frame: 4
+  - y: 96
+- frame: 5
+  - y: 128
+- frame: 6
+  - y: 160
+- frame: 7
+  - y: 192
+- frame: 8
+  - y: 224
+  
 # Belt_L_DRU
-- file: ./img/belt/l_dru.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/l_dru_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - y: 32
+- frame: 3
+  - y: 64
+- frame: 4
+  - y: 96
+- frame: 5
+  - y: 128
+- frame: 6
+  - y: 160
+- frame: 7
+  - y: 192
+- frame: 8
+  - y: 224
 
 # Belt__DLRU
-- file: ./img/belt/_dlru.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/_dlru_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Belt__DRU_L
-- file: ./img/belt/_dru_l.png
+- file: ./img/belt/_dru_r.png
 - x: 0
 - y: 0
 - w: 160
@@ -2358,11 +3254,27 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt___DLU
-- file: ./img/belt/__dlu.png
-- x: 0
-- y: 0
-- w: 160
-- h: 160
+- frame_offset: 0
+- frame: 1
+  - file: ./img/belt/_dlu_frames2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - y: 32
+- frame: 3
+  - y: 64
+- frame: 4
+  - y: 96
+- frame: 5
+  - y: 128
+- frame: 6
+  - y: 160
+- frame: 7
+  - y: 192
+- frame: 8
+  - y: 224
 
 # Belt_R__U
 - file: ./img/belt/r__u.png
