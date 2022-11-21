@@ -12,8 +12,8 @@ pub const FLOOR_CELLS_H: usize = 1 + 5*3 + 1;
 pub const FLOOR_CELLS_WH: usize = FLOOR_CELLS_W * FLOOR_CELLS_H;
 
 // Size of a cell
-pub const CELL_W: f64 = 35.0;
-pub const CELL_H: f64 = 35.0;
+pub const CELL_W: f64 = 32.0;
+pub const CELL_H: f64 = 32.0;
 
 // World pixels size of the floor
 pub const FLOOR_WIDTH: f64 = FLOOR_CELLS_W as f64 * CELL_W;
