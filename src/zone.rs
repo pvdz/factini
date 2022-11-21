@@ -3,6 +3,8 @@ use super::floor::*;
 use super::factory::*;
 use super::options::*;
 use super::state::*;
+use crate::utils::*;
+use super::log;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Zone {
@@ -160,7 +162,7 @@ pub fn coord_to_zone(options: &Options, state: &State, config: &Config, x: f64, 
     return ZONE_MANUAL;
   }
 
-  if is_machine_selected && hit_test_machine_circle(factory, selected_coord, x, y) {
+  if is_machine_selected && hit_test_machine_craft_menu(options, factory, selected_coord, x, y) {
     return ZONE_CRAFT
   }
 
@@ -213,9 +215,20 @@ pub fn coord_to_zone(options: &Options, state: &State, config: &Config, x: f64, 
   panic!("coord should be inside one of twelve zones so um, wat dis? {} {}", x, y);
 }
 
-pub fn hit_test_machine_circle(factory: &Factory, any_machine_coord: usize, mwx: f64, mwy: f64) -> bool {
-  let ( center_wx, center_wy, cr ) = get_machine_selection_circle_params(factory, factory.floor[any_machine_coord].machine.main_coord);
-  return hit_test_circle(mwx, mwy, center_wx, center_wy, cr);
+pub fn hit_test_machine_craft_menu(options: &Options, factory: &Factory, any_machine_coord: usize, mwx: f64, mwy: f64) -> bool {
+  let main_coord = factory.floor[any_machine_coord].machine.main_coord;
+  if options.enable_craft_menu_circle {
+    // When craft menu is displayed, test for whole circle
+    let ( center_wx, center_wy, cr ) = get_machine_selection_circle_params(factory, main_coord);
+    return hit_test_circle(mwx, mwy, center_wx, center_wy, cr);
+  }
+  else {
+    // Without craft menu just check if selected machine
+    let ( main_x, main_y) = to_xy(main_coord);
+    let machine_width = factory.floor[main_coord].machine.cell_width as f64;
+    let machine_height = factory.floor[main_coord].machine.cell_height as f64;
+    return bounds_check((mwx - UI_FLOOR_OFFSET_X) / CELL_W, (mwy - UI_FLOOR_OFFSET_Y) / CELL_H, main_x as f64, main_y as f64, main_x as f64 + machine_width, main_y as f64 + machine_height);
+  }
 }
 
 pub fn get_machine_selection_circle_params(factory: &Factory, main_coord: usize) -> ( f64, f64, f64 ) {

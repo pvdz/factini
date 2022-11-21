@@ -1,6 +1,8 @@
 // This file should only be included for `wasm-pack build --target web`
 // The main.rs will include this file when `#[cfg(target_arch = "wasm32")]`
 
+
+// Compile with --profile to try and get some sense of shit
 // - import/export
 //   - import/export with clipboard
 //   - when importing the machine output is ignored so we should remove it from the template
@@ -1595,15 +1597,31 @@ fn on_drag_end_offer_over_craft(options: &mut Options, state: &mut State, config
   let main_coord = factory.floor[coord].machine.main_coord;
   // Figure out whether it was dropped on the machine itself and if it was the selected machine
   if factory.floor[coord].kind == CellKind::Machine && factory.floor[cell_selection.coord].machine.main_coord == main_coord {
-    log!("Dropped an offer with pattern in the middle and on a machine. Update the machine!");
-    for i in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
-      let part_index = config.nodes[dragged_part_index].pattern_by_index.get(i).unwrap_or(&PARTKIND_NONE);
-      machine_change_want_kind(options, state, config, factory, main_coord, i, *part_index);
+    if config.nodes[dragged_part_index].pattern_unique_kinds.len() > 0 {
+      log!("Dropped an offer with pattern in the middle on a craft menu. Update the machine!");
+      for i in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
+        let part_index = config.nodes[dragged_part_index].pattern_by_index.get(i).unwrap_or(&PARTKIND_NONE);
+        machine_change_want_kind(options, state, config, factory, main_coord, i, *part_index);
+        // Make sure the haves are cleared as well
+        factory.floor[main_coord].machine.haves[i] = part_none(config);
+      }
+    }
+    else {
+      log!("Dropped an offer without pattern in the middle on a craft menu. Update the machine!");
+      // Add dragged offer pattern to machine want list. We know the actual cell. Clobber it with
+      // the part of the dragged offer.
+
+      assert!(mouse_state.craft_up_ci_index > 99, "This should now be the machine index + 100");
+
+      // Get the machine index and blitz them
+      let target_cell_index = (mouse_state.craft_up_ci_index - 100) as usize;
+
+      machine_change_want_kind(options, state, config, factory, main_coord, target_cell_index, dragged_part_index);
       // Make sure the haves are cleared as well
-      factory.floor[main_coord].machine.haves[i] = part_none(config);
+      factory.floor[main_coord].machine.haves[target_cell_index] = part_none(config);
     }
   } else {
-    log!("Dropped an offer with pattern in the middle but not on a machine. Ignoring...");
+    log!("Dropped an offer in the middle on a craft menu but not on the machine. Ignoring...");
   }
 }
 fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
@@ -1679,23 +1697,41 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
     }
     factory.changed = true;
   }
-  else if is_middle(last_mouse_up_cell_x, last_mouse_up_cell_y) && config.nodes[dragged_part_index].pattern_unique_kinds.len() > 0 {
+  else if is_middle(last_mouse_up_cell_x, last_mouse_up_cell_y) {
     let coord = to_coord(mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize);
     // Figure out whether it was dropped on a machine
     if factory.floor[coord].kind == CellKind::Machine {
-      log!("Dropped an offer with pattern in the middle and on a machine. Update the machine!");
       let main_coord = factory.floor[coord].machine.main_coord;
-      for i in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
-        let part_index = config.nodes[dragged_part_index].pattern_by_index.get(i).unwrap_or(&PARTKIND_NONE);
-        machine_change_want_kind(options, state, config, factory, main_coord, i, *part_index);
-        // Make sure the haves are cleared as well
-        factory.floor[main_coord].machine.haves[i] = part_none(config);
+      if config.nodes[dragged_part_index].pattern_unique_kinds.len() > 0 {
+        log!("Dropped an offer with pattern on a machine. Update the machine!");
+        // Update machine to the pattern of the dragged part
+        for want_index in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
+          let part_index = config.nodes[dragged_part_index].pattern_by_index.get(want_index).unwrap_or(&PARTKIND_NONE);
+          machine_change_want_kind(options, state, config, factory, main_coord, want_index, *part_index);
+          // Make sure the haves are cleared as well
+          factory.floor[main_coord].machine.haves[want_index] = part_none(config);
+        }
+      }
+      else {
+        // Add dragged offer pattern to machine want list, if possible
+        log!("Dropped an offer without pattern on a machine. Update the machine!");
+        // Find first empty spot and fill it.
+        for want_index in 0..factory.floor[main_coord].machine.wants.len() {
+          if factory.floor[main_coord].machine.wants[want_index].kind == PARTKIND_NONE {
+            log!("Machine want index {} is empty. Filling now with {}", want_index, dragged_part_index);
+            machine_change_want_kind(options, state, config, factory, main_coord, want_index, dragged_part_index);
+            // Make sure the haves are cleared as well
+            factory.floor[main_coord].machine.haves[want_index] = part_none(config);
+            break;
+          }
+        }
       }
     } else {
-      log!("Dropped an offer with pattern in the middle  but not on a machine. Ignoring...");
+      log!("Dropped an offer in the floor but not on a machine. Ignoring...");
     }
-  } else {
-    log!("Dropped a supply offer ({:?}) without pattern on the floor, or any supply offer on a corner. Ignoring. {} {}", dragged_part_index, last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
+  }
+  else {
+    log!("Dropped a supply offer ({:?}) without pattern on the floor but not machine, or a supply offer on a corner. Ignoring. {} {}", dragged_part_index, last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
   }
 }
 fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
@@ -2622,7 +2658,7 @@ fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::Canva
   context.set_fill_style(&"lightgreen".into());
   context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
   context.set_fill_style(&"black".into());
-  // context.fill_text(format!("$ / 10s    : {}", factory.stats.3).as_str(), UI_OX + UI_ML, UI_OY + (ui_lines * UI_LINE_H) + UI_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("mouse over : {:?}", mouse_state.over_zone).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"lightgreen".into());
@@ -2994,11 +3030,6 @@ fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, c
   let main_wx = UI_FLOOR_OFFSET_X + (main_x as f64) * CELL_W;
   let main_wy = UI_FLOOR_OFFSET_Y + (main_y as f64) * CELL_H;
 
-  // We'll draw a semi-transparent circle over the factory with a radius big enough to fit
-  // input-type bubbles equally distributed in the ring around the factory. Those should be
-  // interactable so their position must be fully predictable.
-  // Perhaps they should be squares to make hitboxes easier, but that's tbd.
-
   // Find the center of the machine because .arc() requires the center x,y
   let machine_cw = factory.floor[selected_main_coord].machine.cell_width as f64;
   let machine_ch = factory.floor[selected_main_coord].machine.cell_height as f64;
@@ -3006,13 +3037,21 @@ fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, c
   let machine_wh = machine_ch * CELL_H;
   let ( center_wx, center_wy, cr ) = get_machine_selection_circle_params(factory, selected_main_coord);
 
-  // Cheat by using rgba for semi trans
-  context.set_fill_style(&"#0000007f".into());
-  // context.set_fill_style(&"red".into());
-  // log!("arc({}, {}, {}) machine({},{})", center_wx, center_wy, cr, machine_cw, machine_ch);
-  context.begin_path();
-  context.arc(center_wx, center_wy, cr, 0.0, 2.0 * 3.14).expect("to paint");
-  context.fill();
+  // Only paint the craft menu when opt-in. It was an early design attempt but it was not intuitive enough.
+  if options.enable_craft_menu_circle {
+    // We'll draw a semi-transparent circle over the factory with a radius big enough to fit
+    // input-type bubbles equally distributed in the ring around the factory. Those should be
+    // interactable so their position must be fully predictable.
+    // Perhaps they should be squares to make hitboxes easier, but that's tbd.
+
+    // Cheat by using rgba for semi trans
+    context.set_fill_style(&"#0000007f".into());
+    // context.set_fill_style(&"red".into());
+    // log!("arc({}, {}, {}) machine({},{})", center_wx, center_wy, cr, machine_cw, machine_ch);
+    context.begin_path();
+    context.arc(center_wx, center_wy, cr, 0.0, 2.0 * 3.14).expect("to paint");
+    context.fill();
+  }
 
   context.set_fill_style(&"#ffffff7f".into());
   context.fill_rect(main_wx, main_wy, machine_ww, machine_wh);
@@ -3052,62 +3091,64 @@ fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, c
     }
   }
 
-  // Minimal distance of painting interactbles is the distance from the center to the furthest
-  // angle (any machine corner) plus a small buffer. a^2+b^2=c^2
-  // This radius determines the distance from the center of the circle to the _center_ of the cell.
-  let minr = ((center_wx - main_wx).powf(2.0) + (center_wy - main_wy).powf(2.0)).powf(0.5) + 30.0;
+  if options.enable_craft_menu_circle {
+    // Minimal distance of painting interactbles is the distance from the center to the furthest
+    // angle (any machine corner) plus a small buffer. a^2+b^2=c^2
+    // This radius determines the distance from the center of the circle to the _center_ of the cell.
+    let minr = ((center_wx - main_wx).powf(2.0) + (center_wy - main_wy).powf(2.0)).powf(0.5) + 30.0;
 
-  fn btn(context: &Rc<web_sys::CanvasRenderingContext2d>, wx: f64, wy: f64, text: char, is_over: bool) {
-    if is_over {
-      context.set_fill_style(&"grey".into());
-    } else {
-      context.set_fill_style(&"white".into());
+    fn btn(context: &Rc<web_sys::CanvasRenderingContext2d>, wx: f64, wy: f64, text: char, is_over: bool) {
+      if is_over {
+        context.set_fill_style(&"grey".into());
+      } else {
+        context.set_fill_style(&"white".into());
+      }
+      context.fill_rect(wx, wy, CELL_W, CELL_H);
+      context.set_stroke_style(&"black".into());
+      context.stroke_rect(wx, wy, CELL_W, CELL_H);
+      context.set_fill_style(&"black".into());
+      context.set_font(&"48px monospace");
+      context.fill_text(format!("{}", text).as_str(), wx + 4.0, wy + 34.0).expect("oopsie fill_text"); // This would be a sprite, anyways
+      context.set_font(&"12px monospace");
     }
-    context.fill_rect(wx, wy, CELL_W, CELL_H);
-    context.set_stroke_style(&"black".into());
-    context.stroke_rect(wx, wy, CELL_W, CELL_H);
-    context.set_fill_style(&"black".into());
-    context.set_font(&"48px monospace");
-    context.fill_text(format!("{}", text).as_str(), wx + 4.0, wy + 34.0).expect("oopsie fill_text"); // This would be a sprite, anyways
-    context.set_font(&"12px monospace");
-  }
 
-  fn btn_img(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, wx: f64, wy: f64, part_index: PartKind, is_over: bool) {
-    if is_over {
-      context.set_fill_style(&"grey".into());
-    } else {
-      context.set_fill_style(&"white".into());
+    fn btn_img(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, wx: f64, wy: f64, part_index: PartKind, is_over: bool) {
+      if is_over {
+        context.set_fill_style(&"grey".into());
+      } else {
+        context.set_fill_style(&"white".into());
+      }
+      context.fill_rect(wx, wy, CELL_W, CELL_H);
+      context.set_stroke_style(&"black".into());
+      context.stroke_rect(wx, wy, CELL_W, CELL_H);
+
+      paint_segment_part_from_config(options, state, config, context, part_index, wx, wy, CELL_W, CELL_H);
     }
-    context.fill_rect(wx, wy, CELL_W, CELL_H);
-    context.set_stroke_style(&"black".into());
-    context.stroke_rect(wx, wy, CELL_W, CELL_H);
 
-    paint_segment_part_from_config(options, state, config, context, part_index, wx, wy, CELL_W, CELL_H);
-  }
+    // The back/close button should always be under the machine, centered. Same size (one cell).
+    let close_wx = center_wx - CELL_W / 2.0;
+    let close_wy = center_wy + minr - CELL_H / 2.0;
+    btn(context, close_wx, close_wy, '↩', mouse_state.craft_over_ci == CraftInteractable::BackClose);
 
-  // The back/close button should always be under the machine, centered. Same size (one cell).
-  let close_wx = center_wx - CELL_W / 2.0;
-  let close_wy = center_wy + minr - CELL_H / 2.0;
-  btn(context, close_wx, close_wy, '↩', mouse_state.craft_over_ci == CraftInteractable::BackClose);
+    // Actual number of seen inputs
+    let len = factory.floor[selected_main_coord].machine.last_received.len();
+    // Make sure that we always show something. If there aren't any elements, show trash as the only icon.
+    let count = len.max(1);
 
-  // Actual number of seen inputs
-  let len = factory.floor[selected_main_coord].machine.last_received.len();
-  // Make sure that we always show something. If there aren't any elements, show trash as the only icon.
-  let count = len.max(1);
+    let angle_step = 5.5 - (count as f64 / 2.0).ceil() + (0.5 * ((count % 2) as f64));
+    for i in 0..count {
+      let angle: f64 = (angle_step + i as f64) * 0.1 * std::f64::consts::TAU;
 
-  let angle_step = 5.5 - (count as f64 / 2.0).ceil() + (0.5 * ((count % 2) as f64));
-  for i in 0..count {
-    let angle: f64 = (angle_step + i as f64) * 0.1 * std::f64::consts::TAU;
+      // TODO: could pre-compute these coords per factory and read the coords from a vec
+      let btn_c_wx = angle.sin() * minr;
+      let btn_c_wy = angle.cos() * minr;
+      let wx = center_wx + btn_c_wx - CELL_W / 2.0;
+      let wy = center_wy + btn_c_wy - CELL_H / 2.0;
 
-    // TODO: could pre-compute these coords per factory and read the coords from a vec
-    let btn_c_wx = angle.sin() * minr;
-    let btn_c_wy = angle.cos() * minr;
-    let wx = center_wx + btn_c_wx - CELL_W / 2.0;
-    let wy = center_wy + btn_c_wy - CELL_H / 2.0;
-
-    // When hovering over the index, the _c is set to the char of the digit of that index.
-    // If there are no last seen elements, show a trash icon
-    btn_img(options, state, config, context, wx, wy, if len == 0 { PARTKIND_TRASH } else { factory.floor[selected_main_coord].machine.last_received[i].0.kind }, mouse_state.craft_over_ci_index == (i as u8));
+      // When hovering over the index, the _c is set to the char of the digit of that index.
+      // If there are no last seen elements, show a trash icon
+      btn_img(options, state, config, context, wx, wy, if len == 0 { PARTKIND_TRASH } else { factory.floor[selected_main_coord].machine.last_received[i].0.kind }, mouse_state.craft_over_ci_index == (i as u8));
+    }
   }
 }
 fn paint_mouse_cursor(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
@@ -4019,47 +4060,20 @@ fn paint_ui_offer_hover_droptarget_hint_conditionally(options: &Options, state: 
 }
 fn paint_ui_offer_hover_droptarget_hint(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, part_index: usize) {
   // Parts with patterns go to machines. Parts without patterns (or empty patterns) are suppliers.
-  if config.nodes[part_index].pattern_by_index.len() > 0 {
-    // Get all unique required parts
-    let want_icons = &config.nodes[part_index].pattern_unique_kinds;
+  // Machines will accept in both cases (one case adds the part, the other sets the pattern)
 
-    // TODO: do this prep in the mouse state change so we only do it once per mouse-over
-    // TODO: did I not have a shortcut to iterate over just machine cells?
-    for coord in 0..factory.floor.len() {
-      if factory.floor[coord].kind == CellKind::Machine && factory.floor[coord].machine.main_coord == coord {
-        // TODO: could generate them on-update
-        // There should only be a limited number of unique parts in either set. Worst case 9x9 but
-        // that would be trying hard. Most of the time these are 3x3 worst case.
-        // TODO: not sure how want_icons can have NONEs but apparently it can
-        let eligible =  want_icons.iter().all(|part_kind| *part_kind == PARTKIND_NONE || factory.floor[coord].machine.last_received_parts.binary_search(part_kind).is_ok());
-
-        // Now modify the machine
-        let (x, y) = to_xy(coord);
-        if eligible {
-          context.set_fill_style(&"#00ff0077".into());
-        } else {
-          context.set_fill_style(&"#c27b1277".into());
-        }
-        context.fill_rect(UI_FLOOR_OFFSET_X + x as f64 * CELL_W, UI_FLOOR_OFFSET_Y + y as f64 * CELL_H, CELL_W * factory.floor[coord].machine.cell_width as f64, CELL_H * factory.floor[coord].machine.cell_height as f64);
-      }
+  paint_machines_droptarget_green(options, state, config, context, factory, config.nodes[part_index].pattern_by_index.len() > 0);
+}
+fn paint_machines_droptarget_green(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, for_pattern: bool) {
+  // TODO: did I not have a shortcut to iterate over just machine cells?
+  for coord in 0..factory.floor.len() {
+    let (x, y) = to_xy(coord);
+    if (!for_pattern && is_edge_not_corner(x as f64, y as f64)) || factory.floor[coord].kind == CellKind::Machine {
+      context.set_fill_style(&"#00ff0077".into());
+    } else {
+      context.set_fill_style(&"#6b6b6b90".into());
     }
-
-    // Mark edges as disallowed
-    context.set_fill_style(&"#ff000077".into());
-    context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y, (FLOOR_CELLS_W as f64 - 2.0) * CELL_W, CELL_H);
-    context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y + CELL_H, CELL_W, (FLOOR_CELLS_H as f64 - 2.0) * CELL_H);
-    context.fill_rect(UI_FLOOR_OFFSET_X + (FLOOR_CELLS_W as f64 - 1.0) * CELL_W, UI_FLOOR_OFFSET_Y + CELL_H, CELL_W, (FLOOR_CELLS_H as f64 - 2.0) * CELL_H);
-    context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y + (FLOOR_CELLS_H as f64 - 1.0) * CELL_H, (FLOOR_CELLS_W as f64 - 2.0) * CELL_W, CELL_H);
-  } else {
-    // This part has no pattern so it must be a supply. Highlight the edge, cover the rest
-    context.set_fill_style(&"#77000077".into());
-    context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y + CELL_H, (FLOOR_CELLS_W as f64 - 2.0) * CELL_W, (FLOOR_CELLS_H as f64 - 2.0) * CELL_H);
-    // Allowed edges
-    context.set_fill_style(&"#00ff0077".into());
-    context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y, (FLOOR_CELLS_W as f64 - 2.0) * CELL_W, CELL_H);
-    context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y + CELL_H, CELL_W, (FLOOR_CELLS_H as f64 - 2.0) * CELL_H);
-    context.fill_rect(UI_FLOOR_OFFSET_X + (FLOOR_CELLS_W as f64 - 1.0) * CELL_W, UI_FLOOR_OFFSET_Y + CELL_H, CELL_W, (FLOOR_CELLS_H as f64 - 2.0) * CELL_H);
-    context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y + (FLOOR_CELLS_H as f64 - 1.0) * CELL_H, (FLOOR_CELLS_W as f64 - 2.0) * CELL_W, CELL_H);
+    context.fill_rect(UI_FLOOR_OFFSET_X + x as f64 * CELL_W, UI_FLOOR_OFFSET_Y + y as f64 * CELL_H, CELL_W, CELL_H);
   }
 }
 fn paint_ui_offer(

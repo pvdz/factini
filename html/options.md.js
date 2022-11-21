@@ -27,6 +27,7 @@ const GAME_OPTIONS = `
 - paint_belts: true
 - draw_belt_dbg_id: false
 - draw_zone_hovers: false
+- enable_craft_menu_circle: false
 - draw_ui_section_border: false
 - ui_section_border_color: "white"
 - short_term_window: 10000
