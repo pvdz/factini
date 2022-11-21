@@ -807,7 +807,7 @@ This is the edge area where suppliers and demanders can be placed
 # Belt_D_L
 - frame_offset: 3
 - frame: 1
-  - file: ./img/belt/anim/d_l.png
+  - file: ./img/belt/anim/d_l2.png
   - y: 0
   - x: 0
   - w: 32
@@ -860,7 +860,7 @@ This is the edge area where suppliers and demanders can be placed
 # Belt_L_D
 - frame_offset: 0
 - frame: 1
-  - file: ./img/belt/anim/l_d.png
+  - file: ./img/belt/anim/l_d2.png
   - y: 0
   - x: 0
   - w: 32
