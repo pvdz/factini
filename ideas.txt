@@ -100,8 +100,40 @@
 
 
 
+
+sugar + water => candy
+water => snow
+reindeer + rope => reindeer with reigns
+reindeer with reigns + paint => rudolf?
+wood + paint => sled
+sled + fabric + paint => big sled
+big sled + reindeer => santas sled
+rope + wood + glue + paint => yoyo
+wood + glass + glue + paint + coal => train
+wood + paint (?) => coal
+stone/bricks => chimney
+chimney + wood => coal
+rope + wood + paint => jump rope
+wood + paint + plastic => doll
+wood + fabric => boat
+paper + glue => book
+glass + paint => marbles
+fabric + thread => hat
+fabric + thread => shirt
+fabric + thread => pants
+fabric + thread => socks
+socks + paint => stockings
+hat + shirt + pants + pant => santa cloths
+metal => santa bell
+paper + ribbon + <presents> => gift
+person + santa cloths + santas sled + gift + coal + candy => santa (flying across the screen?)
+santa + chimney + stockings => filled stockings?
+
+
+
 Belt me!
 Factini
+Factino (facti.no is available but facti.ni is not and .com is neither)
 Minifactori
 
 

@@ -41,6 +41,20 @@
 // - bouncers are taking bouncer index as offsets rather than visible offsets. the last bouncer animations are completely broken
 // - should certain animation speeds scale with factory speed?
 // - click edge to add supplier. click supplier/demander to toggle.
+// - frames in the middle
+// - cars adjust speed too
+// - disallow dragging resources to machines
+// - disable manual resource interface (no clicky on machine internals)
+// - updating machine should open machines
+// - fix not all items fit in ui (make wider?)
+// - change preview of craftable when selected (the tiny preview on top is not working
+// - auto-restart the day on change
+// - create tutorial
+// - should machine give hint of creating/missing in/outbound connection?
+// - animate suppliers and receivers
+// - replace quick save button icons
+// - should non-game animations have their own play speed? (bouncers, cars, ui)
+// - do finish the bouncer polish
 
 // prepare for xmas.
 
@@ -631,6 +645,11 @@ pub fn start() -> Result<(), JsValue> {
         for _ in 0..ticks_todo.min(MAX_TICKS_PER_FRAME) {
           tick_factory(&mut options, &mut state, &config, &mut factory);
 
+          for b in 0..factory.bouncers.len() {
+            // Create an extra still frame of existing bouncers.
+            bouncer_step(&options, &mut factory.bouncers[b], factory.ticks);
+          }
+
           if !options.web_output_cli {
             for t in 0..factory.trucks.len() {
               // TODO: fix this hack
@@ -726,13 +745,28 @@ pub fn start() -> Result<(), JsValue> {
               let icon = config.nodes[completed_part_index].icon; // TODO: multiple parts
               let ( x, y ) = get_quote_xy(quote_index, (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) * quote_index as f64); // Height is incorrect if a quote is fading but that's acceptable
 
-              factory.bouncers.push_back(bouncer_create(x, y, GRID_Y2 + 20.0, factory.quotes[quote_index].quest_index, completed_part_index, 8.7, factory.ticks, 0));
+              factory.bouncers.push_back(bouncer_create(x, y, GRID_Y2 + 20.0, factory.quotes[quote_index].quest_index, completed_part_index, options.bouncer_initial_speed, factory.ticks, 0));
 
               // From this point onward the Quote will fade out and then reduce its height till zero
               factory.quotes[quote_index].completed_at = factory.ticks;
             } else {
               break;
             }
+          }
+
+        }
+
+        // Add shadow frames for running bouncers
+        for b in 0..factory.bouncers.len() {
+          // Create an extra still frame of existing bouncers.
+          // TODO: this part should be done inside the factory tick loop. right now it's not bound to factory ticks which can cause different animations at different speeds.
+          let framed = bouncer_should_paint(&options, &mut factory.bouncers[b], factory.ticks);
+          if framed {
+            // if (factory.ticks - factory.bouncers[b].created_at) % options.bouncer_stamp_interval == 0 {
+              let x = factory.bouncers[b].x;
+              let y = factory.bouncers[b].y;
+              factory.bouncers[b].frames.push_back( ( x, y, factory.ticks ) );
+            // }
           }
         }
 
@@ -3697,26 +3731,20 @@ fn paint_manual(options: &Options, state: &State, context: &Rc<web_sys::CanvasRe
   }
 }
 fn paint_bouncers(options: &Options, state: &State, config: &mut Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory) {
-  let trail_time = 2;
-  let fade_time = 2;
+  let trail_time = options.bouncer_trail_time;
+  let fade_time = options.bouncer_fade_time;
+  let stamp_interval = options.bouncer_stamp_interval;
   // find bouncers that finished and create trucks with the new parts
   for b in 0..factory.bouncers.len() {
-    // Create an extra still frame of existing bouncers.
-    // TODO: this part should be done inside the factory tick loop. right now it's not bound to factory ticks which can cause different animations at different speeds.
-    let framed = bouncer_step(&mut factory.bouncers[b], factory.ticks);
-    if framed {
-      let x = factory.bouncers[b].x;
-      let y = factory.bouncers[b].y;
-      factory.bouncers[b].frames.push_back( ( x, y, factory.ticks ) );
-    }
+    let f_one_second = ONE_SECOND as f64 * options.speed_modifier;
 
     // Paint all bouncer shadow/trail frames
     for ( x, y, added ) in factory.bouncers[b].frames.iter() {
       // Leave trail on screen for 10 seconds. Then fade out in 5 seconds.
       let existing = factory.ticks - added;
-      let tens = existing > ONE_SECOND * trail_time;
+      let tens = existing as f64 > (f_one_second * trail_time);
       if tens {
-        let alpha = 1.0 - ((existing - ONE_SECOND * trail_time) as f64 / ((ONE_SECOND * fade_time) as f64)).max(0.0).min(1.0);
+        let alpha = 1.0 - ((existing as f64 - f_one_second * trail_time) / (f_one_second * fade_time)).max(0.0).min(1.0);
         context.set_global_alpha(alpha);
       }
       paint_segment_part_from_config(&options, &state, &config, &context, factory.bouncers[b].part_index, *x, *y, CELL_W, CELL_H);
@@ -3727,7 +3755,7 @@ fn paint_bouncers(options: &Options, state: &State, config: &mut Config, context
 
     // Drop expired quote bouncer frames (the ghosts that form the trail)
     while factory.bouncers[b].frames.len() > 0 {
-      if factory.ticks - factory.bouncers[b].frames[0].2 > (ONE_SECOND * (trail_time + fade_time)) {
+      if factory.ticks - factory.bouncers[b].frames[0].2 > (f_one_second * (trail_time + fade_time)) as u64 {
         factory.bouncers[b].frames.pop_front();
       } else {
         break;

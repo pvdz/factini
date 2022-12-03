@@ -65,6 +65,15 @@ pub struct Options {
   pub speed_modifier: f64, // Increase or decrease ticks per second by this rate
   pub touch_drag_compensation: bool, // Show the mouse pointer 50x50 away from the actual pointer? helpful for dragging on touch screen but can be annoying
 
+  pub bouncer_gravity: f64,
+  pub bouncer_initial_speed: f64,
+  pub bouncer_friction: f64,
+  pub bouncer_speed_limit: f64,
+  pub bouncer_bounce: f64,
+  pub bouncer_trail_time: f64,
+  pub bouncer_fade_time: f64,
+  pub bouncer_stamp_interval: u64,
+
   pub web_output_cli: bool, // Print the simplified cli output in web version?
 
   pub dbg_trash_is_joker: bool, // Trash serves as joker item for machines?
@@ -112,6 +121,14 @@ pub fn create_options(speed_modifier: f64) -> Options {
     long_term_window: 600000,
     speed_modifier,
     touch_drag_compensation: false,
+    bouncer_gravity: 0.8,
+    bouncer_initial_speed: 2.0,
+    bouncer_friction: 0.987,
+    bouncer_speed_limit: 0.1,
+    bouncer_trail_time: 2.0,
+    bouncer_fade_time: 2.0,
+    bouncer_stamp_interval: 100,
+    bouncer_bounce: 0.8,
     web_output_cli: false,
     dbg_trash_is_joker: true,
     db_joker_corrupts_factory: true,
@@ -238,7 +255,15 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "ui_section_border_color" => options.ui_section_border_color = parse_string(value, name, strict, &options.ui_section_border_color),
             "short_term_window" => options.short_term_window = parse_u64(value, name, strict, options.short_term_window),
             "long_term_window" => options.long_term_window = parse_u64(value, name, strict, options.long_term_window),
+            "bouncer_gravity" => options.bouncer_gravity = parse_f64(value, name, strict, options.bouncer_gravity),
+            "bouncer_initial_speed" => options.bouncer_initial_speed = parse_f64(value, name, strict, options.bouncer_initial_speed),
+            "bouncer_friction" => options.bouncer_friction = parse_f64(value, name, strict, options.bouncer_friction),
+            "bouncer_speed_limit" => options.bouncer_speed_limit = parse_f64(value, name, strict, options.bouncer_speed_limit),
+            "bouncer_bounce" => options.bouncer_bounce = parse_f64(value, name, strict, options.bouncer_bounce),
             "speed_modifier" => options.speed_modifier = parse_f64(value, name, strict, options.speed_modifier),
+            "bouncer_trail_time" => options.bouncer_trail_time = parse_f64(value, name, strict, options.bouncer_trail_time),
+            "bouncer_fade_time" => options.bouncer_fade_time = parse_f64(value, name, strict, options.bouncer_fade_time),
+            "bouncer_stamp_interval" => options.bouncer_stamp_interval = parse_u64(value, name, strict, options.bouncer_stamp_interval),
             "touch_drag_compensation" => options.touch_drag_compensation = parse_bool(value, name, strict, options.touch_drag_compensation),
             "web_output_cli" => options.web_output_cli = parse_bool(value, name, strict, options.web_output_cli),
             "dbg_trash_is_joker" => options.dbg_trash_is_joker = parse_bool(value, name, strict, options.dbg_trash_is_joker),

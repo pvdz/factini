@@ -19,10 +19,6 @@ use super::prio::*;
 use super::utils::*;
 use super::log;
 
-const GRAV: f64 = 0.008;      // How fast it drops
-const BOUNCINESS: f64 = 0.80; // Velocity retained after a bounce
-const LIMIT: f64 = 0.1;       // Minimum velocity required to keep animation running
-
 #[derive(Clone, Debug)]
 pub struct Bouncer {
   pub created_at: u64,
@@ -57,9 +53,40 @@ pub fn bouncer_create(x: f64, y: f64, max_y: f64, quest_index: PartKind, part_in
   };
 }
 
-pub fn bouncer_step(bouncer: &mut Bouncer, ticks: u64) -> bool {
+pub fn bouncer_step(options: &Options, bouncer: &mut Bouncer, ticks: u64) {
   // Do not process bouncer any further if it's not moving horizontally
-  if bouncer.dx.abs() < LIMIT {
+  if bouncer.dx.abs() < options.bouncer_speed_limit {
+    return;
+  }
+
+  // Do not process bouncer if still in delay period
+  if ticks - bouncer.created_at < bouncer.delay {
+    return;
+  }
+
+  if bouncer.last_time == 0 {
+    bouncer.last_time = ticks;
+    return;
+  }
+
+  let elapsed = ticks - bouncer.last_time;
+  bouncer.last_time = ticks;
+
+  bouncer.dx *= options.bouncer_friction;
+  bouncer.dy += options.bouncer_gravity;
+  bouncer.x += bouncer.dx;
+  bouncer.y += bouncer.dy;
+
+  if bouncer.y > bouncer.max_y {
+    // Step has taken us below the floor, so we need to rebound the bouncer.
+    bouncer.y -= bouncer.y - bouncer.max_y;
+    bouncer.dy = -bouncer.dy * options.bouncer_bounce;
+  }
+}
+
+pub fn bouncer_should_paint(options: &Options, bouncer: &mut Bouncer, ticks: u64) -> bool {
+  // Do not process bouncer any further if it's not moving horizontally
+  if bouncer.dx.abs() < options.bouncer_speed_limit {
     return false;
   }
 
@@ -69,22 +96,7 @@ pub fn bouncer_step(bouncer: &mut Bouncer, ticks: u64) -> bool {
   }
 
   if bouncer.last_time == 0 {
-    bouncer.last_time = ticks;
     return true;
-  }
-
-  let elapsed = ticks - bouncer.last_time;
-  bouncer.last_time = ticks;
-
-  bouncer.dx *= (0.987 * ((elapsed as f64) / (ONE_SECOND as f64))).max(0.987);
-  bouncer.dy += GRAV * (elapsed as f64);
-  bouncer.x += bouncer.dx;
-  bouncer.y += bouncer.dy;
-
-  if bouncer.y > bouncer.max_y {
-    // Step has taken us below the floor, so we need to rebound the bouncer.
-    bouncer.y -= bouncer.y - bouncer.max_y;
-    bouncer.dy = -bouncer.dy * BOUNCINESS;
   }
 
   return true;

@@ -509,6 +509,7 @@ Char is the Greek letter zeta (upper)
 # Part_Sled
 Char is the Greek letter xi (upper)
 - char: Ξ
+- pattern: Part_Wood
 - file: ./img/sled.png
 - x: 0
 - y: 0
@@ -527,7 +528,7 @@ Char is the Greek letter xi (upper)
 
 # Quest_BlueBottle
 - after: Quest_Start
-- parts: Part_Sapphire, Part_PotionBlue
+- parts: Part_Sapphire, Part_PotionBlue, Part_EmptyBottle
 - targets: 10x Part_PotionBlue
 
 # Quest_BlueShield
@@ -560,8 +561,13 @@ Char is the Greek letter xi (upper)
 - parts: Part_SilverCoins
 - targets: 10x Part_SilverCoins
 
-# Quest_GoldCoins
+# Quest_GoldCoin
 - after: Quest_SilverCoins
+- parts: Part_GoldCoin Part_GoldDust
+- targets: 10x Part_GoldCoins
+
+# Quest_GoldCoins
+- after: Quest_GoldCoin
 - parts: Part_GoldCoins Part_GoldDust
 - targets: 10x Part_GoldCoins
 

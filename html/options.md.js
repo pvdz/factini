@@ -33,6 +33,14 @@ const GAME_OPTIONS = `
 - short_term_window: 10000
 - long_term_window: 600000
 - speed_modifier: 0.2
+- bouncer_gravity: 0.0016
+- bouncer_initial_speed: 0.13
+- bouncer_friction: 0.9999
+- bouncer_speed_limit: 0.065
+- bouncer_bounce: 0.8
+- bouncer_trail_time: 0.9
+- bouncer_fade_time: 0.7
+- bouncer_stamp_interval: 100
 - touch_drag_compensation: false
 - web_output_cli: false
 - dbg_trash_is_joker: true
