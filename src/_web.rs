@@ -54,6 +54,7 @@
 // - animate suppliers and receivers
 // - replace quick save button icons
 // - should non-game animations have their own play speed? (bouncers, cars, ui)
+// - find and fix save/restore bug (on ipad?) not sure how to do it but it was fairly easy?
 // - do finish the bouncer polish
 
 // prepare for xmas.
@@ -2882,7 +2883,8 @@ fn paint_background_tiles(
         }
       },
       CellKind::Supply => {
-        paint_supply_and_part_for_edge(options, state, config, context, cx, cy, factory.floor[coord].supply.gives.kind);
+        paint_supplier(options, state, config, context, ox, oy, CELL_W, CELL_H, 0, factory.ticks, coord);
+        // paint_supply_and_part_for_edge(options, state, config, context, cx, cy, factory.floor[coord].supply.gives.kind);
       }
       CellKind::Demand => {
         let dir =
@@ -2897,7 +2899,7 @@ fn paint_background_tiles(
           } else {
             panic!("no");
           };
-        draw_demander(options, state, config, context, dir, ox, oy, CELL_W, CELL_H);
+        paint_demander(options, state, config, context, dir, ox, oy, CELL_W, CELL_H);
       }
     }
   }
@@ -3422,16 +3424,16 @@ fn paint_belt_drag_preview(options: &Options, state: &State, config: &Config, co
     if !deleting {
       if index == 0 {
         if cell_x == 0 {
-          paint_ghost_supplier(options, state, config, cell_x, cell_y, Direction::Left, context, false);
+          paint_ghost_supplier(options, state, config, factory, cell_x, cell_y, Direction::Left, context, false);
           continue;
         } else if cell_y == 0 {
-          paint_ghost_supplier(options, state, config, cell_x, cell_y, Direction::Up, context, false);
+          paint_ghost_supplier(options, state, config, factory, cell_x, cell_y, Direction::Up, context, false);
           continue;
         } else if cell_x == FLOOR_CELLS_W - 1 {
-          paint_ghost_supplier(options, state, config, cell_x, cell_y, Direction::Right, context, false);
+          paint_ghost_supplier(options, state, config, factory, cell_x, cell_y, Direction::Right, context, false);
           continue;
         } else if cell_y == FLOOR_CELLS_H - 1 {
-          paint_ghost_supplier(options, state, config, cell_x, cell_y, Direction::Down, context, false);
+          paint_ghost_supplier(options, state, config, factory, cell_x, cell_y, Direction::Down, context, false);
           continue;
         }
       } else if index == track.len() - 1 {
@@ -3469,7 +3471,7 @@ fn paint_ghost_belt_of_type(options: &Options, state: &State, config: &Config, c
     context.set_global_alpha(1.0);
   }
 }
-fn paint_ghost_supplier(options: &Options, state: &State, config: &Config, cell_x: usize, cell_y: usize, dir: Direction, context: &Rc<web_sys::CanvasRenderingContext2d>, skip_tile: bool) {
+fn paint_ghost_supplier(options: &Options, state: &State, config: &Config, factory: &Factory, cell_x: usize, cell_y: usize, dir: Direction, context: &Rc<web_sys::CanvasRenderingContext2d>, skip_tile: bool) {
   let tile_size_reduction = 1.0;
 
   context.set_fill_style(&"#ffffff40".into());
@@ -3477,7 +3479,7 @@ fn paint_ghost_supplier(options: &Options, state: &State, config: &Config, cell_
 
   if !skip_tile {
     context.set_global_alpha(0.7);
-    draw_supplier(options, state, config, context, dir, UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + 5.0, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + 5.0, CELL_W - 10.0, CELL_H - 10.0);
+    paint_supplier(options, state, config, context, UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + 5.0, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + 5.0, CELL_W - 10.0, CELL_H - 10.0, 0, 0, to_coord(cell_x, cell_y));
     context.set_global_alpha(1.0);
   }
 }
@@ -3489,7 +3491,7 @@ fn paint_ghost_demander(options: &Options, state: &State, config: &Config, cell_
 
   if !skip_tile {
     context.set_global_alpha(0.7);
-    draw_demander(options, state, config, context, dir, UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + 5.0, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + 5.0, CELL_W - 10.0, CELL_H - 10.0);
+    paint_demander(options, state, config, context, dir, UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + 5.0, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + 5.0, CELL_W - 10.0, CELL_H - 10.0);
     context.set_global_alpha(1.0);
   }
 }
@@ -4465,20 +4467,19 @@ fn paint_factory_belt(options: &Options, state: &State, config: &Config, factory
   }
 
   let belt_type = factory.floor[coord].belt.meta.btype;
-  let sprite_offset = factory.floor[coord].belt.sprite_offset;
+  let sprite_start_at = factory.floor[coord].belt.sprite_start_at;
 
-  paint_belt(options, state, config, context, dx, dy, dw, dh, belt_type, sprite_offset, factory.ticks);
+  paint_belt(options, state, config, context, dx, dy, dw, dh, belt_type, sprite_start_at, factory.ticks);
 }
 fn paint_zero_belt(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, dx: f64, dy: f64, dw: f64, dh: f64, belt_type: BeltType) {
   paint_belt(options, state, config, context, dx, dy, dw, dh, belt_type, 0, 0);
 }
-fn paint_belt(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, dx: f64, dy: f64, dw: f64, dh: f64, belt_type: BeltType, sprite_offset: u64, ticks: u64) {
+fn paint_belt(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, dx: f64, dy: f64, dw: f64, dh: f64, belt_type: BeltType, sprite_start_at: u64, ticks: u64) {
   if !options.paint_belts {
     return;
   }
 
-  // let (spx, spy, spw, sph, canvas) = config_get_sprite_for_belt_type(config, belt_type, sprite_offset, ticks);
-  let (spx, spy, spw, sph, canvas) = config_get_sprite_for_belt_type(config, belt_type, 0, ticks);
+  let (spx, spy, spw, sph, canvas) = config_get_sprite_for_belt_type(config, belt_type, sprite_start_at, ticks);
 
   context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
     &canvas,
@@ -4489,24 +4490,51 @@ fn paint_belt(options: &Options, state: &State, config: &Config, context: &Rc<we
   ).expect("paint_belt() something error draw_image"); // requires web_sys HtmlImageElement feature
 }
 
-fn draw_supplier(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, dir: Direction, ox: f64, oy: f64, dw: f64, dh: f64) {
-  let dpck_dir =
-    match dir {
-      Direction::Up => CONFIG_NODE_SUPPLY_UP,
-      Direction::Right => CONFIG_NODE_SUPPLY_RIGHT,
-      Direction::Down => CONFIG_NODE_SUPPLY_DOWN,
-      Direction::Left => CONFIG_NODE_SUPPLY_LEFT,
+fn paint_supplier(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, dx: f64, dy: f64, dw: f64, dh: f64, sprite_start_at: u64, ticks: u64, coord: usize) {
+  let (x, y) = to_xy(coord);
+  let supply_kind =
+    if y == 0 {
+      CONFIG_NODE_SUPPLY_UP
+    } else if x == FLOOR_CELLS_W-1 {
+      CONFIG_NODE_SUPPLY_RIGHT
+    } else if y == FLOOR_CELLS_H-1 {
+      CONFIG_NODE_SUPPLY_DOWN
+    } else if x == 0 {
+      CONFIG_NODE_SUPPLY_LEFT
+    } else {
+      panic!("no");
     };
 
-  // TODO: should we offer the option to draw the dock behind in case of semi-transparent supply imgs?
-  context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-    &config.sprite_cache_canvas[config.nodes[dpck_dir].sprite_config.frames[0].file_canvas_cache_index],
-    config.nodes[dpck_dir].sprite_config.frames[0].x, config.nodes[dpck_dir].sprite_config.frames[0].y, config.nodes[dpck_dir].sprite_config.frames[0].w, config.nodes[dpck_dir].sprite_config.frames[0].h,
-    ox, oy, dw, dh
-  ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+  // fn paint_belt(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, dx: f64, dy: f64, dw: f64, dh: f64, belt_type: BeltType, sprite_start_at: u64, ticks: u64) {
+    let (spx, spy, spw, sph, canvas) = config_get_sprite_details(config, supply_kind, sprite_start_at, false, ticks);
+
+    context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+      &canvas,
+      // Sprite position
+      spx, spy, spw, sph,
+      // Paint onto canvas at
+      dx, dy, dw, dh,
+    ).expect("paint_supplier() something error draw_image"); // requires web_sys HtmlImageElement feature
+  // }
+
+  //
+  // let dpck_dir =
+  //   match dir {
+  //     Direction::Up => CONFIG_NODE_SUPPLY_UP,
+  //     Direction::Right => CONFIG_NODE_SUPPLY_RIGHT,
+  //     Direction::Down => CONFIG_NODE_SUPPLY_DOWN,
+  //     Direction::Left => CONFIG_NODE_SUPPLY_LEFT,
+  //   };
+  //
+  // // TODO: should we offer the option to draw the dock behind in case of semi-transparent supply imgs?
+  // context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+  //   &config.sprite_cache_canvas[config.nodes[dpck_dir].sprite_config.frames[0].file_canvas_cache_index],
+  //   config.nodes[dpck_dir].sprite_config.frames[0].x, config.nodes[dpck_dir].sprite_config.frames[0].y, config.nodes[dpck_dir].sprite_config.frames[0].w, config.nodes[dpck_dir].sprite_config.frames[0].h,
+  //   ox, oy, dw, dh
+  // ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
 }
 
-fn draw_demander(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, dir: Direction, ox: f64, oy: f64, dw: f64, dh: f64) {
+fn paint_demander(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, dir: Direction, ox: f64, oy: f64, dw: f64, dh: f64) {
   let dock_dir =
     match dir {
       Direction::Up => CONFIG_NODE_DEMAND_UP,

@@ -465,10 +465,11 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
             pattern_unique_kinds: vec!(),
             icon,
             sprite_config: SpriteConfig {
-              pause_between: 0,
               frame_offset: 0,
               initial_delay: 0,
+              frame_delay: 0,
               looping: false,
+              loop_delay: 0,
               frames: vec![SpriteFrame {
                 file: "".to_string(),
                 name: "untitled frame".to_string(),
@@ -637,7 +638,13 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
               nodes[current_node_index].sprite_config.frames[last].name = value_raw.to_string();
             }
             "frame_offset" => {
-              nodes[current_node_index].sprite_config.frame_offset = value_raw.parse::<u64>().or::<Result<u32, &str>>(Ok(0)).unwrap();
+              nodes[current_node_index].sprite_config.frame_offset = value_raw.parse::<u64>().or::<Result<u32, &str>>(Ok(0)).unwrap() as usize;
+            }
+            "frame_delay" => {
+              nodes[current_node_index].sprite_config.frame_delay = value_raw.parse::<u64>().or::<Result<u32, &str>>(Ok(0)).unwrap();
+            }
+            "loop_delay" => {
+              nodes[current_node_index].sprite_config.loop_delay = value_raw.parse::<u64>().or::<Result<u32, &str>>(Ok(0)).unwrap();
             }
             _ => panic!("Unsupported node option. Node options must be one of a hard coded set but was `{:?}`", label),
           }
@@ -1415,10 +1422,11 @@ fn config_node_part(index: PartKind, name: String, icon: char) -> ConfigNode {
     icon,
 
     sprite_config: SpriteConfig {
-      pause_between: 10,
       frame_offset: 0,
       initial_delay: 10,
+      frame_delay: 0,
       looping: true,
+      loop_delay: 0,
       frames: vec!(
         SpriteFrame {
           file: "".to_string(),
@@ -1457,10 +1465,11 @@ fn config_node_supply(index: PartKind, name: String) -> ConfigNode {
     icon: '?',
 
     sprite_config: SpriteConfig {
-      pause_between: 10,
       frame_offset: 0,
       initial_delay: 10,
+      frame_delay: 0,
       looping: true,
+      loop_delay: 0,
       frames: vec!(
         SpriteFrame {
           file: "./img/supply.png".to_string(),
@@ -1499,10 +1508,11 @@ fn config_node_demand(index: PartKind, name: String) -> ConfigNode {
     icon: '?',
 
     sprite_config: SpriteConfig {
-      pause_between: 10,
       frame_offset: 0,
       initial_delay: 10,
+      frame_delay: 0,
       looping: true,
+      loop_delay: 0,
       frames: vec!(
         SpriteFrame {
           file: "./img/demand.png".to_string(),
@@ -1541,10 +1551,11 @@ fn config_node_dock(index: PartKind, name: String) -> ConfigNode {
     icon: '?',
 
     sprite_config: SpriteConfig {
-      pause_between: 10,
       frame_offset: 0,
       initial_delay: 10,
+      frame_delay: 0,
       looping: true,
+      loop_delay: 0,
       frames: vec!(
         SpriteFrame {
           file: "./img/dock.png".to_string(),
@@ -1583,10 +1594,11 @@ fn config_node_machine(index: PartKind, name: &str, file: &str) -> ConfigNode {
     icon: '?',
 
     sprite_config: SpriteConfig {
-      pause_between: 10,
       frame_offset: 0,
       initial_delay: 10,
+      frame_delay: 0,
       looping: true,
+      loop_delay: 0,
       frames: vec!(
         SpriteFrame {
           file: file.to_string(),
@@ -1628,10 +1640,11 @@ fn config_node_belt(index: PartKind, name: &str) -> ConfigNode {
     icon: '?',
 
     sprite_config: SpriteConfig {
-      pause_between: 10,
       frame_offset: 0,
       initial_delay: 10,
+      frame_delay: 0,
       looping: true,
+      loop_delay: 0,
       frames: vec!(
         SpriteFrame {
           file: belt_meta.src.to_string(),
@@ -1649,11 +1662,49 @@ fn config_node_belt(index: PartKind, name: &str) -> ConfigNode {
   };
 }
 
-pub fn config_get_sprite_details(config: &Config, config_index: usize, sprite_offset: u64, ticks: u64) -> (f64, f64, f64, f64, &web_sys::HtmlImageElement) {
+pub fn config_get_sprite_details(config: &Config, config_index: usize, sprite_start_at: u64, looping: bool, ticks: u64) -> (f64, f64, f64, f64, &web_sys::HtmlImageElement) {
   assert!(config_index < config.nodes.len(), "config_index should be a node index: {} < {}", config_index, config.nodes.len());
   let node = &config.nodes[config_index];
-  let sprite_index = ((((ticks - sprite_offset) + (node.sprite_config.frame_offset * 62)) % ((node.sprite_config.frames.len() as u64) * 62)) / 62) as usize;
-  let sprite = &node.sprite_config.frames[sprite_index];
+  let sprite_config = &node.sprite_config;
+
+  // Which frame should be considered to be the first? Frame index.
+  // - frame_offset: usize,
+  // Show the initial frame this long before starting the rest of the animation
+  // - initial_delay: u64,
+  // Show each frame for this long (pause between frames)
+  // - frame_delay: u64,
+  // Restart animation after last frame was shown?
+  // - looping: bool,
+
+  let frame_offset = sprite_config.frame_offset;
+
+  if sprite_start_at - ticks < sprite_config.initial_delay {
+    let sprite = &node.sprite_config.frames[frame_offset];
+    return ( sprite.x, sprite.y, sprite.w, sprite.h, &config.sprite_cache_canvas[sprite.file_canvas_cache_index] );
+  }
+
+  let frame_count = sprite_config.frames.len();
+  let frame_delay = sprite_config.frame_delay.max(1);
+  let loop_delay = sprite_config.loop_delay.max(0);
+  let progress = ticks - (sprite_start_at + sprite_config.initial_delay);
+  let frame_duration_loop = frame_count as u64 * frame_delay;
+  let loop_duration = frame_count as u64 * frame_delay + loop_delay;
+  let current_loop = if looping { progress % loop_duration.max(1) } else { progress.max(1).min(loop_duration - 1) };
+  let frame_index = (current_loop / sprite_config.frame_delay.max(1)) as usize;
+
+  assert!(loop_delay != 0 || frame_index < frame_count, "without loop delay the frame index should not exceed the frame count");
+  // If "progress" is inside the loop delay then pin the last frame and prevent oob here
+  let frame_index1 = frame_index.min(frame_count - 1);
+  // If not looping and the index is beyond the last, pin it to the last. Otherwise loop it.
+  let frame_index2 = if looping { frame_index1 % frame_count } else { frame_index1 };
+  // Move pointer to compensate for starting frame
+  let frame_index3 = (frame_index2 + frame_offset) % frame_count;
+
+  // if config_index == CONFIG_NODE_SUPPLY_UP {
+  //   log!("frame_offset: {}, frame_count: {}, frame_index: {} {} {} {}", frame_offset, frame_count, frame_index, frame_index1, frame_index2, frame_index3);
+  // }
+
+  let sprite = &node.sprite_config.frames[frame_index3];
   return ( sprite.x, sprite.y, sprite.w, sprite.h, &config.sprite_cache_canvas[sprite.file_canvas_cache_index] );
 }
 
@@ -1726,8 +1777,8 @@ pub fn config_to_jsvalue(config: &Config) -> JsValue {
   }).collect::<js_sys::Array>().into();
 }
 
-pub fn config_get_sprite_for_belt_type(config: &Config, belt_type: BeltType, sprite_offset: u64, ticks: u64) -> ( f64, f64, f64, f64, &web_sys::HtmlImageElement) {
-  return config_get_sprite_details(config, belt_type as usize, sprite_offset, ticks);
+pub fn config_get_sprite_for_belt_type(config: &Config, belt_type: BeltType, sprite_start_at: u64, ticks: u64) -> (f64, f64, f64, f64, &web_sys::HtmlImageElement) {
+  return config_get_sprite_details(config, belt_type as usize, sprite_start_at, true, ticks);
 }
 
 pub const EXAMPLE_CONFIG: &str = "

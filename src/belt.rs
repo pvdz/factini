@@ -31,7 +31,7 @@ pub struct Belt {
   pub part_progress: u64, // Usually factory.ticks - part_at is progress, but a part could be stuck at the center waiting for an outbound port to be available
   pub speed: u64,
   pub tick_price: i32, // Basically the continuous price you pay for having this belt on board, this applies to every tick so keep it low
-  pub sprite_offset: u64, // Offset of sprite animation for this belt
+  pub sprite_start_at: u64, // Begin of sprite animation for this belt
 }
 
 pub fn belt_none(config: &Config) -> Belt {
@@ -45,7 +45,7 @@ pub fn belt_none(config: &Config) -> Belt {
     part_progress: 0,
     speed: 0,
     tick_price: 0,
-    sprite_offset: 0,
+    sprite_start_at: 0,
   };
 }
 
@@ -60,7 +60,7 @@ pub fn belt_new(config: &Config, meta: BeltMeta) -> Belt {
     part_progress: 0,
     speed: ONE_SECOND / 5,
     tick_price: 0,
-    sprite_offset: 0,
+    sprite_start_at: 0,
   };
 }
 
