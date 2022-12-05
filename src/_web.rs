@@ -40,20 +40,20 @@
 // - need to figure out how to create bigger buttons
 // - bouncers are taking bouncer index as offsets rather than visible offsets. the last bouncer animations are completely broken
 // - should certain animation speeds scale with factory speed?
+//   - probably want two speed types; game and UI. bouncers, buttons, and cars are UI bound while most anything on the floor is game bound.
 // - click edge to add supplier. click supplier/demander to toggle.
 // - frames in the middle
 // - cars adjust speed too
 // - disallow dragging resources to machines
 // - disable manual resource interface (no clicky on machine internals)
 // - updating machine should open machines
-// - fix not all items fit in ui (make wider?)
 // - change preview of craftable when selected (the tiny preview on top is not working
 // - create tutorial
 // - should machine give hint of creating/missing in/outbound connection?
 // - animate demanders
 // - replace quick save button icons
 // - should non-game animations have their own play speed? (bouncers, cars, ui)
-// - find and fix save/restore bug (on ipad?) not sure how to do it but it was fairly easy?
+// - find and fix save/restore bug (on ipad?) not sure how to do it but it was fairly easy? maybe encoding, may have been fixed with html5 charset. should see if i can still repro that now.
 // - do finish the bouncer polish
 
 // prepare for xmas.
