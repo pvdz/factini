@@ -17,9 +17,10 @@ use super::log;
 #[derive(Debug, Clone)]
 pub struct Supply {
   // pub part: Part, // ex: Current part that's moving out. dont use this, just get it from .gives
-  pub part_created_at: u64, // Last time part was generated
+  pub part_started_at: u64, // Last time part begun generating cycle
+  pub part_created_at: u64, // Last time part completed generating cycle
   pub part_tbd: bool, // Is the connected belt ready to receive this? The part does not proceed past 50% of speed until this is set to true.
-  pub part_progress: u64,
+  pub part_progress: u64, // Absolute ticks because it may pause arbitrarily while waiting for neighbor belt to have space available. Use speed to control speed of generation.
   pub neighbor_coord: usize, // Still need to verify that the neighbor is a belt
   pub outgoing_dir: Direction,
   pub neighbor_incoming_dir: Direction,
@@ -36,7 +37,7 @@ pub struct Supply {
 
 pub fn supply_none(config: &Config) -> Supply {
   return Supply {
-    // part: part_none(config),
+    part_started_at: 0,
     part_created_at: 0,
     part_tbd: true,
     part_progress: 0,
@@ -54,7 +55,7 @@ pub fn supply_none(config: &Config) -> Supply {
 
 pub fn supply_new(gives: Part, neighbor_coord: usize, outgoing_dir: Direction, neighbor_incoming_dir: Direction, speed: u64, cooldown: u64, price: i32) -> Supply {
   return Supply {
-    // part: part_none(config),
+    part_started_at: 0,
     part_created_at: 0,
     part_tbd: true,
     part_progress: 0,
@@ -77,23 +78,34 @@ pub fn tick_supply(options: &mut Options, state: &mut State, factory: &mut Facto
     return;
   }
 
-  if !factory.floor[coord].supply.part_tbd || (factory.floor[coord].supply.part_progress as f64) / (factory.floor[coord].supply.speed.max(1) as f64) < 0.5 {
-    factory.floor[coord].supply.part_progress = (factory.floor[coord].supply.part_progress + 1).min(factory.floor[coord].supply.speed.max(1));
+  let ticks = factory.ticks;
+  let mut supply = &mut factory.floor[coord].supply;
+
+  if supply.last_part_out_at > 0 && ticks - supply.last_part_out_at < supply.cooldown {
+    // Still in cooldown period after creating last part
+    return;
   }
 
-  if factory.floor[coord].supply.part_created_at == 0 && factory.ticks - factory.floor[coord].supply.last_part_out_at >= factory.floor[coord].supply.cooldown {
-    // Cooled down, generate a new piece
-    if options.print_moves || options.print_moves_supply { log!("({}) Created new {:?} at supply @{}", factory.ticks, factory.floor[coord].supply.gives.kind, coord); }
-    // factory.floor[coord].supply.part = factory.floor[coord].supply.gives.clone();
-    factory.floor[coord].supply.part_created_at = factory.ticks;
-    factory.floor[coord].supply.part_tbd = true;
-    factory.floor[coord].supply.part_progress = 0;
+  if supply.part_created_at == 0 {
+    if options.print_moves || options.print_moves_supply { log!("({}) Created new {:?} at supply @{}", ticks, supply.gives.kind, coord); }
+    supply.part_created_at = ticks;
+  }
+
+  let speed = supply.speed.max(1);
+
+  // Every tick where eligible, move progress forward by speed ticks. When the connected belt is
+  // not available, tbd is false and we do not move progress forward until the belt has space.
+  if (supply.part_tbd && supply.part_progress < (speed / 2).max(1)) || (!supply.part_tbd || supply.part_progress < speed) {
+    supply.part_progress += 1;
   }
 }
 
 pub fn supply_clear_part(factory: &mut Factory, supply_coord: usize) {
-  factory.floor[supply_coord].supply.supplied += 1;
-  factory.floor[supply_coord].supply.part_created_at = 0;
-  factory.floor[supply_coord].supply.part_progress = 0;
-  factory.floor[supply_coord].supply.last_part_out_at = factory.ticks;
+  let supply = &mut factory.floor[supply_coord].supply;
+  supply.supplied += 1;
+  supply.part_started_at = 0;
+  supply.part_created_at = 0;
+  supply.part_progress = 0;
+  supply.last_part_out_at = factory.ticks;
+  supply.part_tbd = true;
 }

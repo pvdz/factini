@@ -51,7 +51,7 @@
 // - auto-restart the day on change
 // - create tutorial
 // - should machine give hint of creating/missing in/outbound connection?
-// - animate suppliers and receivers
+// - animate demanders
 // - replace quick save button icons
 // - should non-game animations have their own play speed? (bouncers, cars, ui)
 // - find and fix save/restore bug (on ipad?) not sure how to do it but it was fairly easy?
@@ -803,10 +803,12 @@ pub fn start() -> Result<(), JsValue> {
         paint_trucks(&options, &state, &config, &context, &mut factory, &img_dumptruck);
         paint_bottom_menu(&options, &state, &context, &img_machine_1_1, &mouse_state);
         // TODO: wait for tiles to be loaded because first few frames won't paint anything while the tiles are loading...
-        paint_background_tiles(&options, &state, &config, &context, &factory, &img_machine4, &img_machine_1_1, &img_machine_2_1, &img_machine_3_2);
+        paint_background_tiles1(&options, &state, &config, &context, &factory, &img_machine4, &img_machine_1_1, &img_machine_2_1, &img_machine_3_2);
+        paint_background_tiles2(&options, &state, &config, &context, &factory, &img_machine4, &img_machine_1_1, &img_machine_2_1, &img_machine_3_2);
+        paint_background_tiles3(&options, &state, &config, &context, &factory, &img_machine4, &img_machine_1_1, &img_machine_2_1, &img_machine_3_2);
         paint_port_arrows(&options, &state, &config, &context, &factory);
         paint_belt_dbg_id(&options, &state, &config, &context, &factory);
-        paint_belt_items(&options, &state, &config, &context, &factory);
+        // paint_belt_items(&options, &state, &config, &context, &factory);
         paint_machine_craft_menu(&options, &state, &config, &context, &factory, &cell_selection, &mouse_state);
         paint_ui_offer_hover_droptarget_hint_conditionally(&options, &state, &config, &context, &mut factory, &mouse_state, &cell_selection);
         paint_debug_app(&options, &state, &context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
@@ -2817,7 +2819,7 @@ fn paint_dock_stripes(
   ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
   context.set_global_alpha(1.0);
 }
-fn paint_background_tiles(
+fn paint_background_tiles1(
   options: &Options,
   state: &State,
   config: &Config,
@@ -2835,8 +2837,10 @@ fn paint_background_tiles(
     let ox = UI_FLOOR_OFFSET_X + CELL_W * (cx as f64);
     let oy = UI_FLOOR_OFFSET_Y + CELL_H * (cy as f64);
 
+    let cell = &factory.floor[coord];
+
     // This is cheating since we defer the loading stuff to the browser. Sue me.
-    match factory.floor[coord].kind {
+    match cell.kind {
       CellKind::Empty => {
         if (cx == 0 || cx == FLOOR_CELLS_W - 1) && (cy == 0 || cy == FLOOR_CELLS_H - 1) {
           // corners
@@ -2865,8 +2869,8 @@ fn paint_background_tiles(
       CellKind::Machine => {
         // For machines, paint the top-left cell only but make the painted area cover the whole machine
         // TODO: each machine size should have a unique, customized, sprite
-        if factory.floor[coord].machine.main_coord == coord {
-          let machine_img = match ( factory.floor[coord].machine.cell_width, factory.floor[coord].machine.cell_height ) {
+        if cell.machine.main_coord == coord {
+          let machine_img = match ( cell.machine.cell_width, cell.machine.cell_height ) {
             ( 1, 1 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_1X1].sprite_config.frames[0].file_canvas_cache_index],
             ( 2, 2 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_2X2].sprite_config.frames[0].file_canvas_cache_index],
             ( 3, 3 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].file_canvas_cache_index],
@@ -2876,15 +2880,26 @@ fn paint_background_tiles(
             ( 3, 2 ) => img_machine_3_2,
             _ => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].file_canvas_cache_index],
           };
-          context.draw_image_with_html_image_element_and_dw_and_dh(machine_img, ox, oy, factory.floor[coord].machine.cell_width as f64 * CELL_W, factory.floor[coord].machine.cell_height as f64 * CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+          context.draw_image_with_html_image_element_and_dw_and_dh(machine_img, ox, oy, cell.machine.cell_width as f64 * CELL_W, cell.machine.cell_height as f64 * CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
 
           // Paint tiny output part
-          paint_segment_part_from_config(options, state, config, context, factory.floor[coord].machine.output_want.kind, ox + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].x, oy + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].y, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].w, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].h);
+          paint_segment_part_from_config(options, state, config, context, cell.machine.output_want.kind, ox + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].x, oy + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].y, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].w, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].h);
         }
       },
       CellKind::Supply => {
-        paint_supplier(options, state, config, context, ox, oy, CELL_W, CELL_H, 0, factory.ticks, coord);
-        // paint_supply_and_part_for_edge(options, state, config, context, cx, cy, factory.floor[coord].supply.gives.kind);
+        // Bottom layer: paint the belt so it appears to be part of the supplier
+        // We need the animation to line up with other belts so we have to use separate sprite layers
+        if cy == 0 {
+          paint_belt(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::U_D, 0, factory.ticks);
+        } else if cx == FLOOR_CELLS_W-1 {
+          paint_belt(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::R_L, 0, factory.ticks);
+        } else if cy == FLOOR_CELLS_H-1 {
+          paint_belt(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::D_U, 0, factory.ticks);
+        } else if cx == 0 {
+          paint_belt(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::L_R, 0, factory.ticks);
+        } else {
+          panic!("no");
+        };
       }
       CellKind::Demand => {
         let dir =
@@ -2900,6 +2915,156 @@ fn paint_background_tiles(
             panic!("no");
           };
         paint_demander(options, state, config, context, dir, ox, oy, CELL_W, CELL_H);
+      }
+    }
+  }
+}
+fn paint_background_tiles2(
+  options: &Options,
+  state: &State,
+  config: &Config,
+  context: &Rc<web_sys::CanvasRenderingContext2d>,
+  factory: &Factory,
+  img_machine2: &web_sys::HtmlImageElement,
+  img_machine_1_1: &web_sys::HtmlImageElement,
+  img_machine_2_1: &web_sys::HtmlImageElement,
+  img_machine_3_2: &web_sys::HtmlImageElement,
+) {
+  // Paint background cell tiles
+  for coord in 0..FLOOR_CELLS_WH {
+    let (cx, cy) = to_xy(coord);
+
+    let ox = UI_FLOOR_OFFSET_X + CELL_W * (cx as f64);
+    let oy = UI_FLOOR_OFFSET_Y + CELL_H * (cy as f64);
+
+    let cell = &factory.floor[coord];
+
+    // This is cheating since we defer the loading stuff to the browser. Sue me.
+    match factory.floor[coord].kind {
+      CellKind::Empty => {
+      },
+      CellKind::Belt => {
+        let progress_c = ((cell.belt.part_progress as f64) / (cell.belt.speed as f64)).min(1.0);
+        let first_half = progress_c < 0.5;
+
+        // Start with the coordinate to paint the icon such that it ends up centered
+        // in the target cell.
+        // Then increase or decrease one axis depending on the progress the part made.
+        let sx = UI_FLOOR_OFFSET_X + CELL_W * (cx as f64) + -(PART_W * 0.5);
+        let sy = UI_FLOOR_OFFSET_Y + CELL_H * (cy as f64) + -(PART_H * 0.5);
+
+        let (px, py) =
+          match if first_half { cell.belt.part_from } else { cell.belt.part_to } {
+            Direction::Up => {
+              let cux = sx + (CELL_W * 0.5);
+              let cuy = sy + (CELL_H * (if first_half { progress_c } else { 1.0 - progress_c }));
+              (cux, cuy)
+            }
+            Direction::Right => {
+              let dlx = sx + (CELL_W * (if first_half { 1.0 - progress_c } else { progress_c }));
+              let dly = sy + (CELL_H * 0.5);
+              (dlx, dly)
+            }
+            Direction::Down => {
+              let cux = sx + (CELL_W * 0.5);
+              let cuy = sy + (CELL_H * (if first_half { 1.0 - progress_c } else { progress_c }));
+              (cux, cuy)
+            }
+            Direction::Left => {
+              let dlx = sx + (CELL_W * (if first_half { progress_c } else { 1.0 - progress_c }));
+              let dly = sy + (CELL_H * 0.5);
+              (dlx, dly)
+            }
+          };
+
+        if paint_segment_part_from_config(options, state, config, context, cell.belt.part.kind, px, py, PART_W, PART_H) {
+          // context.set_font(&"8px monospace");
+          // context.set_fill_style(&"green".into());
+          // context.fill_text(format!("{} {}x{}", coord, x, y).as_str(), px + 3.0, py + 10.0).expect("something error fill_text");
+          // context.fill_text(format!("{}", progress_c).as_str(), px + 3.0, py + 21.0).expect("something error fill_text");
+        }
+      },
+      CellKind::Machine => {
+      },
+      CellKind::Supply => {
+        // Paint part on top of belts
+        let supply = &cell.supply;
+        if supply.part_created_at > 0 {
+          let p = supply.part_progress.min(supply.speed.max(1)) as f64 / supply.speed.max(1) as f64;
+
+          let mut dx = ox + (CELL_W - PART_W) * 0.5;
+          let mut dy = oy + (CELL_H - PART_H) * 0.5;
+
+          if cy == 0 {
+            dy += CELL_H * 0.5 * p;
+          } else if cx == FLOOR_CELLS_W-1 {
+            dx -= CELL_W * 0.5 * p;
+          } else if cy == FLOOR_CELLS_H-1 {
+            dy -= CELL_H * 0.5 * p;
+          } else if cx == 0 {
+            dx += CELL_W * 0.5 * p;
+          } else {
+            panic!("no");
+          };
+          paint_segment_part_from_config(options, state, config, context, supply.gives.kind, dx, dy, PART_W, PART_H);
+        }
+      }
+      CellKind::Demand => {
+      }
+    }
+  }
+}
+fn paint_background_tiles3(
+  options: &Options,
+  state: &State,
+  config: &Config,
+  context: &Rc<web_sys::CanvasRenderingContext2d>,
+  factory: &Factory,
+  img_machine2: &web_sys::HtmlImageElement,
+  img_machine_1_1: &web_sys::HtmlImageElement,
+  img_machine_2_1: &web_sys::HtmlImageElement,
+  img_machine_3_2: &web_sys::HtmlImageElement,
+) {
+  // Paint background cell tiles
+  for coord in 0..FLOOR_CELLS_WH {
+    let (cx, cy) = to_xy(coord);
+
+    let ox = UI_FLOOR_OFFSET_X + CELL_W * (cx as f64);
+    let oy = UI_FLOOR_OFFSET_Y + CELL_H * (cy as f64);
+
+    let cell = &factory.floor[coord];
+
+    // This is cheating since we defer the loading stuff to the browser. Sue me.
+    match cell.kind {
+      CellKind::Empty => {
+      },
+      CellKind::Belt => {
+      },
+      CellKind::Machine => {
+        // For machines, paint the top-left cell only but make the painted area cover the whole machine
+        // TODO: each machine size should have a unique, customized, sprite
+        if cell.machine.main_coord == coord {
+          let machine_img = match ( cell.machine.cell_width, cell.machine.cell_height ) {
+            ( 1, 1 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_1X1].sprite_config.frames[0].file_canvas_cache_index],
+            ( 2, 2 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_2X2].sprite_config.frames[0].file_canvas_cache_index],
+            ( 3, 3 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].file_canvas_cache_index],
+            ( 4, 4 ) => img_machine_1_1,
+            ( 2, 1 ) => img_machine_2_1,
+            ( 4, 2 ) => img_machine_2_1,
+            ( 3, 2 ) => img_machine_3_2,
+            _ => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].file_canvas_cache_index],
+          };
+          context.draw_image_with_html_image_element_and_dw_and_dh(machine_img, ox, oy, cell.machine.cell_width as f64 * CELL_W, cell.machine.cell_height as f64 * CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+
+          // Paint tiny output part
+          paint_segment_part_from_config(options, state, config, context, cell.machine.output_want.kind, ox + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].x, oy + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].y, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].w, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].h);
+        }
+      },
+      CellKind::Supply => {
+        // Paint the supplier image with partial transparency, making the belt and part appear semi-transparently
+        paint_supplier(options, state, config, factory, context, ox, oy, CELL_W, CELL_H, cell.supply.part_created_at, factory.ticks, coord);
+      }
+      CellKind::Demand => {
       }
     }
   }
@@ -3479,7 +3644,7 @@ fn paint_ghost_supplier(options: &Options, state: &State, config: &Config, facto
 
   if !skip_tile {
     context.set_global_alpha(0.7);
-    paint_supplier(options, state, config, context, UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + 5.0, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + 5.0, CELL_W - 10.0, CELL_H - 10.0, 0, 0, to_coord(cell_x, cell_y));
+    paint_supplier(options, state, config, factory, context, UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + 5.0, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + 5.0, CELL_W - 10.0, CELL_H - 10.0, 0, 0, to_coord(cell_x, cell_y));
     context.set_global_alpha(1.0);
   }
 }
@@ -3667,16 +3832,18 @@ fn paint_debug_selected_supply_cell(context: &Rc<web_sys::CanvasRenderingContext
   context.set_stroke_style(&"black".into());
   context.stroke_rect(UI_DEBUG_CELL_OFFSET_X, UI_DEBUG_CELL_OFFSET_Y, UI_DEBUG_CELL_WIDTH, UI_DEBUG_CELL_HEIGHT);
 
+  let supply = &factory.floor[selected_coord].supply;
+
   context.set_fill_style(&"black".into());
   context.fill_text(format!("Supply cell: {} x {} (@{})", x, y, selected_coord).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (1.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
   context.fill_text(format!("Ports: {}", cell_ports_to_str(&factory.floor[selected_coord])).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (2.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
   context.fill_text(format!("ins:  {}", ins_outs_to_str(&factory.floor[selected_coord].ins)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (3.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
   context.fill_text(format!("outs: {}", ins_outs_to_str(&factory.floor[selected_coord].outs)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (4.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
-  context.fill_text(format!("Gives: {}", factory.floor[selected_coord].supply.gives.icon).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (5.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  context.fill_text(format!("Speed: {}", factory.floor[selected_coord].supply.speed).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (6.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  context.fill_text(format!("Cooldown: {: >3}% {}", (((factory.ticks - factory.floor[selected_coord].supply.last_part_out_at) as f64 / factory.floor[selected_coord].supply.cooldown.max(1) as f64).min(1.0) * 100.0) as u8, factory.floor[selected_coord].supply.cooldown).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (7.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  context.fill_text(format!("Progress: {: >3}% (tbd: {})", (((factory.ticks - factory.floor[selected_coord].supply.part_progress) as f64 / factory.floor[selected_coord].supply.speed.max(1) as f64).min(1.0) * 100.0) as u8, factory.floor[selected_coord].supply.part_tbd).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (8.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
-  context.fill_text(format!("Supplied: {: >4}", factory.floor[selected_coord].supply.supplied).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (9.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Gives: {}", supply.gives.icon).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (5.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Speed: {}", supply.speed).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (6.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Cooldown: {: >3}% {}", (((factory.ticks - supply.last_part_out_at) as f64 / supply.cooldown.max(1) as f64).min(1.0) * 100.0) as u8, supply.cooldown).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (7.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Progress: {: >3}% (tbd: {})", ((supply.part_progress as f64 / supply.speed.max(1) as f64).min(1.0) * 100.0) as u8, supply.part_tbd).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (8.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Supplied: {: >4}", supply.supplied).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (9.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
 }
 fn paint_debug_selected_demand_cell(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
   if !cell_selection.on {
@@ -4490,7 +4657,7 @@ fn paint_belt(options: &Options, state: &State, config: &Config, context: &Rc<we
   ).expect("paint_belt() something error draw_image"); // requires web_sys HtmlImageElement feature
 }
 
-fn paint_supplier(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, dx: f64, dy: f64, dw: f64, dh: f64, sprite_start_at: u64, ticks: u64, coord: usize) {
+fn paint_supplier(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, dx: f64, dy: f64, dw: f64, dh: f64, sprite_start_at: u64, ticks: u64, coord: usize) {
   let (x, y) = to_xy(coord);
   let supply_kind =
     if y == 0 {
@@ -4505,33 +4672,15 @@ fn paint_supplier(options: &Options, state: &State, config: &Config, context: &R
       panic!("no");
     };
 
-  // fn paint_belt(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, dx: f64, dy: f64, dw: f64, dh: f64, belt_type: BeltType, sprite_start_at: u64, ticks: u64) {
-    let (spx, spy, spw, sph, canvas) = config_get_sprite_details(config, supply_kind, sprite_start_at, false, ticks);
+  let (spx, spy, spw, sph, canvas) = config_get_sprite_details(config, supply_kind, sprite_start_at, false, ticks);
 
-    context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-      &canvas,
-      // Sprite position
-      spx, spy, spw, sph,
-      // Paint onto canvas at
-      dx, dy, dw, dh,
-    ).expect("paint_supplier() something error draw_image"); // requires web_sys HtmlImageElement feature
-  // }
-
-  //
-  // let dpck_dir =
-  //   match dir {
-  //     Direction::Up => CONFIG_NODE_SUPPLY_UP,
-  //     Direction::Right => CONFIG_NODE_SUPPLY_RIGHT,
-  //     Direction::Down => CONFIG_NODE_SUPPLY_DOWN,
-  //     Direction::Left => CONFIG_NODE_SUPPLY_LEFT,
-  //   };
-  //
-  // // TODO: should we offer the option to draw the dock behind in case of semi-transparent supply imgs?
-  // context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-  //   &config.sprite_cache_canvas[config.nodes[dpck_dir].sprite_config.frames[0].file_canvas_cache_index],
-  //   config.nodes[dpck_dir].sprite_config.frames[0].x, config.nodes[dpck_dir].sprite_config.frames[0].y, config.nodes[dpck_dir].sprite_config.frames[0].w, config.nodes[dpck_dir].sprite_config.frames[0].h,
-  //   ox, oy, dw, dh
-  // ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+  context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+    &canvas,
+    // Sprite position
+    spx, spy, spw, sph,
+    // Paint onto canvas at
+    dx, dy, dw, dh,
+  ).expect("paint_supplier() something error draw_image"); // requires web_sys HtmlImageElement feature
 }
 
 fn paint_demander(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, dir: Direction, ox: f64, oy: f64, dw: f64, dh: f64) {

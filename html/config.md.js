@@ -621,7 +621,7 @@ Char is the Greek letter xi (upper)
 - frame_delay: 150
 - loop_delay: 50
 - frame: 1
-  - file: ./img/supplier_up_anim_v1.png
+  - file: ./img/supplier_up_anim_v2.png
   - y: 0
   - x: 0
   - w: 32
@@ -642,25 +642,80 @@ Char is the Greek letter xi (upper)
   - x: 224
 
 # Supply_Right
-- file: ./img/supply.png
-- x: 96
-- y: 0
-- w: 32
-- h: 32
+- frame_offset: 0
+- frame_delay: 150
+- loop_delay: 50
+- frame: 1
+  - file: ./img/supplier_right_anim_v2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Supply_Down
-- file: ./img/supply.png
-- x: 64
-- y: 0
-- w: 32
-- h: 32
+- frame_offset: 0
+- frame_delay: 150
+- loop_delay: 50
+- frame: 1
+  - file: ./img/supplier_down_anim_v2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Supply_Left
-- file: ./img/supply.png
-- x: 32
-- y: 0
-- w: 32
-- h: 32
+- frame_offset: 0
+- frame_delay: 150
+- loop_delay: 50
+- frame: 1
+  - file: ./img/supplier_left_anim_v2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
+
 
 
 
