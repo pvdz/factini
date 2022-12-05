@@ -65,6 +65,9 @@ pub struct Options {
   pub speed_modifier: f64, // Increase or decrease ticks per second by this rate
   pub touch_drag_compensation: bool, // Show the mouse pointer 50x50 away from the actual pointer? helpful for dragging on touch screen but can be annoying
 
+  pub game_enable_clean_days: bool, // Require to achieve quests from a clean day start rather than in any way
+  pub game_auto_reset_day: bool, // Immediately reset day (and clear parts) upon factory change? I find it annoying but maybe you don't?
+
   pub bouncer_gravity: f64,
   pub bouncer_initial_speed: f64,
   pub bouncer_friction: f64,
@@ -121,6 +124,8 @@ pub fn create_options(speed_modifier: f64) -> Options {
     long_term_window: 600000,
     speed_modifier,
     touch_drag_compensation: false,
+    game_enable_clean_days: false,
+    game_auto_reset_day: false,
     bouncer_gravity: 0.8,
     bouncer_initial_speed: 2.0,
     bouncer_friction: 0.987,
@@ -265,6 +270,8 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "bouncer_fade_time" => options.bouncer_fade_time = parse_f64(value, name, strict, options.bouncer_fade_time),
             "bouncer_stamp_interval" => options.bouncer_stamp_interval = parse_u64(value, name, strict, options.bouncer_stamp_interval),
             "touch_drag_compensation" => options.touch_drag_compensation = parse_bool(value, name, strict, options.touch_drag_compensation),
+            "game_enable_clean_days" => options.game_enable_clean_days = parse_bool(value, name, strict, options.game_enable_clean_days),
+            "game_auto_reset_day" => options.game_auto_reset_day = parse_bool(value, name, strict, options.game_auto_reset_day),
             "web_output_cli" => options.web_output_cli = parse_bool(value, name, strict, options.web_output_cli),
             "dbg_trash_is_joker" => options.dbg_trash_is_joker = parse_bool(value, name, strict, options.dbg_trash_is_joker),
             "db_joker_corrupts_factory" => options.db_joker_corrupts_factory = parse_bool(value, name, strict, options.db_joker_corrupts_factory),

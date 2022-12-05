@@ -42,6 +42,8 @@ const GAME_OPTIONS = `
 - bouncer_fade_time: 0.7
 - bouncer_stamp_interval: 100
 - touch_drag_compensation: false
+- game_enable_clean_days: false
+- game_auto_reset_day: false
 - web_output_cli: false
 - dbg_trash_is_joker: true
 - db_joker_corrupts_factory: true

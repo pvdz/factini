@@ -48,7 +48,6 @@
 // - updating machine should open machines
 // - fix not all items fit in ui (make wider?)
 // - change preview of craftable when selected (the tiny preview on top is not working
-// - auto-restart the day on change
 // - create tutorial
 // - should machine give hint of creating/missing in/outbound connection?
 // - animate demanders
@@ -734,6 +733,11 @@ pub fn start() -> Result<(), JsValue> {
           // Dump current map to debug UI
           let game_map = document.get_element_by_id("$game_map").unwrap();
           game_map.dyn_into::<web_sys::HtmlTextAreaElement>().unwrap().set_value(state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].as_str());
+
+          // This works but it's not nice. Maybe it should be an option :shrug:
+          if options.game_auto_reset_day {
+            day_reset(&mut options, &mut state, &mut config, &mut factory);
+          }
         }
 
         if factory.finished_quotes.len() > 0 {
@@ -1376,7 +1380,7 @@ fn on_up_quote(options: &Options, state: &State, config: &Config, factory: &mut 
         if visible_index == mouse_state.up_quote_visible_index {
           log!("  it is quote {}", quote_index);
           factory.quotes[quote_index].current_count = factory.quotes[quote_index].target_count;
-          factory_finish_quote(factory, quote_index);
+          factory_finish_quote(options, factory, quote_index);
           return;
         }
 
@@ -2132,7 +2136,7 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
     MenuButton::Row2Button2 => {
       // Unpart
       log!("Removing all part data from the factory");
-      unpart(options, state, config, factory);
+      unpart(options, state, config, factory, false);
     }
     MenuButton::Row2Button3 => {
       // Undir
@@ -2256,10 +2260,12 @@ fn on_up_top_bar(options: &mut Options, state: &mut State, config: &Config, fact
     log!("Up on the bar but wasn't down on the bar");
     return;
   }
-
+  day_reset(options, state, config, factory);
+}
+fn day_reset(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
   log!("Resetting day... any time now!");
 
-  unpart(options, state, config, factory);
+  unpart(options, state, config, factory, true);
   factory_reset_stats(options, state, factory);
   factory.last_day_start = factory.ticks;
   factory.modified_at = 0;
@@ -4042,7 +4048,12 @@ fn paint_top_bars(options: &Options, state: &State, factory: &Factory, context: 
   }
   context.stroke_rect(UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_HEIGHT);
 
-  if invalid {
+  if !options.game_enable_clean_days {
+    context.set_font(&"18px monospace");
+    context.set_fill_style(&"black".into());
+    context.fill_text("(Clean days not enabled, do whatever)", UI_DAY_PROGRESS_OFFSET_X + 37.0, UI_DAY_PROGRESS_OFFSET_Y + 22.0).expect("oopsie fill_text"); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
+  }
+  else if invalid {
     context.set_font(&"18px monospace");
     context.set_fill_style(&"black".into());
     context.fill_text("Change detected! Click to restart day", UI_DAY_PROGRESS_OFFSET_X + 37.0, UI_DAY_PROGRESS_OFFSET_Y + 22.0).expect("oopsie fill_text"); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
@@ -4723,9 +4734,11 @@ fn ins_outs_to_str(list: &Vec<(Direction, usize, usize, Direction)>) -> String {
   return map.collect::<String>();
 }
 
-fn unpart(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
+fn unpart(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, already_changed: bool) {
   for coord in 0..factory.floor.len() {
     clear_part_from_cell(options, state, config, factory, coord);
   }
-  factory.changed = true;
+  if !already_changed {
+    factory.changed = true;
+  }
 }

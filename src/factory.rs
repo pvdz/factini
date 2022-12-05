@@ -109,7 +109,7 @@ pub fn tick_factory(options: &mut Options, state: &mut State, config: &Config, f
 
     factory_collect_stats(config, options, state, factory);
 
-    if factory.finished_at <= 0 && day_progress >= 1.0 {
+    if options.game_enable_clean_days && factory.finished_at <= 0 && day_progress >= 1.0 {
       factory.finished_at = factory.ticks;
       // factory.finished_with = target_progress as u64 * 100; // Store whole percentage of progress
     }
@@ -161,7 +161,7 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
               });
 
               if factory.quotes[j].current_count >= factory.quotes[j].target_count {
-                factory_finish_quote(factory, j);
+                factory_finish_quote(options, factory, j);
               }
               break;
             }
@@ -182,10 +182,10 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
   factory.trashed = total_parts_trashed;
 }
 
-pub fn factory_finish_quote(factory: &mut Factory, quote_index: usize) {
+pub fn factory_finish_quote(options: &Options, factory: &mut Factory, quote_index: usize) {
   log!("finished quote {} with {} of {}", factory.quotes[quote_index].name, factory.quotes[quote_index].current_count, factory.quotes[quote_index].target_count);
   // This quote is finished so end the day // TODO: multiple parts one quote
-  factory.finished_at = factory.ticks;
+  if options.game_enable_clean_days { factory.finished_at = factory.ticks; }
   factory.finished_quotes.push(quote_index); // Start visual candy for this quote in next frame
 }
 
