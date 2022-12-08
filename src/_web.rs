@@ -51,7 +51,6 @@
 // - create tutorial
 // - should machine give hint of creating/missing in/outbound connection?
 // - animate demanders
-// - replace quick save button icons
 // - should non-game animations have their own play speed? (bouncers, cars, ui)
 // - find and fix save/restore bug (on ipad?) not sure how to do it but it was fairly easy? maybe encoding, may have been fixed with html5 charset. should see if i can still repro that now.
 // - do finish the bouncer polish
@@ -257,6 +256,7 @@ pub fn start() -> Result<(), JsValue> {
   let img_manual: web_sys::HtmlImageElement = load_tile("./img/manual.png")?;
   let img_lmb: web_sys::HtmlImageElement = load_tile("./img/lmb.png")?;
   let img_rmb: web_sys::HtmlImageElement = load_tile("./img/rmb.png")?;
+  let img_save: web_sys::HtmlImageElement = load_tile("./img/save.png")?;
 
   // https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/createPattern
   // https://rustwasm.github.io/wasm-bindgen/api/web_sys/struct.CanvasRenderingContext2d.html#method.create_pattern_with_html_image_element
@@ -820,7 +820,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_debug_selected_machine_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_debug_selected_supply_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_debug_selected_demand_cell(&context, &factory, &cell_selection, &mouse_state);
-        paint_load_thumbs(&options, &state, &config, &context, &mouse_state, &saves, &img_lmb);
+        paint_load_thumbs(&options, &state, &config, &context, &mouse_state, &saves, &img_save);
 
         // Probably after all backround/floor stuff is finished
         paint_zone_borders(&options, &state, &context);
@@ -4561,13 +4561,13 @@ fn hit_test_save_map_right(x: f64, y: f64, row: f64, col: f64) -> bool {
     GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN) + UI_SAVE_THUMB_WIDTH, GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN) + UI_SAVE_THUMB_HEIGHT,
   );
 }
-fn paint_load_thumbs(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, saves: &[Option<(web_sys::HtmlCanvasElement, String)>; 9], img_lmb: &web_sys::HtmlImageElement) {
-  paint_map_load_button(0.0, 0.0, 0, context, &saves[0], img_lmb, mouse_state);
-  paint_map_load_button(1.0, 0.0, 1, context, &saves[1], img_lmb, mouse_state);
-  paint_map_load_button(0.0, 1.0, 2, context, &saves[2], img_lmb, mouse_state);
-  paint_map_load_button(1.0, 1.0, 3, context, &saves[3], img_lmb, mouse_state);
+fn paint_load_thumbs(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, saves: &[Option<(web_sys::HtmlCanvasElement, String)>; 9], img_icon: &web_sys::HtmlImageElement) {
+  paint_map_load_button(0.0, 0.0, 0, context, &saves[0], img_icon, mouse_state);
+  paint_map_load_button(1.0, 0.0, 1, context, &saves[1], img_icon, mouse_state);
+  paint_map_load_button(0.0, 1.0, 2, context, &saves[2], img_icon, mouse_state);
+  paint_map_load_button(1.0, 1.0, 3, context, &saves[3], img_icon, mouse_state);
 }
-fn paint_map_load_button(col: f64, row: f64, button_index: usize, context: &Rc<web_sys::CanvasRenderingContext2d>, save: &Option<(web_sys::HtmlCanvasElement, String)>, img_lmb: &web_sys::HtmlImageElement, mouse_state: &MouseState) {
+fn paint_map_load_button(col: f64, row: f64, button_index: usize, context: &Rc<web_sys::CanvasRenderingContext2d>, save: &Option<(web_sys::HtmlCanvasElement, String)>, img_icon: &web_sys::HtmlImageElement, mouse_state: &MouseState) {
   assert!(button_index < 6, "there are only 6 save buttons");
   let ox = GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN);
   let oy = GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN);
@@ -4613,7 +4613,7 @@ fn paint_map_load_button(col: f64, row: f64, button_index: usize, context: &Rc<w
     }
     context.fill();
     context.draw_image_with_html_image_element_and_dw_and_dh(
-      img_lmb,
+      img_icon,
       ox + UI_SAVE_THUMB_WIDTH * 0.35,
       oy + UI_SAVE_THUMB_HEIGHT * 0.2,
       UI_SAVE_THUMB_WIDTH / 3.0,
