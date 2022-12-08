@@ -55,6 +55,7 @@ pub struct Options {
   pub draw_zone_hovers: bool, // Draw a rect on the area where the mouse is detected
 
   pub enable_craft_menu_circle: bool, // When you select a machine, should a craft menu open up for it? This used to be a thing but then I changed my mind. It was too confusing. Otherwise it just shows the cells to drag offers onto.
+  pub enable_craft_menu_interact: bool, // Can you interact with items in a machine? This used to be the default but I simplified it which includes disabling this interaction. This option would enable it again.
 
   pub draw_ui_section_border: bool, // Draw a guide around each grid section of the ui?
   pub ui_section_border_color: String, // the color of this border
@@ -118,6 +119,7 @@ pub fn create_options(speed_modifier: f64) -> Options {
     draw_belt_dbg_id: false,
     draw_zone_hovers: false,
     enable_craft_menu_circle: false,
+    enable_craft_menu_interact: false,
     draw_ui_section_border: false,
     ui_section_border_color: "white".to_string(),
     short_term_window: 10000,
@@ -256,6 +258,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "draw_belt_dbg_id" => options.draw_belt_dbg_id = parse_bool(value, name, strict, options.draw_belt_dbg_id),
             "draw_zone_hovers" => options.draw_zone_hovers = parse_bool(value, name, strict, options.draw_zone_hovers),
             "enable_craft_menu_circle" => options.enable_craft_menu_circle = parse_bool(value, name, strict, options.enable_craft_menu_circle),
+            "enable_craft_menu_interact" => options.enable_craft_menu_interact = parse_bool(value, name, strict, options.enable_craft_menu_interact),
             "draw_ui_section_border" => options.draw_ui_section_border = parse_bool(value, name, strict, options.draw_ui_section_border),
             "ui_section_border_color" => options.ui_section_border_color = parse_string(value, name, strict, &options.ui_section_border_color),
             "short_term_window" => options.short_term_window = parse_u64(value, name, strict, options.short_term_window),

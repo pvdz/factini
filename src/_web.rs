@@ -935,16 +935,20 @@ fn update_mouse_state(
     Zone::None => panic!("cant be over on no zone"),
     ZONE_MANUAL => {}
     ZONE_CRAFT => {
-      if !mouse_state.is_dragging {
-        let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.world_x, mouse_state.world_y);
-        mouse_state.craft_over_ci = what;
-        mouse_state.craft_over_ci_wx = wx;
-        mouse_state.craft_over_ci_wy = wy;
-        mouse_state.craft_over_ci_wx = ww;
-        mouse_state.craft_over_ci_wy = wh;
-        mouse_state.craft_over_ci_icon = icon;
-        mouse_state.craft_over_ci_part_kind = part_index;
-        mouse_state.craft_over_ci_index = craft_index;
+      if options.enable_craft_menu_interact {
+        if !mouse_state.is_dragging {
+          let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.world_x, mouse_state.world_y);
+          mouse_state.craft_over_ci = what;
+          mouse_state.craft_over_ci_wx = wx;
+          mouse_state.craft_over_ci_wy = wy;
+          mouse_state.craft_over_ci_wx = ww;
+          mouse_state.craft_over_ci_wy = wh;
+          mouse_state.craft_over_ci_icon = icon;
+          mouse_state.craft_over_ci_part_kind = part_index;
+          mouse_state.craft_over_ci_index = craft_index;
+        }
+      } else {
+        log!("Mouse over on craft is ignored because options.enable_craft_menu_interact = false")
       }
     }
     ZONE_HELP => {
@@ -1023,21 +1027,25 @@ fn update_mouse_state(
       Zone::None => panic!("cant be down on no zone"),
       ZONE_MANUAL => {}
       ZONE_CRAFT => {
-        let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
-        log!("mouse down inside craft selection -> {:?} {:?} {} at craft index {}", what, part_index, config.nodes[part_index].raw_name, craft_index);
-        if part_index == PARTKIND_NONE {
-          log!("  started dragging from an empty input, ignoring...");
-          mouse_state.craft_down_ci = CraftInteractable::None;
+        if options.enable_craft_menu_interact {
+          let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
+          log!("mouse down inside craft selection -> {:?} {:?} {} at craft index {}", what, part_index, config.nodes[part_index].raw_name, craft_index);
+          if part_index == PARTKIND_NONE {
+            log!("  started dragging from an empty input, ignoring...");
+            mouse_state.craft_down_ci = CraftInteractable::None;
+          } else {
+            log!("  started dragging from a {:?}", what);
+            mouse_state.craft_down_ci = what;
+            mouse_state.craft_down_ci_wx = wx;
+            mouse_state.craft_down_ci_wy = wy;
+            mouse_state.craft_down_ci_wx = ww;
+            mouse_state.craft_down_ci_wy = wh;
+            mouse_state.craft_down_ci_icon = icon;
+            mouse_state.craft_down_ci_part_kind = part_index;
+            mouse_state.craft_down_ci_index = craft_index;
+          }
         } else {
-          log!("  started dragging from a {:?}", what);
-          mouse_state.craft_down_ci = what;
-          mouse_state.craft_down_ci_wx = wx;
-          mouse_state.craft_down_ci_wy = wy;
-          mouse_state.craft_down_ci_wx = ww;
-          mouse_state.craft_down_ci_wy = wh;
-          mouse_state.craft_down_ci_icon = icon;
-          mouse_state.craft_down_ci_part_kind = part_index;
-          mouse_state.craft_down_ci_index = craft_index;
+          log!("Mouse down on craft is ignored because options.enable_craft_menu_interact = false")
         }
       }
       ZONE_HELP => {
@@ -1097,13 +1105,17 @@ fn update_mouse_state(
 
     match mouse_state.down_zone {
       ZONE_CRAFT => {
-        // Prevent any other interaction to the floor regardless of whether an interactable was hit
-        if mouse_state.craft_down_ci != CraftInteractable::None && mouse_state.craft_down_ci != CraftInteractable::BackClose {
-          log!("drag start, craft interactable; {}-{} and {}-{}; dragging a {} at index {}", mouse_state.last_down_world_x, mouse_state.world_x, mouse_state.last_down_world_y, mouse_state.world_y, mouse_state.craft_down_ci_part_kind, mouse_state.craft_down_ci_index);
-          mouse_state.craft_dragging_ci = true;
-        }
-        else {
-          log!("drag start, craft, but not interactable; ignoring");
+        if options.enable_craft_menu_interact {
+          // Prevent any other interaction to the floor regardless of whether an interactable was hit
+          if mouse_state.craft_down_ci != CraftInteractable::None && mouse_state.craft_down_ci != CraftInteractable::BackClose {
+            log!("drag start, craft interactable; {}-{} and {}-{}; dragging a {} at index {}", mouse_state.last_down_world_x, mouse_state.world_x, mouse_state.last_down_world_y, mouse_state.world_y, mouse_state.craft_down_ci_part_kind, mouse_state.craft_down_ci_index);
+            mouse_state.craft_dragging_ci = true;
+          }
+          else {
+            log!("drag start, craft, but not interactable; ignoring");
+          }
+        } else {
+          log!("Mouse drag start on craft is ignored because options.enable_craft_menu_interact = false")
         }
       }
       ZONE_FLOOR => {
@@ -1152,14 +1164,18 @@ fn update_mouse_state(
         } else {
           log!("mouse up inside craft selection -> {:?}", what);
         }
-        mouse_state.craft_up_ci = what;
-        mouse_state.craft_up_ci_wx = wx;
-        mouse_state.craft_up_ci_wy = wy;
-        mouse_state.craft_up_ci_wx = ww;
-        mouse_state.craft_up_ci_wy = wh;
-        mouse_state.craft_up_ci_icon = icon;
-        mouse_state.craft_up_ci_part_kind = part_index;
-        mouse_state.craft_up_ci_index = craft_index;
+        if mouse_state.is_dragging || options.enable_craft_menu_interact {
+          mouse_state.craft_up_ci = what;
+          mouse_state.craft_up_ci_wx = wx;
+          mouse_state.craft_up_ci_wy = wy;
+          mouse_state.craft_up_ci_wx = ww;
+          mouse_state.craft_up_ci_wy = wh;
+          mouse_state.craft_up_ci_icon = icon;
+          mouse_state.craft_up_ci_part_kind = part_index;
+          mouse_state.craft_up_ci_index = craft_index;
+        } else {
+          log!("Mouse mouse up non-drag on craft is ignored because options.enable_craft_menu_interact = false");
+        }
       }
       ZONE_HELP => {
       }
@@ -1207,7 +1223,11 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
   if mouse_state.is_drag_start {
     match mouse_state.down_zone {
       ZONE_CRAFT => {
-        on_drag_start_craft(options, state, config, factory, mouse_state, cell_selection);
+        if options.enable_craft_menu_interact {
+          on_drag_start_craft(options, state, config, factory, mouse_state, cell_selection);
+        } else {
+          log!("ignoring drag start on craft menu");
+        }
       }
       ZONE_OFFERS => {
         if mouse_state.offer_down {
