@@ -32,7 +32,8 @@ const GAME_OPTIONS = `
 - ui_section_border_color: "white"
 - short_term_window: 10000
 - long_term_window: 600000
-- speed_modifier: 0.2
+- speed_modifier_floor: 0.4
+- speed_modifier_ui: 0.2
 - bouncer_gravity: 0.0016
 - bouncer_initial_speed: 0.13
 - bouncer_friction: 0.9999

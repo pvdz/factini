@@ -37,12 +37,10 @@
 // - play button border color affected by laser. also highlights on hover when it supposed to not to
 // - car polish; should make nice corners, should drive same speed to any height
 // - touchmove may need to put the pointer above the finger?
+// - touch should delete-on-drag? should it paint-on-drag?
 // - need to figure out how to create bigger buttons
 // - bouncers are taking bouncer index as offsets rather than visible offsets. the last bouncer animations are completely broken
-// - should certain animation speeds scale with factory speed?
-//   - probably want two speed types; game and UI. bouncers, buttons, and cars are UI bound while most anything on the floor is game bound.
 // - click edge to add supplier. click supplier/demander to toggle.
-// - frames in the middle
 // - cars adjust speed too
 // - disallow dragging resources to machines
 // - disable manual resource interface (no clicky on machine internals)
@@ -51,7 +49,6 @@
 // - create tutorial
 // - should machine give hint of creating/missing in/outbound connection?
 // - animate demanders
-// - should non-game animations have their own play speed? (bouncers, cars, ui)
 // - find and fix save/restore bug (on ipad?) not sure how to do it but it was fairly easy? maybe encoding, may have been fixed with html5 charset. should see if i can still repro that now.
 
 // prepare for xmas.
@@ -119,7 +116,7 @@ const COLOR_DEMAND_SEMI: &str = "#00aa0055";
 const COLOR_MACHINE: &str = "lightyellow";
 const COLOR_MACHINE_SEMI: &str = "#aaaa0099";
 
-const QUOTE_FADE_TIME: u64 = 2 * ONE_SECOND;
+const QUOTE_FADE_TIME: u64 = 4 * ONE_SECOND;
 
 // Exports from web (on a non-module context, define a global "log" and "dnow" function)
 // Not sure how this works in threads. Probably the same. TBD.
@@ -238,7 +235,7 @@ pub fn start() -> Result<(), JsValue> {
 
   // Load game "level" and part content config dynamic so we don't have to recompile it for
   // ingame changes relating to parts and unlock order of them. This config includes sprite details.
-  let def_options = create_options(0.0);
+  let def_options = create_options(0.0, 0.0);
   let mut config = load_config(def_options.print_fmd_trace, getGameConfig());
 
   let img_machine1: web_sys::HtmlImageElement = load_tile("./img/machine1.png")?;
@@ -603,7 +600,7 @@ pub fn start() -> Result<(), JsValue> {
       // catch-up frames and they may never catch up.
       // Unfortunately, the current way of calculating the time since previous frame is always
       // lagging one frame behind and has some rounding problems, especially with low % modifiers.
-      let ticks_per_second_wanted = ONE_SECOND as f64 * options.speed_modifier;
+      let ticks_per_second_wanted = ONE_SECOND as f64 * options.speed_modifier_floor;
       let ticks_todo: u64 = ((real_world_ms_since_start_of_prev_frame / 1000.0 * ticks_per_second_wanted) as u64).min(MAX_TICKS_PER_FRAME);
       let estimated_fps = ticks_per_second_wanted / (ticks_todo as f64);
       let variation = 0.1;
@@ -644,11 +641,6 @@ pub fn start() -> Result<(), JsValue> {
         for _ in 0..ticks_todo.min(MAX_TICKS_PER_FRAME) {
           tick_factory(&mut options, &mut state, &config, &mut factory);
 
-          for b in 0..factory.bouncers.len() {
-            // Create an extra still frame of existing bouncers.
-            bouncer_step(&options, &mut factory.bouncers[b], factory.ticks);
-          }
-
           // Create bouncers for finished quotes
           if factory.finished_quotes.len() > 0 {
             loop {
@@ -670,16 +662,75 @@ pub fn start() -> Result<(), JsValue> {
             }
           }
 
-          // Add shadow frames for running bouncers
           for b in 0..factory.bouncers.len() {
-            // Create an extra still frame of existing bouncers. Only if the frame is to be painted at all.
-            let framed = bouncer_should_paint(&options, &mut factory.bouncers[b], factory.ticks);
-            if framed {
-              if (factory.ticks - factory.bouncers[b].created_at) % options.bouncer_stamp_interval == 0 {
-                let x = factory.bouncers[b].x;
-                let y = factory.bouncers[b].y;
-                factory.bouncers[b].frames.push_back( ( x, y, factory.ticks ) );
+            let bouncer_progress = bouncer_step(&options, &mut factory, b);
+
+            let f_one_second = ONE_SECOND as f64;
+            let trail_time = options.bouncer_trail_time;
+            let fade_time = options.bouncer_fade_time;
+
+            // Drop expired quote bouncer frames (the ghosts that form the trail)
+            while factory.bouncers[b].frames.len() > 0 {
+              let frame_age = factory.ticks as f64 - factory.bouncers[b].frames[0].2 as f64;
+              if (frame_age / options.speed_modifier_floor) > (f_one_second * (trail_time + fade_time)) {
+                factory.bouncers[b].frames.pop_front();
+              } else {
+                break;
               }
+            }
+
+            // If completely faded. Start dump truck with resources that were unlocked by quests
+            // that were unlocked by finishing this one.
+            if factory.bouncers[b].frames.len() == 0 {
+              // - Find out which quests were unlocked by finishing this one
+              // - Find out which parts are newly available by unlocking that quest
+              // - Create a dump truck with those parts
+              // - Start them with some delay from each other
+              let finished_quest_index = factory.bouncers[b].quest_index;
+              let mut new_quests: Vec<usize> = vec!();
+              let mut new_parts: Vec<PartKind> = vec!();
+
+              for index in 0..config.nodes.len() {
+                if config.nodes[index].kind == ConfigNodeKind::Quest && config.nodes[index].current_state == ConfigNodeState::Waiting {
+                  let pos = config.nodes[index].unlocks_todo_by_index.binary_search(&finished_quest_index);
+                  if let Ok(unlock_index) = pos {
+                    config.nodes[index].unlocks_todo_by_index.remove(unlock_index);
+                    if config.nodes[index].unlocks_todo_by_index.len() == 0 {
+                      config.nodes[index].current_state = ConfigNodeState::LFG;
+                      new_quests.push(config.nodes[index].index);
+                      config.nodes[index].current_state = ConfigNodeState::Available;
+                      for i in 0..config.nodes[index].starting_part_by_index.len() {
+                        new_parts.push(config.nodes[index].starting_part_by_index[i]);
+                      }
+                    }
+                  }
+                }
+              }
+
+              // We now have a set of available quests and any starting parts that they enabled.
+              // Let's create quotes and trucks for them and add them to the lists.
+              new_parts.iter().enumerate().for_each(|(index, &part_index)| {
+                log!("Adding truck {} for {}", index, part_index);
+                factory.trucks.push(truck_create(
+                  factory.ticks,
+                  (((index + 1) as f64 * ONE_SECOND as f64) * options.speed_modifier_floor) as u64,
+                  part_index,
+                  factory.available_parts_rhs_menu.len(),
+                ));
+                // Add the part as a placeholder. Do not paint it yet. The truck will drive there first.
+                factory.available_parts_rhs_menu.push( ( part_index , false ) );
+              });
+
+              while new_quests.len() > 0 {
+                if let Some(quest_index) = new_quests.pop() {
+                  let mut quotes = quote_create(&config, quest_index, factory.ticks);
+                  if let Some(quote) = quotes.pop() {
+                    factory.quotes.push(quote);
+                  }
+                }
+              }
+
+              // TODO: remove ended bouncers. not sure what the right approach is in rust. tbd
             }
           }
 
@@ -1390,10 +1441,11 @@ fn on_up_quote(options: &Options, state: &State, config: &Config, factory: &mut 
   if options.dbg_clickable_quotes && mouse_state.down_quote && mouse_state.down_quote_visible_index == mouse_state.up_quote_visible_index {
     log!("  clicked on this quote (down=up). Completing it now...");
     let mut visible_index = 0;
+    let quote_fade_time = QUOTE_FADE_TIME as f64 *options.speed_modifier_ui;
 
     for quote_index in 0..factory.quotes.len() {
-      let add_progress = if factory.quotes[quote_index].added_at > 0 { ((factory.ticks - factory.quotes[quote_index].added_at) as f64 / QUOTE_FADE_TIME as f64).max(0.0).min(1.0) } else { 1.0 };
-      let remove_progress = if factory.quotes[quote_index].completed_at > 0 { ((factory.ticks - factory.quotes[quote_index].completed_at) as f64 / QUOTE_FADE_TIME as f64).max(0.0).min(1.0) } else { 0.0 };
+      let add_progress = if factory.quotes[quote_index].added_at > 0 { ((factory.ticks - factory.quotes[quote_index].added_at) as f64 / quote_fade_time).max(0.0).min(1.0) } else { 1.0 };
+      let remove_progress = if factory.quotes[quote_index].completed_at > 0 { ((factory.ticks - factory.quotes[quote_index].completed_at) as f64 / quote_fade_time).max(0.0).min(1.0) } else { 0.0 };
 
       if add_progress * (1.0 - remove_progress) > 0.0 {
         if visible_index == mouse_state.up_quote_visible_index {
@@ -2096,35 +2148,35 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
   match mouse_state.up_menu_button {
     MenuButton::None => {}
     MenuButton::Row1ButtonMin => {
-      let m = options.speed_modifier;
-      options.speed_modifier = options.speed_modifier.min(0.5) * 0.5;
-      log!("pressed time minus, from {} to {}", m, options.speed_modifier);
+      let m = options.speed_modifier_floor;
+      options.speed_modifier_floor = options.speed_modifier_floor.min(0.5) * 0.5;
+      log!("pressed time minus, from {} to {}", m, options.speed_modifier_floor);
     }
     MenuButton::Row1ButtonHalf => {
-      let m = options.speed_modifier;
-      options.speed_modifier = 0.5;
-      log!("pressed time half, from {} to {}", m, options.speed_modifier);
+      let m = options.speed_modifier_floor;
+      options.speed_modifier_floor = 0.5;
+      log!("pressed time half, from {} to {}", m, options.speed_modifier_floor);
     }
     MenuButton::Row1ButtonPlay => {
-      let m = options.speed_modifier;
+      let m = options.speed_modifier_floor;
       if m == 1.0 {
-        options.speed_modifier = 0.0;
+        options.speed_modifier_floor = 0.0;
         state.paused = true;
       } else {
-        options.speed_modifier = 1.0;
+        options.speed_modifier_floor = 1.0;
         state.paused = false;
       }
-      log!("pressed time one, from {} to {}", m, options.speed_modifier);
+      log!("pressed time one, from {} to {}", m, options.speed_modifier_floor);
     }
     MenuButton::Row1Button2x => {
-      let m = options.speed_modifier;
-      options.speed_modifier = 2.0;
-      log!("pressed time two, from {} to {}", m, options.speed_modifier);
+      let m = options.speed_modifier_floor;
+      options.speed_modifier_floor = 2.0;
+      log!("pressed time two, from {} to {}", m, options.speed_modifier_floor);
     }
     MenuButton::Row1ButtonPlus => {
-      let m = options.speed_modifier;
-      options.speed_modifier = options.speed_modifier.max(2.0) * 1.5;
-      log!("pressed time plus, from {} to {}", m, options.speed_modifier);
+      let m = options.speed_modifier_floor;
+      options.speed_modifier_floor = options.speed_modifier_floor.max(2.0) * 1.5;
+      log!("pressed time plus, from {} to {}", m, options.speed_modifier_floor);
     }
     MenuButton::Row2Button0 => {
       // Empty
@@ -2718,7 +2770,7 @@ fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::Canva
   context.set_fill_style(&"lightgreen".into());
   context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("Speed: {}", options.speed_modifier).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("Speed: floor = {}, ui = {}", options.speed_modifier_floor, options.speed_modifier_ui).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"lightgreen".into());
@@ -3929,89 +3981,25 @@ fn paint_manual(options: &Options, state: &State, context: &Rc<web_sys::CanvasRe
   }
 }
 fn paint_bouncers(options: &Options, state: &State, config: &mut Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory) {
+  let f_one_second = ONE_SECOND as f64 ;
   let trail_time = options.bouncer_trail_time;
   let fade_time = options.bouncer_fade_time;
-  let stamp_interval = options.bouncer_stamp_interval;
   // find bouncers that finished and create trucks with the new parts
   for b in 0..factory.bouncers.len() {
-    let f_one_second = ONE_SECOND as f64 * options.speed_modifier;
 
     // Paint all bouncer shadow/trail frames
     for ( x, y, added ) in factory.bouncers[b].frames.iter() {
       // Leave trail on screen for 10 seconds. Then fade out in 5 seconds.
-      let existing = factory.ticks - added;
-      let tens = existing as f64 > (f_one_second * trail_time);
+      let existing = (factory.ticks - added) as f64 / options.speed_modifier_floor;
+      let tens = existing > (f_one_second * trail_time);
       if tens {
-        let alpha = 1.0 - ((existing as f64 - f_one_second * trail_time) / (f_one_second * fade_time)).max(0.0).min(1.0);
+        let alpha = 1.0 - ((existing - f_one_second * trail_time) / (f_one_second * fade_time)).max(0.0).min(1.0);
         context.set_global_alpha(alpha);
       }
       paint_segment_part_from_config(&options, &state, &config, &context, factory.bouncers[b].part_index, *x, *y, CELL_W, CELL_H);
       if tens {
         context.set_global_alpha(1.0);
       }
-    }
-
-    // Drop expired quote bouncer frames (the ghosts that form the trail)
-    while factory.bouncers[b].frames.len() > 0 {
-      if factory.ticks - factory.bouncers[b].frames[0].2 > (f_one_second * (trail_time + fade_time)) as u64 {
-        factory.bouncers[b].frames.pop_front();
-      } else {
-        break;
-      }
-    }
-
-    // If completely faded. Start dump truck with resources that were unlocked by quests
-    // that were unlocked by finishing this one.
-    if factory.bouncers[b].frames.len() == 0 {
-      // - Find out which quests were unlocked by finishing this one
-      // - Find out which parts are newly available by unlocking that quest
-      // - Create a dump truck with those parts
-      // - Start them with some delay from each other
-      let finished_quest_index = factory.bouncers[b].quest_index;
-      let mut new_quests: Vec<usize> = vec!();
-      let mut new_parts: Vec<PartKind> = vec!();
-
-      for index in 0..config.nodes.len() {
-        if config.nodes[index].kind == ConfigNodeKind::Quest && config.nodes[index].current_state == ConfigNodeState::Waiting {
-          let pos = config.nodes[index].unlocks_todo_by_index.binary_search(&finished_quest_index);
-          if let Ok(unlock_index) = pos {
-            config.nodes[index].unlocks_todo_by_index.remove(unlock_index);
-            if config.nodes[index].unlocks_todo_by_index.len() == 0 {
-              config.nodes[index].current_state = ConfigNodeState::LFG;
-              new_quests.push(config.nodes[index].index);
-              config.nodes[index].current_state = ConfigNodeState::Available;
-              for i in 0..config.nodes[index].starting_part_by_index.len() {
-                new_parts.push(config.nodes[index].starting_part_by_index[i]);
-              }
-            }
-          }
-        }
-      }
-
-      // We now have a set of available quests and any starting parts that they enabled.
-      // Let's create quotes and trucks for them and add them to the lists.
-      new_parts.iter().enumerate().for_each(|(index, &part_index)| {
-        log!("Adding truck {} for {}", index, part_index);
-        factory.trucks.push(truck_create(
-          factory.ticks,
-          (index + 1) as u64 * ONE_SECOND,
-          part_index,
-          factory.available_parts_rhs_menu.len(),
-        ));
-        // Add the part as a placeholder. Do not paint it yet. The truck will drive there first.
-        factory.available_parts_rhs_menu.push( ( part_index , false ) );
-      });
-
-      while new_quests.len() > 0 {
-        if let Some(quest_index) = new_quests.pop() {
-          let mut quotes = quote_create(&config, quest_index, factory.ticks);
-          if let Some(quote) = quotes.pop() {
-            factory.quotes.push(quote);
-          }
-        }
-      }
-
-      // TODO: remove ended bouncers. not sure what the right approach is in rust. tbd
     }
   }
 }
@@ -4112,10 +4100,19 @@ fn paint_quotes(options: &Options, state: &State, config: &Config, context: &Rc<
 
   let mut height = 0.0;
   let mut visible_index = 0;
+  let quote_fade_time = QUOTE_FADE_TIME as f64 * options.speed_modifier_ui;
 
   for quote_index in 0..factory.quotes.len() {
-    let add_progress = if factory.quotes[quote_index].added_at > 0 { ((factory.ticks - factory.quotes[quote_index].added_at) as f64 / QUOTE_FADE_TIME as f64).max(0.0).min(1.0) } else { 1.0 };
-    let remove_progress = if factory.quotes[quote_index].completed_at > 0 { ((factory.ticks - factory.quotes[quote_index].completed_at) as f64 / QUOTE_FADE_TIME as f64).max(0.0).min(1.0) } else { 0.0 };
+    let add_progress = if factory.quotes[quote_index].added_at > 0 {
+      let ticks = factory.ticks - factory.quotes[quote_index].added_at;
+      let relticks = (ticks) as f64 / options.speed_modifier_floor;
+      (relticks / quote_fade_time).max(0.0).min(1.0)
+    } else { 1.0 };
+    let remove_progress = if factory.quotes[quote_index].completed_at > 0 {
+      let ticks = factory.ticks - factory.quotes[quote_index].completed_at;
+      let reltime = (ticks) as f64 / options.speed_modifier_floor;
+      (reltime / quote_fade_time).max(0.0).min(1.0)
+    } else { 0.0 };
     let partial_height = add_progress * (1.0 - remove_progress) * UI_QUOTE_HEIGHT;
     let partial_margin = add_progress * (1.0 - remove_progress) * UI_QUOTE_MARGIN;
 
@@ -4193,9 +4190,9 @@ fn paint_lasers(options: &Options, state: &mut State, config: &Config, context: 
 }
 fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory, img_dumptruck: &web_sys::HtmlImageElement) {
   // Paint trucks
-  let truck_dur_1 = 3.0; // seconds trucks take to cross the first part
-  let truck_dur_2 = 1.0; // turning circle
-  let truck_dur_3 = 5.0; // time to get up
+  let truck_dur_1 = 3.0 * options.speed_modifier_ui; // seconds trucks take to cross the first part
+  let truck_dur_2 = 1.0 * options.speed_modifier_ui; // turning circle
+  let truck_dur_3 = 5.0 * options.speed_modifier_ui; // time to get up
   let truck_size = 50.0;
   let start_x = UI_MENU_BOTTOM_MACHINE_X + UI_MENU_BOTTOM_MACHINE_WIDTH - (truck_size + 5.0);
   let end_x = GRID_X2 + 5.0;
@@ -4208,8 +4205,8 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
     // Draw dump truck at proper position // TODO: prevent overlapping of multiples etc
     // The first n seconds are spent driving under the floor to the right and then a corner
     // The rest is however long it takes to reach the final location where the button is created
-    let ticks_since_truck = factory.ticks - factory.trucks[t].created_at;
-    let time_since_truck = ticks_since_truck as f64 / ONE_SECOND as f64;
+    let ticks_since_truck = (factory.ticks - factory.trucks[t].created_at) as f64 / options.speed_modifier_floor;
+    let time_since_truck = ticks_since_truck / (ONE_SECOND as f64);
     if time_since_truck < truck_dur_1 {
       let truck_x = start_x + (time_since_truck / truck_dur_1).min(1.0).max(0.0) * (end_x - start_x);
       let truck_y = UI_MENU_BOTTOM_MACHINE_Y + (UI_MENU_BOTTOM_MACHINE_HEIGHT / 2.0) - (truck_size / 2.0); // Factory mid
@@ -4314,7 +4311,7 @@ fn get_drop_color(options: &Options, ticks: u64) -> String {
   let bounce_speed = options.dropzone_bounce_speed; // 10
   let bounce_distance = options.dropzone_bounce_distance; // 150
   let bounce_d2 = bounce_distance * 2;
-  let mut p = (ticks / bounce_speed) % bounce_d2;
+  let mut p = ((((ticks as f64) / options.speed_modifier_floor * options.speed_modifier_ui) as u64) / bounce_speed) % bounce_d2;
   if p > bounce_distance { p = bounce_distance - (p - bounce_distance); } // This makes the color bounce rather than jump from black to green
   let yo = format!("#00{:02x}0077", p+ color_offset);
   return yo;
@@ -4486,22 +4483,22 @@ fn paint_ui_speed_bubble(options: &Options, state: &State, context: &Rc<web_sys:
   let cx = UI_SPEED_BUBBLE_OFFSET_X + (2.0 * UI_SPEED_BUBBLE_RADIUS + UI_SPEED_BUBBLE_SPACING) * (index as f64) + UI_SPEED_BUBBLE_RADIUS;
   let cy = UI_SPEED_BUBBLE_OFFSET_Y + UI_SPEED_BUBBLE_RADIUS;
 
-  if text == "⏭" && options.speed_modifier == 0.0 {
+  if text == "⏭" && options.speed_modifier_floor == 0.0 {
     context.set_fill_style(&"tomato".into());
   }
-  else if text == "⏭" && options.speed_modifier == 1.0 {
+  else if text == "⏭" && options.speed_modifier_floor == 1.0 {
     context.set_fill_style(&"#0f0".into());
   }
-  else if text == "½" && options.speed_modifier == 0.5 {
+  else if text == "½" && options.speed_modifier_floor == 0.5 {
     context.set_fill_style(&"#0f0".into());
   }
-  else if text == "2" && options.speed_modifier == 2.0 {
+  else if text == "2" && options.speed_modifier_floor == 2.0 {
     context.set_fill_style(&"#0f0".into());
   }
-  else if text == "-" && (options.speed_modifier > 0.0 && options.speed_modifier < 0.5) {
+  else if text == "-" && (options.speed_modifier_floor > 0.0 && options.speed_modifier_floor < 0.5) {
     context.set_fill_style(&"#0f0".into());
   }
-  else if text == "+" && options.speed_modifier > 2.0 {
+  else if text == "+" && options.speed_modifier_floor > 2.0 {
     context.set_fill_style(&"#0f0".into());
   }
   else if bounds_check(mouse_state.world_x, mouse_state.world_y, cx - UI_SPEED_BUBBLE_RADIUS, cy - UI_SPEED_BUBBLE_RADIUS, cx + UI_SPEED_BUBBLE_RADIUS, cy + UI_SPEED_BUBBLE_RADIUS) {

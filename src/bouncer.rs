@@ -30,14 +30,16 @@ pub struct Bouncer {
   pub part_index: usize,
   pub dx: f64,
   pub dy: f64,
-  pub last_time: u64,
   /**
    * x, y, added at tick
    */
   pub frames: VecDeque<( f64, f64, u64 )>,
+  pub last_progress: f64,
 }
 
 pub fn bouncer_create(x: f64, y: f64, max_y: f64, quest_index: PartKind, part_index: usize, init_speed: f64, created_at: u64, delay: u64) -> Bouncer {
+  let mut frames = VecDeque::new();
+  frames.push_back((x, y, created_at));
   return Bouncer {
     created_at,
     delay,
@@ -48,40 +50,65 @@ pub fn bouncer_create(x: f64, y: f64, max_y: f64, quest_index: PartKind, part_in
     part_index,
     dx: init_speed,
     dy: 0.0,
-    last_time: 0,
-    frames: VecDeque::new(),
+    frames,
+    last_progress: 0.0,
   };
 }
 
-pub fn bouncer_step(options: &Options, bouncer: &mut Bouncer, ticks: u64) {
-  // Do not process bouncer any further if it's not moving horizontally
-  if bouncer.dx.abs() < options.bouncer_speed_limit {
-    return;
-  }
+pub fn bouncer_step(options: &Options, factory: &mut Factory, bouncer_index: usize) -> f64{
+  let ticks = factory.ticks;
 
   // Do not process bouncer if still in delay period
-  if ticks - bouncer.created_at < bouncer.delay {
-    return;
+  if ticks - factory.bouncers[bouncer_index].created_at < factory.bouncers[bouncer_index].delay {
+    return 0.0;
   }
 
-  if bouncer.last_time == 0 {
-    bouncer.last_time = ticks;
-    return;
+  // Do not process bouncer any further if it's not moving horizontally
+  if factory.bouncers[bouncer_index].dx.abs() < options.bouncer_speed_limit {
+    return 0.0;
   }
 
-  let elapsed = ticks - bouncer.last_time;
-  bouncer.last_time = ticks;
+  let bouncer_progress = (ticks - factory.bouncers[bouncer_index].created_at) - factory.bouncers[bouncer_index].delay;
+  // Dilate time depending on the ui speed
+  let bouncer_progress = ((bouncer_progress as f64) / options.speed_modifier_floor) * options.speed_modifier_ui;
+  let mut delta_progress = bouncer_progress - factory.bouncers[bouncer_index].last_progress;
 
-  bouncer.dx *= options.bouncer_friction;
-  bouncer.dy += options.bouncer_gravity;
-  bouncer.x += bouncer.dx;
-  bouncer.y += bouncer.dy;
-
-  if bouncer.y > bouncer.max_y {
-    // Step has taken us below the floor, so we need to rebound the bouncer.
-    bouncer.y -= bouncer.y - bouncer.max_y;
-    bouncer.dy = -bouncer.dy * options.bouncer_bounce;
+  if delta_progress < 1.0 {
+    return 0.0;
   }
+
+  // For each frame of progress (can be multiple when game runs faster than ui speed)
+  while delta_progress > 1.0 {
+    factory.bouncers[bouncer_index].last_progress += 1.0;
+    delta_progress -= 1.0;
+
+    factory.bouncers[bouncer_index].last_progress = bouncer_progress;
+
+    factory.bouncers[bouncer_index].dx *= options.bouncer_friction;
+    factory.bouncers[bouncer_index].dy += options.bouncer_gravity;
+    factory.bouncers[bouncer_index].x += factory.bouncers[bouncer_index].dx;
+    factory.bouncers[bouncer_index].y += factory.bouncers[bouncer_index].dy;
+
+    if factory.bouncers[bouncer_index].y > factory.bouncers[bouncer_index].max_y {
+      // Step has taken us below the floor, so we need to rebound the bouncer.
+      factory.bouncers[bouncer_index].y -= factory.bouncers[bouncer_index].y - factory.bouncers[bouncer_index].max_y;
+      factory.bouncers[bouncer_index].dy = -factory.bouncers[bouncer_index].dy * options.bouncer_bounce;
+    }
+
+    // Add shadow frames for running bouncers
+
+    // Create an extra still frame of existing bouncers. Only if the frame is to be painted at all.
+    let framed = bouncer_progress as u64 > 0 && bouncer_should_paint(&options, &mut factory.bouncers[bouncer_index], factory.ticks);
+    if framed {
+      if bouncer_progress as u64 % options.bouncer_stamp_interval == 0 {
+        let x = factory.bouncers[bouncer_index].x;
+        let y = factory.bouncers[bouncer_index].y;
+        factory.bouncers[bouncer_index].frames.push_back( ( x, y, factory.ticks ) );
+      }
+    }
+  }
+
+  return bouncer_progress;
 }
 
 pub fn bouncer_should_paint(options: &Options, bouncer: &mut Bouncer, ticks: u64) -> bool {
@@ -93,10 +120,6 @@ pub fn bouncer_should_paint(options: &Options, bouncer: &mut Bouncer, ticks: u64
   // Do not process bouncer if still in delay period
   if ticks - bouncer.created_at < bouncer.delay {
     return false;
-  }
-
-  if bouncer.last_time == 0 {
-    return true;
   }
 
   return true;

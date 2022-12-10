@@ -63,7 +63,8 @@ pub struct Options {
   pub short_term_window: u64, // For stats; average over this many ticks
   pub long_term_window: u64, // For stats; average over this many ticks
 
-  pub speed_modifier: f64, // Increase or decrease ticks per second by this rate
+  pub speed_modifier_floor: f64, // Increase or decrease ticks per second by this rate for (actual factory game/floor) animations
+  pub speed_modifier_ui: f64, // Same as speed_modifier_floor but for rest of the UI (buttons, bouncers, trucks, dropzone pulse, etc)
   pub touch_drag_compensation: bool, // Show the mouse pointer 50x50 away from the actual pointer? helpful for dragging on touch screen but can be annoying
 
   pub game_enable_clean_days: bool, // Require to achieve quests from a clean day start rather than in any way
@@ -79,8 +80,8 @@ pub struct Options {
   pub bouncer_friction: f64,
   pub bouncer_speed_limit: f64,
   pub bouncer_bounce: f64,
-  pub bouncer_trail_time: f64,
-  pub bouncer_fade_time: f64,
+  pub bouncer_trail_time: f64, // Relative to one real world second, subject to be modified by ui speed
+  pub bouncer_fade_time: f64, // Relative to one real world second, subject to be modified by ui speed
   pub bouncer_stamp_interval: u64,
 
   pub web_output_cli: bool, // Print the simplified cli output in web version?
@@ -93,7 +94,7 @@ pub struct Options {
   pub test: u64, // just a temporary flag
 }
 
-pub fn create_options(speed_modifier: f64) -> Options {
+pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Options {
   return Options {
     print_choices: false,
     print_choices_belt: false,
@@ -129,7 +130,8 @@ pub fn create_options(speed_modifier: f64) -> Options {
     ui_section_border_color: "white".to_string(),
     short_term_window: 10000,
     long_term_window: 600000,
-    speed_modifier,
+    speed_modifier_floor,
+    speed_modifier_ui,
     touch_drag_compensation: false,
     game_enable_clean_days: false,
     game_auto_reset_day: false,
@@ -276,7 +278,8 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "bouncer_friction" => options.bouncer_friction = parse_f64(value, name, strict, options.bouncer_friction),
             "bouncer_speed_limit" => options.bouncer_speed_limit = parse_f64(value, name, strict, options.bouncer_speed_limit),
             "bouncer_bounce" => options.bouncer_bounce = parse_f64(value, name, strict, options.bouncer_bounce),
-            "speed_modifier" => options.speed_modifier = parse_f64(value, name, strict, options.speed_modifier),
+            "speed_modifier_floor" => options.speed_modifier_floor = parse_f64(value, name, strict, options.speed_modifier_floor),
+            "speed_modifier_ui" => options.speed_modifier_ui = parse_f64(value, name, strict, options.speed_modifier_ui),
             "bouncer_trail_time" => options.bouncer_trail_time = parse_f64(value, name, strict, options.bouncer_trail_time),
             "bouncer_fade_time" => options.bouncer_fade_time = parse_f64(value, name, strict, options.bouncer_fade_time),
             "bouncer_stamp_interval" => options.bouncer_stamp_interval = parse_u64(value, name, strict, options.bouncer_stamp_interval),

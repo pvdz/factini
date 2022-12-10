@@ -20,7 +20,7 @@ use super::log;
 
 pub fn init(config: &Config, map_str: String) -> ( Options, State, Factory ) {
   // Static state configuration (can still be changed by user)
-  let mut options = create_options(1.0);
+  let mut options = create_options(1.0, 1.0);
 
   // General app state
   let mut state = state_create();
