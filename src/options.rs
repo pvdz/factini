@@ -142,7 +142,7 @@ pub fn create_options(speed_modifier: f64) -> Options {
     bouncer_speed_limit: 0.1,
     bouncer_trail_time: 2.0,
     bouncer_fade_time: 2.0,
-    bouncer_stamp_interval: 100,
+    bouncer_stamp_interval: 20,
     bouncer_bounce: 0.8,
     web_output_cli: false,
     dbg_trash_is_joker: true,

@@ -53,7 +53,6 @@
 // - animate demanders
 // - should non-game animations have their own play speed? (bouncers, cars, ui)
 // - find and fix save/restore bug (on ipad?) not sure how to do it but it was fairly easy? maybe encoding, may have been fixed with html5 charset. should see if i can still repro that now.
-// - do finish the bouncer polish
 
 // prepare for xmas.
 
@@ -650,6 +649,40 @@ pub fn start() -> Result<(), JsValue> {
             bouncer_step(&options, &mut factory.bouncers[b], factory.ticks);
           }
 
+          // Create bouncers for finished quotes
+          if factory.finished_quotes.len() > 0 {
+            loop {
+              let quote_index = factory.finished_quotes.pop();
+              if let Some(quote_index) = quote_index {
+                // - get the quote and icon to paint
+                // - get the location to start painting
+                let completed_part_index = factory.quotes[quote_index].part_index;
+                let icon = config.nodes[completed_part_index].icon; // TODO: multiple parts
+                let ( x, y ) = get_quote_xy(quote_index, (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) * quote_index as f64); // Height is incorrect if a quote is fading but that's acceptable
+
+                factory.bouncers.push_back(bouncer_create(x, y, GRID_Y2 + 20.0, factory.quotes[quote_index].quest_index, completed_part_index, options.bouncer_initial_speed, factory.ticks, 0));
+
+                // From this point onward the Quote will fade out and then reduce its height till zero
+                factory.quotes[quote_index].completed_at = factory.ticks;
+              } else {
+                break;
+              }
+            }
+          }
+
+          // Add shadow frames for running bouncers
+          for b in 0..factory.bouncers.len() {
+            // Create an extra still frame of existing bouncers. Only if the frame is to be painted at all.
+            let framed = bouncer_should_paint(&options, &mut factory.bouncers[b], factory.ticks);
+            if framed {
+              if (factory.ticks - factory.bouncers[b].created_at) % options.bouncer_stamp_interval == 0 {
+                let x = factory.bouncers[b].x;
+                let y = factory.bouncers[b].y;
+                factory.bouncers[b].frames.push_back( ( x, y, factory.ticks ) );
+              }
+            }
+          }
+
           if !options.web_output_cli {
             for t in 0..factory.trucks.len() {
               // TODO: fix this hack
@@ -740,40 +773,6 @@ pub fn start() -> Result<(), JsValue> {
           }
         }
 
-        if factory.finished_quotes.len() > 0 {
-          loop {
-            let quote_index = factory.finished_quotes.pop();
-            if let Some(quote_index) = quote_index {
-              // - get the quote and icon to paint
-              // - get the location to start painting
-              let completed_part_index = factory.quotes[quote_index].part_index;
-              let icon = config.nodes[completed_part_index].icon; // TODO: multiple parts
-              let ( x, y ) = get_quote_xy(quote_index, (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) * quote_index as f64); // Height is incorrect if a quote is fading but that's acceptable
-
-              factory.bouncers.push_back(bouncer_create(x, y, GRID_Y2 + 20.0, factory.quotes[quote_index].quest_index, completed_part_index, options.bouncer_initial_speed, factory.ticks, 0));
-
-              // From this point onward the Quote will fade out and then reduce its height till zero
-              factory.quotes[quote_index].completed_at = factory.ticks;
-            } else {
-              break;
-            }
-          }
-
-        }
-
-        // Add shadow frames for running bouncers
-        for b in 0..factory.bouncers.len() {
-          // Create an extra still frame of existing bouncers.
-          // TODO: this part should be done inside the factory tick loop. right now it's not bound to factory ticks which can cause different animations at different speeds.
-          let framed = bouncer_should_paint(&options, &mut factory.bouncers[b], factory.ticks);
-          if framed {
-            // if (factory.ticks - factory.bouncers[b].created_at) % options.bouncer_stamp_interval == 0 {
-              let x = factory.bouncers[b].x;
-              let y = factory.bouncers[b].y;
-              factory.bouncers[b].frames.push_back( ( x, y, factory.ticks ) );
-            // }
-          }
-        }
 
         // Paint the world (no input or world mutations after this point)
 

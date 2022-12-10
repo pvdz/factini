@@ -40,7 +40,7 @@ const GAME_OPTIONS = `
 - bouncer_bounce: 0.8
 - bouncer_trail_time: 0.9
 - bouncer_fade_time: 0.7
-- bouncer_stamp_interval: 100
+- bouncer_stamp_interval: 20
 - touch_drag_compensation: false
 - game_enable_clean_days: false
 - dropzone_color_offset: 75
