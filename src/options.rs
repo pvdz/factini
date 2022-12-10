@@ -69,6 +69,11 @@ pub struct Options {
   pub game_enable_clean_days: bool, // Require to achieve quests from a clean day start rather than in any way
   pub game_auto_reset_day: bool, // Immediately reset day (and clear parts) upon factory change? I find it annoying but maybe you don't?
 
+  // Dropzone hint for offers
+  pub dropzone_color_offset: u64, // In a 255 color range, what's the "zero" bounce value?
+  pub dropzone_bounce_speed: u64, // The rgb color value will "bounce" up and down
+  pub dropzone_bounce_distance: u64, // Range that the color bounces
+
   pub bouncer_gravity: f64,
   pub bouncer_initial_speed: f64,
   pub bouncer_friction: f64,
@@ -128,6 +133,9 @@ pub fn create_options(speed_modifier: f64) -> Options {
     touch_drag_compensation: false,
     game_enable_clean_days: false,
     game_auto_reset_day: false,
+    dropzone_color_offset: 75,
+    dropzone_bounce_speed: 10,
+    dropzone_bounce_distance: 150,
     bouncer_gravity: 0.8,
     bouncer_initial_speed: 2.0,
     bouncer_friction: 0.987,
@@ -275,6 +283,9 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "touch_drag_compensation" => options.touch_drag_compensation = parse_bool(value, name, strict, options.touch_drag_compensation),
             "game_enable_clean_days" => options.game_enable_clean_days = parse_bool(value, name, strict, options.game_enable_clean_days),
             "game_auto_reset_day" => options.game_auto_reset_day = parse_bool(value, name, strict, options.game_auto_reset_day),
+            "dropzone_color_offset" => options.dropzone_color_offset = parse_u64(value, name, strict, options.dropzone_color_offset),
+            "dropzone_bounce_speed" => options.dropzone_bounce_speed = parse_u64(value, name, strict, options.dropzone_bounce_speed),
+            "dropzone_bounce_distance" => options.dropzone_bounce_distance = parse_u64(value, name, strict, options.dropzone_bounce_distance),
             "web_output_cli" => options.web_output_cli = parse_bool(value, name, strict, options.web_output_cli),
             "dbg_trash_is_joker" => options.dbg_trash_is_joker = parse_bool(value, name, strict, options.dbg_trash_is_joker),
             "db_joker_corrupts_factory" => options.db_joker_corrupts_factory = parse_bool(value, name, strict, options.db_joker_corrupts_factory),

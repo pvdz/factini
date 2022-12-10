@@ -1667,7 +1667,7 @@ fn on_drag_end_offer_over_craft(options: &mut Options, state: &mut State, config
         factory.floor[main_coord].machine.haves[i] = part_none(config);
       }
     }
-    else {
+    else if options.enable_craft_menu_circle {
       log!("Dropped an offer without pattern in the middle on a craft menu. Update the machine!");
       // Add dragged offer pattern to machine want list. We know the actual cell. Clobber it with
       // the part of the dragged offer.
@@ -1680,6 +1680,9 @@ fn on_drag_end_offer_over_craft(options: &mut Options, state: &mut State, config
       machine_change_want_kind(options, state, config, factory, main_coord, target_cell_index, dragged_part_index);
       // Make sure the haves are cleared as well
       factory.floor[main_coord].machine.haves[target_cell_index] = part_none(config);
+    }
+    else {
+      log!("Ignoring drop of offer without pattern because options.enable_craft_menu_circle = false");
     }
   } else {
     log!("Dropped an offer in the middle on a craft menu but not on the machine. Ignoring...");
@@ -2697,7 +2700,8 @@ fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::Canva
   context.set_fill_style(&"lightgreen".into());
   context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("App time  : {}", (now / 1000.0).floor()).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+  // context.fill_text(format!("App time  : {}", (now / 1000.0).floor()).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("color  : {:?}", get_drop_color(options, factory.ticks)).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"lightgreen".into());
@@ -4296,13 +4300,25 @@ fn paint_machines_droptarget_green(options: &Options, state: &State, config: &Co
   // TODO: did I not have a shortcut to iterate over just machine cells?
   for coord in 0..factory.floor.len() {
     let (x, y) = to_xy(coord);
-    if (!for_pattern && is_edge_not_corner(x as f64, y as f64)) || factory.floor[coord].kind == CellKind::Machine {
-      context.set_fill_style(&"#00ff0077".into());
+    if (!for_pattern && is_edge_not_corner(x as f64, y as f64)) || (for_pattern && factory.floor[coord].kind == CellKind::Machine) {
+      let yo = get_drop_color(options, factory.ticks).to_string();
+      context.set_fill_style(&yo.into());
+      // context.set_fill_style(&"#00ff0077".into());
     } else {
       context.set_fill_style(&"#6b6b6b90".into());
     }
     context.fill_rect(UI_FLOOR_OFFSET_X + x as f64 * CELL_W, UI_FLOOR_OFFSET_Y + y as f64 * CELL_H, CELL_W, CELL_H);
   }
+}
+fn get_drop_color(options: &Options, ticks: u64) -> String {
+  let color_offset = options.dropzone_color_offset; // 75
+  let bounce_speed = options.dropzone_bounce_speed; // 10
+  let bounce_distance = options.dropzone_bounce_distance; // 150
+  let bounce_d2 = bounce_distance * 2;
+  let mut p = (ticks / bounce_speed) % bounce_d2;
+  if p > bounce_distance { p = bounce_distance - (p - bounce_distance); } // This makes the color bounce rather than jump from black to green
+  let yo = format!("#00{:02x}0077", p+ color_offset);
+  return yo;
 }
 fn paint_ui_offer(
   options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection,

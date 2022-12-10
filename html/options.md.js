@@ -43,6 +43,9 @@ const GAME_OPTIONS = `
 - bouncer_stamp_interval: 100
 - touch_drag_compensation: false
 - game_enable_clean_days: false
+- dropzone_color_offset: 75
+- dropzone_bounce_speed: 8
+- dropzone_bounce_distance: 150
 - game_auto_reset_day: false
 - web_output_cli: false
 - dbg_trash_is_joker: true
