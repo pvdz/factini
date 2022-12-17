@@ -470,6 +470,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
               frame_delay: 0,
               looping: false,
               loop_delay: 0,
+              loop_backwards: false,
               frames: vec![SpriteFrame {
                 file: "".to_string(),
                 name: "untitled frame".to_string(),
@@ -645,6 +646,9 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
             }
             "loop_delay" => {
               nodes[current_node_index].sprite_config.loop_delay = value_raw.parse::<u64>().or::<Result<u32, &str>>(Ok(0)).unwrap();
+            }
+            "loop_backwards" => {
+              nodes[current_node_index].sprite_config.loop_backwards = value_raw == "true";
             }
             _ => panic!("Unsupported node option. Node options must be one of a hard coded set but was `{:?}`", label),
           }
@@ -1427,6 +1431,7 @@ fn config_node_part(index: PartKind, name: String, icon: char) -> ConfigNode {
       frame_delay: 0,
       looping: true,
       loop_delay: 0,
+      loop_backwards: false,
       frames: vec!(
         SpriteFrame {
           file: "".to_string(),
@@ -1470,6 +1475,7 @@ fn config_node_supply(index: PartKind, name: String) -> ConfigNode {
       frame_delay: 0,
       looping: true,
       loop_delay: 0,
+      loop_backwards: false,
       frames: vec!(
         SpriteFrame {
           file: "./img/supply.png".to_string(),
@@ -1513,6 +1519,7 @@ fn config_node_demand(index: PartKind, name: String) -> ConfigNode {
       frame_delay: 0,
       looping: true,
       loop_delay: 0,
+      loop_backwards: false,
       frames: vec!(
         SpriteFrame {
           file: "./img/demand.png".to_string(),
@@ -1556,6 +1563,7 @@ fn config_node_dock(index: PartKind, name: String) -> ConfigNode {
       frame_delay: 0,
       looping: true,
       loop_delay: 0,
+      loop_backwards: false,
       frames: vec!(
         SpriteFrame {
           file: "./img/dock.png".to_string(),
@@ -1599,6 +1607,7 @@ fn config_node_machine(index: PartKind, name: &str, file: &str) -> ConfigNode {
       frame_delay: 0,
       looping: true,
       loop_delay: 0,
+      loop_backwards: false,
       frames: vec!(
         SpriteFrame {
           file: file.to_string(),
@@ -1645,6 +1654,7 @@ fn config_node_belt(index: PartKind, name: &str) -> ConfigNode {
       frame_delay: 0,
       looping: true,
       loop_delay: 0,
+      loop_backwards: false,
       frames: vec!(
         SpriteFrame {
           file: belt_meta.src.to_string(),
@@ -1699,12 +1709,10 @@ pub fn config_get_sprite_details(config: &Config, config_index: usize, sprite_st
   let frame_index2 = if looping { frame_index1 % frame_count } else { frame_index1 };
   // Move pointer to compensate for starting frame
   let frame_index3 = (frame_index2 + frame_offset) % frame_count;
+  // If backward then flip the index
+  let frame_index4 = if sprite_config.loop_backwards { (frame_count - 1) - frame_index2 } else { frame_index2 };
 
-  // if config_index == CONFIG_NODE_SUPPLY_UP {
-  //   log!("frame_offset: {}, frame_count: {}, frame_index: {} {} {} {}", frame_offset, frame_count, frame_index, frame_index1, frame_index2, frame_index3);
-  // }
-
-  let sprite = &node.sprite_config.frames[frame_index3];
+  let sprite = &node.sprite_config.frames[frame_index4];
   return ( sprite.x, sprite.y, sprite.w, sprite.h, &config.sprite_cache_canvas[sprite.file_canvas_cache_index] );
 }
 

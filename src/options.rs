@@ -91,6 +91,9 @@ pub struct Options {
   pub dbg_machine_produce_trash: bool, // If a machine trashes a part and expects no inputs, should it output trash instead of discarding it?
   pub dbg_clickable_quotes: bool,
 
+  pub default_demand_speed: u64,
+  pub default_demand_cooldown: u64,
+
   pub test: u64, // just a temporary flag
 }
 
@@ -151,6 +154,8 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     db_joker_corrupts_factory: true,
     dbg_machine_produce_trash: true,
     dbg_clickable_quotes: true,
+    default_demand_speed: 1000,
+    default_demand_cooldown: 500,
     test: 0,
   };
 }
@@ -294,6 +299,8 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "db_joker_corrupts_factory" => options.db_joker_corrupts_factory = parse_bool(value, name, strict, options.db_joker_corrupts_factory),
             "dbg_machine_produce_trash" => options.dbg_machine_produce_trash = parse_bool(value, name, strict, options.dbg_machine_produce_trash),
             "dbg_clickable_quotes" => options.dbg_clickable_quotes = parse_bool(value, name, strict, options.dbg_clickable_quotes),
+            "default_demand_speed" => options.default_demand_speed = parse_u64(value, name, strict, options.default_demand_speed),
+            "default_demand_cooldown" => options.default_demand_cooldown = parse_u64(value, name, strict, options.default_demand_cooldown),
             "test" => options.test = parse_u64(value, name, strict, options.test),
             _ => {
               log!("  - ignoring `{}` because it is an unknown option or because it needs to be added to the options parser", name);

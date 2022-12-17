@@ -17,6 +17,9 @@ pub struct SpriteConfig {
   // Pause this long between loops
   pub loop_delay: u64,
 
+  // Play frames in reverse order
+  pub loop_backwards: bool,
+
   // Frame details for painting this sprite
   // Must be non-empty
   pub frames: Vec<SpriteFrame>

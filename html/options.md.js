@@ -53,5 +53,7 @@ const GAME_OPTIONS = `
 - db_joker_corrupts_factory: true
 - dbg_machine_produce_trash: true
 - dbg_clickable_quotes: true
+- default_demand_speed: 1000
+- default_demand_cooldown: 0
 - test: 0
 `;

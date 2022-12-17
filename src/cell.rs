@@ -370,7 +370,8 @@ pub fn supply_cell(config: &Config, x: usize, y: usize, part: Part, speed: u64, 
   };
 }
 
-pub fn demand_cell(config: &Config, x: usize, y: usize) -> Cell {
+pub fn demand_cell(config: &Config, x: usize, y: usize, speed: u64, cooldown: u64) -> Cell {
+  log!("demand_cell: speed: {}, cooldown: {}", speed, cooldown);
   let coord = x + y * FLOOR_CELLS_W;
 
   let coord_u = if y == 0 { None } else { Some(to_coord_up(coord)) };
@@ -408,7 +409,7 @@ pub fn demand_cell(config: &Config, x: usize, y: usize) -> Cell {
 
     belt: belt_none(config),
     machine: machine_none(config, coord),
-    demand: demand_new(neighbor_coord, incoming_dir, neighbor_outgoing_dir),
+    demand: demand_new(neighbor_coord, incoming_dir, neighbor_outgoing_dir, speed, cooldown),
     supply: supply_none(config),
   };
 }

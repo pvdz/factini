@@ -250,11 +250,11 @@ The old paper
 
 # Part_IngotGrey
 - char: M
-- file: ./img/roguelikeitems.png
-- x: 96
-- y: 80
-- w: 16
-- h: 16
+- file: ./img/parts/ingot_silver.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
 
 # Part_IngotLawnGreen
 - char: N
@@ -283,11 +283,11 @@ The old paper
 # Part_IngotWhite
 - char: Q
 - pattern: .   .   .   n   n   n   n   n   n
-- file: ./img/roguelikeitems.png
-- x: 32
-- y: 80
-- w: 16
-- h: 16
+- file: ./img/parts/ingot_silver.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
 
 # Part_PotionWhite
 - char: R
@@ -324,11 +324,11 @@ The old paper
 # Part_PotionRed
 - char: V
 - pattern: Part_Ruby Part_EmptyBottle
-- file: ./img/roguelikeitems.png
-- x: 176
-- y: 64
-- w: 16
-- h: 16
+- file: ./img/parts/bottle_red.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
 
 # Part_PotionBlue
 - char: W
@@ -373,11 +373,11 @@ The old paper
 
 # Part_EmptyBottle
 - char: e
-- file: ./img/roguelikeitems.png
-- x: 176
-- y: 80
-- w: 16
-- h: 16
+- file: ./img/parts/bottle_empty.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
 
 # Part_Gift
 Char is the Greek letter chi
@@ -481,11 +481,11 @@ Char is the Greek letter psi (upper)
 Char is the Greek letter tau (upper)
 - char: Τ
 - pattern: Part_Wool
-- file: ./img/bigset.png
-- x: 48
-- y: 2448
-- w: 24
-- h: 24
+- file: ./img/parts/thread.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
 
 # Part_FishingRod
 Char is the Greek letter tau (upper)
@@ -723,32 +723,108 @@ Char is the Greek letter xi (upper)
 
 
 # Demand_Up
-- file: ./img/demand.png
-- x: 0
-- y: 0
-- w: 32
-- h: 32
+- frame_offset: 0
+- frame_delay: 100
+- loop_delay: 50
+- loop_backwards: true
+- frame: 1
+  - file: ./img/demander_anim_up.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Demand_Right
-- file: ./img/demand.png
-- x: 96
-- y: 0
-- w: 32
-- h: 32
+- frame_offset: 0
+- frame_delay: 100
+- loop_delay: 50
+- loop_backwards: true
+- frame: 1
+  - file: ./img/demander_anim_right.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Demand_Down
-- file: ./img/demand.png
-- x: 64
-- y: 0
-- w: 32
-- h: 32
+- frame_offset: 0
+- frame_delay: 100
+- loop_backwards: true
+- loop_delay: 50
+- frame: 1
+  - file: ./img/demander_anim_down.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 # Demand_Left
-- file: ./img/demand.png
-- x: 32
-- y: 0
-- w: 32
-- h: 32
+- frame_offset: 0
+- frame_delay: 100
+- loop_backwards: true
+- loop_delay: 50
+- frame: 1
+  - file: ./img/demander_anim_left.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
 
 
 

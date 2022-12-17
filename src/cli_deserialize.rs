@@ -318,7 +318,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
               panic!("Error parsing floor cell: Encountered an `d` inside the floor; this should be a Demand, which is bound to the edge");
             };
             if options.trace_map_parsing { log!("Demand"); }
-            let cell = demand_cell(config, i, j);
+            let cell = demand_cell(config, i, j, options.default_demand_speed, options.default_demand_cooldown);
             floor[coord] = cell;
           }
         },
@@ -492,14 +492,79 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
               }
             },
             'd' => {
-              // (There are no parameters or augments to a demand, rn)
-              // d<n>
+              // Demand
+              // d<n> [s:<n>] [c:<n>]
               // d1
-              // let mut nth = 0;
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
               let nth = alnum_to_n(c);
+
+              let mut speed = 1;
+              let mut cooldown = 1;
+
+              loop {
+                let mut c = line.next().or(Some('#')).unwrap();
+                while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+                match c {
+                  '#' => break, // EOL or start of line comment
+                  's' => {
+                    // speed modifier
+                    let mut c = line.next().or(Some('#')).unwrap();
+                    while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+                    if c != ':' { panic!("Unexpected input on line {} while parsing demand augment speed modifier: first character after `s` must be a `:`, found `{}`", line_no, c); }
+
+                    speed = 0;
+                    let mut c = line.next().or(Some('#')).unwrap();
+                    while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+                    loop {
+                      if c >= '0' && c <= '9' {
+                        speed = (speed * 10) + ((c as u8) - ('0' as u8)) as u64; // This can lead to overflow fatal. :shrug:
+                      } else if c == '#' || c == ' ' {
+                        break;
+                      } else {
+                        panic!("Unexpected input on line {} while parsing demand augment speed modifier: speed value consists of digits, found `{}`", line_no, c);
+                      }
+                      c = line.next().or(Some('#')).unwrap();
+                    }
+                  }
+                  'c' => {
+                    // cooldown modifier
+                    let mut c = line.next().or(Some('#')).unwrap();
+                    while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+                    if c != ':' { panic!("Unexpected input on line {} while parsing demand augment cooldown modifier: first character after `c` must be a `:`, found `{}`", line_no, c); }
+
+                    cooldown = 0;
+                    let mut c = line.next().or(Some('#')).unwrap();
+                    while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+                    loop {
+                      if c >= '0' && c <= '9' {
+                        cooldown = (cooldown * 10) + ((c as u8) - ('0' as u8)) as u64; // This can lead to overflow fatal. :shrug:
+                      } else if c == '#' || c == ' ' {
+                        break;
+                      } else {
+                        panic!("Unexpected input on line {} while parsing demand augment cooldown modifier: cooldown value consists of digits, found `{}`", line_no, c);
+                      }
+                      c = line.next().or(Some('#')).unwrap();
+                    }
+                  }
+                  c => panic!("Unexpected input on line {} while parsing demand augment modifier: expecting `s`, `c`, '#', or EOL, found `{}`", line_no, c),
+                }
+              }
+
+              let mut n = 1;
+              // Find the nth demand. Not super optimal but at this scale no real issue.
+              for coord in 0..FLOOR_CELLS_WH {
+                if floor[coord].kind == CellKind::Demand {
+                  if n == nth {
+                    if options.trace_map_parsing { log!("Updating demand {} @{} with speed {} and cooldown {}", nth, coord, speed, cooldown); }
+                    floor[coord].demand.speed = speed;
+                    floor[coord].demand.cooldown = cooldown;
+                    break;
+                  }
+                  n += 1;
+                }
+              }
             },
             'm' => {
               // m<n> = <i>{0..w*h} -> <o> [s:<d+>]

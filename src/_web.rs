@@ -48,7 +48,6 @@
 // - change preview of craftable when selected (the tiny preview on top is not working
 // - create tutorial
 // - should machine give hint of creating/missing in/outbound connection?
-// - animate demanders
 // - find and fix save/restore bug (on ipad?) not sure how to do it but it was fairly easy? maybe encoding, may have been fixed with html5 charset. should see if i can still repro that now.
 
 // prepare for xmas.
@@ -1770,7 +1769,7 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
       floor_delete_cell_at_partial(options, state, config, factory, last_mouse_up_cell_coord);
     }
     log!("Add new supply cell...");
-    factory.floor[last_mouse_up_cell_coord] = supply_cell(config, last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_from_part_index(config, dragged_part_index), 2000, 500, 1);
+    factory.floor[last_mouse_up_cell_coord] = supply_cell(config, last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_from_part_index(config, dragged_part_index), 10000, 500, 1);
     connect_to_neighbor_dead_end_belts(options, state, config, factory, last_mouse_up_cell_coord);
     match bools {
       ( false, true, false, false ) => factory.floor[last_mouse_up_cell_coord].port_d = Port::Outbound,
@@ -1950,7 +1949,7 @@ fn on_drag_end_floor_two_cells(state: &State, options: &Options, config: &Config
       if factory.floor[coord1].kind == CellKind::Empty {
         if is_edge_not_corner(cell_x1 as f64, cell_y1 as f64) {
           // Cell is empty so place a trash supplier here as a placeholder
-          factory.floor[coord1] = supply_cell(config, cell_x1, cell_y1, part_c(config, 't'), 2000, 0, 0);
+          factory.floor[coord1] = supply_cell(config, cell_x1, cell_y1, part_c(config, 't'), 10000, 0, 0);
         }
         else if is_middle(cell_x1 as f64, cell_y1 as f64) {
           factory.floor[coord1] = belt_cell(config, cell_x1, cell_y1, belt_type_to_belt_meta(belt_type1));
@@ -1959,7 +1958,7 @@ fn on_drag_end_floor_two_cells(state: &State, options: &Options, config: &Config
       if factory.floor[coord2].kind == CellKind::Empty {
         if is_edge_not_corner(cell_x2 as f64, cell_y2 as f64) {
           // Cell is empty so place a demander here
-          factory.floor[coord2] = demand_cell(config, cell_x2, cell_y2);
+          factory.floor[coord2] = demand_cell(config, cell_x2, cell_y2, options.default_demand_speed, options.default_demand_cooldown);
         }
         else if is_middle(cell_x2 as f64, cell_y2 as f64) {
           factory.floor[coord2] = belt_cell(config, cell_x2, cell_y2, belt_type_to_belt_meta(belt_type2));
@@ -2055,7 +2054,7 @@ fn on_drag_end_floor_multi_cells(state: &State, options: &Options, config: &Conf
           // Track started on the edge but has at least one segment in the middle.
           // Create a trash on the previous (edge) cell if that cell is empty.
           if factory.floor[pcoord].kind == CellKind::Empty {
-            factory.floor[pcoord] = supply_cell(config, px, py, part_c(config, 't'), 2000, 0, 0);
+            factory.floor[pcoord] = supply_cell(config, px, py, part_c(config, 't'), 10000, 0, 0);
           }
           still_starting_on_edge = false;
         }
@@ -2072,7 +2071,7 @@ fn on_drag_end_floor_multi_cells(state: &State, options: &Options, config: &Conf
           //       the index here since we always drag in a straight line. Once the edge is
           //       reached, we assume the line to end and we can put a trash Demand down.
           if factory.floor[coord].kind == CellKind::Empty {
-            factory.floor[coord] = demand_cell(config, cell_x, cell_y);
+            factory.floor[coord] = demand_cell(config, cell_x, cell_y, options.default_demand_speed, options.default_demand_cooldown);
           }
 
           already_ending_on_edge = true;
@@ -2983,19 +2982,19 @@ fn paint_background_tiles1(
         };
       }
       CellKind::Demand => {
-        let dir =
-          if cy == 0 {
-            Direction::Up
-          } else if cx == FLOOR_CELLS_W-1 {
-            Direction::Right
-          } else if cy == FLOOR_CELLS_H-1 {
-            Direction::Down
-          } else if cx == 0 {
-            Direction::Left
-          } else {
-            panic!("no");
-          };
-        paint_demander(options, state, config, context, dir, ox, oy, CELL_W, CELL_H);
+        // Bottom layer: paint the belt so it appears to be part of the demander
+        // We need the animation to line up with other belts so we have to use separate sprite layers
+        if cy == 0 {
+          paint_belt(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::D_U, 0, factory.ticks);
+        } else if cx == FLOOR_CELLS_W-1 {
+          paint_belt(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::L_R, 0, factory.ticks);
+        } else if cy == FLOOR_CELLS_H-1 {
+          paint_belt(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::U_D, 0, factory.ticks);
+        } else if cx == 0 {
+          paint_belt(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::R_L, 0, factory.ticks);
+        } else {
+          panic!("no");
+        };
       }
     }
   }
@@ -3091,6 +3090,41 @@ fn paint_background_tiles2(
         }
       }
       CellKind::Demand => {
+        // TODO: painting the part will require some modifications to the demander to determine progress
+
+        // paint demand.last_part_kind for as long as we want to
+        // the demand speed is the number of ticks it takes for a part to move from the cell edge
+        // to the center of the demand cell. after that it disappears. like behind closed doors
+        // probably in most cases we'd just want a door to slide over/close the item or w/e.
+
+        let demand = &cell.demand;
+        if demand.last_part_at > 0 {
+          let p = (factory.ticks - demand.last_part_at) as f64 / demand.speed.max(1) as f64;
+          if p <= 1.0 {
+
+            // let p = demand.part_progress.min(ONE_SECOND as f64 * options.speed_modifier_floor) as f64 / demand.speed.max(1) as f64;
+
+            let mut dx = ox;// + (CELL_W - PART_W) * 0.5;
+            let mut dy = oy;// + (CELL_H - PART_H) * 0.5;
+
+            if cy == 0 {
+              dx += (CELL_W - PART_W) * 0.5;
+              dy += PART_H * (1.0 - p);
+            } else if cx == FLOOR_CELLS_W - 1 {
+              dx += -(PART_W * 0.5 * (1.0 - p)) + (CELL_W - PART_W) * p;
+              dy += (CELL_H - PART_H) * 0.5;
+            } else if cy == FLOOR_CELLS_H - 1 {
+              dx += (CELL_W - PART_W) * 0.5;
+              dy += - (PART_H * 0.5 * (1.0 - p)) + (CELL_H - PART_H) * p;
+            } else if cx == 0 {
+              dx += (CELL_W - (PART_W * 0.5)) * (1.0 - p);
+              dy += (CELL_H - PART_H) * 0.5;
+            } else {
+              panic!("no");
+            };
+            paint_segment_part_from_config(options, state, config, context, demand.last_part_kind, dx, dy, PART_W, PART_H);
+          }
+        }
       }
     }
   }
@@ -3146,6 +3180,8 @@ fn paint_background_tiles3(
         paint_supplier(options, state, config, factory, context, ox, oy, CELL_W, CELL_H, cell.supply.part_created_at, factory.ticks, coord);
       }
       CellKind::Demand => {
+        // Paint the supplier image with partial transparency, making the belt and part appear semi-transparently
+        paint_demander(options, state, config, factory, context, ox, oy, CELL_W, CELL_H, cell.demand.last_part_at, factory.ticks, coord);
       }
     }
   }
@@ -3684,16 +3720,16 @@ fn paint_belt_drag_preview(options: &Options, state: &State, config: &Config, co
         }
       } else if index == track.len() - 1 {
         if cell_x == 0 {
-          paint_ghost_demander(options, state, config, cell_x, cell_y, Direction::Left, context, false);
+          paint_ghost_demander(options, state, config, factory, cell_x, cell_y, Direction::Left, context, false);
           continue;
         } else if cell_y == 0 {
-          paint_ghost_demander(options, state, config, cell_x, cell_y, Direction::Up, context, false);
+          paint_ghost_demander(options, state, config, factory, cell_x, cell_y, Direction::Up, context, false);
           continue;
         } else if cell_x == FLOOR_CELLS_W - 1 {
-          paint_ghost_demander(options, state, config, cell_x, cell_y, Direction::Right, context, false);
+          paint_ghost_demander(options, state, config, factory, cell_x, cell_y, Direction::Right, context, false);
           continue;
         } else if cell_y == FLOOR_CELLS_H - 1 {
-          paint_ghost_demander(options, state, config, cell_x, cell_y, Direction::Down, context, false);
+          paint_ghost_demander(options, state, config, factory, cell_x, cell_y, Direction::Down, context, false);
           continue;
         }
       }
@@ -3729,7 +3765,7 @@ fn paint_ghost_supplier(options: &Options, state: &State, config: &Config, facto
     context.set_global_alpha(1.0);
   }
 }
-fn paint_ghost_demander(options: &Options, state: &State, config: &Config, cell_x: usize, cell_y: usize, dir: Direction, context: &Rc<web_sys::CanvasRenderingContext2d>, skip_tile: bool) {
+fn paint_ghost_demander(options: &Options, state: &State, config: &Config, factory: &Factory, cell_x: usize, cell_y: usize, dir: Direction, context: &Rc<web_sys::CanvasRenderingContext2d>, skip_tile: bool) {
   let tile_size_reduction = 1.0;
 
   context.set_fill_style(&"#ffffff40".into());
@@ -3737,7 +3773,8 @@ fn paint_ghost_demander(options: &Options, state: &State, config: &Config, cell_
 
   if !skip_tile {
     context.set_global_alpha(0.7);
-    paint_demander(options, state, config, context, dir, UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + 5.0, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + 5.0, CELL_W - 10.0, CELL_H - 10.0);
+    paint_demander(options, state, config, factory, context, UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + 5.0, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + 5.0, CELL_W - 10.0, CELL_H - 10.0, 0, 0, to_coord(cell_x, cell_y));
+    // paint_demander(options, state, config, context, dir, UI_FLOOR_OFFSET_X + cell_x as f64 * CELL_W + 5.0, UI_FLOOR_OFFSET_Y + cell_y as f64 * CELL_H + 5.0, CELL_W - 10.0, CELL_H - 10.0);
     context.set_global_alpha(1.0);
   }
 }
@@ -3955,12 +3992,18 @@ fn paint_debug_selected_demand_cell(context: &Rc<web_sys::CanvasRenderingContext
   context.set_stroke_style(&"black".into());
   context.stroke_rect(UI_DEBUG_CELL_OFFSET_X, UI_DEBUG_CELL_OFFSET_Y, UI_DEBUG_CELL_WIDTH, UI_DEBUG_CELL_HEIGHT);
 
+  let demand = &factory.floor[selected_coord].demand;
+
   context.set_fill_style(&"black".into());
   context.fill_text(format!("Demand cell: {} x {} (@{})", x, y, selected_coord).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (1.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
   context.fill_text(format!("Ports: {}", cell_ports_to_str(&factory.floor[selected_coord])).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (2.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
   context.fill_text(format!("ins:  {}", ins_outs_to_str(&factory.floor[selected_coord].ins)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (3.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
   context.fill_text(format!("outs: {}", ins_outs_to_str(&factory.floor[selected_coord].outs)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (4.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
-  context.fill_text(format!("Received: {:?}", factory.floor[selected_coord].demand.received).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (5.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Speed: {}", demand.speed).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (6.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Cooldown: {}", demand.cooldown).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (7.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Waiting : {: >3}%", (((factory.ticks - demand.last_part_at) as f64 / demand.cooldown.max(1) as f64).min(1.0) * 100.0) as u8).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (8.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  context.fill_text(format!("Progress: {: >3}% (kind: {})", (((factory.ticks - demand.last_part_at) as f64 / demand.speed.max(1) as f64).min(1.0) * 100.0) as u8, demand.last_part_kind).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (9.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
+  // context.fill_text(format!("Received: {:?}", demand.received).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (9.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
 }
 fn paint_zone_borders(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>) {
   if options.draw_ui_section_border {
@@ -4726,21 +4769,49 @@ fn paint_supplier(options: &Options, state: &State, config: &Config, factory: &F
   ).expect("paint_supplier() something error draw_image"); // requires web_sys HtmlImageElement feature
 }
 
-fn paint_demander(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, dir: Direction, ox: f64, oy: f64, dw: f64, dh: f64) {
-  let dock_dir =
-    match dir {
-      Direction::Up => CONFIG_NODE_DEMAND_UP,
-      Direction::Right => CONFIG_NODE_DEMAND_RIGHT,
-      Direction::Down => CONFIG_NODE_DEMAND_DOWN,
-      Direction::Left => CONFIG_NODE_DEMAND_LEFT,
+fn paint_demander(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, dx: f64, dy: f64, dw: f64, dh: f64, last_part_at: u64, ticks: u64, coord: usize) {
+  let (x, y) = to_xy(coord);
+  let demand_kind =
+    if y == 0 {
+      CONFIG_NODE_DEMAND_UP
+    } else if x == FLOOR_CELLS_W-1 {
+      CONFIG_NODE_DEMAND_RIGHT
+    } else if y == FLOOR_CELLS_H-1 {
+      CONFIG_NODE_DEMAND_DOWN
+    } else if x == 0 {
+      CONFIG_NODE_DEMAND_LEFT
+    } else {
+      panic!("no");
     };
 
-  // TODO: should we offer the option to draw the dock behind in case of semi-transparent supply imgs?
+  // TODO: do not loop
+  let (spx, spy, spw, sph, canvas) = config_get_sprite_details(config, demand_kind, last_part_at, false, ticks);
+
   context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-    &config.sprite_cache_canvas[config.nodes[dock_dir].sprite_config.frames[0].file_canvas_cache_index],
-    config.nodes[dock_dir].sprite_config.frames[0].x, config.nodes[dock_dir].sprite_config.frames[0].y, config.nodes[dock_dir].sprite_config.frames[0].w, config.nodes[dock_dir].sprite_config.frames[0].h,
-    ox, oy, dw, dh
-  ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+    &canvas,
+    // Sprite position
+    spx, spy, spw, sph,
+    // Paint onto canvas at
+    dx, dy, dw, dh,
+  ).expect("paint_demander() something error draw_image"); // requires web_sys HtmlImageElement feature
+
+  // return
+  //
+  //
+  // let dock_dir =
+  //   match dir {
+  //     Direction::Up => CONFIG_NODE_DEMAND_UP,
+  //     Direction::Right => CONFIG_NODE_DEMAND_RIGHT,
+  //     Direction::Down => CONFIG_NODE_DEMAND_DOWN,
+  //     Direction::Left => CONFIG_NODE_DEMAND_LEFT,
+  //   };
+  //
+  // // TODO: should we offer the option to draw the dock behind in case of semi-transparent supply imgs?
+  // context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+  //   &config.sprite_cache_canvas[config.nodes[dock_dir].sprite_config.frames[0].file_canvas_cache_index],
+  //   config.nodes[dock_dir].sprite_config.frames[0].x, config.nodes[dock_dir].sprite_config.frames[0].y, config.nodes[dock_dir].sprite_config.frames[0].w, config.nodes[dock_dir].sprite_config.frames[0].h,
+  //   ox, oy, dw, dh
+  // ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
 }
 
 fn request_animation_frame(f: &Closure<dyn FnMut()>) {
