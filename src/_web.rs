@@ -45,7 +45,6 @@
 // - change preview of craftable when selected (the tiny preview on top is not working
 // - create tutorial
 // - should machine give hint of creating/missing in/outbound connection?
-// - find and fix save/restore bug (on ipad?) not sure how to do it but it was fairly easy? maybe encoding, may have been fixed with html5 charset. should see if i can still repro that now.
 
 // prepare for xmas.
 

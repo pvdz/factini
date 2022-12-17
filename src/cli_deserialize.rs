@@ -588,7 +588,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
               while c != '#' && c != '-' {
-                if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '.') || c as u8 > 127 { panic!("Unexpected input on line {} while parsing machine input: input characters must be a-zA-Z or dot or non-ascii, found `{}`", line_no, c); }
+                if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '.' || c as u8 > 127) { panic!("Unexpected input on line {} while parsing machine input: input characters must be a-zA-Z or dot or non-ascii, found `{}`", line_no, c); }
                 // Convert the dot back to an empty part.
                 wants.push(part_c(config, if c == '.' { ' ' } else { c }));
 
