@@ -25,8 +25,6 @@
 // - make sun move across the day bar? in a sort of rainbow path?
 // - what's up with these assertion traps :(
 //   - `let (received_part_index, received_count) = factory.floor[coord].demand.received[i];` threw oob (1 while len=0). i thin it's somehow related to dropping a demander on the edge
-// - bouncer animation not bound to tick
-// - the later bouncers should fade faster
 // - hover over craftable offer should highlight craft-inputs (offers)
 // - config editor in web
 //   - tile editor
@@ -36,13 +34,12 @@
 // - rebalance the fps frame limiter
 // - play button border color affected by laser. also highlights on hover when it supposed to not to
 // - car polish; should make nice corners, should drive same speed to any height
-// - touchmove may need to put the pointer above the finger?
+// - touchmove may need to put the pointer above the finger? maybe like an indicator
 // - touch should delete-on-drag? should it paint-on-drag?
 // - need to figure out how to create bigger buttons
 // - bouncers are taking bouncer index as offsets rather than visible offsets. the last bouncer animations are completely broken
 // - click edge to add supplier. click supplier/demander to toggle.
 // - cars adjust speed too
-// - disallow dragging resources to machines
 // - disable manual resource interface (no clicky on machine internals)
 // - updating machine should open machines
 // - change preview of craftable when selected (the tiny preview on top is not working
