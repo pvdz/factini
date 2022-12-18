@@ -51,6 +51,24 @@ pub const UI_QUOTE_WIDTH: f64 = GRID_LEFT_WIDTH - (2.0 * UI_QUOTE_X);
 pub const UI_QUOTE_HEIGHT: f64 = CELL_H + 4.0;
 pub const UI_QUOTE_MARGIN: f64 = 5.0;
 
+// Undo, redo, clear, and sample buttons
+pub const UI_UNREDO_OFFSET_X: f64 = GRID_X0 + 5.0;
+pub const UI_UNREDO_OFFSET_Y: f64 = GRID_Y2 - 80.0;
+// pub const UI_UNREDO_WIDTH: f64 = 75.0;
+// pub const UI_UNREDO_HEIGHT: f64 = 60.0;
+pub const UI_UNREDO_UNDO_OFFSET_X: f64 = UI_UNREDO_OFFSET_X;
+pub const UI_UNREDO_UNDO_OFFSET_Y: f64 = UI_UNREDO_OFFSET_Y;
+pub const UI_UNREDO_UNDO_WIDTH: f64 = 60.0;
+pub const UI_UNREDO_UNDO_HEIGHTH: f64 = 60.0;
+pub const UI_UNREDO_CLEAR_OFFSET_X: f64 = UI_UNREDO_OFFSET_X + UI_UNREDO_UNDO_WIDTH + 5.0;
+pub const UI_UNREDO_CLEAR_OFFSET_Y: f64 = UI_UNREDO_OFFSET_Y;
+pub const UI_UNREDO_CLEAR_WIDTH: f64 = 60.0;
+pub const UI_UNREDO_CLEAR_HEIGHTH: f64 = 60.0;
+pub const UI_UNREDO_REDO_OFFSET_X: f64 = UI_UNREDO_CLEAR_OFFSET_X + UI_UNREDO_CLEAR_WIDTH + 5.0;
+pub const UI_UNREDO_REDO_OFFSET_Y: f64 = UI_UNREDO_OFFSET_Y;
+pub const UI_UNREDO_REDO_WIDTH: f64 = 60.0;
+pub const UI_UNREDO_REDO_HEIGHTH: f64 = 60.0;
+
 // Top menu has the Day progress bar (and whatever). Starts next to achievement menu and goes above the Floor.
 pub const UI_TOP_OFFSET_X: f64 = GRID_X1;
 pub const UI_TOP_OFFSET_Y: f64 = GRID_Y0;

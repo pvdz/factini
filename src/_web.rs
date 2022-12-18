@@ -36,7 +36,6 @@
 // - car polish; should make nice corners, should drive same speed to any height
 // - touchmove may need to put the pointer above the finger? maybe like an indicator
 // - touch should delete-on-drag? should it paint-on-drag?
-// - need to figure out how to create bigger buttons
 // - bouncers are taking bouncer index as offsets rather than visible offsets. the last bouncer animations are completely broken
 // - click edge to add supplier. click supplier/demander to toggle.
 // - cars adjust speed too
@@ -569,10 +568,19 @@ pub fn start() -> Result<(), JsValue> {
 
       over_save_map: false,
       over_save_map_index: 0,
+      over_undo: false,
+      over_clear: false,
+      over_redo: false,
       down_save_map: false,
       down_save_map_index: 0,
+      down_undo: false,
+      down_clear: false,
+      down_redo: false,
       up_save_map: false,
       up_save_map_index: 0,
+      up_undo: false,
+      up_clear: false,
+      up_redo: false,
     };
 
     // From https://rustwasm.github.io/wasm-bindgen/examples/request-animation-frame.html
@@ -865,6 +873,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_debug_selected_machine_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_debug_selected_supply_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_debug_selected_demand_cell(&context, &factory, &cell_selection, &mouse_state);
+        paint_map_state_buttons(&state, &context, &mouse_state, &img_save);
         paint_load_thumbs(&options, &state, &config, &context, &mouse_state, &saves, &img_save);
 
         // Probably after all backround/floor stuff is finished
@@ -942,6 +951,12 @@ fn update_mouse_state(
     mouse_state.up_quote = false;
     mouse_state.down_save_map = false;
     mouse_state.up_save_map = false;
+    mouse_state.down_undo = false;
+    mouse_state.down_clear = false;
+    mouse_state.down_redo = false;
+    mouse_state.up_undo = false;
+    mouse_state.up_clear = false;
+    mouse_state.up_redo = false;
   }
   mouse_state.was_down = false;
   mouse_state.is_up = false;
@@ -954,6 +969,9 @@ fn update_mouse_state(
   mouse_state.help_hover = false;
   mouse_state.over_day_bar = false;
   mouse_state.over_save_map = false;
+  mouse_state.over_undo = false;
+  mouse_state.over_clear = false;
+  mouse_state.over_redo = false;
 
   mouse_state.up_zone = Zone::None;
   mouse_state.over_zone = Zone::None;
@@ -1002,10 +1020,21 @@ fn update_mouse_state(
       }
     }
     ZONE_QUOTES => {
-      mouse_state.over_quote =
-        mouse_state.world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUOTE_WIDTH &&
-        (mouse_state.world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) < UI_QUOTE_HEIGHT;
-      mouse_state.over_quote_visible_index = if mouse_state.over_quote { ((mouse_state.world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN)) as usize } else { 0 };
+      if hit_test_undo(mouse_state.world_x, mouse_state.world_y) {
+        mouse_state.over_undo = true;
+      }
+      else if hit_test_clear(mouse_state.world_x, mouse_state.world_y) {
+        mouse_state.over_clear = true;
+      }
+      else if hit_test_redo(mouse_state.world_x, mouse_state.world_y) {
+        mouse_state.over_redo = true;
+      }
+      else {
+        mouse_state.over_quote =
+          mouse_state.world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUOTE_WIDTH &&
+          (mouse_state.world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) < UI_QUOTE_HEIGHT;
+        mouse_state.over_quote_visible_index = if mouse_state.over_quote { ((mouse_state.world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN)) as usize } else { 0 };
+      }
     }
     ZONE_SAVE_MAP => {
       let button_index = hit_test_save_map(mouse_state.world_x, mouse_state.world_y);
@@ -1099,10 +1128,21 @@ fn update_mouse_state(
         }
       }
       ZONE_QUOTES => {
-        mouse_state.down_quote =
-          mouse_state.last_down_world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.last_down_world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUOTE_WIDTH &&
-          (mouse_state.last_down_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) < UI_QUOTE_HEIGHT;
-        mouse_state.down_quote_visible_index = if mouse_state.down_quote { ((mouse_state.last_down_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN)) as usize } else { 0 };
+        if hit_test_undo(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
+          mouse_state.down_undo = true;
+        }
+        else if hit_test_clear(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
+          mouse_state.down_clear = true;
+        }
+        else if hit_test_redo(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
+          mouse_state.down_redo = true;
+        }
+        else {
+          mouse_state.down_quote =
+            mouse_state.last_down_world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.last_down_world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUOTE_WIDTH &&
+            (mouse_state.last_down_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) < UI_QUOTE_HEIGHT;
+          mouse_state.down_quote_visible_index = if mouse_state.down_quote { ((mouse_state.last_down_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN)) as usize } else { 0 };
+        }
       }
       ZONE_SAVE_MAP => {
         let button_index = hit_test_save_map(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
@@ -1225,10 +1265,21 @@ fn update_mouse_state(
       ZONE_HELP => {
       }
       ZONE_QUOTES => {
-        mouse_state.up_quote =
-          mouse_state.last_up_world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.last_up_world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUOTE_WIDTH &&
-          (mouse_state.last_up_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) < UI_QUOTE_HEIGHT;
-        mouse_state.up_quote_visible_index = if mouse_state.up_quote { ((mouse_state.last_up_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN)) as usize } else { 0 };
+        if hit_test_undo(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
+          mouse_state.up_undo = true;
+        }
+        else if hit_test_clear(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
+          mouse_state.up_clear = true;
+        }
+        else if hit_test_redo(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
+          mouse_state.up_redo = true;
+        }
+        else {
+          mouse_state.up_quote =
+            mouse_state.last_up_world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.last_up_world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUOTE_WIDTH &&
+            (mouse_state.last_up_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) < UI_QUOTE_HEIGHT;
+          mouse_state.up_quote_visible_index = if mouse_state.up_quote { ((mouse_state.last_up_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN)) as usize } else { 0 };
+        }
       }
       ZONE_SAVE_MAP => {
         let button_index = hit_test_save_map(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
@@ -1293,7 +1344,16 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         on_down_floor();
       }
       ZONE_QUOTES => {
-        if mouse_state.up_quote {
+        if mouse_state.down_undo {
+          on_down_undo(options, state, config, factory, mouse_state);
+        }
+        else if mouse_state.down_clear {
+          on_down_clear(options, state, config, factory, mouse_state);
+        }
+        else if mouse_state.down_redo {
+          on_down_redo(options, state, config, factory, mouse_state);
+        }
+        else if mouse_state.down_quote {
           on_down_quote(options, state, config, factory, mouse_state);
         }
       }
@@ -1349,7 +1409,16 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
           }
         }
         ZONE_QUOTES => {
-          if mouse_state.up_quote {
+          if mouse_state.up_undo {
+            on_up_undo(options, state, config, factory, mouse_state);
+          }
+          else if mouse_state.up_clear {
+            on_up_clear(options, state, config, factory, mouse_state);
+          }
+          else if mouse_state.up_redo {
+            on_up_redo(options, state, config, factory, mouse_state);
+          }
+          else if mouse_state.up_quote {
             on_up_quote(options, state, config, factory, mouse_state);
           }
         }
@@ -1425,6 +1494,49 @@ fn on_up_offer(options: &Options, state: &State, config: &Config, factory: &Fact
     log!("Selecting offer {}", mouse_state.offer_hover_offer_index);
     mouse_state.offer_selected = true;
     mouse_state.offer_selected_index = mouse_state.offer_hover_offer_index;
+  }
+}
+fn on_down_undo(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
+  log!("on_down_undo()");
+}
+fn on_up_undo(options: &Options, state: &mut State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
+  log!("on_up_undo()");
+  // keep stack of n snapshots
+  // when undoing, put pointer backwards on the existing stack
+  // when redoing, move it forward
+  // when making a change and the pointer is not last, copy the current snapshot to last and then add the new snapshot
+  // this way you can still go back in time even after an undo and new change
+  // perhaps a "normal" undo mode would be preferable though.
+  // pointer rolls over after the max snap count. undo just rolls to the front if at zero
+  // means we have to track an undo pointer as well, which is a temporary pointer as long as it is not equal to the real pointer
+
+  if state.snapshot_undo_pointer > 0 {
+    state.snapshot_undo_pointer -= 1;
+    state.load_snapshot_next_frame = true;
+  }
+}
+fn on_down_clear(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
+  log!("on_down_clear()");
+}
+fn on_up_clear(options: &Options, state: &State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState) {
+  log!("on_up_clear()");
+  log!("Removing all cells from the factory...");
+  for coord in 0..factory.floor.len() {
+    let (x, y) = to_xy(coord);
+    factory.floor[coord] = empty_cell(config, x, y);
+  }
+  factory.changed = true;
+}
+fn on_down_redo(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
+  log!("on_down_redo()");
+}
+fn on_up_redo(options: &Options, state: &mut State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
+  log!("on_up_redo()");
+  // if state.snapshot_undo_pointer is not equal to state.snapshot_pointer
+  // move the pointer forward. otherwise assume that you can't go forward
+  if state.snapshot_undo_pointer != state.snapshot_pointer {
+    state.snapshot_undo_pointer += 1;
+    state.load_snapshot_next_frame = true;
   }
 }
 fn on_down_quote(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
@@ -2174,13 +2286,7 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
       log!("pressed time plus, from {} to {}", m, options.speed_modifier_floor);
     }
     MenuButton::Row2Button0 => {
-      // Empty
-      log!("Removing all cells from the factory...");
-      for coord in 0..factory.floor.len() {
-        let (x, y) = to_xy(coord);
-        factory.floor[coord] = empty_cell(config, x, y);
-      }
-      factory.changed = true;
+      log!("(no button here)");
     }
     MenuButton::Row2Button1 => {
       // Unbelt
@@ -2282,31 +2388,10 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
       }
     }
     MenuButton::Row3Button3 => {
-      log!("undo button");
-
-      // keep stack of n snapshots
-      // when undoing, put pointer backwards on the existing stack
-      // when redoing, move it forward
-      // when making a change and the pointer is not last, copy the current snapshot to last and then add the new snapshot
-      // this way you can still go back in time even after an undo and new change
-      // perhaps a "normal" undo mode would be preferable though.
-      // pointer rolls over after the max snap count. undo just rolls to the front if at zero
-      // means we have to track an undo pointer as well, which is a temporary pointer as long as it is not equal to the real pointer
-
-      if state.snapshot_undo_pointer > 0 {
-        state.snapshot_undo_pointer -= 1;
-        state.load_snapshot_next_frame = true;
-      }
+      log!("(no button here)");
     }
     MenuButton::Row3Button4 => {
-      log!("redo button");
-
-      // if state.snapshot_undo_pointer is not equal to state.snapshot_pointer
-      // move the pointer forward. otherwise assume that you can't go forward
-      if state.snapshot_undo_pointer != state.snapshot_pointer {
-        state.snapshot_undo_pointer += 1;
-        state.load_snapshot_next_frame = true;
-      }
+      log!("(no button here)");
     }
     MenuButton::Row3Button5 => {
       panic!("Hit the panic button. Or another button without implementation.")
@@ -4189,6 +4274,62 @@ fn paint_quotes(options: &Options, state: &State, config: &Config, context: &Rc<
     height += partial_height + partial_margin; // margin between quotes
   }
 }
+fn paint_undoredo(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState) {
+
+  // Do we want to do this serial or parallel? parallel is easier I guess
+
+  let mut height = 0.0;
+  let mut visible_index = 0;
+  let quote_fade_time = QUOTE_FADE_TIME as f64 * options.speed_modifier_ui;
+
+  for quote_index in 0..factory.quotes.len() {
+    let add_progress = if factory.quotes[quote_index].added_at > 0 {
+      let ticks = factory.ticks - factory.quotes[quote_index].added_at;
+      let relticks = (ticks) as f64 / options.speed_modifier_floor;
+      (relticks / quote_fade_time).max(0.0).min(1.0)
+    } else { 1.0 };
+    let remove_progress = if factory.quotes[quote_index].completed_at > 0 {
+      let ticks = factory.ticks - factory.quotes[quote_index].completed_at;
+      let reltime = (ticks) as f64 / options.speed_modifier_floor;
+      (reltime / quote_fade_time).max(0.0).min(1.0)
+    } else { 0.0 };
+    let partial_height = add_progress * (1.0 - remove_progress) * UI_QUOTE_HEIGHT;
+    let partial_margin = add_progress * (1.0 - remove_progress) * UI_QUOTE_MARGIN;
+
+    if add_progress * (1.0 - remove_progress) > 0.0 {
+      let ( x, y ) = get_quote_xy(quote_index, height);
+
+      context.set_fill_style(&"grey".into()); // 100% background
+      context.fill_rect(x, y, UI_QUOTE_WIDTH, partial_height);
+      context.set_fill_style(&"lightgreen".into()); // progress green
+      context.fill_rect(x, y, UI_QUOTE_WIDTH * (factory.quotes[quote_index].current_count as f64 / factory.quotes[quote_index].target_count as f64).min(1.0), partial_height);
+      if options.dbg_clickable_quotes && mouse_state.over_quote && mouse_state.over_quote_visible_index == visible_index {
+        context.set_stroke_style(&"red".into());
+      } else {
+        context.set_stroke_style(&"black".into());
+      }
+      context.stroke_rect(x, y, UI_QUOTE_WIDTH, partial_height);
+
+      // Paint the icon(s), the required count, the progress
+
+      assert!(
+        config.nodes[factory.quotes[quote_index].part_index].kind == ConfigNodeKind::Part,
+        "quote part index should refer to Part node but was {:?}... have index: {}, but it points to: {:?}",
+        config.nodes[factory.quotes[quote_index].part_index].kind,
+        factory.quotes[quote_index].part_index,
+        config.nodes[factory.quotes[quote_index].part_index]
+      );
+      paint_segment_part_from_config(options, state, config, context, factory.quotes[quote_index].part_index, x + 4.0, y + 2.0, CELL_W, CELL_H);
+
+      context.set_fill_style(&"black".into());
+      context.fill_text(format!("{}/{}x", factory.quotes[quote_index].current_count, factory.quotes[quote_index].target_count).as_str(), x + CELL_W + 10.0, y + 23.0).expect("oopsie fill_text");
+
+      visible_index += 1;
+    }
+
+    height += partial_height + partial_margin; // margin between quotes
+  }
+}
 fn paint_ui_offers(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) {
   let ( is_mouse_over_offer, offer_hover_index ) =
     if mouse_state.is_dragging || mouse_state.was_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight offers
@@ -4456,7 +4597,9 @@ fn paint_machine_icon (options: &Options, state: &State, context: &Rc<web_sys::C
   context.stroke_rect(UI_MENU_BOTTOM_MACHINE_X, UI_MENU_BOTTOM_MACHINE_Y, UI_MENU_BOTTOM_MACHINE_WIDTH, UI_MENU_BOTTOM_MACHINE_HEIGHT);
 }
 fn paint_ui_buttons(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  paint_ui_button(context, mouse_state, 0.0, "Empty", MenuButton::Row2Button0);
+  // See on_up_menu for events
+
+  // paint_ui_button(context, mouse_state, 0.0, "Empty", MenuButton::Row2Button0);
   paint_ui_button(context, mouse_state, 1.0, "Unbelt", MenuButton::Row2Button1);
   paint_ui_button(context, mouse_state, 2.0, "Unpart", MenuButton::Row2Button2);
   paint_ui_button(context, mouse_state, 3.0, "Undir", MenuButton::Row2Button3);
@@ -4479,11 +4622,13 @@ fn paint_ui_button(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state:
   context.fill_text(text, x + 5.0, y + 14.0).expect("to paint");
 }
 fn paint_ui_buttons2(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  // See on_up_menu for events
+
   paint_ui_button2(context, mouse_state, 0.0, if state.mouse_mode_mirrored { "Erase" } else { "Draw" }, state.mouse_mode_mirrored, true, MenuButton::Row3Button0);
   paint_ui_button2(context, mouse_state, 1.0, "Select", state.mouse_mode_selecting, true, MenuButton::Row3Button1);
   paint_ui_button2(context, mouse_state, 2.0, if state.selected_area_copy.len() > 0{ "Stamp" } else { "Copy" }, state.selected_area_copy.len() > 0, state.mouse_mode_selecting, MenuButton::Row3Button2);
-  paint_ui_button2(context, mouse_state, 3.0, "Undo", false, state.snapshot_undo_pointer > 0, MenuButton::Row3Button3); // should it be 1 for initial map? or dont car, MenuButton::Row3Button3e?
-  paint_ui_button2(context, mouse_state, 4.0, "Redo", false, state.snapshot_undo_pointer != state.snapshot_pointer, MenuButton::Row3Button4);
+  // paint_ui_button2(context, mouse_state, 3.0, "Undo", false, state.snapshot_undo_pointer > 0, MenuButton::Row3Button3); // should it be 1 for initial map? or dont car, MenuButton::Row3Button3e?
+  // paint_ui_button2(context, mouse_state, 4.0, "Redo", false, state.snapshot_undo_pointer != state.snapshot_pointer, MenuButton::Row3Button4);
   paint_ui_button2(context, mouse_state, 5.0, "Panic", false, true, MenuButton::Row3Button5);
   // paint_ui_button2(context, mouse_state, 6.0, "Panic");
   assert!(UI_MENU_BUTTONS_COUNT_WIDTH_MAX == 7.0, "Update after adding new buttons");
@@ -4603,6 +4748,15 @@ fn paint_segment_part_from_config_bug(options: &Options, state: &State, config: 
 
   return true;
 }
+fn hit_test_undo(x: f64, y: f64) -> bool {
+  return bounds_check(x, y, UI_UNREDO_UNDO_OFFSET_X, UI_UNREDO_UNDO_OFFSET_Y, UI_UNREDO_UNDO_OFFSET_X + UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_OFFSET_Y + UI_UNREDO_UNDO_HEIGHTH);
+}
+fn hit_test_clear(x: f64, y: f64) -> bool {
+  return bounds_check(x, y, UI_UNREDO_CLEAR_OFFSET_X, UI_UNREDO_CLEAR_OFFSET_Y, UI_UNREDO_CLEAR_OFFSET_X + UI_UNREDO_CLEAR_WIDTH, UI_UNREDO_CLEAR_OFFSET_Y + UI_UNREDO_CLEAR_HEIGHTH);
+}
+fn hit_test_redo(x: f64, y: f64) -> bool {
+  return bounds_check(x, y, UI_UNREDO_REDO_OFFSET_X, UI_UNREDO_REDO_OFFSET_Y, UI_UNREDO_REDO_OFFSET_X + UI_UNREDO_REDO_WIDTH, UI_UNREDO_REDO_OFFSET_Y + UI_UNREDO_REDO_HEIGHTH);
+}
 fn hit_test_save_map(x: f64, y: f64) -> usize {
   return
     if hit_test_save_map_rc(x, y, 0.0, 0.0) { 0 }
@@ -4642,13 +4796,13 @@ fn paint_map_load_button(col: f64, row: f64, button_index: usize, context: &Rc<w
   assert!(button_index < 6, "there are only 6 save buttons");
   let ox = GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN);
   let oy = GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN);
-  round_rect(context, ox, oy, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT);
   if let Some((canvas, name)) = save {
     // I'm using patterns to get around rounded corners but maybe should just use the mask
     // appraoch instead? Neither is very portable anyways so why not make it a simple blit...
     if let Some(ptrn) = context.create_pattern_with_html_canvas_element(&canvas, "repeat").expect("trying to load thumb") {
       let close = hit_test_save_map_right(mouse_state.world_x, mouse_state.world_y, row, col);
 
+      round_rect(context, ox, oy, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT);
       context.save();
       // Note: the translate is necessary because the pattern anchor point is always 0.0 of window, not the canvas
       context.translate(ox, oy).expect("canvas api call to work");
@@ -4659,30 +4813,16 @@ fn paint_map_load_button(col: f64, row: f64, button_index: usize, context: &Rc<w
       context.stroke();
 
       // Paint trash button
-      if mouse_state.over_save_map && mouse_state.over_save_map_index == button_index && close {
-        context.set_fill_style(&"#ffaaaa".into());
-      } else {
-        context.set_fill_style(&"#aaaaaa".into());
-      }
-      round_rect(context, ox + UI_SAVE_THUMB_WIDTH * 0.66, oy, UI_SAVE_THUMB_WIDTH * 0.33, UI_SAVE_THUMB_HEIGHT);
-      context.fill();
-      context.set_stroke_style(&"black".into());
-      context.stroke();
+      let fill_color = if mouse_state.over_save_map && mouse_state.over_save_map_index == button_index && close { "#ffaaaa" } else { "#aaaaaa" };
+      round_rect_and_fill_stroke(context, ox + UI_SAVE_THUMB_WIDTH * 0.66, oy, UI_SAVE_THUMB_WIDTH * 0.33, UI_SAVE_THUMB_HEIGHT, fill_color, "black");
       context.set_fill_style(&"red".into());
       context.fill_text("X", ox + UI_SAVE_THUMB_WIDTH - 20.0, oy + UI_SAVE_THUMB_HEIGHT / 2.0 + 5.0).expect("canvas api call to work");
     } else {
-      context.set_fill_style(&"orange".into());
-      context.fill();
-      context.set_stroke_style(&"black".into());
-      context.stroke();
+      round_rect_and_fill_stroke(context, ox, oy, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT, "orange", "black");
     }
   } else {
-    if mouse_state.over_save_map && mouse_state.over_save_map_index == button_index {
-      context.set_fill_style(&"#aaffaa".into());
-    } else {
-      context.set_fill_style(&"#aaaaaa".into());
-    }
-    context.fill();
+    let fill_color = if mouse_state.over_save_map && mouse_state.over_save_map_index == button_index { "#aaffaa" } else { "#aaaaaa" };
+    round_rect_and_fill_stroke(context, ox, oy, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT, fill_color, "black");
     context.draw_image_with_html_image_element_and_dw_and_dh(
       img_icon,
       ox + UI_SAVE_THUMB_WIDTH * 0.35,
@@ -4690,11 +4830,64 @@ fn paint_map_load_button(col: f64, row: f64, button_index: usize, context: &Rc<w
       UI_SAVE_THUMB_WIDTH / 3.0,
       UI_SAVE_THUMB_HEIGHT / 2.0
     ).expect("canvas api call to work");
-    context.set_stroke_style(&"black".into());
-    context.stroke();
   }
 }
 
+fn paint_map_state_buttons(state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, img_icon: &web_sys::HtmlImageElement) {
+  // // Paint trash button
+  // if mouse_state.over_save_map && mouse_state.over_save_map_index == button_index && close {
+  //   context.set_fill_style(&"#ffaaaa".into());
+  // } else {
+  //   context.set_fill_style(&"#aaaaaa".into());
+  // }
+
+  context.save();
+  context.set_font(&"48px monospace");
+
+  let fill_color = if state.snapshot_undo_pointer <= 0 { "#777" } else if mouse_state.over_undo { "#aaffaa" } else { "#aaaaaa" };
+  round_rect_and_fill_stroke(context, UI_UNREDO_UNDO_OFFSET_X, UI_UNREDO_UNDO_OFFSET_Y, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHTH, fill_color, "black");
+  let text_color = if state.snapshot_undo_pointer <= 0 { "#ccc" } else { "black" };
+  context.set_fill_style(&text_color.into());
+  context.fill_text("↶", UI_UNREDO_UNDO_OFFSET_X + UI_UNREDO_UNDO_WIDTH / 2.0 - 16.0, UI_UNREDO_UNDO_OFFSET_Y + UI_UNREDO_UNDO_HEIGHTH / 2.0 + 16.0).expect("canvas api call to work");
+
+  round_rect_and_fill_stroke(context, UI_UNREDO_CLEAR_OFFSET_X, UI_UNREDO_CLEAR_OFFSET_Y, UI_UNREDO_CLEAR_WIDTH, UI_UNREDO_CLEAR_HEIGHTH, if mouse_state.over_clear { "#aaffaa" } else { "#aaaaaa" }, "black");
+  context.set_fill_style(&"black".into());
+  context.fill_text("🗑", UI_UNREDO_CLEAR_OFFSET_X + UI_UNREDO_UNDO_WIDTH / 2.0 - 15.0, UI_UNREDO_CLEAR_OFFSET_Y + UI_UNREDO_CLEAR_HEIGHTH / 2.0 + 16.0).expect("canvas api call to work");
+  // 🚮
+
+  let fill_color = if state.snapshot_undo_pointer == state.snapshot_pointer { "#777" } else if mouse_state.over_redo { "#aaffaa" } else { "#aaaaaa" };
+  round_rect_and_fill_stroke(context, UI_UNREDO_REDO_OFFSET_X, UI_UNREDO_REDO_OFFSET_Y, UI_UNREDO_REDO_WIDTH, UI_UNREDO_REDO_HEIGHTH, fill_color, "black");
+  let text_color = if state.snapshot_undo_pointer == state.snapshot_pointer { "#ccc" } else { "black" };
+  context.set_fill_style(&text_color.into());
+  context.fill_text("↷", UI_UNREDO_REDO_OFFSET_X + UI_UNREDO_REDO_WIDTH / 2.0 - 16.0, UI_UNREDO_REDO_OFFSET_Y + UI_UNREDO_REDO_HEIGHTH / 2.0 + 16.0).expect("canvas api call to work");
+
+  context.restore();
+
+  // if mouse_state.over_save_map && mouse_state.over_save_map_index == button_index {
+  //   context.set_fill_style(&"#aaffaa".into());
+  // } else {
+  //   context.set_fill_style(&"#aaaaaa".into());
+  // }
+  // context.fill();
+  // context.draw_image_with_html_image_element_and_dw_and_dh(
+  //   img_icon,
+  //   ox + UI_SAVE_THUMB_WIDTH * 0.35,
+  //   oy + UI_SAVE_THUMB_HEIGHT * 0.2,
+  //   UI_SAVE_THUMB_WIDTH / 3.0,
+  //   UI_SAVE_THUMB_HEIGHT / 2.0
+  // ).expect("canvas api call to work");
+  // context.set_stroke_style(&"black".into());
+  // context.stroke();
+}
+
+
+fn round_rect_and_fill_stroke(context: &Rc<web_sys::CanvasRenderingContext2d>, x: f64, y: f64, w: f64, h: f64, fill: &str, stroke: &str) {
+  round_rect(context, x, y, w, h);
+  context.set_fill_style(&fill.into());
+  context.fill();
+  context.set_stroke_style(&stroke.into());
+  context.stroke();
+}
 fn round_rect(context: &Rc<web_sys::CanvasRenderingContext2d>, x: f64, y: f64, w: f64, h: f64) {
   // web_sys is not exposing the new roundRect so this SO answer will have to do
   // https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/roundRect

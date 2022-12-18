@@ -169,6 +169,16 @@ pub struct MouseState {
   pub down_save_map_index: usize,
   pub up_save_map: bool,
   pub up_save_map_index: usize,
+
+  pub over_undo: bool,
+  pub down_undo: bool,
+  pub up_undo: bool,
+  pub over_clear: bool,
+  pub down_clear: bool,
+  pub up_clear: bool,
+  pub over_redo: bool,
+  pub down_redo: bool,
+  pub up_redo: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
