@@ -517,6 +517,9 @@ pub fn start() -> Result<(), JsValue> {
       down_machine_button: false,
       up_machine_button: false,
       dragging_machine: false,
+      over_paint_toggle: false,
+      down_paint_toggle: false,
+      up_paint_toggle: false,
 
       craft_over_ci: CraftInteractable::None,
       craft_over_ci_wx: 0.0,
@@ -940,6 +943,7 @@ fn update_mouse_state(
     mouse_state.craft_dragging_ci = false;
     mouse_state.offer_down = false;
     mouse_state.down_machine_button = false;
+    mouse_state.up_machine_button = false;
     mouse_state.help_down = false;
     mouse_state.is_down = false;
     mouse_state.down_floor_not_corner = false;
@@ -957,6 +961,8 @@ fn update_mouse_state(
     mouse_state.up_undo = false;
     mouse_state.up_clear = false;
     mouse_state.up_redo = false;
+    mouse_state.up_paint_toggle = false;
+    mouse_state.down_paint_toggle = false;
   }
   mouse_state.was_down = false;
   mouse_state.is_up = false;
@@ -972,6 +978,7 @@ fn update_mouse_state(
   mouse_state.over_undo = false;
   mouse_state.over_clear = false;
   mouse_state.over_redo = false;
+  mouse_state.over_paint_toggle = false;
 
   mouse_state.up_zone = Zone::None;
   mouse_state.over_zone = Zone::None;
@@ -1056,8 +1063,15 @@ fn update_mouse_state(
     }
     ZONE_MENU => {
       let menu_button = hit_test_menu_button(mouse_state.world_x, mouse_state.world_y);
-      mouse_state.over_menu_button = menu_button;
-      mouse_state.over_machine_button = menu_button == MenuButton::None && hit_test_machine_button(mouse_state.world_x, mouse_state.world_y);
+      if hit_test_paint_toggle(mouse_state.world_x, mouse_state.world_y) {
+        mouse_state.over_paint_toggle = true;
+      }
+      else if hit_test_machine_button(mouse_state.world_x, mouse_state.world_y) {
+        mouse_state.over_machine_button = true;
+      }
+      else if menu_button != MenuButton::None {
+        mouse_state.over_menu_button = menu_button;
+      }
     }
     Zone::BottomBottom => {}
     Zone::TopRight => {}
@@ -1162,8 +1176,16 @@ fn update_mouse_state(
       }
       ZONE_MENU => {
         let menu_button = hit_test_menu_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
-        mouse_state.down_menu_button = menu_button;
-        mouse_state.down_machine_button = menu_button == MenuButton::None && hit_test_machine_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
+
+        if hit_test_paint_toggle(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
+          mouse_state.down_paint_toggle = true;
+        }
+        else if hit_test_machine_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
+          mouse_state.down_machine_button = true;
+        }
+        else if menu_button != MenuButton::None {
+          mouse_state.down_menu_button = menu_button;
+        }
       }
       Zone::BottomBottom => {}
       Zone::TopRight => {}
@@ -1294,8 +1316,15 @@ fn update_mouse_state(
       }
       ZONE_MENU => {
         let menu_button = hit_test_menu_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
-        mouse_state.up_menu_button = menu_button;
-        mouse_state.up_machine_button = menu_button == MenuButton::None && hit_test_machine_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
+        if hit_test_paint_toggle(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
+          mouse_state.up_paint_toggle = true;
+        }
+        else if hit_test_machine_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
+          mouse_state.up_machine_button = true;
+        }
+        else if menu_button != MenuButton::None {
+          mouse_state.up_menu_button = menu_button;
+        }
       }
       Zone::BottomBottom => {}
       Zone::TopRight => {}
@@ -1435,6 +1464,8 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         ZONE_MENU => {
           if mouse_state.down_machine_button {
             on_up_machine_button();
+          } else if mouse_state.down_paint_toggle {
+            on_up_paint_toggle(state);
           } else {
             log!("({}) on_up_menu from normal", factory.ticks);
             on_up_menu(cell_selection, mouse_state, options, state, config, factory);
@@ -2231,6 +2262,15 @@ fn on_drag_end_floor_multi_cells(state: &State, options: &Options, config: &Conf
   }
 }
 
+fn on_up_paint_toggle(state: &mut State) {
+  log!("on_up_paint_toggle()");
+  log!("inverting state.mouse_mode_mirrored");
+  state.mouse_mode_mirrored = !state.mouse_mode_mirrored;
+  // state.mouse_mode_selecting = false;
+  // cell_selection.area = false;
+  // cell_selection.on = false;
+  // state.selected_area_copy = vec!(); // Or retain this?
+}
 
 fn on_up_machine_button() {
   log!("on_up_machine_button()");
@@ -2347,13 +2387,7 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
       log!("(no button here)");
     }
     MenuButton::Row3Button0 => {
-      // Draw / Erase
-      log!("toggle draw/erase mode");
-      state.mouse_mode_mirrored = !state.mouse_mode_mirrored;
-      state.mouse_mode_selecting = false;
-      cell_selection.area = false;
-      cell_selection.on = false;
-      state.selected_area_copy = vec!(); // Or retain this?
+      log!("(no button here)");
     }
     MenuButton::Row3Button1 => {
       // Select
@@ -2663,6 +2697,9 @@ fn hit_test_offers(factory: &Factory, mx: f64, my: f64) -> (bool, usize ) {
   } else {
     return ( false, 0 );
   };
+}
+fn hit_test_paint_toggle(x: f64, y: f64) -> bool {
+  return bounds_check(x, y, UI_MENU_BOTTOM_PAINT_TOGGLE_X, UI_MENU_BOTTOM_PAINT_TOGGLE_Y, UI_MENU_BOTTOM_PAINT_TOGGLE_X + UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_Y + UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT);
 }
 fn hit_test_machine_button(x: f64, y: f64) -> bool {
   return bounds_check(x, y, UI_MENU_BOTTOM_MACHINE_X, UI_MENU_BOTTOM_MACHINE_Y, UI_MENU_BOTTOM_MACHINE_X + UI_MENU_BOTTOM_MACHINE_WIDTH, UI_MENU_BOTTOM_MACHINE_Y + UI_MENU_BOTTOM_MACHINE_HEIGHT);
@@ -4579,11 +4616,40 @@ fn paint_green_pixel(context: &Rc<web_sys::CanvasRenderingContext2d>, ticks: u64
 }
 fn paint_bottom_menu(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, img_machine_1_1: &web_sys::HtmlImageElement, mouse_state: &MouseState) {
   paint_ui_time_control(options, state, context, mouse_state);
+  paint_paint_toggle(options, state, context, mouse_state);
   paint_machine_icon(options, state, context, img_machine_1_1, mouse_state);
   paint_ui_buttons(options, state, context, mouse_state);
   paint_ui_buttons2(options, state, context, mouse_state);
 }
-fn paint_machine_icon (options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, img_machine_1_1: &web_sys::HtmlImageElement, mouse_state: &MouseState) {
+fn paint_paint_toggle(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  if mouse_state.over_paint_toggle {
+    context.set_fill_style(&"#aaffaa".into());
+  } else {
+    context.set_fill_style(&"#aaa".into());
+  }
+
+  context.fill_rect(UI_MENU_BOTTOM_PAINT_TOGGLE_X, UI_MENU_BOTTOM_PAINT_TOGGLE_Y, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT);
+
+  context.save();
+  context.set_font(&"48px monospace");
+  context.set_fill_style(&"black".into());
+  context.fill_text("🖌", UI_MENU_BOTTOM_PAINT_TOGGLE_X + UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH / 2.0 - 24.0, UI_MENU_BOTTOM_PAINT_TOGGLE_Y + UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
+  if state.mouse_mode_mirrored {
+    context.set_fill_style(&"red".into());
+    context.fill_text("X", UI_MENU_BOTTOM_PAINT_TOGGLE_X + UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH / 2.0 - 12.0, UI_MENU_BOTTOM_PAINT_TOGGLE_Y + UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
+  }
+  context.restore();
+
+  // context.draw_image_with_html_image_element_and_dw_and_dh(
+  //   &img_machine_1_1,
+  //   // Paint onto canvas at
+  //   UI_MENU_BOTTOM_PAINT_TOGGLE_X, UI_MENU_BOTTOM_PAINT_TOGGLE_Y, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT
+  // ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(UI_MENU_BOTTOM_PAINT_TOGGLE_X, UI_MENU_BOTTOM_PAINT_TOGGLE_Y, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT);
+}
+fn paint_machine_icon(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, img_machine_1_1: &web_sys::HtmlImageElement, mouse_state: &MouseState) {
   context.set_fill_style(&"#aaa".into());
   context.fill_rect(UI_MENU_BOTTOM_MACHINE_X, UI_MENU_BOTTOM_MACHINE_Y, UI_MENU_BOTTOM_MACHINE_WIDTH, UI_MENU_BOTTOM_MACHINE_HEIGHT);
 
@@ -4624,7 +4690,7 @@ fn paint_ui_button(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state:
 fn paint_ui_buttons2(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   // See on_up_menu for events
 
-  paint_ui_button2(context, mouse_state, 0.0, if state.mouse_mode_mirrored { "Erase" } else { "Draw" }, state.mouse_mode_mirrored, true, MenuButton::Row3Button0);
+  // paint_ui_button2(context, mouse_state, 0.0, if state.mouse_mode_mirrored { "Erase" } else { "Draw" }, state.mouse_mode_mirrored, true, MenuButton::Row3Button0);
   paint_ui_button2(context, mouse_state, 1.0, "Select", state.mouse_mode_selecting, true, MenuButton::Row3Button1);
   paint_ui_button2(context, mouse_state, 2.0, if state.selected_area_copy.len() > 0{ "Stamp" } else { "Copy" }, state.selected_area_copy.len() > 0, state.mouse_mode_selecting, MenuButton::Row3Button2);
   // paint_ui_button2(context, mouse_state, 3.0, "Undo", false, state.snapshot_undo_pointer > 0, MenuButton::Row3Button3); // should it be 1 for initial map? or dont car, MenuButton::Row3Button3e?
@@ -4835,12 +4901,6 @@ fn paint_map_load_button(col: f64, row: f64, button_index: usize, context: &Rc<w
 
 fn paint_map_state_buttons(state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, img_icon: &web_sys::HtmlImageElement) {
   // // Paint trash button
-  // if mouse_state.over_save_map && mouse_state.over_save_map_index == button_index && close {
-  //   context.set_fill_style(&"#ffaaaa".into());
-  // } else {
-  //   context.set_fill_style(&"#aaaaaa".into());
-  // }
-
   context.save();
   context.set_font(&"48px monospace");
 
@@ -4862,22 +4922,6 @@ fn paint_map_state_buttons(state: &State, context: &Rc<web_sys::CanvasRenderingC
   context.fill_text("↷", UI_UNREDO_REDO_OFFSET_X + UI_UNREDO_REDO_WIDTH / 2.0 - 16.0, UI_UNREDO_REDO_OFFSET_Y + UI_UNREDO_REDO_HEIGHTH / 2.0 + 16.0).expect("canvas api call to work");
 
   context.restore();
-
-  // if mouse_state.over_save_map && mouse_state.over_save_map_index == button_index {
-  //   context.set_fill_style(&"#aaffaa".into());
-  // } else {
-  //   context.set_fill_style(&"#aaaaaa".into());
-  // }
-  // context.fill();
-  // context.draw_image_with_html_image_element_and_dw_and_dh(
-  //   img_icon,
-  //   ox + UI_SAVE_THUMB_WIDTH * 0.35,
-  //   oy + UI_SAVE_THUMB_HEIGHT * 0.2,
-  //   UI_SAVE_THUMB_WIDTH / 3.0,
-  //   UI_SAVE_THUMB_HEIGHT / 2.0
-  // ).expect("canvas api call to work");
-  // context.set_stroke_style(&"black".into());
-  // context.stroke();
 }
 
 

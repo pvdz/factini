@@ -114,6 +114,9 @@ pub struct MouseState {
   pub down_machine_button: bool,
   pub up_machine_button: bool,
   pub dragging_machine: bool,
+  pub over_paint_toggle: bool,
+  pub down_paint_toggle: bool,
+  pub up_paint_toggle: bool,
 
   pub craft_over_ci: CraftInteractable,
   pub craft_over_ci_wx: f64,
