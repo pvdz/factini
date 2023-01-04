@@ -256,7 +256,7 @@ pub fn start() -> Result<(), JsValue> {
   let mouse_x = Rc::new(Cell::new(0.0));
   let mouse_y = Rc::new(Cell::new(0.0));
   let mouse_moved = Rc::new(Cell::new(false));
-  let last_down_event_type = Rc::new(Cell::new(MOUSE)); // Was the last "down" event a MOUSE or TOUCH event?
+  let last_down_event_type = Rc::new(Cell::new(EventSourceType::Mouse)); // Was the last "down" event a MOUSE or TOUCH event?
   let last_mouse_was_down = Rc::new(Cell::new(false));
   let last_mouse_down_x = Rc::new(Cell::new(0.0));
   let last_mouse_down_y = Rc::new(Cell::new(0.0));
@@ -280,7 +280,9 @@ pub fn start() -> Result<(), JsValue> {
       event.stop_propagation();
       event.prevent_default();
 
-      last_down_event_type.set(MOUSE);
+      log!("mouse down: button: {:?}", event.buttons());
+
+      last_down_event_type.set(EventSourceType::Mouse);
 
       let mx = event.offset_x() as f64;
       let my = event.offset_y() as f64;
@@ -304,6 +306,8 @@ pub fn start() -> Result<(), JsValue> {
       event.stop_propagation();
       event.prevent_default();
 
+      // log!("mouse move: button: {:?}", event.buttons());
+
       let mx = event.offset_x() as f64;
       let my = event.offset_y() as f64;
 
@@ -323,6 +327,8 @@ pub fn start() -> Result<(), JsValue> {
     let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
       event.stop_propagation();
       event.prevent_default();
+
+      log!("mouse up: button: {:?}", event.buttons());
 
       let mx = event.offset_x() as f64;
       let my = event.offset_y() as f64;
@@ -358,7 +364,9 @@ pub fn start() -> Result<(), JsValue> {
       event.stop_propagation();
       event.prevent_default();
 
-      last_down_event_type.set(TOUCH);
+      log!("touch start: number of touches: {}", event.changed_touches().length());
+
+      last_down_event_type.set(EventSourceType::Touch);
 
       let bound = canvas.get_bounding_client_rect();
       let event = event.touches().get(0).unwrap();
@@ -366,9 +374,9 @@ pub fn start() -> Result<(), JsValue> {
       let mx = -bound.left() + event.client_x() as f64;
       let my = -bound.top() + event.client_y() as f64;
 
+      last_mouse_was_down.set(true);
       mouse_x.set(mx);
       mouse_y.set(my);
-      last_mouse_was_down.set(true);
       last_mouse_down_x.set(mx);
       last_mouse_down_y.set(my);
       last_mouse_down_button.set(1); // 1=left, 2=right, 3=left-then-also-right (but right-then-also-left is still 2). touch is always 1.
@@ -385,6 +393,8 @@ pub fn start() -> Result<(), JsValue> {
     let closure = Closure::wrap(Box::new(move |event: web_sys::TouchEvent| {
       event.stop_propagation();
       event.prevent_default();
+
+      // log!("touch move: number of touches: {}", event.changed_touches().length());
 
       let bound = canvas.get_bounding_client_rect();
       let event = event.touches().get(0).unwrap();
@@ -412,7 +422,7 @@ pub fn start() -> Result<(), JsValue> {
       event.stop_propagation();
       event.prevent_default();
 
-      log!("number of touches: {}", event.changed_touches().length());
+      log!("touch end: number of touches: {}", event.changed_touches().length());
       let bound = canvas.get_bounding_client_rect();
       let event = event.changed_touches().get(0).unwrap();
 
@@ -491,7 +501,7 @@ pub fn start() -> Result<(), JsValue> {
       down_zone: Zone::None,
       up_zone: Zone::None,
 
-      last_down_event_type: MOUSE,
+      last_down_event_type: EventSourceType::Unknown,
 
       is_down: false,
       was_down: false,
@@ -781,10 +791,10 @@ pub fn start() -> Result<(), JsValue> {
       if options.web_output_cli {
         paint_world_cli(&context, &mut options, &mut state, &factory);
       } else {
-
         let was_down = last_mouse_was_down.get();
-        let was_mouse = if was_down { if last_down_event_type.get() == MOUSE { MOUSE } else { TOUCH } } else { false }; // Only read if set. May be an over-optimization but eh.
-        update_mouse_state(&mut options, &mut state, &config, &mut factory, &mut cell_selection, &mut mouse_state, mouse_x.get(), mouse_y.get(), mouse_moved.get(), was_down, was_mouse, last_mouse_down_x.get(), last_mouse_down_y.get(), last_mouse_down_button.get(), last_mouse_was_up.get(), last_mouse_up_x.get(), last_mouse_up_y.get(), last_mouse_up_button.get());
+        let was_mouse = if was_down { if last_down_event_type.get() == EventSourceType::Mouse { EventSourceType::Mouse } else { EventSourceType::Touch } } else { EventSourceType::Unknown }; // Only read if set. May be an over-optimization but eh.
+        log!("was_down: {}, was_mouse: {:?}", was_down, was_mouse);
+        update_mouse_state(&mut options, &mut state, &config, &mut factory, &mut cell_selection, &mut mouse_state, mouse_x.get(), mouse_y.get(), mouse_moved.get(), was_mouse, was_down, last_mouse_down_x.get(), last_mouse_down_y.get(), last_mouse_down_button.get(), last_mouse_was_up.get(), last_mouse_up_x.get(), last_mouse_up_y.get(), last_mouse_up_button.get());
         last_mouse_was_down.set(false);
         last_mouse_was_up.set(false);
 
@@ -935,7 +945,7 @@ fn update_mouse_state(
   options: &Options, state: &State, config: &Config, factory: &Factory,
   cell_selection: &mut CellSelection, mouse_state: &mut MouseState,
   mouse_x: f64, mouse_y: f64, mouse_moved_since_app_start: bool,
-  last_down_event_type: bool, // MOUSE or EVENT
+  last_down_event_type: EventSourceType, // MOUSE or TOUCH event
   last_mouse_was_down: bool, last_mouse_down_x: f64, last_mouse_down_y: f64, last_mouse_down_button: u16,
   last_mouse_was_up: bool, last_mouse_up_x: f64, last_mouse_up_y: f64, last_mouse_up_button: u16,
 ) {
@@ -1111,7 +1121,8 @@ fn update_mouse_state(
 
   // on mouse down
   if last_mouse_was_down {
-    mouse_state.last_down_event_type = if state.event_type_swapped { if last_down_event_type == TOUCH { MOUSE } else { TOUCH } } else { if last_down_event_type == MOUSE { MOUSE } else { TOUCH } };
+    log!("ok something down...");
+    mouse_state.last_down_event_type = if state.event_type_swapped { if last_down_event_type == EventSourceType::Touch { EventSourceType::Mouse } else { EventSourceType::Touch } } else { if last_down_event_type == EventSourceType::Mouse { EventSourceType::Mouse } else { EventSourceType::Touch } };
     mouse_state.last_down_button = last_mouse_down_button;
     mouse_state.last_down_canvas_x = last_mouse_down_x;
     mouse_state.last_down_canvas_y = last_mouse_down_y;
@@ -1126,7 +1137,7 @@ fn update_mouse_state(
     mouse_state.was_down = true; // Unset after this frame
 
     mouse_state.down_zone = coord_to_zone(options, state, config, mouse_state.last_down_world_x, mouse_state.last_down_world_y, is_machine_selected, factory, cell_selection.coord);
-    log!("DOWN event (type={}) in zone {:?}, coord {}x{}", if mouse_state.last_down_event_type == MOUSE { "Mouse" } else { "Touch" }, mouse_state.down_zone, mouse_state.world_x, mouse_state.world_y);
+    log!("DOWN event (type={:?}) in zone {:?}, coord {}x{}", if mouse_state.last_down_event_type == EventSourceType::Mouse { "Mouse" } else { "Touch" }, mouse_state.down_zone, mouse_state.world_x, mouse_state.world_y);
 
     match mouse_state.down_zone {
       Zone::None => panic!("cant be down on no zone"),
@@ -1276,7 +1287,7 @@ fn update_mouse_state(
     }
 
     mouse_state.up_zone = coord_to_zone(options, state, config, mouse_state.last_up_world_x, mouse_state.last_up_world_y, is_machine_selected, factory, cell_selection.coord);
-    log!("UP event (type={}) in zone {:?}, was down in zone {:?}, coord {}x{}", if mouse_state.last_down_event_type == MOUSE { "Mouse" } else { "Touch" }, mouse_state.up_zone, mouse_state.down_zone, mouse_state.last_up_world_x, mouse_state.last_up_world_y);
+    log!("UP event (type={:?}) in zone {:?}, was down in zone {:?}, coord {}x{}", if mouse_state.last_down_event_type == EventSourceType::Mouse { "Mouse" } else { "Touch" }, mouse_state.up_zone, mouse_state.down_zone, mouse_state.last_up_world_x, mouse_state.last_up_world_y);
 
     match mouse_state.up_zone {
       Zone::None => panic!("cant be up on no zone"),
@@ -1531,7 +1542,7 @@ fn on_click_help(options: &Options, state: &mut State, config: &Config) {
   state.manual_open = !state.manual_open;
 }
 fn on_down_floor(mouse_state: &mut MouseState) {
-  log!("on_down_floor_after(); type = {}", if mouse_state.last_down_event_type == MOUSE { "Mouse" } else { "Touch" });
+  log!("on_down_floor_after(); type = {}", if mouse_state.last_down_event_type == EventSourceType::Mouse { "Mouse" } else { "Touch" });
   // Set the current cell as the last coord so we can track the next
   mouse_state.last_cell_x = mouse_state.last_down_cell_x_floored;
   mouse_state.last_cell_y = mouse_state.last_down_cell_y_floored;
@@ -1540,7 +1551,7 @@ fn on_drag_floor(options: &Options, state: &mut State, config: &Config, factory:
   // Do not log drag events by default :)
   // log!("on_drag_floor()");
 
-  if mouse_state.last_down_event_type == TOUCH {
+  if mouse_state.last_down_event_type == EventSourceType::Touch {
     let cell_x1 = mouse_state.last_cell_x;
     let cell_y1 = mouse_state.last_cell_y;
     let cell_x2 = mouse_state.cell_x_floored;
@@ -2094,7 +2105,7 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
     return;
   }
 
-  if mouse_state.last_down_event_type == TOUCH {
+  if mouse_state.last_down_event_type == EventSourceType::Touch {
     // Do nothing here
     log!("ignoring on_drag_end_floor event for touch");
     return;
@@ -3047,7 +3058,13 @@ fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::Canva
   context.set_fill_style(&"lightgreen".into());
   context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("down event type: {}", if mouse_state.last_down_event_type == MOUSE { "Mouse" } else { "Touch" }).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("down: {}, dragging: {}", mouse_state.is_down, mouse_state.is_dragging).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+
+  ui_lines += 1.0;
+  context.set_fill_style(&"lightgreen".into());
+  context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
+  context.set_fill_style(&"black".into());
+  context.fill_text(format!("down event type: {}", if mouse_state.last_down_event_type == EventSourceType::Mouse { "Mouse" } else { "Touch" }).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   assert_eq!(ui_lines, UI_DEBUG_LINES, "keep these in sync for simplicity");
 }
@@ -3736,7 +3753,7 @@ fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory
         // This drag stated in a craft popup so do not show a track preview; we're not doing that.
       }
       else if mouse_state.down_floor_not_corner {
-        if mouse_state.last_down_event_type == MOUSE {
+        if mouse_state.last_down_event_type == EventSourceType::Mouse {
           paint_belt_drag_preview(options, state, config, context, factory, cell_selection, mouse_state);
         }
       }

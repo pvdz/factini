@@ -136,7 +136,7 @@ pub const UI_DEBUG_APP_WIDTH: f64 = 250.0;
 pub const UI_DEBUG_APP_LINE_H: f64 = 25.0;
 pub const UI_DEBUG_APP_FONT_H: f64 = 16.0;
 pub const UI_DEBUG_APP_SPACING: f64 = 6.0;
-pub const UI_DEBUG_LINES: f64 = 10.0; // Update after adding more lines
+pub const UI_DEBUG_LINES: f64 = 11.0; // Update after adding more lines
 // Selected cell/machine details
 pub const UI_DEBUG_CELL_OFFSET_X: f64 = UI_DEBUG_OFFSET_X;
 pub const UI_DEBUG_CELL_OFFSET_Y: f64 = UI_DEBUG_OFFSET_Y;

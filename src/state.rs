@@ -24,9 +24,6 @@ use super::log;
 
 pub const UNDO_STACK_SIZE: usize = 100;
 
-pub const MOUSE: bool = true;
-pub const TOUCH: bool = false;
-
 pub struct State {
   pub paused: bool,
   pub mouse_mode_mirrored: bool, // Note: all this really does is flip the lmb and rmb actions but we need this toggle for touch-only mode
@@ -79,7 +76,7 @@ pub struct MouseState {
   pub down_zone: Zone,
   pub up_zone: Zone,
 
-  pub last_down_event_type: bool, // MOUSE or TOUCH
+  pub last_down_event_type: EventSourceType, // MOUSE or TOUCH
 
   pub is_down: bool, // Set if pointer is currently down. Unset when the pointer is released.
   pub was_down: bool, // Set if current frame handled a pointer down. Should unset after the frame.
@@ -221,6 +218,13 @@ pub enum MenuButton {
 pub enum Action {
   Add,
   Remove
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EventSourceType {
+  Mouse,
+  Touch,
+  Unknown, // I think there's like tap, pointer, pen, whatever?
 }
 
 #[derive(Debug)]

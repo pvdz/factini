@@ -153,7 +153,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     bouncer_stamp_interval: 20,
     bouncer_bounce: 0.8,
     web_output_cli: false,
-    initial_event_type_swapped: MOUSE,
+    initial_event_type_swapped: false,
     dbg_trash_is_joker: true,
     db_joker_corrupts_factory: true,
     dbg_machine_produce_trash: true,
