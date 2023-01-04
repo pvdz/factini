@@ -1,5 +1,6 @@
-use super::utils::*;
 use super::log;
+use super::utils::*;
+use super::state::*;
 
 // Design is for the default speed to run 10k ticks per real world second
 pub const ONE_MS: u64 = 10;
@@ -86,6 +87,8 @@ pub struct Options {
 
   pub web_output_cli: bool, // Print the simplified cli output in web version?
 
+  pub initial_event_type_swapped: bool, // sets initial state.event_type_swapped -> MOUSE / TOUCH
+
   pub dbg_trash_is_joker: bool, // Trash serves as joker item for machines?
   pub db_joker_corrupts_factory: bool, // Show visual change when corrupting the factory
   pub dbg_machine_produce_trash: bool, // If a machine trashes a part and expects no inputs, should it output trash instead of discarding it?
@@ -150,6 +153,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     bouncer_stamp_interval: 20,
     bouncer_bounce: 0.8,
     web_output_cli: false,
+    initial_event_type_swapped: MOUSE,
     dbg_trash_is_joker: true,
     db_joker_corrupts_factory: true,
     dbg_machine_produce_trash: true,
@@ -295,6 +299,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "dropzone_bounce_speed" => options.dropzone_bounce_speed = parse_u64(value, name, strict, options.dropzone_bounce_speed),
             "dropzone_bounce_distance" => options.dropzone_bounce_distance = parse_u64(value, name, strict, options.dropzone_bounce_distance),
             "web_output_cli" => options.web_output_cli = parse_bool(value, name, strict, options.web_output_cli),
+            "initial_event_type_swapped" => options.initial_event_type_swapped = parse_bool(value, name, strict, options.initial_event_type_swapped),
             "dbg_trash_is_joker" => options.dbg_trash_is_joker = parse_bool(value, name, strict, options.dbg_trash_is_joker),
             "db_joker_corrupts_factory" => options.db_joker_corrupts_factory = parse_bool(value, name, strict, options.db_joker_corrupts_factory),
             "dbg_machine_produce_trash" => options.dbg_machine_produce_trash = parse_bool(value, name, strict, options.dbg_machine_produce_trash),

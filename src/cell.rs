@@ -614,6 +614,8 @@ pub fn connect_machine_to_existing_neighbor_belts(options: &Options, state: &Sta
 pub fn cell_set_port_u_to(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord_from: usize, port: Port, ocoord: usize) {
   // Note: this still requires factory prio update but it should take care of all the other things
 
+  log!("cell_set_port_u_to; update port from @{} to @{} to port ${:?}", coord_from, ocoord, port);
+
   if factory.floor[coord_from].port_u == port {
     // noop
     return;

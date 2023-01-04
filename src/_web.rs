@@ -34,8 +34,6 @@
 // - rebalance the fps frame limiter
 // - play button border color affected by laser. also highlights on hover when it supposed to not to
 // - car polish; should make nice corners, should drive same speed to any height
-// - touchmove may need to put the pointer above the finger? maybe like an indicator
-// - touch should delete-on-drag? should it paint-on-drag?
 // - bouncers are taking bouncer index as offsets rather than visible offsets. the last bouncer animations are completely broken
 // - click edge to add supplier. click supplier/demander to toggle.
 // - cars adjust speed too
@@ -44,6 +42,8 @@
 // - change preview of craftable when selected (the tiny preview on top is not working
 // - create tutorial
 // - should machine give hint of creating/missing in/outbound connection?
+// - undir should do a separate undo step?
+// - after touch-drag creating belts, parts can become stuck and the belt way broken, but unpart will fix that?
 
 // prepare for xmas.
 
@@ -256,6 +256,7 @@ pub fn start() -> Result<(), JsValue> {
   let mouse_x = Rc::new(Cell::new(0.0));
   let mouse_y = Rc::new(Cell::new(0.0));
   let mouse_moved = Rc::new(Cell::new(false));
+  let last_down_event_type = Rc::new(Cell::new(MOUSE)); // Was the last "down" event a MOUSE or TOUCH event?
   let last_mouse_was_down = Rc::new(Cell::new(false));
   let last_mouse_down_x = Rc::new(Cell::new(0.0));
   let last_mouse_down_y = Rc::new(Cell::new(0.0));
@@ -268,6 +269,7 @@ pub fn start() -> Result<(), JsValue> {
 
   // mousedown
   {
+    let last_down_event_type = last_down_event_type.clone();
     let mouse_x = mouse_x.clone();
     let mouse_y = mouse_y.clone();
     let last_mouse_was_down = last_mouse_was_down.clone();
@@ -277,6 +279,8 @@ pub fn start() -> Result<(), JsValue> {
     let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
       event.stop_propagation();
       event.prevent_default();
+
+      last_down_event_type.set(MOUSE);
 
       let mx = event.offset_x() as f64;
       let my = event.offset_y() as f64;
@@ -342,6 +346,7 @@ pub fn start() -> Result<(), JsValue> {
   }
   // touchdown
   {
+    let last_down_event_type = last_down_event_type.clone();
     let canvas = counted.clone();
     let mouse_x = mouse_x.clone();
     let mouse_y = mouse_y.clone();
@@ -352,6 +357,8 @@ pub fn start() -> Result<(), JsValue> {
     let closure = Closure::wrap(Box::new(move |event: web_sys::TouchEvent| {
       event.stop_propagation();
       event.prevent_default();
+
+      last_down_event_type.set(TOUCH);
 
       let bound = canvas.get_bounding_client_rect();
       let event = event.touches().get(0).unwrap();
@@ -427,6 +434,7 @@ pub fn start() -> Result<(), JsValue> {
   let mut saves: [Option<(web_sys::HtmlCanvasElement, String)>; 9] = [(); 9].map(|_| None);
 
   parse_options_into(getGameOptions(), &mut options, true);
+  state.event_type_swapped = options.initial_event_type_swapped;
   state_add_examples(getExamples(), &mut state);
 
   if options.print_initial_table {
@@ -471,14 +479,19 @@ pub fn start() -> Result<(), JsValue> {
       world_y: 0.0,
       moved_since_start: false,
 
-      cell_x_floored: 0.0,
-      cell_y_floored: 0.0,
       cell_x: 0.0,
       cell_y: 0.0,
+      cell_x_floored: 0.0,
+      cell_y_floored: 0.0,
+
+      last_cell_x: 0.0,
+      last_cell_y: 0.0,
 
       over_zone: Zone::None,
       down_zone: Zone::None,
       up_zone: Zone::None,
+
+      last_down_event_type: MOUSE,
 
       is_down: false,
       was_down: false,
@@ -769,7 +782,9 @@ pub fn start() -> Result<(), JsValue> {
         paint_world_cli(&context, &mut options, &mut state, &factory);
       } else {
 
-        update_mouse_state(&mut options, &mut state, &config, &mut factory, &mut cell_selection, &mut mouse_state, mouse_x.get(), mouse_y.get(), mouse_moved.get(), last_mouse_was_down.get(), last_mouse_down_x.get(), last_mouse_down_y.get(), last_mouse_down_button.get(), last_mouse_was_up.get(), last_mouse_up_x.get(), last_mouse_up_y.get(), last_mouse_up_button.get());
+        let was_down = last_mouse_was_down.get();
+        let was_mouse = if was_down { if last_down_event_type.get() == MOUSE { MOUSE } else { TOUCH } } else { false }; // Only read if set. May be an over-optimization but eh.
+        update_mouse_state(&mut options, &mut state, &config, &mut factory, &mut cell_selection, &mut mouse_state, mouse_x.get(), mouse_y.get(), mouse_moved.get(), was_down, was_mouse, last_mouse_down_x.get(), last_mouse_down_y.get(), last_mouse_down_button.get(), last_mouse_was_up.get(), last_mouse_up_x.get(), last_mouse_up_y.get(), last_mouse_up_button.get());
         last_mouse_was_down.set(false);
         last_mouse_was_up.set(false);
 
@@ -920,6 +935,7 @@ fn update_mouse_state(
   options: &Options, state: &State, config: &Config, factory: &Factory,
   cell_selection: &mut CellSelection, mouse_state: &mut MouseState,
   mouse_x: f64, mouse_y: f64, mouse_moved_since_app_start: bool,
+  last_down_event_type: bool, // MOUSE or EVENT
   last_mouse_was_down: bool, last_mouse_down_x: f64, last_mouse_down_y: f64, last_mouse_down_button: u16,
   last_mouse_was_up: bool, last_mouse_up_x: f64, last_mouse_up_y: f64, last_mouse_up_button: u16,
 ) {
@@ -1095,6 +1111,7 @@ fn update_mouse_state(
 
   // on mouse down
   if last_mouse_was_down {
+    mouse_state.last_down_event_type = if state.event_type_swapped { if last_down_event_type == TOUCH { MOUSE } else { TOUCH } } else { if last_down_event_type == MOUSE { MOUSE } else { TOUCH } };
     mouse_state.last_down_button = last_mouse_down_button;
     mouse_state.last_down_canvas_x = last_mouse_down_x;
     mouse_state.last_down_canvas_y = last_mouse_down_y;
@@ -1109,7 +1126,7 @@ fn update_mouse_state(
     mouse_state.was_down = true; // Unset after this frame
 
     mouse_state.down_zone = coord_to_zone(options, state, config, mouse_state.last_down_world_x, mouse_state.last_down_world_y, is_machine_selected, factory, cell_selection.coord);
-    log!("MOUSE DOWN in zone {:?}, coord {}x{}", mouse_state.down_zone, mouse_state.world_x, mouse_state.world_y);
+    log!("DOWN event (type={}) in zone {:?}, coord {}x{}", if mouse_state.last_down_event_type == MOUSE { "Mouse" } else { "Touch" }, mouse_state.down_zone, mouse_state.world_x, mouse_state.world_y);
 
     match mouse_state.down_zone {
       Zone::None => panic!("cant be down on no zone"),
@@ -1117,7 +1134,7 @@ fn update_mouse_state(
       ZONE_CRAFT => {
         if options.enable_craft_menu_interact {
           let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
-          log!("mouse down inside craft selection -> {:?} {:?} {} at craft index {}", what, part_index, config.nodes[part_index].raw_name, craft_index);
+          log!("down inside craft selection -> {:?} {:?} {} at craft index {}", what, part_index, config.nodes[part_index].raw_name, craft_index);
           if part_index == PARTKIND_NONE {
             log!("  started dragging from an empty input, ignoring...");
             mouse_state.craft_down_ci = CraftInteractable::None;
@@ -1133,7 +1150,7 @@ fn update_mouse_state(
             mouse_state.craft_down_ci_index = craft_index;
           }
         } else {
-          log!("Mouse down on craft is ignored because options.enable_craft_menu_interact = false")
+          log!("down on craft is ignored because options.enable_craft_menu_interact = false")
         }
       }
       ZONE_HELP => {
@@ -1222,7 +1239,7 @@ fn update_mouse_state(
             log!("drag start, craft, but not interactable; ignoring");
           }
         } else {
-          log!("Mouse drag start on craft is ignored because options.enable_craft_menu_interact = false")
+          log!("drag start on craft is ignored because options.enable_craft_menu_interact = false")
         }
       }
       ZONE_FLOOR => {
@@ -1259,7 +1276,7 @@ fn update_mouse_state(
     }
 
     mouse_state.up_zone = coord_to_zone(options, state, config, mouse_state.last_up_world_x, mouse_state.last_up_world_y, is_machine_selected, factory, cell_selection.coord);
-    log!("MOUSE UP in zone {:?}, was down in zone {:?}, coord {}x{}", mouse_state.up_zone, mouse_state.down_zone, mouse_state.last_up_world_x, mouse_state.last_up_world_y);
+    log!("UP event (type={}) in zone {:?}, was down in zone {:?}, coord {}x{}", if mouse_state.last_down_event_type == MOUSE { "Mouse" } else { "Touch" }, mouse_state.up_zone, mouse_state.down_zone, mouse_state.last_up_world_x, mouse_state.last_up_world_y);
 
     match mouse_state.up_zone {
       Zone::None => panic!("cant be up on no zone"),
@@ -1267,9 +1284,9 @@ fn update_mouse_state(
       ZONE_CRAFT => {
         let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_up_world_x, mouse_state.last_up_world_y);
         if mouse_state.is_dragging {
-          log!("mouse up / drag end inside craft selection -> {:?} -> dropping {} ({:?})", what, mouse_state.craft_down_ci_part_kind, config.nodes[mouse_state.craft_down_ci_part_kind].raw_name);
+          log!("up / drag end inside craft selection -> {:?} -> dropping {} ({:?})", what, mouse_state.craft_down_ci_part_kind, config.nodes[mouse_state.craft_down_ci_part_kind].raw_name);
         } else {
-          log!("mouse up inside craft selection -> {:?}", what);
+          log!("up inside craft selection -> {:?}", what);
         }
         if mouse_state.is_dragging || options.enable_craft_menu_interact {
           mouse_state.craft_up_ci = what;
@@ -1281,7 +1298,7 @@ fn update_mouse_state(
           mouse_state.craft_up_ci_part_kind = part_index;
           mouse_state.craft_up_ci_index = craft_index;
         } else {
-          log!("Mouse mouse up non-drag on craft is ignored because options.enable_craft_menu_interact = false");
+          log!("up non-drag on craft is ignored because options.enable_craft_menu_interact = false");
         }
       }
       ZONE_HELP => {
@@ -1341,7 +1358,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
     if mouse_state.is_up {
       state.manual_open = false;
     }
-    log!("Ignoring most mouse input while manual is open");
+    log!("Ignoring most mouse/touch input while manual is open");
     return;
   }
 
@@ -1370,7 +1387,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
   else if mouse_state.was_down {
     match mouse_state.down_zone {
       ZONE_FLOOR => {
-        on_down_floor();
+        on_down_floor(mouse_state);
       }
       ZONE_QUOTES => {
         if mouse_state.down_undo {
@@ -1384,6 +1401,17 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         }
         else if mouse_state.down_quote {
           on_down_quote(options, state, config, factory, mouse_state);
+        }
+      }
+      _ => {}
+    }
+  }
+  else if mouse_state.is_down && !mouse_state.is_up {
+    match mouse_state.down_zone {
+      ZONE_FLOOR => {
+        if mouse_state.down_zone == mouse_state.down_zone {
+          // Dragging on floor when started from floor and not up
+          on_drag_floor(options, state, config, factory, mouse_state);
         }
       }
       _ => {}
@@ -1502,8 +1530,74 @@ fn on_click_help(options: &Options, state: &mut State, config: &Config) {
   log!("on_click_help()");
   state.manual_open = !state.manual_open;
 }
-fn on_down_floor() {
-  log!("on_down_floor_after()");
+fn on_down_floor(mouse_state: &mut MouseState) {
+  log!("on_down_floor_after(); type = {}", if mouse_state.last_down_event_type == MOUSE { "Mouse" } else { "Touch" });
+  // Set the current cell as the last coord so we can track the next
+  mouse_state.last_cell_x = mouse_state.last_down_cell_x_floored;
+  mouse_state.last_cell_y = mouse_state.last_down_cell_y_floored;
+}
+fn on_drag_floor(options: &Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState) {
+  // Do not log drag events by default :)
+  // log!("on_drag_floor()");
+
+  if mouse_state.last_down_event_type == TOUCH {
+    let cell_x1 = mouse_state.last_cell_x;
+    let cell_y1 = mouse_state.last_cell_y;
+    let cell_x2 = mouse_state.cell_x_floored;
+    let cell_y2 = mouse_state.cell_y_floored;
+
+    mouse_state.last_cell_x = mouse_state.cell_x_floored;
+    mouse_state.last_cell_y = mouse_state.cell_y_floored;
+
+    let sdx = cell_x2 - cell_x1;
+    let sdy = cell_y1 - cell_y2;
+    let dx = sdx.abs();
+    let dy = sdy.abs();
+
+    let coord1 = to_coord(cell_x1 as usize, cell_y1 as usize);
+    let coord2 = to_coord(cell_x2 as usize, cell_y2 as usize);
+
+    let action = mouse_button_to_action(state, mouse_state);
+
+    // If touch-drag check if a cell boundary was crossed. If so, belt connect the cells.
+    if action == Action::Add {
+      // Must have crossed at least one cell border
+      // Ignore dragging outside of the floor as it crashes the ray tracing
+      if (dx > 0.0 || dy > 0.0) && is_floor(cell_x1 as f64, cell_y1 as f64) && is_floor(cell_x2 as f64, cell_y2 as f64) {
+        // It's possible, due to lag or whatever, that the cells are not exact neighbors, or even
+        // close to each other. To cover that case we draw a path between the last known and
+        // current cell and connect them one by one.
+        let track = ray_trace_dragged_line_expensive(
+          factory,
+          cell_x1,
+          cell_y1,
+          cell_x2,
+          cell_y2,
+          false
+        );
+
+        for i in 1..track.len() {
+          let ((cell_x1, cell_y1), belt_type1, _unused, _port_out_dir1) = track[i-1]; // First element has no inbound port here
+          let ((cell_x2, cell_y2), belt_type2, _port_in_dir2, _unused) = track[i]; // Last element has no outbound port here
+
+          apply_action_between_two_cells(state, options, config, factory, action, cell_x1, cell_y1, belt_type1, cell_x2, cell_y2, belt_type2);
+        }
+      }
+    } else {
+      log!(" - Disconnecting the two cells, c1=@{}, c2=@{}", coord1, coord2);
+
+      // Delete the port between the two cells but leave everything else alone.
+      // (If a neighbor cell ends up as BeltType::NONE then it'll become CellKind::Empty as usual)
+      // The coords must be adjacent to one side.
+
+      if factory.floor[coord1].kind != CellKind::Empty {
+        log!("Deleting stub @{} after rmb click", coord1);
+        floor_delete_cell_at_partial(options, state, config, factory, coord1);
+
+        factory.changed = true;
+      }
+    }
+  }
 }
 fn on_up_offer(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
   log!("on_up_offer({} -> {})", mouse_state.offer_down_offer_index, mouse_state.offer_hover_offer_index);
@@ -1672,7 +1766,9 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
   let last_mouse_up_cell_x = mouse_state.last_up_cell_x.floor();
   let last_mouse_up_cell_y = mouse_state.last_up_cell_y.floor();
 
-  if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
+  let action = mouse_button_to_action(state, mouse_state);
+
+  if action == Action::Remove {
     // Clear the cell if that makes sense for it. Delete a belt with one or zero ports.
     let coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
 
@@ -1692,7 +1788,8 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
       log!("Clearing part from @{} after rmb click (ports={})", coord, ports);
       clear_part_from_cell(options, state, config, factory, coord);
     }
-  } else {
+  }
+  else if action == Action::Add {
     // De-/Select this cell
     log!("clicked {} {} cell selection before: {:?}, belt: {:?}", last_mouse_up_cell_x, last_mouse_up_cell_y, cell_selection, factory.floor[to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize)].belt);
 
@@ -1997,6 +2094,12 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
     return;
   }
 
+  if mouse_state.last_down_event_type == TOUCH {
+    // Do nothing here
+    log!("ignoring on_drag_end_floor event for touch");
+    return;
+  }
+
   // Finalize pathing, regenerate floor
   let track = ray_trace_dragged_line_expensive(
     factory,
@@ -2047,9 +2150,12 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
 }
 fn on_drag_end_floor_one_cell(state: &State, options: &Options, config: &Config, factory: &mut Factory, mouse_state: &MouseState, track: Vec<((usize, usize), BeltType, Direction, Direction)>) {
   log!("One cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_mirrored);
-  if mouse_state.last_down_button == if state.mouse_mode_mirrored { 2 } else { 1 } {
+
+  let action = mouse_button_to_action(state, mouse_state);
+
+  if action == Action::Add {
     log!(" - Ignore click on a single cell, as well as dragging across one cell. Allows you to cancel a drag.");
-  } else if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
+  } else if action == Action::Remove {
     log!(" - Removing the cell");
     // Clear the cell if that makes sense for it
     // Do not delete a cell, not even stubs, because this would be a drag-cancel
@@ -2066,8 +2172,15 @@ fn on_drag_end_floor_one_cell(state: &State, options: &Options, config: &Config,
 fn on_drag_end_floor_two_cells(state: &State, options: &Options, config: &Config, factory: &mut Factory, mouse_state: &MouseState, track: Vec<((usize, usize), BeltType, Direction, Direction)>) {
   log!("Two cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_mirrored);
   let ((cell_x1, cell_y1), belt_type1, _unused, _port_out_dir1) = track[0]; // First element has no inbound port here
+  let ((cell_x2, cell_y2), belt_type2, _port_in_dir2, _unused) = track[1]; // Last element has no outbound port here
+
+  let action = mouse_button_to_action(state, mouse_state);
+
+  return apply_action_between_two_cells(state, options, config, factory, action, cell_x1, cell_y1, belt_type1, cell_x2, cell_y2, belt_type2);
+}
+
+fn apply_action_between_two_cells(state: &State, options: &Options, config: &Config, factory: &mut Factory, add_or_remove: Action, cell_x1: usize, cell_y1: usize, belt_type1: BeltType, cell_x2: usize, cell_y2: usize, belt_type2: BeltType) {
   let coord1 = to_coord(cell_x1, cell_y1);
-  let ((cell_x2, cell_y2), belt_type2, _port_in_dir2, _unused) = track[1]; // LAst element has no outbound port here
   let coord2 = to_coord(cell_x2, cell_y2);
 
   let dx = (cell_x2 as i8) - (cell_x1 as i8);
@@ -2075,7 +2188,7 @@ fn on_drag_end_floor_two_cells(state: &State, options: &Options, config: &Config
   assert!((dx == 0) != (dy == 0), "one and only one of dx or dy is zero");
   assert!(dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1, "since they are adjacent they must be -1, 0, or 1");
 
-  if mouse_state.last_down_button == if state.mouse_mode_mirrored { 2 } else { 1 } {
+  if add_or_remove == Action::Add {
     log!(" - Connecting the two cells");
 
     // Convert empty cells to belt cells.
@@ -2107,7 +2220,7 @@ fn on_drag_end_floor_two_cells(state: &State, options: &Options, config: &Config
       cell_connect_if_possible(options, state, config, factory, coord1, coord2, dx, dy);
     }
   }
-  else if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
+  else if add_or_remove == Action::Remove {
     log!(" - Disconnecting the two cells");
 
     // Delete the port between the two cells but leave everything else alone.
@@ -2144,7 +2257,7 @@ fn on_drag_end_floor_two_cells(state: &State, options: &Options, config: &Config
   fix_belt_meta(options, state, config, factory, coord1);
   fix_belt_meta(options, state, config, factory, coord2);
 
-  if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
+  if add_or_remove == Action::Remove {
     if factory.floor[coord1].kind == CellKind::Belt && factory.floor[coord1].port_u == Port::None && factory.floor[coord1].port_r == Port::None && factory.floor[coord1].port_d == Port::None && factory.floor[coord1].port_l == Port::None {
       floor_delete_cell_at_partial(options, state, config, factory, coord1);
     } else {
@@ -2174,7 +2287,9 @@ fn on_drag_end_floor_multi_cells(state: &State, options: &Options, config: &Conf
     log!("- track {} at {} {} isa {:?}", index, cell_x, cell_y, belt_type);
     let coord = to_coord(cell_x, cell_y);
 
-    if mouse_state.last_down_button == if state.mouse_mode_mirrored { 2 } else { 1 } {
+    let action = mouse_button_to_action(state, mouse_state);
+
+    if action == Action::Add {
       if still_starting_on_edge {
         // Note: if the first cell is in the middle then the track does not start on the edge
         if index == 0 {
@@ -2245,7 +2360,8 @@ fn on_drag_end_floor_multi_cells(state: &State, options: &Options, config: &Conf
         // (First element has no inbound)
         cell_connect_if_possible(options, state, config, factory, pcoord, coord, (cell_x as i8) - (px as i8), (cell_y as i8) - (py as i8));
       }
-    } else if mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 } {
+    }
+    else if action == Action::Remove {
       // Delete the cell if it is a belt, and in that case any port to it
       // Do not delete machines, suppliers, or demanders. No need to delete empty cells
       if factory.floor[coord].kind == CellKind::Belt {
@@ -2387,7 +2503,8 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
       log!("(no button here)");
     }
     MenuButton::Row3Button0 => {
-      log!("(no button here)");
+      log!("pressed toggle for mouse / touch event swapping, will be {}", !state.event_type_swapped);
+      state.event_type_swapped = !state.event_type_swapped;
     }
     MenuButton::Row3Button1 => {
       // Select
@@ -2925,6 +3042,12 @@ fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::Canva
   context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
   context.set_fill_style(&"black".into());
   context.fill_text(format!("mouse coord : {}", if mouse_state.cell_x_floored < 0.0 || mouse_state.cell_y_floored < 0.0 || mouse_state.cell_x_floored >= FLOOR_CELLS_W as f64 || mouse_state.cell_y_floored >= FLOOR_CELLS_W as f64 { "oob".to_string() } else { format!("{}", to_coord(mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize)) }).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+
+  ui_lines += 1.0;
+  context.set_fill_style(&"lightgreen".into());
+  context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
+  context.set_fill_style(&"black".into());
+  context.fill_text(format!("down event type: {}", if mouse_state.last_down_event_type == MOUSE { "Mouse" } else { "Touch" }).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   assert_eq!(ui_lines, UI_DEBUG_LINES, "keep these in sync for simplicity");
 }
@@ -3613,7 +3736,9 @@ fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory
         // This drag stated in a craft popup so do not show a track preview; we're not doing that.
       }
       else if mouse_state.down_floor_not_corner {
-        paint_belt_drag_preview(options, state, config, context, factory, cell_selection, mouse_state);
+        if mouse_state.last_down_event_type == MOUSE {
+          paint_belt_drag_preview(options, state, config, context, factory, cell_selection, mouse_state);
+        }
       }
     }
   }
@@ -3816,12 +3941,12 @@ fn paint_belt_drag_preview(options: &Options, state: &State, config: &Config, co
     true, // if we dont then the preview will show only broken belt cells
   );
 
-  let deleting = mouse_state.last_down_button == if state.mouse_mode_mirrored { 1 } else { 2 };
+  let action = mouse_button_to_action(state, mouse_state);
 
   for index in 0..track.len() {
     let ((cell_x, cell_y), bt, in_port_dir, out_port_dir) = track[index];
     // Correct for the edges, except when the track would be removed, cause then it's just red boxes
-    if !deleting {
+    if action == Action::Remove {
       if index == 0 {
         if cell_x == 0 {
           paint_ghost_supplier(options, state, config, factory, cell_x, cell_y, Direction::Left, context, false);
@@ -3853,7 +3978,7 @@ fn paint_belt_drag_preview(options: &Options, state: &State, config: &Config, co
       }
     }
 
-    paint_ghost_belt_of_type(options, state, config, cell_x, cell_y, if deleting { BeltType::INVALID } else { bt }, &context,
+    paint_ghost_belt_of_type(options, state, config, cell_x, cell_y, if action == Action::Remove { BeltType::INVALID } else { bt }, &context,
       // Skip over factory cells or if you're dragging straight on one edge (note that the first/last cell will take an earlier path above so this must be middle-path-cells)
       factory.floor[to_coord(cell_x, cell_y)].kind == CellKind::Machine || cell_x == 0 || cell_x == FLOOR_CELLS_W - 1 || cell_y == 0 || cell_y == FLOOR_CELLS_H - 1
     );
@@ -4690,7 +4815,7 @@ fn paint_ui_button(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state:
 fn paint_ui_buttons2(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   // See on_up_menu for events
 
-  // paint_ui_button2(context, mouse_state, 0.0, if state.mouse_mode_mirrored { "Erase" } else { "Draw" }, state.mouse_mode_mirrored, true, MenuButton::Row3Button0);
+  paint_ui_button2(context, mouse_state, 0.0, if state.event_type_swapped { "Touch" } else { "Mouse" }, state.event_type_swapped, true, MenuButton::Row3Button0);
   paint_ui_button2(context, mouse_state, 1.0, "Select", state.mouse_mode_selecting, true, MenuButton::Row3Button1);
   paint_ui_button2(context, mouse_state, 2.0, if state.selected_area_copy.len() > 0{ "Stamp" } else { "Copy" }, state.selected_area_copy.len() > 0, state.mouse_mode_selecting, MenuButton::Row3Button2);
   // paint_ui_button2(context, mouse_state, 3.0, "Undo", false, state.snapshot_undo_pointer > 0, MenuButton::Row3Button3); // should it be 1 for initial map? or dont car, MenuButton::Row3Button3e?

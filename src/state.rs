@@ -24,9 +24,13 @@ use super::log;
 
 pub const UNDO_STACK_SIZE: usize = 100;
 
+pub const MOUSE: bool = true;
+pub const TOUCH: bool = false;
+
 pub struct State {
   pub paused: bool,
   pub mouse_mode_mirrored: bool, // Note: all this really does is flip the lmb and rmb actions but we need this toggle for touch-only mode
+  pub event_type_swapped: bool, // Treat a mouse event like a touch event and a touch event like a mouse event? (Mostly for debugging)
   pub mouse_mode_selecting: bool,
   pub selected_area_copy: Vec<Vec<Cell>>,
   pub test: bool,
@@ -68,9 +72,14 @@ pub struct MouseState {
   pub cell_x_floored: f64, // floored
   pub cell_y_floored: f64, // floored
 
+  pub last_cell_x: f64,
+  pub last_cell_y: f64,
+
   pub over_zone: Zone,
   pub down_zone: Zone,
   pub up_zone: Zone,
+
+  pub last_down_event_type: bool, // MOUSE or TOUCH
 
   pub is_down: bool, // Set if pointer is currently down. Unset when the pointer is released.
   pub was_down: bool, // Set if current frame handled a pointer down. Should unset after the frame.
@@ -208,6 +217,12 @@ pub enum MenuButton {
   Row3Button6,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Action {
+  Add,
+  Remove
+}
+
 #[derive(Debug)]
 pub struct Laser {
   pub coord: usize,
@@ -221,6 +236,7 @@ pub fn state_create() -> State {
     paused: false,
     reset_next_frame: false,
     mouse_mode_mirrored: false,
+    event_type_swapped: false,
     mouse_mode_selecting: false,
     selected_area_copy: vec!(),
     test: false,
@@ -242,4 +258,9 @@ pub fn state_add_examples(examples: Array, state: &mut State) {
     result.push(maybe_str.as_string().unwrap_or_else(| | panic!("Unable to parse element as string. Expecting an array of strings")));
   }
   state.examples = result;
+}
+
+pub fn mouse_button_to_action(state: &State, mouse_state: &MouseState) -> Action {
+  let left_button = if state.mouse_mode_mirrored { 2 } else { 1 };
+  return if mouse_state.last_down_button == left_button { Action::Add } else { Action::Remove }
 }

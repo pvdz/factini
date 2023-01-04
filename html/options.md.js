@@ -49,6 +49,7 @@ const GAME_OPTIONS = `
 - dropzone_bounce_distance: 150
 - game_auto_reset_day: false
 - web_output_cli: false
+- initial_event_type_swapped: false
 - dbg_trash_is_joker: true
 - db_joker_corrupts_factory: true
 - dbg_machine_produce_trash: true

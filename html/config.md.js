@@ -151,11 +151,11 @@ The old paper
 
 # Part_BookRed
 - char: B
-- file: ./img/roguelikeitems.png
-- x: 128
-- y: 192
-- w: 16
-- h: 16
+- file: ./img/parts/book_red.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
 
 # Part_BookBlue
 - char: C
@@ -393,11 +393,11 @@ Char is the Greek letter chi
 Char is the Greek letter sigma
 - char: ς
 - pattern: Part_DirtWhite Part_DirtWhite
-- file: ./img/bigset.png
-- x: 96
-- y: 2232
-- w: 24
-- h: 24
+- file: ./img/parts/coin.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
 
 # Part_SilverCoins
 Char is the Greek letter sigma (upper)

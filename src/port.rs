@@ -34,17 +34,37 @@ pub fn port_disconnect_cells(options: &Options, state: &State, config: &Config, 
 pub fn port_disconnect_cell(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord: usize, dir: Direction) {
   // Some cells have fixed ports, only belts are dynamic, machines reset to unknown
   // Note: this still requires fixing the cell meta and a new factory prio
+  // If leave_stubs is false, if the coord ends up as a BeltType::NONE, it will change to CellKind::Empty
 
   if factory.floor[coord].kind == CellKind::Belt || factory.floor[coord].kind == CellKind::Machine {
+    let ocoord =
+      match dir {
+        Direction::Up => to_coord_up(coord),
+        Direction::Right => to_coord_right(coord),
+        Direction::Down => to_coord_down(coord),
+        Direction::Left => to_coord_left(coord),
+      };
+
     match dir {
-      Direction::Up => cell_set_port_u_to(options, state, config, factory, coord, Port::None, to_coord_up(coord)),
-      Direction::Right => cell_set_port_r_to(options, state, config, factory, coord, Port::None, to_coord_right(coord)),
-      Direction::Down => cell_set_port_d_to(options, state, config, factory, coord, Port::None, to_coord_down(coord)),
-      Direction::Left => cell_set_port_l_to(options, state, config, factory, coord, Port::None, to_coord_left(coord)),
+      Direction::Up => cell_set_port_u_to(options, state, config, factory, coord, Port::None, ocoord),
+      Direction::Right => cell_set_port_r_to(options, state, config, factory, coord, Port::None, ocoord),
+      Direction::Down => cell_set_port_d_to(options, state, config, factory, coord, Port::None, ocoord),
+      Direction::Left => cell_set_port_l_to(options, state, config, factory, coord, Port::None, ocoord),
     }
+
+    change_none_belt_to_empty_cell(config, factory, coord);
+    change_none_belt_to_empty_cell(config, factory, ocoord);
   }
 
   belt_receive_part(factory, coord, Direction::Up, part_none(config));
+}
+pub fn change_none_belt_to_empty_cell(config: &Config, factory: &mut Factory, coord: usize) {
+  if factory.floor[coord].kind == CellKind::Belt && factory.floor[coord].belt.meta.btype == BeltType::NONE {
+    log!("change_none_belt_to_empty_cell: changing @{} to empty cell because it is a none belt", coord);
+    let (x, y) = to_xy(coord);
+    factory.floor[coord] = empty_cell(config, x, y);
+    factory.changed = true;
+  }
 }
 
 pub fn serialize_ports(factory: &Factory, coord: usize) -> String {
