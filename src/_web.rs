@@ -42,8 +42,6 @@
 // - change preview of craftable when selected (the tiny preview on top is not working
 // - create tutorial
 // - should machine give hint of creating/missing in/outbound connection?
-// - undir should do a separate undo step?
-// - how can undir lead to parts flowing while belt sprites are static. undir should autodir too.
 
 // prepare for xmas.
 
@@ -793,7 +791,6 @@ pub fn start() -> Result<(), JsValue> {
       } else {
         let was_down = last_mouse_was_down.get();
         let was_mouse = if was_down { if last_down_event_type.get() == EventSourceType::Mouse { EventSourceType::Mouse } else { EventSourceType::Touch } } else { EventSourceType::Unknown }; // Only read if set. May be an over-optimization but eh.
-        log!("was_down: {}, was_mouse: {:?}", was_down, was_mouse);
         update_mouse_state(&mut options, &mut state, &config, &mut factory, &mut cell_selection, &mut mouse_state, mouse_x.get(), mouse_y.get(), mouse_moved.get(), was_mouse, was_down, last_mouse_down_x.get(), last_mouse_down_y.get(), last_mouse_down_button.get(), last_mouse_was_up.get(), last_mouse_up_x.get(), last_mouse_up_y.get(), last_mouse_up_button.get());
         last_mouse_was_down.set(false);
         last_mouse_was_up.set(false);
@@ -2500,6 +2497,7 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
           }
         }
       }
+      // This should trigger the auto-porting
       factory.changed = true;
     }
     MenuButton::Row2Button4 => {

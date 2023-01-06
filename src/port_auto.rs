@@ -632,11 +632,18 @@ pub fn keep_auto_porting(options: &mut Options, state: &mut State, factory: &mut
   let mut force_unknowns = false;
   loop {
     let ( changes, has_unknowns ) = auto_port(options, state, factory, attempt, force_unknowns);
-    if !changes && (!has_unknowns || force_unknowns) {
-      // Either there were no changes or there were unknowns and this was already a forced run.
-      break;
+    if !changes {
+      // If there were no changes and there are unknowns left, try to force the unknowns.
+      // If the unknowns were already forced and there are still no changes, then we are done.
+      if !has_unknowns {
+        break;
+      }
+      if force_unknowns {
+        break;
+      }
+      // There were no changes, there were unknowns, and we are not forcing yet; try forcing them.
+      force_unknowns = true;
     }
-    force_unknowns = !changes; // If there were no changes then there were unknowns. Force them.
     attempt += 1;
   }
 }
@@ -646,6 +653,7 @@ pub fn auto_port(options: &mut Options, state: &mut State, factory: &mut Factory
   let mut changed = false;
   let mut has_unknowns = false;
   for coord in 0..FLOOR_CELLS_WH {
+    let mut cell_changed = false;
     match factory.floor[coord].kind {
       CellKind::Empty => {
         // could go ahead and mark all neighbor belts as none ports as well...
@@ -654,13 +662,13 @@ pub fn auto_port(options: &mut Options, state: &mut State, factory: &mut Factory
       CellKind::Belt => {
         let ( unknowns_left, unknowns_changed) = auto_port_cell_belt(options, state, factory, coord, force_unknowns);
         if unknowns_left { has_unknowns = true; }
-        if unknowns_changed { changed = true; }
-        if !unknowns_left { continue; }
-
-        if auto_port_belt_u(options, state, factory, coord) { changed = true; }
-        if auto_port_belt_r(options, state, factory, coord) { changed = true; }
-        if auto_port_belt_d(options, state, factory, coord) { changed = true; }
-        if auto_port_belt_l(options, state, factory, coord) { changed = true; }
+        if unknowns_changed { cell_changed = true; }
+        if unknowns_left {
+          if auto_port_belt_u(options, state, factory, coord) { cell_changed = true; }
+          if auto_port_belt_r(options, state, factory, coord) { cell_changed = true; }
+          if auto_port_belt_d(options, state, factory, coord) { cell_changed = true; }
+          if auto_port_belt_l(options, state, factory, coord) { cell_changed = true; }
+        }
       }
       CellKind::Machine => {
         // Machines can cover multiple cells, have a main cell and sub cells (-> main.machine.subs)
@@ -671,7 +679,7 @@ pub fn auto_port(options: &mut Options, state: &mut State, factory: &mut Factory
           if options.trace_porting_step { log!("    - machine at {}", coord); }
 
           if auto_port_machine_neighbors(options, state, factory, coord, attempt) {
-            changed = true;
+            cell_changed = true;
           }
 
           // // Change the attempt so we can reuse the value.
@@ -681,11 +689,11 @@ pub fn auto_port(options: &mut Options, state: &mut State, factory: &mut Factory
               if ins == 0 && outs > 0 && uns == 1 {
                 // Find the undetermined port and turn it to an Inbound port
                 auto_port_convert_machine_unknown_to(options, state, factory, coord, Port::Inbound, attempt);
-                changed = true;
+                cell_changed = true;
               } else if outs == 0 && ins > 0 && uns == 1 {
                 // Find the undetermined port and turn it to an Outbound port
                 auto_port_convert_machine_unknown_to(options, state, factory, coord, Port::Outbound, attempt);
-                changed = true;
+                cell_changed = true;
               } else {
                 // At this step not able to deduce any ports for this machine
               }
@@ -701,6 +709,11 @@ pub fn auto_port(options: &mut Options, state: &mut State, factory: &mut Factory
       CellKind::Demand => {
         // noop
       }
+    }
+
+    if cell_changed {
+      changed = true;
+      fix_belt_meta_floor(options, state, &mut factory.floor, coord);
     }
   }
 
