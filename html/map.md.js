@@ -57,17 +57,17 @@ s1 = r s:0 c:1000
 s2 = i s:0 c:1000
 s3 = p s:0 c:1000
 s4 = e s:0 c:1000
-m1 = . r . . e . . r . -> W s:2000
-m2 = i p p i p p i p p -> D s:2000
+m1 = . r . . e . . r . s:2000
+m2 = i p p i p p i p p s:2000
 s5 = W s:0 c:1000
 d1 s:1000 c:0
 s6 = D s:0 c:1000
-m3 = . W . W D W . W . -> C s:2000
-m4 = . . . C o . . . . -> K s:2000
+m3 = . W . W D W . W . s:2000
+m4 = . . . C o . . . . s:2000
 d2 s:1000 c:0
-m5 = . . . W l W . . . -> o s:2000
-m6 = . . . n n n n n n -> Q s:2000
-m7 = . Q . k k k k k k -> l s:2000
+m5 = . . . W l W . . . s:2000
+m6 = . . . n n n n n n s:2000
+m7 = . Q . k k k k k k s:2000
 d3 s:1000 c:0
 s7 = n s:0 c:1000
 s8 = C s:0 c:1000

@@ -574,7 +574,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
               let nth;
               let mut speed = 1;
               let mut wants: Vec<Part> = vec!();
-              let output;
+              let mut output = '-';
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
@@ -587,7 +587,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              while c != '#' && c != '-' {
+              while c != '#' && c != '-' && c != ':' {
                 if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '.' || c as u8 > 127) { panic!("Unexpected input on line {} while parsing machine input: input characters must be a-zA-Z or dot or non-ascii, found `{}`", line_no, c); }
                 // Convert the dot back to an empty part.
                 wants.push(part_c(config, if c == '.' { ' ' } else { c }));
@@ -596,27 +596,36 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
                 while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
               }
 
-              if c != '-' { panic!("Unexpected input on line {} while parsing machine augment: after input must follow an `->` arrow and then the output, found `{}`", line_no, c); }
+              let mut modifier_edge_case = c == ':'; // If the next char is a colon then the previous letter was not a part but a modifier
+              if c == '-' {
+                let mut c = line.next().or(Some('#')).unwrap();
+                while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+                if c != '>' { panic!("Unexpected input on line {} while parsing machine augment: after input must follow an `->` arrow and then the output, found `{}`", line_no, c); }
 
-              let mut c = line.next().or(Some('#')).unwrap();
-              while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              if c != '>' { panic!("Unexpected input on line {} while parsing machine augment: after input must follow an `->` arrow and then the output, found `{}`", line_no, c); }
-
-              let mut c = line.next().or(Some('#')).unwrap();
-              while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '.' || c as u8 > 127) { panic!("Unexpected input on line {} while parsing machine output: input characters must be a-zA-Z or dot or non-ascii, found `{}`", line_no, c); }
-              output = c;
+                let mut c = line.next().or(Some('#')).unwrap();
+                while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+                if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '.' || c as u8 > 127) { panic!("Unexpected input on line {} while parsing machine output: input characters must be a-zA-Z or dot or non-ascii, found `{}`", line_no, c); }
+                output = c;
+              }
 
               loop {
-                let mut c = line.next().or(Some('#')).unwrap();
+                let mut c =
+                  if modifier_edge_case {
+                    wants.pop().unwrap().icon
+                  } else {
+                    line.next().or(Some('#')).unwrap()
+                  };
                 while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
                 match c {
                   '#' => break, // EOL or start of line comment
                   's' => {
                     // speed modifier
-                    let mut c = line.next().or(Some('#')).unwrap();
-                    while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                    if c != ':' { panic!("Unexpected input while parsing machine augment speed modifier: first character after `s` must be a `:`, found `{}`", c); }
+                    // A modifier after inputs (without output) will look like a part at first and we must correct for that
+                    if !modifier_edge_case {
+                      let mut c = line.next().or(Some('#')).unwrap();
+                      while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+                      if c != ':' { panic!("Unexpected input while parsing machine augment speed modifier: first character after `s` must be a `:`, found `{}`", c); }
+                    }
 
                     speed = 0;
                     let mut c = line.next().or(Some('#')).unwrap();
@@ -634,6 +643,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
                   }
                   c => panic!("Unexpected input on line {} while parsing machine augment modifier: expecting `s`, '#', or EOL, found `{}`. Input map:\n{}", line_no, c, str),
                 }
+                modifier_edge_case = false;
               }
 
               let main_coord = machine_main_coords[nth as usize];

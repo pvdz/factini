@@ -5,7 +5,6 @@
 // Compile with --profile to try and get some sense of shit
 // - import/export
 //   - import/export with clipboard
-//   - when importing the machine output is ignored so we should remove it from the template
 //   - save/load snapshots of the factory
 // - small problem with tick_belt_take_from_belt when a belt crossing is next to a supply and another belt; it will ignore the other belt as input. because the belt will not let a part proceed to the next port unless it's free and the processing order will process the neighbor belt first and then the crossing so by the time it's free, the part will still be at 50% whereas the supply part is always ready. fix is probably to make supply parts take a tick to be ready, or whatever.
 //   - affects machine speed so should be fixed
@@ -19,8 +18,6 @@
 //   - paint the prepared parts of a machine while not selected?
 // - belts
 //   - does snaking bother me when a belt should move all at once or not at all? should we change the algo? probably not that hard to move all connected cells between intersections/entry/exit points at once. if one moves, all move, etc.
-//   - first/last part of belt preview while dragging should be fixed, or be hardcoded dead ends
-//     - first part is always "up". last piece is always "invalid". should just mimic the final state by the same abstracted func.
 //   - a part that reaches 100% of a cell but can't be moved to the side should not block the next part from entering the cell until all ports are taken like that. the part can sit in the port and a belt can only take parts if it has an available port.
 // - make sun move across the day bar? in a sort of rainbow path?
 // - what's up with these assertion traps :(

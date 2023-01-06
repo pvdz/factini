@@ -403,11 +403,12 @@ pub fn serialize2(options: &Options, state: &State, factory: &Factory, dump: boo
           };
         cell_params.push(icon);
       }
-      cell_params.push(' ');
-      cell_params.push('-');
-      cell_params.push('>');
-      cell_params.push(' ');
-      cell_params.push(if factory.floor[coord].machine.output_want.kind == PARTKIND_NONE { '.' } else { factory.floor[coord].machine.output_want.icon });
+      // This could be generated but it's just a comment as the output is computed dynamically from inputs
+      // cell_params.push(' ');
+      // cell_params.push('-');
+      // cell_params.push('>');
+      // cell_params.push(' ');
+      // cell_params.push(if factory.floor[coord].machine.output_want.kind == PARTKIND_NONE { '.' } else { factory.floor[coord].machine.output_want.icon });
       cell_params.push(' ');
       cell_params.push('s');
       cell_params.push(':');
