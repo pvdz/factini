@@ -419,14 +419,13 @@ pub fn fix_belt_meta(options: &Options, state: &State, config: &Config, factory:
 }
 
 pub fn fix_belt_meta_floor(options: &Options, state: &State, floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize) {
-  let belt_type = belt_type_from_ports(
-    floor[coord].port_u,
-    floor[coord].port_r,
-    floor[coord].port_d,
-    floor[coord].port_l,
-  );
+  let pu = floor[coord].port_u;
+  let pr = floor[coord].port_r;
+  let pd = floor[coord].port_d;
+  let pl = floor[coord].port_l;
+  let belt_type = belt_type_from_ports(pu, pr, pd, pl);
   if floor[coord].belt.meta.btype != belt_type {
-    log!("    -- fix_belt_meta() modifying @{}! current {:?}, new {:?} ;; {:?} {:?} {:?} {:?}", coord, floor[coord].belt.meta.btype, belt_type, floor[coord].port_u, floor[coord].port_r, floor[coord].port_d, floor[coord].port_l);
+    log!("    -- fix_belt_meta() modifying @{}! from: {:?}, to: {:?} ;; old ports: {:?} {:?} {:?} {:?} ;; new ports: {:?} {:?} {:?} {:?}", coord, floor[coord].belt.meta.btype, belt_type, pu, pr, pd, pl, floor[coord].port_u, floor[coord].port_r, floor[coord].port_d, floor[coord].port_l);
   }
   let belt_meta = belt_type_to_belt_meta(belt_type);
   floor[coord].belt.meta = belt_meta;

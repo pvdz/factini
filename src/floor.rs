@@ -487,8 +487,10 @@ pub fn floor_delete_cell_at_partial(options: &Options, state: &State, config: &C
     floor_delete_cell_at_partial_sub(options, state, config, factory, main_coord);
     log!("-- dropped");
   } else {
-    return floor_delete_cell_at_partial_sub(options, state, config, factory, coord);
+    floor_delete_cell_at_partial_sub(options, state, config, factory, coord);
   }
+
+  factory.changed = true;
 }
 pub fn floor_delete_cell_at_partial_sub(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord: usize) {
   // For all connected cells

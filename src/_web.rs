@@ -43,7 +43,7 @@
 // - create tutorial
 // - should machine give hint of creating/missing in/outbound connection?
 // - undir should do a separate undo step?
-// - after touch-drag creating belts, parts can become stuck and the belt way broken, but unpart will fix that?
+// - how can undir lead to parts flowing while belt sprites are static. undir should autodir too.
 
 // prepare for xmas.
 
@@ -1604,8 +1604,6 @@ fn on_drag_floor(options: &Options, state: &mut State, config: &Config, factory:
       if factory.floor[coord1].kind != CellKind::Empty {
         log!("Deleting stub @{} after rmb click", coord1);
         floor_delete_cell_at_partial(options, state, config, factory, coord1);
-
-        factory.changed = true;
       }
     }
   }
@@ -2016,7 +2014,7 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
       floor_delete_cell_at_partial(options, state, config, factory, last_mouse_up_cell_coord);
     }
     log!("Add new supply cell...");
-    factory.floor[last_mouse_up_cell_coord] = supply_cell(config, last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_from_part_index(config, dragged_part_index), 10000, 500, 1);
+    factory.floor[last_mouse_up_cell_coord] = supply_cell(config, last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_from_part_index(config, dragged_part_index), 2000, 500, 1);
     connect_to_neighbor_dead_end_belts(options, state, config, factory, last_mouse_up_cell_coord);
     match bools {
       ( false, true, false, false ) => factory.floor[last_mouse_up_cell_coord].port_d = Port::Outbound,
@@ -2212,7 +2210,7 @@ fn apply_action_between_two_cells(state: &State, options: &Options, config: &Con
       if factory.floor[coord1].kind == CellKind::Empty {
         if is_edge_not_corner(cell_x1 as f64, cell_y1 as f64) {
           // Cell is empty so place a trash supplier here as a placeholder
-          factory.floor[coord1] = supply_cell(config, cell_x1, cell_y1, part_c(config, 't'), 10000, 0, 0);
+          factory.floor[coord1] = supply_cell(config, cell_x1, cell_y1, part_c(config, 't'), 2000, 0, 0);
         }
         else if is_middle(cell_x1 as f64, cell_y1 as f64) {
           factory.floor[coord1] = belt_cell(config, cell_x1, cell_y1, belt_type_to_belt_meta(belt_type1));
@@ -2280,6 +2278,8 @@ fn apply_action_between_two_cells(state: &State, options: &Options, config: &Con
       clear_part_from_cell(options, state, config, factory, coord2);
     }
   }
+
+  factory.changed = true;
 }
 fn on_drag_end_floor_multi_cells(state: &State, options: &Options, config: &Config, factory: &mut Factory, mouse_state: &MouseState, track: Vec<((usize, usize), BeltType, Direction, Direction)>) {
   log!("Multi cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_mirrored);
@@ -2319,7 +2319,7 @@ fn on_drag_end_floor_multi_cells(state: &State, options: &Options, config: &Conf
           // Track started on the edge but has at least one segment in the middle.
           // Create a trash on the previous (edge) cell if that cell is empty.
           if factory.floor[pcoord].kind == CellKind::Empty {
-            factory.floor[pcoord] = supply_cell(config, px, py, part_c(config, 't'), 10000, 0, 0);
+            factory.floor[pcoord] = supply_cell(config, px, py, part_c(config, 't'), 2000, 0, 0);
           }
           still_starting_on_edge = false;
         }

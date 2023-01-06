@@ -3493,28 +3493,11 @@ This is the edge area where suppliers and demanders can be placed
 - h: 160
 
 # Belt___DLU
-- frame_offset: 0
-- frame_delay: 62
-- frame: 1
-  - file: ./img/belt/anim/_dlu.png
-  - y: 0
-  - x: 0
-  - w: 32
-  - h: 32
-- frame: 2
-  - x: 32
-- frame: 3
-  - x: 64
-- frame: 4
-  - x: 96
-- frame: 5
-  - x: 128
-- frame: 6
-  - x: 160
-- frame: 7
-  - x: 192
-- frame: 8
-  - x: 224
+- file: ./img/belt/__dlu.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
 
 # Belt_R__U
 - file: ./img/belt/r__u.png
