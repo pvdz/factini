@@ -43,8 +43,6 @@
 // - create tutorial
 // - should machine give hint of creating/missing in/outbound connection?
 
-// prepare for xmas.
-
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
 
