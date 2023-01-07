@@ -14,9 +14,16 @@
   var queuedAction = '';
   function getGameConfig() { return $game_config.value; /*GAME_CONFIG*/ }
   function getGameMap() { return $game_map.value /*GAME_MAP*/; }
-  function getGameOptions() { return $game_options.value /*GAME_OPTIONS*/; }
+  function getGameOptions() {
+    console.log('[js] getGameOptions()');
+    //console.log('[js] getGameOptions(): going to send it this:\n', $game_options.value);
+    return $game_options.value /*GAME_OPTIONS*/;
+  }
   function setGameOptions(optionStr) {
+    console.log('[js] setGameOptions()');
+    //console.log("[js] setGameOptions() received this:\n", optionStr);
     $game_options.value = optionStr;
+    $option_bools.innerHTML = '';
 
     optionStr.trim().split('\n').forEach(s => {
       const line = s.trim()[0] === '-' ? s.trim().slice(1) : s.trim();
@@ -26,7 +33,26 @@
 
       //console.log('[js] checking', [key], [value]);
 
-      if (value === 'true' || value === 'false') {
+      if (key === 'options_started_from_source') {
+        if (value !== '0') {
+          //trying to get this warning to show up
+          $option_warning.innerHTML = '(Options were loaded from localStorage! ' + value + ' bytes)';
+          $option_warning.onclick = () => {
+            console.log('Clearing options from local storage. Let\'s hope that works...');
+            window.localStorage.removeItem('factini.options');
+          };
+        }
+      }
+      else if (key === 'initial_map_from_source') {
+        if (value !== '0') {
+          $initial_map_from_source.innerHTML = '(Initial map loaded from localStorage! ' + value + ' bytes)';
+          $initial_map_from_source.onclick = () => {
+            console.log('Clearing map from local storage. Let\'s hope that works...');
+            window.localStorage.removeItem('factini.lastMap');
+          };
+        }
+      }
+      else if (value === 'true' || value === 'false') {
         const e = $option_bools.appendChild(document.createElement('label'));
         e.className = 'option-label';
         e.onclick = () => {
@@ -135,12 +161,11 @@
     }
     $config_node_list.onchange = $config_node_list.onupdate = showNode;
 
-    function show(prop, value) {
-      console.log('[js] ->', prop);
+    function showSpritePropField(prop, value) {
       document.getElementById('$config_node_' + prop).innerText = value;
       document.getElementById('$p_config_node_' + prop).style.display = 'block';
     }
-    function hide(prop) {
+    function hideSpritePropField(prop) {
       document.getElementById('$p_config_node_' + prop).style.display = 'none';
     }
     function showNode() {
@@ -158,13 +183,13 @@
 
         const sprite = node.sprite_config[0] || node;
 
-        hide('icon', node.icon);
-        show('file', sprite.file);
-        show('file_canvas_cache_index', sprite.file_canvas_cache_index);
-        show('x', sprite.x);
-        show('y', sprite.y);
-        show('w', sprite.w);
-        show('h', sprite.h);
+        hideSpritePropField('icon', node.icon);
+        showSpritePropField('file', sprite.file);
+        showSpritePropField('file_canvas_cache_index', sprite.file_canvas_cache_index);
+        showSpritePropField('x', sprite.x);
+        showSpritePropField('y', sprite.y);
+        showSpritePropField('w', sprite.w);
+        showSpritePropField('h', sprite.h);
 
         const tile = createSprite(0);
         $sprite_preview.innerHTML = '';
@@ -173,108 +198,108 @@
 
       switch (node.kind) {
         case 'Part':
-          hide('unlocks_after_by_name');
-          hide('unlocks_after_by_index');
-          hide('unlocks_todo_by_index');
-          hide('starting_part_by_name');
-          hide('starting_part_by_index');
-          hide('production_target_by_name');
-          hide('production_target_by_index');
-          show('pattern_by_index', node.pattern_by_index.join(', '));
-          show('pattern_by_name', node.pattern_by_name.join(', '));
-          show('pattern_by_icon', node.pattern_by_icon.join(', '));
-          show('pattern_unique_kinds', node.pattern_unique_kinds.join(', '));
+          hideSpritePropField('unlocks_after_by_name');
+          hideSpritePropField('unlocks_after_by_index');
+          hideSpritePropField('unlocks_todo_by_index');
+          hideSpritePropField('starting_part_by_name');
+          hideSpritePropField('starting_part_by_index');
+          hideSpritePropField('production_target_by_name');
+          hideSpritePropField('production_target_by_index');
+          showSpritePropField('pattern_by_index', node.pattern_by_index.join(', '));
+          showSpritePropField('pattern_by_name', node.pattern_by_name.join(', '));
+          showSpritePropField('pattern_by_icon', node.pattern_by_icon.join(', '));
+          showSpritePropField('pattern_unique_kinds', node.pattern_unique_kinds.join(', '));
 
           showSprite();
           break;
         case 'Quest':
-          show('unlocks_after_by_name', node.unlocks_after_by_name);
-          show('unlocks_after_by_index', node.unlocks_after_by_index);
-          show('unlocks_todo_by_index', node.unlocks_todo_by_index);
-          show('starting_part_by_name', node.starting_part_by_name);
-          show('starting_part_by_index', node.starting_part_by_index);
-          show('production_target_by_name', node.production_target_by_name);
-          show('production_target_by_index', node.production_target_by_index);
-          show('pattern_by_index', node.pattern_by_index);
-          show('pattern_by_name', node.pattern_by_name.join(', '));
-          show('pattern_by_icon', node.pattern_by_icon.join(', '));
-          show('pattern_unique_kinds', node.pattern_unique_kinds.join(', '));
-          hide('icon');
-          hide('file');
-          hide('file_canvas_cache_index');
-          hide('x');
-          hide('y');
-          hide('w');
-          hide('h');
+          showSpritePropField('unlocks_after_by_name', node.unlocks_after_by_name);
+          showSpritePropField('unlocks_after_by_index', node.unlocks_after_by_index);
+          showSpritePropField('unlocks_todo_by_index', node.unlocks_todo_by_index);
+          showSpritePropField('starting_part_by_name', node.starting_part_by_name);
+          showSpritePropField('starting_part_by_index', node.starting_part_by_index);
+          showSpritePropField('production_target_by_name', node.production_target_by_name);
+          showSpritePropField('production_target_by_index', node.production_target_by_index);
+          showSpritePropField('pattern_by_index', node.pattern_by_index);
+          showSpritePropField('pattern_by_name', node.pattern_by_name.join(', '));
+          showSpritePropField('pattern_by_icon', node.pattern_by_icon.join(', '));
+          showSpritePropField('pattern_unique_kinds', node.pattern_unique_kinds.join(', '));
+          hideSpritePropField('icon');
+          hideSpritePropField('file');
+          hideSpritePropField('file_canvas_cache_index');
+          hideSpritePropField('x');
+          hideSpritePropField('y');
+          hideSpritePropField('w');
+          hideSpritePropField('h');
           break;
         case 'Supply':
-          hide('unlocks_after_by_name', node.unlocks_after_by_name);
-          hide('unlocks_after_by_index', node.unlocks_after_by_index);
-          hide('unlocks_todo_by_index', node.unlocks_todo_by_index);
-          hide('starting_part_by_name', node.starting_part_by_name);
-          hide('starting_part_by_index', node.starting_part_by_index);
-          hide('production_target_by_name', node.production_target_by_name);
-          hide('production_target_by_index', node.production_target_by_index);
-          hide('pattern_by_index', node.pattern_by_index);
-          hide('pattern_by_name', node.pattern_by_name);
-          hide('pattern_by_icon', node.pattern_by_icon);
-          hide('pattern_unique_kinds', node.pattern_unique_kinds);
+          hideSpritePropField('unlocks_after_by_name', node.unlocks_after_by_name);
+          hideSpritePropField('unlocks_after_by_index', node.unlocks_after_by_index);
+          hideSpritePropField('unlocks_todo_by_index', node.unlocks_todo_by_index);
+          hideSpritePropField('starting_part_by_name', node.starting_part_by_name);
+          hideSpritePropField('starting_part_by_index', node.starting_part_by_index);
+          hideSpritePropField('production_target_by_name', node.production_target_by_name);
+          hideSpritePropField('production_target_by_index', node.production_target_by_index);
+          hideSpritePropField('pattern_by_index', node.pattern_by_index);
+          hideSpritePropField('pattern_by_name', node.pattern_by_name);
+          hideSpritePropField('pattern_by_icon', node.pattern_by_icon);
+          hideSpritePropField('pattern_unique_kinds', node.pattern_unique_kinds);
           showSprite();
           break;
         case 'Demand':
-          hide('unlocks_after_by_name', node.unlocks_after_by_name);
-          hide('unlocks_after_by_index', node.unlocks_after_by_index);
-          hide('unlocks_todo_by_index', node.unlocks_todo_by_index);
-          hide('starting_part_by_name', node.starting_part_by_name);
-          hide('starting_part_by_index', node.starting_part_by_index);
-          hide('production_target_by_name', node.production_target_by_name);
-          hide('production_target_by_index', node.production_target_by_index);
-          hide('pattern_by_index', node.pattern_by_index);
-          hide('pattern_by_name', node.pattern_by_name);
-          hide('pattern_by_icon', node.pattern_by_icon);
-          hide('pattern_unique_kinds', node.pattern_unique_kinds);
+          hideSpritePropField('unlocks_after_by_name', node.unlocks_after_by_name);
+          hideSpritePropField('unlocks_after_by_index', node.unlocks_after_by_index);
+          hideSpritePropField('unlocks_todo_by_index', node.unlocks_todo_by_index);
+          hideSpritePropField('starting_part_by_name', node.starting_part_by_name);
+          hideSpritePropField('starting_part_by_index', node.starting_part_by_index);
+          hideSpritePropField('production_target_by_name', node.production_target_by_name);
+          hideSpritePropField('production_target_by_index', node.production_target_by_index);
+          hideSpritePropField('pattern_by_index', node.pattern_by_index);
+          hideSpritePropField('pattern_by_name', node.pattern_by_name);
+          hideSpritePropField('pattern_by_icon', node.pattern_by_icon);
+          hideSpritePropField('pattern_unique_kinds', node.pattern_unique_kinds);
           showSprite();
           break;
         case 'Dock':
-          hide('unlocks_after_by_name', node.unlocks_after_by_name);
-          hide('unlocks_after_by_index', node.unlocks_after_by_index);
-          hide('unlocks_todo_by_index', node.unlocks_todo_by_index);
-          hide('starting_part_by_name', node.starting_part_by_name);
-          hide('starting_part_by_index', node.starting_part_by_index);
-          hide('production_target_by_name', node.production_target_by_name);
-          hide('production_target_by_index', node.production_target_by_index);
-          hide('pattern_by_index', node.pattern_by_index);
-          hide('pattern_by_name', node.pattern_by_name);
-          hide('pattern_by_icon', node.pattern_by_icon);
-          hide('pattern_unique_kinds', node.pattern_unique_kinds);
+          hideSpritePropField('unlocks_after_by_name', node.unlocks_after_by_name);
+          hideSpritePropField('unlocks_after_by_index', node.unlocks_after_by_index);
+          hideSpritePropField('unlocks_todo_by_index', node.unlocks_todo_by_index);
+          hideSpritePropField('starting_part_by_name', node.starting_part_by_name);
+          hideSpritePropField('starting_part_by_index', node.starting_part_by_index);
+          hideSpritePropField('production_target_by_name', node.production_target_by_name);
+          hideSpritePropField('production_target_by_index', node.production_target_by_index);
+          hideSpritePropField('pattern_by_index', node.pattern_by_index);
+          hideSpritePropField('pattern_by_name', node.pattern_by_name);
+          hideSpritePropField('pattern_by_icon', node.pattern_by_icon);
+          hideSpritePropField('pattern_unique_kinds', node.pattern_unique_kinds);
           showSprite();
           break;
         case 'Machine':
-          hide('unlocks_after_by_name', node.unlocks_after_by_name);
-          hide('unlocks_after_by_index', node.unlocks_after_by_index);
-          hide('unlocks_todo_by_index', node.unlocks_todo_by_index);
-          hide('starting_part_by_name', node.starting_part_by_name);
-          hide('starting_part_by_index', node.starting_part_by_index);
-          hide('production_target_by_name', node.production_target_by_name);
-          hide('production_target_by_index', node.production_target_by_index);
-          hide('pattern_by_index', node.pattern_by_index);
-          hide('pattern_by_name', node.pattern_by_name);
-          hide('pattern_by_icon', node.pattern_by_icon);
-          hide('pattern_unique_kinds', node.pattern_unique_kinds);
+          hideSpritePropField('unlocks_after_by_name', node.unlocks_after_by_name);
+          hideSpritePropField('unlocks_after_by_index', node.unlocks_after_by_index);
+          hideSpritePropField('unlocks_todo_by_index', node.unlocks_todo_by_index);
+          hideSpritePropField('starting_part_by_name', node.starting_part_by_name);
+          hideSpritePropField('starting_part_by_index', node.starting_part_by_index);
+          hideSpritePropField('production_target_by_name', node.production_target_by_name);
+          hideSpritePropField('production_target_by_index', node.production_target_by_index);
+          hideSpritePropField('pattern_by_index', node.pattern_by_index);
+          hideSpritePropField('pattern_by_name', node.pattern_by_name);
+          hideSpritePropField('pattern_by_icon', node.pattern_by_icon);
+          hideSpritePropField('pattern_unique_kinds', node.pattern_unique_kinds);
           showSprite();
           break;
         case 'Belt':
-          hide('unlocks_after_by_name', node.unlocks_after_by_name);
-          hide('unlocks_after_by_index', node.unlocks_after_by_index);
-          hide('unlocks_todo_by_index', node.unlocks_todo_by_index);
-          hide('starting_part_by_name', node.starting_part_by_name);
-          hide('starting_part_by_index', node.starting_part_by_index);
-          hide('production_target_by_name', node.production_target_by_name);
-          hide('production_target_by_index', node.production_target_by_index);
-          hide('pattern_by_index', node.pattern_by_index);
-          hide('pattern_by_name', node.pattern_by_name);
-          hide('pattern_by_icon', node.pattern_by_icon);
-          hide('pattern_unique_kinds', node.pattern_unique_kinds);
+          hideSpritePropField('unlocks_after_by_name', node.unlocks_after_by_name);
+          hideSpritePropField('unlocks_after_by_index', node.unlocks_after_by_index);
+          hideSpritePropField('unlocks_todo_by_index', node.unlocks_todo_by_index);
+          hideSpritePropField('starting_part_by_name', node.starting_part_by_name);
+          hideSpritePropField('starting_part_by_index', node.starting_part_by_index);
+          hideSpritePropField('production_target_by_name', node.production_target_by_name);
+          hideSpritePropField('production_target_by_index', node.production_target_by_index);
+          hideSpritePropField('pattern_by_index', node.pattern_by_index);
+          hideSpritePropField('pattern_by_name', node.pattern_by_name);
+          hideSpritePropField('pattern_by_icon', node.pattern_by_icon);
+          hideSpritePropField('pattern_unique_kinds', node.pattern_unique_kinds);
           showSprite();
           break;
       }
@@ -341,7 +366,8 @@
           });
         }
       });
-      console.log('[js] flowchart.fun code:\n' + arr.join('\n'));
+      console.log('[js] uncomment next line to print the flowchart.fun code');
+      //console.log('[js] flowchart.fun code:\n' + arr.join('\n'));
     }
 
     updateMermaid(nodes);
@@ -416,7 +442,8 @@
           `.replace(/\n/g, ''));
       }
     });
-    console.log('[js] mermaid.live code (may need to remove special descs):\n' + arr.join('\n'));
+    console.log('[js] Note: the mermaid.live code is just text, uncomment to print');
+    //console.log('[js] mermaid.live code (may need to remove special descs):\n' + arr.join('\n'));
     $mermaid.removeAttribute('data-processed'); // :facepalm: not obvious but ok. ht https://stackoverflow.com/questions/73056709/mermaid-in-react-turns-into-plaintext-when-re-rendered
     $mermaid.innerHTML = arr.join('\n');
     mermaid.init();
@@ -439,6 +466,7 @@
 <div id="$tdb" style="float: right; border: 1px solid black; white-space: pre; font-family: monospace;">the debug box</div>
 
 <div style="float: right; clear: right; margin-top: 5px;"><hr/>Options:</div>
+<div id="$option_warning" style="float: right; clear: right; color: red; cursor: pointer;" title="Click to clear"></div>
 <div id="$option_bools"></div>
 <style>
   .option-label { float: right; clear: right; cursor: pointer; }
@@ -448,7 +476,7 @@
 <script>setGameOptions(GAME_OPTIONS.trim());</script>
 <button style="float: right; clear: right; margin-top: 5px; margin-right: 5px;" onclick="queuedAction = 'apply_options';">Apply options</button>
 
-<div style="float: right; clear: right; margin-top: 5px;"><hr/>Current map:</div>
+<div style="float: right; clear: right; margin-top: 5px;"><hr/>Current map:<div id="$initial_map_from_source" style="color: red; cursor: pointer;" title="Click to clear"></div></div>
 <textarea id="$game_map" style="float: right; clear: right; min-width: 50px; min-height: 50px; width: 400px; height: 300px; margin-top: 5px; margin-right: 5px;" autocomplete="off" spellcheck="false" onClick="this.select();"></textarea>
 <script>$game_map.value = GAME_MAP.trim();</script>
 <button style="float: right; clear: right; margin-top: 5px; margin-right: 5px;" onclick="queuedAction = 'load_map';">Set as map</button>

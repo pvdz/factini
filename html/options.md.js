@@ -1,4 +1,6 @@
 const GAME_OPTIONS = `
+- options_started_from_source: 0
+- initial_map_from_source: 0
 - print_choices: false
 - print_choices_belt: false
 - print_choices_machine: false
@@ -28,6 +30,7 @@ const GAME_OPTIONS = `
 - draw_belt_dbg_id: false
 - draw_zone_hovers: false
 - enable_craft_menu_circle: false
+- enable_craft_menu_interact: false
 - draw_ui_section_border: false
 - ui_section_border_color: "white"
 - short_term_window: 10000
@@ -56,5 +59,4 @@ const GAME_OPTIONS = `
 - dbg_clickable_quotes: true
 - default_demand_speed: 1000
 - default_demand_cooldown: 0
-- test: 0
 `;

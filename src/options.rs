@@ -25,6 +25,9 @@ pub const PART_W: f64 = 20.0;
 pub const PART_H: f64 = 20.0;
 
 pub struct Options {
+  pub options_started_from_source: u64, // If non-zero, the current config started from local storage rather than source (options.md.js) and it will be the byte size
+  pub initial_map_from_source: u64, // If non-zero, the initial map started from local storage rather than source (map.md.js) and it will be the byte size
+
   pub print_choices: bool,
   pub print_choices_belt: bool,
   pub print_choices_machine: bool,
@@ -102,6 +105,9 @@ pub struct Options {
 
 pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Options {
   return Options {
+    options_started_from_source: 0, // Updated elsewhere
+    initial_map_from_source: 0, // Updated elsewhere
+
     print_choices: false,
     print_choices_belt: false,
     print_choices_machine: false,
@@ -165,7 +171,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
 }
 
 fn parse_bool(value: &str, key: &str, strict: bool, def: bool) -> bool {
-  match value {
+  let out = match value {
     "true" => true,
     "false" => false,
     _ => {
@@ -176,7 +182,11 @@ fn parse_bool(value: &str, key: &str, strict: bool, def: bool) -> bool {
         def
       }
     },
+  };
+  if out != def {
+    log!("Changed value for options.{}: from: {}, to: {}", key, def, out);
   }
+  return out;
 }
 
 fn parse_f64(value: &str, key: &str, strict: bool, def: f64) -> f64 {
@@ -188,24 +198,37 @@ fn parse_f64(value: &str, key: &str, strict: bool, def: f64) -> f64 {
     };
 
   let t = b.parse::<f64>();
-  if strict {
-    return t.expect(format!("The value for options.{} must be a number, received `{}`", key, b).as_str());
-  } else {
-    return t.or::<f64>(Ok(def)).unwrap();
+  let out =
+    if strict {
+      t.expect(format!("The value for options.{} must be a number, received `{}`", key, b).as_str())
+    } else {
+      t.or::<f64>(Ok(def)).unwrap()
+    };
+  if out != def {
+    log!("Changed value for options.{}: from: {}, to: {}", key, def, out);
   }
+  return out;
 }
 
 fn parse_u64(value: &str, key: &str, strict: bool, def: u64) -> u64 {
   return parse_f64(value, key, strict, def as f64) as u64;
 }
 
-fn parse_string(value: &str, key: &str, strict: bool, def: &String) -> String {
+fn parse_string(value: String, key: &str, strict: bool, def: String) -> String {
+  let out = _parse_string(value, key, strict, &def);
+  if out != def {
+    log!("Changed value for options.{}: from: {}, to: {}", key, def, out);
+  }
+  return out;
+}
+fn _parse_string(value: String, key: &str, strict: bool, def: &String) -> String {
+  log!("what the bloody fuck: {:?}", value.clone().chars().next().unwrap());
   if value.starts_with("\"") {
     if !value.ends_with("\"") {
       if strict {
-        panic!("Missing double quote at end of value; options.{}, value = `{}`", key, value);
+        panic!("Missing double quote at end of value; options.{}, value = `{:?}`", key, value);
       } else {
-        log!("Missing double quote at end of value; options.{}, value = `{}`", key, value);
+        log!("Missing double quote at end of value; options.{}, value = `{:?}`", key, value);
         return def.clone();
       }
     }
@@ -213,18 +236,18 @@ fn parse_string(value: &str, key: &str, strict: bool, def: &String) -> String {
   else if value.starts_with("'") {
     if !value.ends_with("'") {
       if strict {
-        panic!("Missing single quote at end of value; options.{}, value = `{}`", key, value);
+        panic!("Missing single quote at end of value; options.{}, value = `{:?}`", key, value);
       } else {
-        log!("Missing single quote at end of value; options.{}, value = `{}`", key, value);
+        log!("Missing single quote at end of value; options.{}, value = `{:?}`", key, value);
         return def.clone();
       }
     }
   }
   else {
     if strict {
-      panic!("Unable to parse string for options.{}; value was `{}`", key, value);
+      panic!("Unable to strict parse string for options.{}; value was `{:?}`, {}, {}", key, value, value.starts_with("\""), value.starts_with("'"));
     } else {
-      log!("Unable to parse string for options.{}; value was `{}`", key, value);
+      log!("Unable to parse string for options.{}; value was `{:?}`", key, value);
       return def.clone();
     }
   }
@@ -248,6 +271,8 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
           log!("- updating options.{} to `{}`", name, value);
 
           match name {
+            "options_started_from_source" => options.options_started_from_source = parse_u64(value, name, strict, options.options_started_from_source),
+            "initial_map_from_source" => options.initial_map_from_source = parse_u64(value, name, strict, options.initial_map_from_source),
             "print_choices" => options.print_choices = parse_bool(value, name, strict, options.print_choices),
             "print_choices_belt" => options.print_choices_belt = parse_bool(value, name, strict, options.print_choices_belt),
             "print_choices_machine" => options.print_choices_machine = parse_bool(value, name, strict, options.print_choices_machine),
@@ -279,7 +304,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "enable_craft_menu_circle" => options.enable_craft_menu_circle = parse_bool(value, name, strict, options.enable_craft_menu_circle),
             "enable_craft_menu_interact" => options.enable_craft_menu_interact = parse_bool(value, name, strict, options.enable_craft_menu_interact),
             "draw_ui_section_border" => options.draw_ui_section_border = parse_bool(value, name, strict, options.draw_ui_section_border),
-            "ui_section_border_color" => options.ui_section_border_color = parse_string(value, name, strict, &options.ui_section_border_color),
+            "ui_section_border_color" => options.ui_section_border_color = parse_string(value.to_string(), name, strict, options.ui_section_border_color.clone()),
             "short_term_window" => options.short_term_window = parse_u64(value, name, strict, options.short_term_window),
             "long_term_window" => options.long_term_window = parse_u64(value, name, strict, options.long_term_window),
             "bouncer_gravity" => options.bouncer_gravity = parse_f64(value, name, strict, options.bouncer_gravity),
@@ -318,4 +343,70 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
       }
     }
   })
+}
+
+pub fn options_serialize(options: &Options) -> String {
+  let mut arr = vec!();
+  arr.push(format!("- options_started_from_source: {}", options.options_started_from_source));
+  arr.push(format!("- initial_map_from_source: {}", options.initial_map_from_source));
+  arr.push(format!("- print_choices: {}", options.print_choices));
+  arr.push(format!("- print_choices_belt: {}", options.print_choices_belt));
+  arr.push(format!("- print_choices_machine: {}", options.print_choices_machine));
+  arr.push(format!("- print_choices_supply: {}", options.print_choices_supply));
+  arr.push(format!("- print_choices_demand: {}", options.print_choices_demand));
+  arr.push(format!("- print_moves: {}", options.print_moves));
+  arr.push(format!("- print_moves_belt: {}", options.print_moves_belt));
+  arr.push(format!("- print_moves_machine: {}", options.print_moves_machine));
+  arr.push(format!("- print_moves_supply: {}", options.print_moves_supply));
+  arr.push(format!("- print_moves_demand: {}", options.print_moves_demand));
+  arr.push(format!("- print_price_deltas: {}", options.print_price_deltas));
+  arr.push(format!("- print_machine_actions: {}", options.print_machine_actions));
+  arr.push(format!("- print_factory_interval: {}", options.print_factory_interval));
+  arr.push(format!("- print_stats_interval: {}", options.print_stats_interval));
+  arr.push(format!("- print_auto_layout_debug: {}", options.print_auto_layout_debug));
+  arr.push(format!("- print_fmd_trace: {}", options.print_fmd_trace));
+  arr.push(format!("- trace_priority_step: {}", options.trace_priority_step));
+  arr.push(format!("- trace_porting_step: {}", options.trace_porting_step));
+  arr.push(format!("- trace_map_parsing: {}", options.trace_map_parsing));
+  arr.push(format!("- print_priority_tile_order: {}", options.print_priority_tile_order));
+  arr.push(format!("- print_initial_table: {}", options.print_initial_table));
+  arr.push(format!("- draw_part_borders: {}", options.draw_part_borders));
+  arr.push(format!("- draw_part_char_icon: {}", options.draw_part_char_icon));
+  arr.push(format!("- draw_part_kind: {}", options.draw_part_kind));
+  arr.push(format!("- draw_port_arrows: {}", options.draw_port_arrows));
+  arr.push(format!("- paint_belts: {}", options.paint_belts));
+  arr.push(format!("- draw_belt_dbg_id: {}", options.draw_belt_dbg_id));
+  arr.push(format!("- draw_zone_hovers: {}", options.draw_zone_hovers));
+  arr.push(format!("- enable_craft_menu_circle: {}", options.enable_craft_menu_circle));
+  arr.push(format!("- enable_craft_menu_interact: {}", options.enable_craft_menu_interact));
+  arr.push(format!("- draw_ui_section_border: {}", options.draw_ui_section_border));
+  arr.push(format!("- ui_section_border_color: '{}'", options.ui_section_border_color));
+  arr.push(format!("- short_term_window: {}", options.short_term_window));
+  arr.push(format!("- long_term_window: {}", options.long_term_window));
+  arr.push(format!("- speed_modifier_floor: {}", options.speed_modifier_floor));
+  arr.push(format!("- speed_modifier_ui: {}", options.speed_modifier_ui));
+  arr.push(format!("- touch_drag_compensation: {}", options.touch_drag_compensation));
+  arr.push(format!("- game_enable_clean_days: {}", options.game_enable_clean_days));
+  arr.push(format!("- game_auto_reset_day: {}", options.game_auto_reset_day));
+  arr.push(format!("- dropzone_color_offset: {}", options.dropzone_color_offset));
+  arr.push(format!("- dropzone_bounce_speed: {}", options.dropzone_bounce_speed));
+  arr.push(format!("- dropzone_bounce_distance: {}", options.dropzone_bounce_distance));
+  arr.push(format!("- bouncer_gravity: {}", options.bouncer_gravity));
+  arr.push(format!("- bouncer_initial_speed: {}", options.bouncer_initial_speed));
+  arr.push(format!("- bouncer_friction: {}", options.bouncer_friction));
+  arr.push(format!("- bouncer_speed_limit: {}", options.bouncer_speed_limit));
+  arr.push(format!("- bouncer_bounce: {}", options.bouncer_bounce));
+  arr.push(format!("- bouncer_trail_time: {}", options.bouncer_trail_time));
+  arr.push(format!("- bouncer_fade_time: {}", options.bouncer_fade_time));
+  arr.push(format!("- bouncer_stamp_interval: {}", options.bouncer_stamp_interval));
+  arr.push(format!("- web_output_cli: {}", options.web_output_cli));
+  arr.push(format!("- initial_event_type_swapped: {}", options.initial_event_type_swapped));
+  arr.push(format!("- dbg_trash_is_joker: {}", options.dbg_trash_is_joker));
+  arr.push(format!("- db_joker_corrupts_factory: {}", options.db_joker_corrupts_factory));
+  arr.push(format!("- dbg_machine_produce_trash: {}", options.dbg_machine_produce_trash));
+  arr.push(format!("- dbg_clickable_quotes: {}", options.dbg_clickable_quotes));
+  arr.push(format!("- default_demand_speed: {}", options.default_demand_speed));
+  arr.push(format!("- default_demand_cooldown: {}", options.default_demand_cooldown));
+  arr.push(format!("- test: {}", options.test));
+  return arr.join("\n");
 }

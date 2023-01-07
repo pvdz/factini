@@ -52,7 +52,7 @@ pub fn quotes_get_available(config: &Config, ticks: u64) -> Vec<Quote> {
       log!("- generating quotes for {}: wants {:?} ({:?})", config.nodes[quest_index].name, config.nodes[quest_index].production_target_by_name, config.nodes[quest_index].production_target_by_index);
       // Quests can require multiple parts before completion
       let x = quote_create(config, quest_index, ticks);
-      log!("-> {:?}", x);
+      log!("~~> {:?}", x);
       return x;
     }).collect();
 }

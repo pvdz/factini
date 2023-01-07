@@ -5,7 +5,6 @@
 // Compile with --profile to try and get some sense of shit
 // - import/export
 //   - import/export with clipboard
-//   - save/load snapshots of the factory
 // - small problem with tick_belt_take_from_belt when a belt crossing is next to a supply and another belt; it will ignore the other belt as input. because the belt will not let a part proceed to the next port unless it's free and the processing order will process the neighbor belt first and then the crossing so by the time it's free, the part will still be at 50% whereas the supply part is always ready. fix is probably to make supply parts take a tick to be ready, or whatever.
 //   - affects machine speed so should be fixed
 // - machines
@@ -113,6 +112,7 @@ extern {
   pub fn getGameConfig() -> String; // GAME_CONFIG
   pub fn getGameMap() -> String; // GAME_MAP
   pub fn getGameOptions() -> String; // GAME_OPTIONS
+  pub fn setGameOptions(str: JsValue); // GAME_OPTIONS
   pub fn getExamples() -> js_sys::Array; // GAME_EXAMPLES, array of string
   pub fn getAction() -> String; // queuedAction, polled every frame
   pub fn receiveConfigNode(name: JsValue, node: JsValue);
@@ -433,10 +433,42 @@ pub fn start() -> Result<(), JsValue> {
     closure.forget();
   }
 
-  let ( mut options, mut state, mut factory ) = init(&config, getGameMap());
+  // TODO: we could load the default map first (or put it under the stack) but I don't think we want that..?
+  let initial_map_from_source;
+  let initial_map = {
+    let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+    let last_map = local_storage.get_item("factini.lastMap").unwrap();
+    match last_map {
+      Some(last_map) => {
+        log!("Init map: Loading last known map from local storage...");
+        initial_map_from_source = false;
+        last_map
+      },
+      None => {
+        log!("Init map: Loading default map from source...");
+        initial_map_from_source = true;
+        getGameMap()
+      },
+    }
+  };
+  let initial_map_from_source = if initial_map_from_source { 0 } else { initial_map.len() as u64 };
+  let ( mut options, mut state, mut factory ) = init(&config, initial_map);
   let mut saves: [Option<(web_sys::HtmlCanvasElement, String)>; 9] = [(); 9].map(|_| None);
 
-  parse_options_into(getGameOptions(), &mut options, true);
+  let saved_options = {
+    let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+    local_storage.get_item("factini.options").unwrap()
+  };
+  let ( option_string, options_started_from_source ) = match saved_options {
+    Some(str) => {
+      log!("Using options json from localStorage ({} bytes)", str.len());
+      ( str, false )
+    },
+    None => ( getGameOptions(), true ),
+  };
+  let options_started_from_source = if options_started_from_source { 0 } else { option_string.len() as u64 };
+  options.initial_map_from_source = initial_map_from_source;
+  parse_and_save_options_string(option_string, &mut options, true, options_started_from_source);
   state.event_type_swapped = options.initial_event_type_swapped;
   state_add_examples(getExamples(), &mut state);
 
@@ -773,8 +805,9 @@ pub fn start() -> Result<(), JsValue> {
 
       let queued_action = getAction();
       if queued_action != "" { log!("getAction() had `{}`", queued_action); }
+      let options_started_from_source = options.options_started_from_source; // Don't change this value here.
       match queued_action.as_str() {
-        "apply_options" => parse_options_into(getGameOptions(), &mut options, false),
+        "apply_options" => parse_and_save_options_string(getGameOptions(), &mut options, false, options_started_from_source ),
         "load_map" => state.reset_next_frame = true, // implicitly will call getGameMap() which loads the map from UI indirectly
         "load_config" => config = load_config(options.print_fmd_trace, getGameConfig()), // Might crash the game
         "" => {},
@@ -840,6 +873,11 @@ pub fn start() -> Result<(), JsValue> {
           // Dump current map to debug UI
           let game_map = document.get_element_by_id("$game_map").unwrap();
           game_map.dyn_into::<web_sys::HtmlTextAreaElement>().unwrap().set_value(state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].as_str());
+
+          let last_map = state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].as_str();
+          let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+          local_storage.set_item("factini.lastMap", last_map).unwrap();
+          log!("Stored last map to local storage ({} bytes)", last_map.len());
 
           // This works but it's not nice. Maybe it should be an option :shrug:
           if options.game_auto_reset_day {
@@ -2445,7 +2483,11 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
       log!("pressed time plus, from {} to {}", m, options.speed_modifier_floor);
     }
     MenuButton::Row2Button0 => {
-      log!("(no button here)");
+      log!("pressed blow button. blowing the localStorage cache");
+      let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+      local_storage.remove_item("factini.options").unwrap();
+      local_storage.remove_item("factini.lastMap").unwrap();
+      log!("Done! Must reload to take effect");
     }
     MenuButton::Row2Button1 => {
       // Unbelt
@@ -2989,8 +3031,8 @@ fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::Canva
   context.set_fill_style(&"lightgreen".into());
   context.fill_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, UI_DEBUG_APP_LINE_H);
   context.set_fill_style(&"black".into());
-  // context.fill_text(format!("App time  : {}", (now / 1000.0).floor()).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
-  context.fill_text(format!("color  : {:?}", get_drop_color(options, factory.ticks)).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("App time  : {}", (now / 1000.0).floor()).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+  // context.fill_text(format!("color  : {:?}", get_drop_color(options, factory.ticks)).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"lightgreen".into());
@@ -4800,7 +4842,7 @@ fn paint_machine_icon(options: &Options, state: &State, context: &Rc<web_sys::Ca
 fn paint_ui_buttons(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   // See on_up_menu for events
 
-  // paint_ui_button(context, mouse_state, 0.0, "Empty", MenuButton::Row2Button0);
+  paint_ui_button(context, mouse_state, 0.0, "Blow", MenuButton::Row2Button0);
   paint_ui_button(context, mouse_state, 1.0, "Unbelt", MenuButton::Row2Button1);
   paint_ui_button(context, mouse_state, 2.0, "Unpart", MenuButton::Row2Button2);
   paint_ui_button(context, mouse_state, 3.0, "Undir", MenuButton::Row2Button3);
@@ -5212,4 +5254,20 @@ fn unpart(options: &mut Options, state: &mut State, config: &Config, factory: &m
   if !already_changed {
     factory.changed = true;
   }
+}
+
+fn parse_and_save_options_string(option_string: String, options: &mut Options, strict: bool, options_started_from_source: u64) {
+  log!("parse_and_save_options_string():\n{} with {}", option_string, options_started_from_source);
+  let bak = options.initial_map_from_source;
+  parse_options_into(option_string, options, true);
+  options.options_started_from_source = options_started_from_source; // This prop will be overwritten by the above, first
+  options.initial_map_from_source = bak; // Do not overwrite this.
+  let exp = options_serialize(options);
+
+  log!("Storing options into browser localStorage... ({} bytes)", exp.len());
+  let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+  local_storage.set_item("factini.options", exp.as_str()).unwrap();
+
+  // Update UI to reflect actually loaded options
+  setGameOptions(exp.into());
 }

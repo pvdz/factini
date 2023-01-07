@@ -50,6 +50,7 @@ features = [
     'MouseEvent',
     'Node',
     'Performance',
+    'Storage', # local_storage
     'Touch', # touchevent.touches.get
     'TouchEvent',
     'TouchList', # touchevent.touches
