@@ -3,6 +3,7 @@ use std::time::SystemTime;
 use super::belt::*;
 use super::belt_type::*;
 use super::cell::*;
+use super::config::*;
 use super::direction::*;
 use super::factory::*;
 use super::floor::*;
@@ -300,9 +301,9 @@ pub fn generate_floor_without_views(options: &mut Options, state: &mut State, fa
 
   return out;
 }
-pub fn generate_floor_dump(options: &Options, state: &State, factory: &Factory, now: u64) -> Vec<String> {
+pub fn generate_floor_dump(options: &Options, state: &State, config: &Config, factory: &Factory, now: u64) -> Vec<String> {
   // Send help. I'm sure this is wrong on multiple levels. But it works.
-  let aa = serialize2(options, state, factory, true, now);
+  let aa = serialize2(options, state, config, factory, true, now);
   let a = aa.split('\n');
   let mut out = vec!();
   for n in a {
@@ -311,7 +312,7 @@ pub fn generate_floor_dump(options: &Options, state: &State, factory: &Factory, 
   return out;
 }
 
-pub fn serialize2(options: &Options, state: &State, factory: &Factory, dump: bool, now: u64) -> String {
+pub fn serialize2(options: &Options, state: &State, config: &Config, factory: &Factory, dump: bool, now: u64) -> String {
   // Create a string that we can parse again. This requires to be explicit about the port states.
   // While it would be super nice to have a condensed string, there's just too many variations.
   // There are four ports and each port can have one of four states (none, unknown, in, out) so
@@ -563,6 +564,10 @@ pub fn serialize2(options: &Options, state: &State, factory: &Factory, dump: boo
 
   out.push(cell_params.clone());
 
+  // $ abcdfe
+  let available = factory.available_parts_rhs_menu.iter().map(|(part, _visible)| part_kind_to_icon(config, *part)).collect::<String>();
+  let available: Vec<char> = format!("$ {}", available).chars().collect();
+  out.push(available);
 
   let flat: Vec<char> = out.into_iter().flatten().collect();
   return flat.iter().collect();

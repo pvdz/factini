@@ -55,13 +55,15 @@ pub struct Factory {
 }
 
 pub fn create_factory(options: &mut Options, state: &mut State, config: &Config, floor_str: String) -> Factory {
-  let floor = floor_from_str(options, state, config, floor_str);
+  let ( floor, unlocked_part_icons ) = floor_from_str(options, state, config, floor_str);
+  let available_parts_rhs_menu = unlocked_part_icons.iter().map(|icon| (part_icon_to_kind(config,*icon), true)).collect();
+  log!("initial available_parts_rhs_menu (3): {:?}", available_parts_rhs_menu);
   let mut factory = Factory {
     ticks: 0,
     floor,
     prio: vec!(),
     quotes: quotes_get_available(config, 0),
-    available_parts_rhs_menu: vec!(),
+    available_parts_rhs_menu,
     changed: true,
     last_day_start: 0,
     modified_at: 0,
@@ -216,9 +218,12 @@ pub fn factory_reset_stats(options: &mut Options, state: &mut State, factory: &m
 }
 
 pub fn factory_load_map(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, floor_str: String) {
-  let floor = floor_from_str(options, state, config, floor_str);
+  let ( floor, unlocked_part_icons ) = floor_from_str(options, state, config, floor_str);
   log!("available quotes: {:?}", factory.quotes);
+  log!("available_parts_rhs_menu (1): {:?}", factory.available_parts_rhs_menu);
   factory.floor = floor;
+  factory.available_parts_rhs_menu = unlocked_part_icons.iter().map(|icon| (part_icon_to_kind(config,*icon), true)).collect();
+  log!("available_parts_rhs_menu (2): {:?}", factory.available_parts_rhs_menu);
   auto_layout(options, state, config, factory);
   auto_ins_outs(options, state, config, factory);
   // TODO: I think we can move this (and other steps) to the factory.changed steps but there's some time between this place and the changed place

@@ -454,6 +454,43 @@ pub fn start() -> Result<(), JsValue> {
   let initial_map_from_source = if initial_map_from_source { 0 } else { initial_map.len() as u64 };
   let ( mut options, mut state, mut factory ) = init(&config, initial_map);
   let mut saves: [Option<(web_sys::HtmlCanvasElement, String)>; 9] = [(); 9].map(|_| None);
+  fn create_placeholder_canvas(document: &web_sys::Document, img: &web_sys::HtmlImageElement) -> web_sys::HtmlCanvasElement{
+    // Pre-load snapshots from localStorage, if any were found
+    let placeholder_canvas = document.create_element("canvas").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
+    placeholder_canvas.set_width(100);
+    placeholder_canvas.set_height(100);
+    let context = placeholder_canvas.get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap();
+    context.set_fill_style(&"#ccc".into());
+    context.fill_rect(0.0, 0.0, 100.0, 100.0);
+    context.draw_image_with_html_image_element_and_dw_and_dh(&img, 0.0, 0.0, 100.0, 100.0).expect("placeholder icon");
+
+
+
+
+
+
+    // TODO: create actual snapshot here rather than a blank page. kinda tricky I guess.
+
+
+
+
+
+    return placeholder_canvas;
+  }
+
+  let ( saved_map1, saved_map2, saved_map3, saved_map4 ) = {
+    let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+    (
+      local_storage.get_item("factini.save0").unwrap(),
+      local_storage.get_item("factini.save1").unwrap(),
+      local_storage.get_item("factini.save2").unwrap(),
+      local_storage.get_item("factini.save3").unwrap(),
+    )
+  };
+  if let Some(saved_map) = saved_map1 { saves[0] = Some(( create_placeholder_canvas(&document, &img_lmb), saved_map )); }
+  if let Some(saved_map) = saved_map2 { saves[1] = Some(( create_placeholder_canvas(&document, &img_lmb), saved_map )); }
+  if let Some(saved_map) = saved_map3 { saves[2] = Some(( create_placeholder_canvas(&document, &img_lmb), saved_map )); }
+  if let Some(saved_map) = saved_map4 { saves[3] = Some(( create_placeholder_canvas(&document, &img_lmb), saved_map )); }
 
   let saved_options = {
     let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
@@ -754,7 +791,11 @@ pub fn start() -> Result<(), JsValue> {
                       new_quests.push(config.nodes[index].index);
                       config.nodes[index].current_state = ConfigNodeState::Available;
                       for i in 0..config.nodes[index].starting_part_by_index.len() {
-                        new_parts.push(config.nodes[index].starting_part_by_index[i]);
+                        let part = config.nodes[index].starting_part_by_index[i];
+                        // Confirm the part isn't already unlocked before starting the process to unlock it
+                        if !factory.available_parts_rhs_menu.iter().any(|p| part == p.0 as usize) {
+                          new_parts.push(config.nodes[index].starting_part_by_index[i]);
+                        }
                       }
                     }
                   }
@@ -848,7 +889,7 @@ pub fn start() -> Result<(), JsValue> {
 
           if !state.load_snapshot_next_frame {
             // Create snapshot in history, except for unredo
-            let snap = generate_floor_dump(&options, &state, &factory, dnow()).join("\n");
+            let snap = generate_floor_dump(&options, &state, &config, &factory, dnow()).join("\n");
             // log!("Snapshot:\n{}", snap);
             log!("Pushed snapshot to the front of the stack; size: {} bytes, undo pointer: {}, pointer: {}", snap.len(), state.snapshot_undo_pointer, state.snapshot_pointer);
 
@@ -1754,6 +1795,8 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
     if close {
       log!("  deleting saved map");
       saves[mouse_state.up_save_map_index] = None;
+      let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+      local_storage.remove_item(format!("factini.save{}", mouse_state.up_save_map_index).as_str()).unwrap();
     }
     else {
       log!("  loading saved map");
@@ -1764,6 +1807,7 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
     }
 
   } else {
+    log!("  storing saved map");
     let document = document();
 
     // This element is created in this file but it's just easier to query it from the DOM ;)
@@ -1785,9 +1829,11 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
     ).expect("canvas api call to work");
 
     // Get string of map
-    let snap = generate_floor_dump(&options, &state, &factory, dnow()).join("\n");
+    let snap = generate_floor_dump(&options, &state, &config, &factory, dnow()).join("\n");
 
-    // Store it there
+    // Store it there and in local storage
+    let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+    local_storage.set_item(format!("factini.save{}", mouse_state.up_save_map_index).as_str(), &snap).unwrap();
     saves[mouse_state.up_save_map_index] = Some( ( canvas, snap ) );
   }
 }
@@ -2487,6 +2533,10 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
       let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
       local_storage.remove_item("factini.options").unwrap();
       local_storage.remove_item("factini.lastMap").unwrap();
+      local_storage.remove_item("factini.save0").unwrap();
+      local_storage.remove_item("factini.save1").unwrap();
+      local_storage.remove_item("factini.save2").unwrap();
+      local_storage.remove_item("factini.save3").unwrap();
       log!("Done! Must reload to take effect");
     }
     MenuButton::Row2Button1 => {
@@ -5041,7 +5091,7 @@ fn paint_map_load_button(col: f64, row: f64, button_index: usize, context: &Rc<w
   let oy = GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN);
   if let Some((canvas, name)) = save {
     // I'm using patterns to get around rounded corners but maybe should just use the mask
-    // appraoch instead? Neither is very portable anyways so why not make it a simple blit...
+    // approach instead? Neither is very portable anyways so why not make it a simple blit...
     if let Some(ptrn) = context.create_pattern_with_html_canvas_element(&canvas, "repeat").expect("trying to load thumb") {
       let close = hit_test_save_map_right(mouse_state.world_x, mouse_state.world_y, row, col);
 

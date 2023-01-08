@@ -582,7 +582,13 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
             }
             "char" => {
               // The icon
-              nodes[current_node_index].icon = value_raw.bytes().next().or(Some('?' as u8)).unwrap() as char;
+              // Only accept a-zA-Z and nothing else
+              // For entries that have no "char" field (but need it), we'll auto-assign an icon
+              let c = value_raw.bytes().next().or(Some('?' as u8)).unwrap() as char;
+              nodes[current_node_index].icon = c;
+              if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
+                panic!("Attempted to parse a char icon that was not a-zA-Z: name = {}, icon = `{}` ({})", nodes[current_node_index].raw_name, c, c as u8);
+              }
             }
             "file" => {
               // The sprite file
@@ -679,6 +685,43 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
     if node.icon != '?' {
       node_name_to_index.insert(node.icon.to_string(), i);
     }
+  });
+  // Now assign the nodes without an icon
+  // Downside is that this assignment isn't stable and any changes to config order may screw this up
+  // In particular with respects to maps with initial starting configs
+  // We could use raw names rather than icons for that tho
+  nodes.iter_mut().enumerate().for_each(|(i, node)| {
+    if node.kind != ConfigNodeKind::Part { return; } // Only relevant for parts
+    if node.icon != '?' { return; } // Only assign unassigned ones
+    for icon in 'a' as u8 ..= 'z' as u8 {
+      let cstring = format!("{}", icon as char);
+      if !node_name_to_index.contains_key(&cstring) {
+        node.icon = icon as char;
+        node_name_to_index.insert(cstring, i);
+        log!("config node {} was assigned icon `{}`", node.name, node.icon);
+        return; // -> continue with next node
+      }
+    }
+    for icon in 'A' as u8 ..= 'Z' as u8 {
+      let cstring = format!("{}", icon as char);
+      if !node_name_to_index.contains_key(&cstring) {
+        node.icon = icon as char;
+        node_name_to_index.insert(cstring, i);
+        log!("config node {} was assigned icon `{}`", node.name, node.icon);
+        return; // -> continue with next node
+      }
+    }
+    for icon in 128 as u8 ..= 253 as u8 {
+      let cstring = format!("{}", icon as char);
+      if !node_name_to_index.contains_key(&cstring) {
+        node.icon = icon as char;
+        node_name_to_index.insert(cstring, i);
+        log!("config node {} was assigned icon `{}` ({})", node.name, node.icon, icon);
+        return; // -> continue with next node
+      }
+    }
+
+    panic!("oh no, ran out of space :'( can define up to 170 parts");
   });
 
   if print_fmd_trace { log!("+ create part pattern_by_index tables"); }
@@ -822,6 +865,27 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
       }
     }
   });
+
+  let mut parts = 0;
+  let mut quests = 0;
+  let mut demanders = 0;
+  let mut suppliers = 0;
+  let mut docks = 0;
+  let mut machines = 0;
+  let mut belts = 0;
+  nodes.iter().for_each(|node| {
+    match node.kind {
+      ConfigNodeKind::Part => parts += 1,
+      ConfigNodeKind::Quest => quests += 1,
+      ConfigNodeKind::Demand => demanders += 1,
+      ConfigNodeKind::Supply => suppliers += 1,
+      ConfigNodeKind::Dock => docks += 1,
+      ConfigNodeKind::Machine => machines += 1,
+      ConfigNodeKind::Belt => belts += 1,
+    }
+  });
+
+  log!("Config had: {} parts, {} quests, {} demanders, {} suppliers, {} docks, {} machines, and {} belts", parts, quests, demanders, suppliers, docks, machines, belts);
 
   // log!("parsed nodes: {:?}", &nodes[1..]);
   if print_fmd_trace { log!("parsed map: {:?}", node_name_to_index); }

@@ -381,7 +381,6 @@ The old paper
 
 # Part_Gift
 Char is the Greek letter chi
-- char: χ
 - pattern: Part_Thread Part_Paper Part_GoldCoins Part_BookShield
 - file: ./img/bigset.png
 - x: 168
@@ -391,7 +390,6 @@ Char is the Greek letter chi
 
 # Part_SilverCoin
 Char is the Greek letter sigma
-- char: ς
 - pattern: Part_DirtWhite Part_DirtWhite
 - file: ./img/parts/coin.png
 - x: 0
@@ -401,7 +399,6 @@ Char is the Greek letter sigma
 
 # Part_SilverCoins
 Char is the Greek letter sigma (upper)
-- char: Σ
 - pattern: Part_SilverCoin Part_SilverCoin Part_SilverCoin
 - file: ./img/bigset.png
 - x: 144
@@ -411,7 +408,6 @@ Char is the Greek letter sigma (upper)
 
 # Part_GoldCoin
 Char is the Greek letter theta
-- char: θ
 - pattern: Part_SilverCoins Part_GoldDust
 - file: ./img/bigset.png
 - x: 0
@@ -421,7 +417,6 @@ Char is the Greek letter theta
 
 # Part_GoldCoins
 Char is the Greek letter theta (upper)
-- char: Θ
 - pattern: Part_GoldCoin Part_GoldCoin Part_GoldCoin
 - file: ./img/bigset.png
 - x: 48
@@ -431,7 +426,6 @@ Char is the Greek letter theta (upper)
 
 # Part_Cloth
 Char is the Greek letter xi (upper)
-- char: ξ
 - file: ./img/bigset.png
 - x: 360
 - y: 2376
@@ -440,7 +434,6 @@ Char is the Greek letter xi (upper)
 
 # Part_GrayHat
 Char is the Greek letter eta (upper)
-- char: ε
 - pattern: Part_Rope Part_Cloth
 - file: ./img/bigset.png
 - x: 48
@@ -450,7 +443,6 @@ Char is the Greek letter eta (upper)
 
 # Part_SantaHat
 Char is the Greek letter eta (upper)
-- char: Η
 - pattern: Part_PotionRed Part_Rope Part_GrayHat
 - file: ./img/bigset.png
 - x: 169
@@ -460,7 +452,6 @@ Char is the Greek letter eta (upper)
 
 # Part_RedGift
 Char is the Greek letter omega (upper)
-- char: Ω
 - pattern: Part_Gift Part_SantaHat Part_PotionRed Part_PotionGreen Part_Sled
 - file: ./img/bigset.png
 - x: 193
@@ -470,7 +461,6 @@ Char is the Greek letter omega (upper)
 
 # Part_Wool
 Char is the Greek letter psi (upper)
-- char: ψ
 - file: ./img/bigset.png
 - x: 120
 - y: 15072
@@ -479,7 +469,6 @@ Char is the Greek letter psi (upper)
 
 # Part_Thread
 Char is the Greek letter tau (upper)
-- char: Τ
 - pattern: Part_Wool
 - file: ./img/parts/thread.png
 - x: 0
@@ -489,7 +478,6 @@ Char is the Greek letter tau (upper)
 
 # Part_FishingRod
 Char is the Greek letter tau (upper)
-- char: Τ
 - pattern: Part_Wood Part_Thread
 - file: ./img/bigset.png
 - x: 144
@@ -499,7 +487,6 @@ Char is the Greek letter tau (upper)
 
 # Part_Worm
 Char is the Greek letter zeta (upper)
-- char: ζ
 - file: ./img/roguelikeitems.png
 - x: 176
 - y: 176
@@ -508,7 +495,6 @@ Char is the Greek letter zeta (upper)
 
 # Part_Sled
 Char is the Greek letter xi (upper)
-- char: Ξ
 - pattern: Part_Wood
 - file: ./img/sled.png
 - x: 0

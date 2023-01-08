@@ -21,15 +21,15 @@ use super::supply::*;
 use super::utils::*;
 use super::log;
 
-pub fn floor_from_str(options: &mut Options, state: &mut State, config: &Config, str: String) -> ( [Cell; FLOOR_CELLS_WH] ) {
+pub fn floor_from_str(options: &mut Options, state: &mut State, config: &Config, str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<char> ) {
   if str.trim().len() == 0 {
-    return floor_empty(config);
+    return (floor_empty(config), vec!());
   }
 
   return str_to_floor2(options, state, config, str);
 }
 
-fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str: String) -> [Cell; FLOOR_CELLS_WH] {
+fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str: String) -> ([Cell; FLOOR_CELLS_WH], Vec<char>) {
   // Given a string in a grid format, generate a floor
   // The string starts with at least one line of config.
   // - For now the only modifier are the dimension of the hardcoded 11x11
@@ -109,10 +109,12 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
   // om = b         -> g s:10 d:1x1
   // om = b         -> g s:0  d:3x3
   // om = b         -> g s:0  d:4x4
+  // $ abc
 
   log!("str_to_floor2(options.trace_map_parsing={}):\n{}", options.trace_map_parsing, str);
 
   let mut floor: [Cell; FLOOR_CELLS_WH] = floor_empty(config);
+  let mut unlocked_part_icons: Vec<char> = vec!();
 
   let hash: &char = &'#';
   let space: &u8 = &32u8;
@@ -140,8 +142,6 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
 
   // The header line is currently only expecting one modifier: the floor dimensions
 
-  let width = FLOOR_CELLS_W;
-  let height = FLOOR_CELLS_H;
   loop {
     match first_line.next().or(Some('#')).unwrap() {
       '#' => {
@@ -200,7 +200,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
   let mut machine_main_coords: [usize; 63] = [0; 63];
 
   // Expect as many cells as specified.
-  for j in 0..height {
+  for j in 0..FLOOR_CELLS_H {
 
     // Now get the next three lines, skip leading spaces and skip empty lines or ones starting with a hash
 
@@ -232,7 +232,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
       line3 = lines.next().unwrap(); // Bust if there's no more input.
     }
 
-    for i in 0..width {
+    for i in 0..FLOOR_CELLS_W {
       // For each of the three lines, step them cell by cell, each cell consisting of 9 chars.
       // Characters are expected to be consecutive in sync across the three lines, even if they
       // had an inconsistent amount of leading spaces.
@@ -285,9 +285,9 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
             let ( port_u, port_r, port_d, port_l ) =
               if j == 0 {
                 ( Port::None, Port::None, Port::Outbound, Port::None )
-              } else if i == width-1 {
+              } else if i == FLOOR_CELLS_W-1 {
                 ( Port::None, Port::Outbound, Port::None, Port::None )
-              } else if j == height-1 {
+              } else if j == FLOOR_CELLS_H-1 {
                 ( Port::Outbound, Port::None, Port::None, Port::None )
               } else if i == 0 {
                 ( Port::None, Port::None, Port::None, Port::Outbound )
@@ -308,9 +308,9 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
             let ( port_u, port_r, port_d, port_l ) =
             if j == 0 {
               ( Port::None, Port::None, Port::Outbound, Port::None )
-            } else if i == width-1 {
+            } else if i == FLOOR_CELLS_W-1 {
               ( Port::None, Port::Outbound, Port::None, Port::None )
-            } else if j == height-1 {
+            } else if j == FLOOR_CELLS_H-1 {
               ( Port::Outbound, Port::None, Port::None, Port::None )
             } else if i == 0 {
               ( Port::None, Port::None, Port::None, Port::Outbound )
@@ -664,6 +664,19 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
                 if options.trace_map_parsing { log!("Machine {} was defined as having inputs {:?} and output {} at speed {} but its main_coord was not found", nth, wants, output, speed); }
               }
             },
+            '$' => {
+              // Expect a-zA-Z or >127. Spaces are skipped. Stops at EOL, EOF, or #
+              loop {
+
+                let c = line.next().or(Some('#')).unwrap();
+                log!("c: {} : {}", c, c as u32);
+                if c == '#' { break; }
+                if c != ' ' {
+                  if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c as u8 > 127) { panic!("Unexpected input on line {} while parsing available parts ($): input characters must be a-zA-Z or non-ascii, found `{}` ({})", line_no, c, c as u8); }
+                  unlocked_part_icons.push(c);
+                }
+              }
+            }
             _ => panic!("Unexpected input on line {} while parsing input augments: wanted start of augment line, found `{}`", line_no, c),
           }
         }
@@ -674,7 +687,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
   // Set the .ins and .outs of each cell cause otherwise nothing happens.
   auto_ins_outs_floor(options, state, config, &mut floor);
 
-  return floor;
+  return (floor, unlocked_part_icons);
 }
 
 fn n_to_alnum(n: u8) -> char {
