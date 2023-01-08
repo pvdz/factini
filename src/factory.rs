@@ -230,4 +230,8 @@ pub fn factory_load_map(options: &mut Options, state: &mut State, config: &Confi
   let prio = create_prio_list(options, config, &mut factory.floor);
   factory.prio = prio;
   factory.changed = true;
+  // Clear bouncers and trucks to prevent indexing problems
+  log!("  clearing bouncers and trucks");
+  factory.bouncers = VecDeque::new();
+  factory.trucks = vec!();
 }
