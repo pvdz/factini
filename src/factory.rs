@@ -26,7 +26,7 @@ pub struct Factory {
   pub ticks: u64,
   pub floor: [Cell; FLOOR_CELLS_WH],
   pub prio: Vec<usize>,
-  pub quotes: Vec<Quote>, // Current available achievements to unlock
+  pub current_active_quotes: Vec<Quote>, // Current available achievements to unlock
   /**
    * Current available parts to use as supply or craft in machine.
    * These are painted in the right hand menu. The bool tells us whether to actually paint it.
@@ -62,7 +62,7 @@ pub fn create_factory(options: &mut Options, state: &mut State, config: &Config,
     ticks: 0,
     floor,
     prio: vec!(),
-    quotes: quotes_get_available(config, 0),
+    current_active_quotes: quotes_get_available(config, 0),
     available_parts_rhs_menu,
     changed: true,
     last_day_start: 0,
@@ -79,7 +79,7 @@ pub fn create_factory(options: &mut Options, state: &mut State, config: &Config,
     finished_quotes: vec!(),
     day_corrupted: false,
   };
-  log!("available quotes: {:?}", factory.quotes);
+  log!("available quotes: {:?}", factory.current_active_quotes);
   auto_layout(options, state, config, &mut factory);
   auto_ins_outs(options, state, config, &mut factory);
   let prio = create_prio_list(options, config, &mut factory.floor);
@@ -145,15 +145,15 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
 
           // Update the quote counts (expensive search but these arrays should be tiny, sub-10)
           let mut visible_index = 0;
-          for j in 0..factory.quotes.len() {
+          for j in 0..factory.current_active_quotes.len() {
             // Ignore completed quotes.
-            if factory.quotes[j].completed_at > 0 {
+            if factory.current_active_quotes[j].completed_at > 0 {
               continue;
             }
 
             // Increment quote totals if demand received a matching part.
-            if factory.quotes[j].part_index == received_part_index {
-              factory.quotes[j].current_count += received_count;
+            if factory.current_active_quotes[j].part_index == received_part_index {
+              factory.current_active_quotes[j].current_count += received_count;
 
               state.lasers.push(Laser {
                 coord,
@@ -162,7 +162,7 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
                 color: "white".to_string().clone(),
               });
 
-              if factory.quotes[j].current_count >= factory.quotes[j].target_count {
+              if factory.current_active_quotes[j].current_count >= factory.current_active_quotes[j].target_count {
                 factory_finish_quote(options, factory, j);
               }
               break;
@@ -185,7 +185,7 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
 }
 
 pub fn factory_finish_quote(options: &Options, factory: &mut Factory, quote_index: usize) {
-  log!("finished quote {} with {} of {}", factory.quotes[quote_index].name, factory.quotes[quote_index].current_count, factory.quotes[quote_index].target_count);
+  log!("finished quote {} with {} of {}", factory.current_active_quotes[quote_index].name, factory.current_active_quotes[quote_index].current_count, factory.current_active_quotes[quote_index].target_count);
   // This quote is finished so end the day // TODO: multiple parts one quote
   if options.game_enable_clean_days { factory.finished_at = factory.ticks; }
   factory.finished_quotes.push(quote_index); // Start visual candy for this quote in next frame
@@ -214,12 +214,12 @@ pub fn factory_reset_stats(options: &mut Options, state: &mut State, factory: &m
   factory.accepted = 0;
   factory.trashed = 0;
 
-  factory.quotes.iter_mut().for_each(|quote| quote.current_count = 0);
+  factory.current_active_quotes.iter_mut().for_each(|quote| quote.current_count = 0);
 }
 
 pub fn factory_load_map(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, floor_str: String) {
   let ( floor, unlocked_part_icons ) = floor_from_str(options, state, config, floor_str);
-  log!("available quotes: {:?}", factory.quotes);
+  log!("available quotes: {:?}", factory.current_active_quotes);
   log!("available_parts_rhs_menu (1): {:?}", factory.available_parts_rhs_menu);
   factory.floor = floor;
   factory.available_parts_rhs_menu = unlocked_part_icons.iter().map(|icon| (part_icon_to_kind(config,*icon), true)).collect();

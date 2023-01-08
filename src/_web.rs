@@ -739,14 +739,14 @@ pub fn start() -> Result<(), JsValue> {
               if let Some(quote_index) = quote_index {
                 // - get the quote and icon to paint
                 // - get the location to start painting
-                let completed_part_index = factory.quotes[quote_index].part_index;
+                let completed_part_index = factory.current_active_quotes[quote_index].part_index;
                 let icon = config.nodes[completed_part_index].icon; // TODO: multiple parts
                 let ( x, y ) = get_quote_xy(quote_index, (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) * quote_index as f64); // Height is incorrect if a quote is fading but that's acceptable
 
-                factory.bouncers.push_back(bouncer_create(x, y, GRID_Y2 + 20.0, factory.quotes[quote_index].quest_index, completed_part_index, options.bouncer_initial_speed, factory.ticks, 0));
+                factory.bouncers.push_back(bouncer_create(x, y, GRID_Y2 + 20.0, factory.current_active_quotes[quote_index].quest_index, completed_part_index, options.bouncer_initial_speed, factory.ticks, 0));
 
                 // From this point onward the Quote will fade out and then reduce its height till zero
-                factory.quotes[quote_index].completed_at = factory.ticks;
+                factory.current_active_quotes[quote_index].completed_at = factory.ticks;
               } else {
                 break;
               }
@@ -820,7 +820,7 @@ pub fn start() -> Result<(), JsValue> {
                 if let Some(quest_index) = new_quests.pop() {
                   let mut quotes = quote_create(&config, quest_index, factory.ticks);
                   if let Some(quote) = quotes.pop() {
-                    factory.quotes.push(quote);
+                    factory.current_active_quotes.push(quote);
                   }
                 }
               }
@@ -1745,24 +1745,24 @@ fn on_up_redo(options: &Options, state: &mut State, config: &Config, factory: &F
   }
 }
 fn on_down_quote(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
-  log!("on_down_quote({}). quotes: {}", mouse_state.down_quote_visible_index, factory.quotes.len());
+  log!("on_down_quote({}). quotes: {}", mouse_state.down_quote_visible_index, factory.current_active_quotes.len());
 }
 fn on_up_quote(options: &Options, state: &State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState) {
-  log!("on_up_quote({}), quotes: {}, down on {:?} {}", mouse_state.up_quote_visible_index, factory.quotes.len(), mouse_state.down_zone, mouse_state.down_quote_visible_index);
+  log!("on_up_quote({}), quotes: {}, down on {:?} {}", mouse_state.up_quote_visible_index, factory.current_active_quotes.len(), mouse_state.down_zone, mouse_state.down_quote_visible_index);
 
   if options.dbg_clickable_quotes && mouse_state.down_quote && mouse_state.down_quote_visible_index == mouse_state.up_quote_visible_index {
     log!("  clicked on this quote (down=up). Completing it now...");
     let mut visible_index = 0;
     let quote_fade_time = QUOTE_FADE_TIME as f64 *options.speed_modifier_ui;
 
-    for quote_index in 0..factory.quotes.len() {
-      let add_progress = if factory.quotes[quote_index].added_at > 0 { ((factory.ticks - factory.quotes[quote_index].added_at) as f64 / quote_fade_time).max(0.0).min(1.0) } else { 1.0 };
-      let remove_progress = if factory.quotes[quote_index].completed_at > 0 { ((factory.ticks - factory.quotes[quote_index].completed_at) as f64 / quote_fade_time).max(0.0).min(1.0) } else { 0.0 };
+    for quote_index in 0..factory.current_active_quotes.len() {
+      let add_progress = if factory.current_active_quotes[quote_index].added_at > 0 { ((factory.ticks - factory.current_active_quotes[quote_index].added_at) as f64 / quote_fade_time).max(0.0).min(1.0) } else { 1.0 };
+      let remove_progress = if factory.current_active_quotes[quote_index].completed_at > 0 { ((factory.ticks - factory.current_active_quotes[quote_index].completed_at) as f64 / quote_fade_time).max(0.0).min(1.0) } else { 0.0 };
 
       if add_progress * (1.0 - remove_progress) > 0.0 {
         if visible_index == mouse_state.up_quote_visible_index {
           log!("  it is quote {}", quote_index);
-          factory.quotes[quote_index].current_count = factory.quotes[quote_index].target_count;
+          factory.current_active_quotes[quote_index].current_count = factory.current_active_quotes[quote_index].target_count;
           factory_finish_quote(options, factory, quote_index);
           return;
         }
@@ -4490,14 +4490,14 @@ fn paint_quotes(options: &Options, state: &State, config: &Config, context: &Rc<
   let mut visible_index = 0;
   let quote_fade_time = QUOTE_FADE_TIME as f64 * options.speed_modifier_ui;
 
-  for quote_index in 0..factory.quotes.len() {
-    let add_progress = if factory.quotes[quote_index].added_at > 0 {
-      let ticks = factory.ticks - factory.quotes[quote_index].added_at;
+  for quote_index in 0..factory.current_active_quotes.len() {
+    let add_progress = if factory.current_active_quotes[quote_index].added_at > 0 {
+      let ticks = factory.ticks - factory.current_active_quotes[quote_index].added_at;
       let relticks = (ticks) as f64 / options.speed_modifier_floor;
       (relticks / quote_fade_time).max(0.0).min(1.0)
     } else { 1.0 };
-    let remove_progress = if factory.quotes[quote_index].completed_at > 0 {
-      let ticks = factory.ticks - factory.quotes[quote_index].completed_at;
+    let remove_progress = if factory.current_active_quotes[quote_index].completed_at > 0 {
+      let ticks = factory.ticks - factory.current_active_quotes[quote_index].completed_at;
       let reltime = (ticks) as f64 / options.speed_modifier_floor;
       (reltime / quote_fade_time).max(0.0).min(1.0)
     } else { 0.0 };
@@ -4510,7 +4510,7 @@ fn paint_quotes(options: &Options, state: &State, config: &Config, context: &Rc<
       context.set_fill_style(&"grey".into()); // 100% background
       context.fill_rect(x, y, UI_QUOTE_WIDTH, partial_height);
       context.set_fill_style(&"lightgreen".into()); // progress green
-      context.fill_rect(x, y, UI_QUOTE_WIDTH * (factory.quotes[quote_index].current_count as f64 / factory.quotes[quote_index].target_count as f64).min(1.0), partial_height);
+      context.fill_rect(x, y, UI_QUOTE_WIDTH * (factory.current_active_quotes[quote_index].current_count as f64 / factory.current_active_quotes[quote_index].target_count as f64).min(1.0), partial_height);
       if options.dbg_clickable_quotes && mouse_state.over_quote && mouse_state.over_quote_visible_index == visible_index {
         context.set_stroke_style(&"red".into());
       } else {
@@ -4521,16 +4521,16 @@ fn paint_quotes(options: &Options, state: &State, config: &Config, context: &Rc<
       // Paint the icon(s), the required count, the progress
 
       assert!(
-        config.nodes[factory.quotes[quote_index].part_index].kind == ConfigNodeKind::Part,
+        config.nodes[factory.current_active_quotes[quote_index].part_index].kind == ConfigNodeKind::Part,
         "quote part index should refer to Part node but was {:?}... have index: {}, but it points to: {:?}",
-        config.nodes[factory.quotes[quote_index].part_index].kind,
-        factory.quotes[quote_index].part_index,
-        config.nodes[factory.quotes[quote_index].part_index]
+        config.nodes[factory.current_active_quotes[quote_index].part_index].kind,
+        factory.current_active_quotes[quote_index].part_index,
+        config.nodes[factory.current_active_quotes[quote_index].part_index]
       );
-      paint_segment_part_from_config(options, state, config, context, factory.quotes[quote_index].part_index, x + 4.0, y + 2.0, CELL_W, CELL_H);
+      paint_segment_part_from_config(options, state, config, context, factory.current_active_quotes[quote_index].part_index, x + 4.0, y + 2.0, CELL_W, CELL_H);
 
       context.set_fill_style(&"black".into());
-      context.fill_text(format!("{}/{}x", factory.quotes[quote_index].current_count, factory.quotes[quote_index].target_count).as_str(), x + CELL_W + 10.0, y + 23.0).expect("oopsie fill_text");
+      context.fill_text(format!("{}/{}x", factory.current_active_quotes[quote_index].current_count, factory.current_active_quotes[quote_index].target_count).as_str(), x + CELL_W + 10.0, y + 23.0).expect("oopsie fill_text");
 
       visible_index += 1;
     }
@@ -4546,14 +4546,14 @@ fn paint_undoredo(options: &Options, state: &State, config: &Config, context: &R
   let mut visible_index = 0;
   let quote_fade_time = QUOTE_FADE_TIME as f64 * options.speed_modifier_ui;
 
-  for quote_index in 0..factory.quotes.len() {
-    let add_progress = if factory.quotes[quote_index].added_at > 0 {
-      let ticks = factory.ticks - factory.quotes[quote_index].added_at;
+  for quote_index in 0..factory.current_active_quotes.len() {
+    let add_progress = if factory.current_active_quotes[quote_index].added_at > 0 {
+      let ticks = factory.ticks - factory.current_active_quotes[quote_index].added_at;
       let relticks = (ticks) as f64 / options.speed_modifier_floor;
       (relticks / quote_fade_time).max(0.0).min(1.0)
     } else { 1.0 };
-    let remove_progress = if factory.quotes[quote_index].completed_at > 0 {
-      let ticks = factory.ticks - factory.quotes[quote_index].completed_at;
+    let remove_progress = if factory.current_active_quotes[quote_index].completed_at > 0 {
+      let ticks = factory.ticks - factory.current_active_quotes[quote_index].completed_at;
       let reltime = (ticks) as f64 / options.speed_modifier_floor;
       (reltime / quote_fade_time).max(0.0).min(1.0)
     } else { 0.0 };
@@ -4566,7 +4566,7 @@ fn paint_undoredo(options: &Options, state: &State, config: &Config, context: &R
       context.set_fill_style(&"grey".into()); // 100% background
       context.fill_rect(x, y, UI_QUOTE_WIDTH, partial_height);
       context.set_fill_style(&"lightgreen".into()); // progress green
-      context.fill_rect(x, y, UI_QUOTE_WIDTH * (factory.quotes[quote_index].current_count as f64 / factory.quotes[quote_index].target_count as f64).min(1.0), partial_height);
+      context.fill_rect(x, y, UI_QUOTE_WIDTH * (factory.current_active_quotes[quote_index].current_count as f64 / factory.current_active_quotes[quote_index].target_count as f64).min(1.0), partial_height);
       if options.dbg_clickable_quotes && mouse_state.over_quote && mouse_state.over_quote_visible_index == visible_index {
         context.set_stroke_style(&"red".into());
       } else {
@@ -4577,16 +4577,16 @@ fn paint_undoredo(options: &Options, state: &State, config: &Config, context: &R
       // Paint the icon(s), the required count, the progress
 
       assert!(
-        config.nodes[factory.quotes[quote_index].part_index].kind == ConfigNodeKind::Part,
+        config.nodes[factory.current_active_quotes[quote_index].part_index].kind == ConfigNodeKind::Part,
         "quote part index should refer to Part node but was {:?}... have index: {}, but it points to: {:?}",
-        config.nodes[factory.quotes[quote_index].part_index].kind,
-        factory.quotes[quote_index].part_index,
-        config.nodes[factory.quotes[quote_index].part_index]
+        config.nodes[factory.current_active_quotes[quote_index].part_index].kind,
+        factory.current_active_quotes[quote_index].part_index,
+        config.nodes[factory.current_active_quotes[quote_index].part_index]
       );
-      paint_segment_part_from_config(options, state, config, context, factory.quotes[quote_index].part_index, x + 4.0, y + 2.0, CELL_W, CELL_H);
+      paint_segment_part_from_config(options, state, config, context, factory.current_active_quotes[quote_index].part_index, x + 4.0, y + 2.0, CELL_W, CELL_H);
 
       context.set_fill_style(&"black".into());
-      context.fill_text(format!("{}/{}x", factory.quotes[quote_index].current_count, factory.quotes[quote_index].target_count).as_str(), x + CELL_W + 10.0, y + 23.0).expect("oopsie fill_text");
+      context.fill_text(format!("{}/{}x", factory.current_active_quotes[quote_index].current_count, factory.current_active_quotes[quote_index].target_count).as_str(), x + CELL_W + 10.0, y + 23.0).expect("oopsie fill_text");
 
       visible_index += 1;
     }
