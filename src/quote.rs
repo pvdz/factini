@@ -30,23 +30,55 @@ pub struct Quote {
   pub debug_unlocks_after_by_name: Vec<String>,
 }
 
-pub fn quest_available(config: &Config, quest_index: usize) -> bool {
-  return config.nodes[quest_index]
-    .unlocks_after_by_index.iter()
-    .all(|&quest_index| {
-      return config.nodes[quest_index].current_state == ConfigNodeState::Finished;
-    });
-}
-
-pub fn quotes_get_available(config: &Config, ticks: u64) -> Vec<Quote> {
+pub fn quotes_get_available(config: &Config, ticks: u64, available_parts: &Vec<PartKind>) -> Vec<Quote> {
   // Find all config nodes that are available
+  // A quote is available when
+  // - the asked part is unlocked, and
+  // - the asked part of at least one of the quests it unlocks is still locked
   log!("quotes_get_available()");
+
   return config.quest_nodes.iter()
     .filter(|&&quest_index| {
-      let b = config.nodes[quest_index].current_state == ConfigNodeState::Available || (config.nodes[quest_index].current_state == ConfigNodeState::Waiting && quest_available(config, quest_index));
-      log!("- finished? {}: {}, state = {:?}", config.nodes[quest_index].name, b, config.nodes[quest_index].current_state);
-      // Keep quests which have finished, where all parent unlocks have unlocked
-      return b;
+      let quest = &config.nodes[quest_index];
+      log!("is quest {} available? check if {:?} is unlocked (-> {}) and {:?} has no child-quests ({}) or not completely unlocked (-> {:?}): available_parts: {:?}",
+        quest.raw_name,
+        // quest.production_target_by_index,
+        // quest.production_target_by_index.iter().map(|(_c, index)| *index).collect::<Vec<usize>>(),
+        quest.production_target_by_index.iter().map(|(_c, index)| config.nodes[*index].raw_name.clone()).collect::<Vec<String>>(),
+        quest.production_target_by_index.iter().all(|(_count, node_index)| available_parts.contains(node_index)),
+        // quest.required_by_quest_indexes,
+        quest.required_by_quest_indexes.iter().map(|index| config.nodes[*index].raw_name.clone()).collect::<Vec<String>>(),
+        quest.required_by_quest_indexes.len() == 0,
+        quest.required_by_quest_indexes.iter().map(|&index| {
+          config.nodes[index].production_target_by_index.iter().all(|(_count, node_index)| available_parts.contains(node_index))
+        }).collect::<Vec<bool>>(),
+        // available_parts
+        available_parts.iter().map(|index| config.nodes[*index].raw_name.clone()).collect::<Vec<String>>()
+      );
+
+      // Have you already unlocked this goal part? If not then you can't even unlock this quest.
+      if !quest.production_target_by_index.iter().all(|(_count, node_index)| available_parts.contains(node_index)) {
+        return false;
+      }
+
+      if quest.required_by_quest_indexes.len() == 0 {
+        // End goals should always be available as long as their goal part is unlocked?
+        // TODO: This should perhaps be special cased...
+        return true;
+      }
+
+      // Go through each quest that depends on this quest
+      // For each goal part of those quests, confirm whether they are available
+      // If any of those parts is not available then we enable this quest. Otherwise it must be finished already and we sleep.
+      if quest.required_by_quest_indexes.iter().all(|&index| {
+        config.nodes[index].production_target_by_index.iter().all(|(_count, node_index)| available_parts.contains(node_index))
+      }) {
+        return false;
+      }
+
+      // The goals of this quest are all available parts and at least one part the quests that
+      // depend on this quest are not yet unlocked, so we open this quest for completion.
+      return true;
     })
     .flat_map(|&quest_index| {
       log!("- generating quotes for {}: wants {:?} ({:?})", config.nodes[quest_index].name, config.nodes[quest_index].production_target_by_name, config.nodes[quest_index].production_target_by_index);

@@ -313,14 +313,18 @@ pub struct ConfigNode {
   pub name: String,
   pub raw_name: String,
 
-  // Quest
+  // deprecated:
   pub unlocks_after_by_name: Vec<String>, // Fully qualified name. Becomes available when these quests are finished.
   pub unlocks_after_by_index: Vec<usize>, // Becomes available when these quests are finished
   pub unlocks_todo_by_index: Vec<usize>, // Which quests still need to be unlocked before this one unlocks?
+
+  // Quest
+  // A quest becomes available as soon as all of its starting parts are available.
   pub starting_part_by_name: Vec<String>, // Fully qualified name. These parts are available when this quest becomes available
   pub starting_part_by_index: Vec<usize>, // These parts are available when this quest becomes available
   pub production_target_by_name: Vec<(u32, String)>, // Fully qualified name. count,name pairs, you need this to finish the quest
   pub production_target_by_index: Vec<(u32, usize)>, // count,index pairs, you need this to finish the quest
+  pub required_by_quest_indexes: Vec<usize>, // List of quests that depend on this quest before becoming available. Computed after parsing config.
 
   // Part
   pub pattern_by_index: Vec<PartKind>, // Machine pattern that generates this part (part_index)
@@ -458,6 +462,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
             starting_part_by_index: vec!(),
             production_target_by_name: vec!(),
             production_target_by_index: vec!(),
+            required_by_quest_indexes: vec!(),
             pattern_by_index: vec!(),
             pattern_by_name: vec!(),
             pattern_by_icon: vec!(),
@@ -865,6 +870,16 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
       }
     }
   });
+
+  quest_nodes.iter().for_each(|&index| {
+    // For all quests go through list of dependency quests and tag them as being their "unlock parent"
+    let mut found = vec!(); // Work around chicken egg problem -> mutability of nodes
+    nodes[index].unlocks_after_by_index.iter().for_each(|pindex| found.push(*pindex));
+    found.iter().for_each(|pindex| nodes[*pindex].required_by_quest_indexes.push(index));
+  });
+  // quest_nodes.iter().for_each(|&index| {
+  //   log!("quest {} depends on {:?}", nodes[index].raw_name.clone(), nodes[index].required_by_quest_indexes.iter().map(|pindex| nodes[*pindex].raw_name.clone()).collect::<Vec<String>>());
+  // });
 
   let mut parts = 0;
   let mut quests = 0;
@@ -1482,6 +1497,7 @@ fn config_node_part(index: PartKind, name: String, icon: char) -> ConfigNode {
     starting_part_by_index: vec!(),
     production_target_by_name: vec!(),
     production_target_by_index: vec!(),
+    required_by_quest_indexes: vec!(),
     pattern_by_index: vec!(),
     pattern_by_name: vec!(),
     pattern_by_icon: vec!(),
@@ -1527,6 +1543,7 @@ fn config_node_supply(index: PartKind, name: String) -> ConfigNode {
     pattern_unique_kinds: vec!(),
     production_target_by_name: vec!(),
     production_target_by_index: vec!(),
+    required_by_quest_indexes: vec!(),
     pattern_by_index: vec!(),
     pattern_by_name: vec!(),
     pattern_by_icon: vec!(),
@@ -1571,6 +1588,7 @@ fn config_node_demand(index: PartKind, name: String) -> ConfigNode {
     pattern_unique_kinds: vec!(),
     production_target_by_name: vec!(),
     production_target_by_index: vec!(),
+    required_by_quest_indexes: vec!(),
     pattern_by_index: vec!(),
     pattern_by_name: vec!(),
     pattern_by_icon: vec!(),
@@ -1615,6 +1633,7 @@ fn config_node_dock(index: PartKind, name: String) -> ConfigNode {
     pattern_unique_kinds: vec!(),
     production_target_by_name: vec!(),
     production_target_by_index: vec!(),
+    required_by_quest_indexes: vec!(),
     pattern_by_index: vec!(),
     pattern_by_name: vec!(),
     pattern_by_icon: vec!(),
@@ -1659,6 +1678,7 @@ fn config_node_machine(index: PartKind, name: &str, file: &str) -> ConfigNode {
     pattern_unique_kinds: vec!(),
     production_target_by_name: vec!(),
     production_target_by_index: vec!(),
+    required_by_quest_indexes: vec!(),
     pattern_by_index: vec!(),
     pattern_by_name: vec!(),
     pattern_by_icon: vec!(),
@@ -1706,6 +1726,7 @@ fn config_node_belt(index: PartKind, name: &str) -> ConfigNode {
     pattern_unique_kinds: vec!(),
     production_target_by_name: vec!(),
     production_target_by_index: vec!(),
+    required_by_quest_indexes: vec!(),
     pattern_by_index: vec!(),
     pattern_by_name: vec!(),
     pattern_by_icon: vec!(),

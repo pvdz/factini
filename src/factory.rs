@@ -56,13 +56,14 @@ pub struct Factory {
 
 pub fn create_factory(options: &mut Options, state: &mut State, config: &Config, floor_str: String) -> Factory {
   let ( floor, unlocked_part_icons ) = floor_from_str(options, state, config, floor_str);
-  let available_parts_rhs_menu = unlocked_part_icons.iter().map(|icon| (part_icon_to_kind(config,*icon), true)).collect();
+  let available_parts: Vec<PartKind> = unlocked_part_icons.iter().map(|icon| part_icon_to_kind(config,*icon)).collect();
+  let available_parts_rhs_menu: Vec<(PartKind, bool)> = available_parts.iter().map(|kind| ( *kind, true )).collect();
   log!("initial available_parts_rhs_menu (3): {:?}", available_parts_rhs_menu);
   let mut factory = Factory {
     ticks: 0,
     floor,
     prio: vec!(),
-    current_active_quotes: quotes_get_available(config, 0),
+    current_active_quotes: quotes_get_available(config, 0, &available_parts),
     available_parts_rhs_menu,
     changed: true,
     last_day_start: 0,
@@ -222,8 +223,12 @@ pub fn factory_load_map(options: &mut Options, state: &mut State, config: &Confi
   log!("available quotes: {:?}", factory.current_active_quotes);
   log!("available_parts_rhs_menu (1): {:?}", factory.available_parts_rhs_menu);
   factory.floor = floor;
-  factory.available_parts_rhs_menu = unlocked_part_icons.iter().map(|icon| (part_icon_to_kind(config,*icon), true)).collect();
+  let available_parts: Vec<PartKind> = unlocked_part_icons.iter().map(|icon| part_icon_to_kind(config,*icon)).collect();
+  let available_parts_rhs_menu = available_parts.iter().map(|kind| (*kind, true)).collect();
+  factory.available_parts_rhs_menu = available_parts_rhs_menu;
   log!("available_parts_rhs_menu (2): {:?}", factory.available_parts_rhs_menu);
+  factory.current_active_quotes = quotes_get_available(config, factory.ticks, &available_parts);
+  log!("new current_active_quotes: {:?}", factory.current_active_quotes);
   auto_layout(options, state, config, factory);
   auto_ins_outs(options, state, config, factory);
   // TODO: I think we can move this (and other steps) to the factory.changed steps but there's some time between this place and the changed place

@@ -114,7 +114,18 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
   log!("str_to_floor2(options.trace_map_parsing={}):\n{}", options.trace_map_parsing, str);
 
   let mut floor: [Cell; FLOOR_CELLS_WH] = floor_empty(config);
+  // Populate the unlocked icons by at least the ones that unlock by default
   let mut unlocked_part_icons: Vec<char> = vec!();
+  config.nodes.iter().filter(|node| node.unlocks_after_by_index.len() == 0).for_each(|node| {
+    node.starting_part_by_index.iter().for_each(|index| {
+      let icon = config.nodes[*index].icon;
+      if !unlocked_part_icons.contains(&icon) { unlocked_part_icons.push(icon); }
+    });
+    node.production_target_by_index.iter().for_each(|(_count, index)| {
+      let icon = config.nodes[*index].icon;
+      if !unlocked_part_icons.contains(&icon) { unlocked_part_icons.push(icon); }
+    });
+  });
 
   let hash: &char = &'#';
   let space: &u8 = &32u8;
@@ -673,7 +684,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
                 if c == '#' { break; }
                 if c != ' ' {
                   if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c as u8 > 127) { panic!("Unexpected input on line {} while parsing available parts ($): input characters must be a-zA-Z or non-ascii, found `{}` ({})", line_no, c, c as u8); }
-                  unlocked_part_icons.push(c);
+                  if !unlocked_part_icons.contains(&c) { unlocked_part_icons.push(c); }
                 }
               }
             }

@@ -550,11 +550,11 @@ Char is the Greek letter xi (upper)
 # Quest_GoldCoin
 - after: Quest_SilverCoins
 - parts: Part_GoldCoin Part_GoldDust
-- targets: 10x Part_GoldCoins
+- targets: 10x Part_GoldCoin
 
 # Quest_GoldCoins
 - after: Quest_GoldCoin
-- parts: Part_GoldCoins Part_GoldDust
+- parts: Part_GoldCoins
 - targets: 10x Part_GoldCoins
 
 # Quest_Gift

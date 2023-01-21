@@ -675,6 +675,8 @@ pub fn start() -> Result<(), JsValue> {
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
     *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
+      // This is the raF frame callback:
+
       let real_world_ms_at_start_of_curr_frame: f64 = perf.now();
       let real_world_ms_since_start_of_prev_frame: f64 = real_world_ms_at_start_of_curr_frame - real_world_ms_at_start_of_prev_frame;
       real_world_ms_at_start_of_prev_frame = real_world_ms_at_start_of_curr_frame;
@@ -1790,9 +1792,9 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
       3 => (1.0, 1.0),
       _ => panic!("no such button: {}", mouse_state.up_save_map_index),
     };
-    let close = hit_test_save_map_right(mouse_state.world_x, mouse_state.world_y, row, col);
+    let button_x = hit_test_save_map_right(mouse_state.world_x, mouse_state.world_y, row, col);
 
-    if close {
+    if button_x {
       log!("  deleting saved map");
       saves[mouse_state.up_save_map_index] = None;
       let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
@@ -1805,7 +1807,6 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
       state.snapshot_stack[state.snapshot_pointer % UNDO_STACK_SIZE] = map_string.clone();
       state.load_snapshot_next_frame = true;
     }
-
   } else {
     log!("  storing saved map");
     let document = document();
