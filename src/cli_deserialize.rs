@@ -21,7 +21,7 @@ use super::supply::*;
 use super::utils::*;
 use super::log;
 
-pub fn floor_from_str(options: &mut Options, state: &mut State, config: &Config, str: String) -> ( [Cell; FLOOR_CELLS_WH], Vec<char> ) {
+pub fn floor_from_str(options: &mut Options, state: &mut State, config: &Config, str: &String) -> ( [Cell; FLOOR_CELLS_WH], Vec<char> ) {
   if str.trim().len() == 0 {
     return (floor_empty(config), vec!());
   }
@@ -29,7 +29,7 @@ pub fn floor_from_str(options: &mut Options, state: &mut State, config: &Config,
   return str_to_floor2(options, state, config, str);
 }
 
-fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str: String) -> ([Cell; FLOOR_CELLS_WH], Vec<char>) {
+fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str: &String) -> ([Cell; FLOOR_CELLS_WH], Vec<char>) {
   // Given a string in a grid format, generate a floor
   // The string starts with at least one line of config.
   // - For now the only modifier are the dimension of the hardcoded 11x11

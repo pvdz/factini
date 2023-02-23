@@ -79,14 +79,18 @@ pub struct Options {
   pub dropzone_bounce_speed: u64, // The rgb color value will "bounce" up and down
   pub dropzone_bounce_distance: u64, // Range that the color bounces
 
-  pub bouncer_gravity: f64,
-  pub bouncer_initial_speed: f64,
-  pub bouncer_friction: f64,
-  pub bouncer_speed_limit: f64,
-  pub bouncer_bounce: f64,
-  pub bouncer_trail_time: f64, // Relative to one real world second, subject to be modified by ui speed
-  pub bouncer_fade_time: f64, // Relative to one real world second, subject to be modified by ui speed
+  pub bouncer_time_to_factory: f64,
+  pub bouncer_decay_rate: f64, // Modifies the bounce trail.
+  pub bouncer_initial_angle: f64,
+  pub bouncer_angular_freq: f64,
+  pub bouncer_trail_time: f64, // How long does a ghost stay 100% opaque before starting to fade? Relative to one real world second, subject to be modified by ui speed
+  pub bouncer_fade_time: f64, // How long does it take for a ghost to fade out? Relative to one real world second, subject to be modified by ui speed
   pub bouncer_stamp_interval: u64,
+  pub bouncer_cut_after: f64,
+  pub bouncer_distance: f64,
+
+  // obsolete
+  pub bouncer_decay_speed: f64,
 
   pub web_output_cli: bool, // Print the simplified cli output in web version?
 
@@ -95,7 +99,8 @@ pub struct Options {
   pub dbg_trash_is_joker: bool, // Trash serves as joker item for machines?
   pub db_joker_corrupts_factory: bool, // Show visual change when corrupting the factory
   pub dbg_machine_produce_trash: bool, // If a machine trashes a part and expects no inputs, should it output trash instead of discarding it?
-  pub dbg_clickable_quotes: bool,
+  pub dbg_clickable_quests: bool,
+  pub dbg_print_quest_states: bool,
 
   pub default_demand_speed: u64,
   pub default_demand_cooldown: u64,
@@ -150,20 +155,23 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     dropzone_color_offset: 75,
     dropzone_bounce_speed: 10,
     dropzone_bounce_distance: 150,
-    bouncer_gravity: 0.8,
-    bouncer_initial_speed: 2.0,
-    bouncer_friction: 0.987,
-    bouncer_speed_limit: 0.1,
+    bouncer_decay_rate: 3.0,
+    bouncer_initial_angle: 45.0,
+    bouncer_angular_freq: 6.28,
+    bouncer_time_to_factory: 10.0,
     bouncer_trail_time: 2.0,
     bouncer_fade_time: 2.0,
     bouncer_stamp_interval: 20,
-    bouncer_bounce: 0.8,
+    bouncer_cut_after: 1200.0,
+    bouncer_distance: 650.0,
+    bouncer_decay_speed: 1.2,
     web_output_cli: false,
     initial_event_type_swapped: false,
     dbg_trash_is_joker: true,
     db_joker_corrupts_factory: true,
     dbg_machine_produce_trash: true,
-    dbg_clickable_quotes: true,
+    dbg_clickable_quests: true,
+    dbg_print_quest_states: false,
     default_demand_speed: 1000,
     default_demand_cooldown: 500,
     test: 0,
@@ -307,16 +315,18 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "ui_section_border_color" => options.ui_section_border_color = parse_string(value.to_string(), name, strict, options.ui_section_border_color.clone()),
             "short_term_window" => options.short_term_window = parse_u64(value, name, strict, options.short_term_window),
             "long_term_window" => options.long_term_window = parse_u64(value, name, strict, options.long_term_window),
-            "bouncer_gravity" => options.bouncer_gravity = parse_f64(value, name, strict, options.bouncer_gravity),
-            "bouncer_initial_speed" => options.bouncer_initial_speed = parse_f64(value, name, strict, options.bouncer_initial_speed),
-            "bouncer_friction" => options.bouncer_friction = parse_f64(value, name, strict, options.bouncer_friction),
-            "bouncer_speed_limit" => options.bouncer_speed_limit = parse_f64(value, name, strict, options.bouncer_speed_limit),
-            "bouncer_bounce" => options.bouncer_bounce = parse_f64(value, name, strict, options.bouncer_bounce),
+            "bouncer_decay_rate" => options.bouncer_decay_rate = parse_f64(value, name, strict, options.bouncer_decay_rate),
+            "bouncer_initial_angle" => options.bouncer_initial_angle = parse_f64(value, name, strict, options.bouncer_initial_angle),
+            "bouncer_angular_freq" => options.bouncer_angular_freq = parse_f64(value, name, strict, options.bouncer_angular_freq),
+            "bouncer_time_to_factory" => options.bouncer_time_to_factory = parse_f64(value, name, strict, options.bouncer_time_to_factory),
+            "bouncer_decay_speed" => options.bouncer_decay_speed = parse_f64(value, name, strict, options.bouncer_decay_speed),
             "speed_modifier_floor" => options.speed_modifier_floor = parse_f64(value, name, strict, options.speed_modifier_floor),
             "speed_modifier_ui" => options.speed_modifier_ui = parse_f64(value, name, strict, options.speed_modifier_ui),
             "bouncer_trail_time" => options.bouncer_trail_time = parse_f64(value, name, strict, options.bouncer_trail_time),
             "bouncer_fade_time" => options.bouncer_fade_time = parse_f64(value, name, strict, options.bouncer_fade_time),
             "bouncer_stamp_interval" => options.bouncer_stamp_interval = parse_u64(value, name, strict, options.bouncer_stamp_interval),
+            "bouncer_cut_after" => options.bouncer_cut_after = parse_f64(value, name, strict, options.bouncer_cut_after),
+            "bouncer_distance" => options.bouncer_distance = parse_f64(value, name, strict, options.bouncer_distance),
             "touch_drag_compensation" => options.touch_drag_compensation = parse_bool(value, name, strict, options.touch_drag_compensation),
             "game_enable_clean_days" => options.game_enable_clean_days = parse_bool(value, name, strict, options.game_enable_clean_days),
             "game_auto_reset_day" => options.game_auto_reset_day = parse_bool(value, name, strict, options.game_auto_reset_day),
@@ -328,7 +338,8 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "dbg_trash_is_joker" => options.dbg_trash_is_joker = parse_bool(value, name, strict, options.dbg_trash_is_joker),
             "db_joker_corrupts_factory" => options.db_joker_corrupts_factory = parse_bool(value, name, strict, options.db_joker_corrupts_factory),
             "dbg_machine_produce_trash" => options.dbg_machine_produce_trash = parse_bool(value, name, strict, options.dbg_machine_produce_trash),
-            "dbg_clickable_quotes" => options.dbg_clickable_quotes = parse_bool(value, name, strict, options.dbg_clickable_quotes),
+            "dbg_clickable_quotes" => options.dbg_clickable_quests = parse_bool(value, name, strict, options.dbg_clickable_quests),
+            "dbg_print_quest_states" => options.dbg_print_quest_states = parse_bool(value, name, strict, options.dbg_print_quest_states),
             "default_demand_speed" => options.default_demand_speed = parse_u64(value, name, strict, options.default_demand_speed),
             "default_demand_cooldown" => options.default_demand_cooldown = parse_u64(value, name, strict, options.default_demand_cooldown),
             "test" => options.test = parse_u64(value, name, strict, options.test),
@@ -391,11 +402,11 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- dropzone_color_offset: {}", options.dropzone_color_offset));
   arr.push(format!("- dropzone_bounce_speed: {}", options.dropzone_bounce_speed));
   arr.push(format!("- dropzone_bounce_distance: {}", options.dropzone_bounce_distance));
-  arr.push(format!("- bouncer_gravity: {}", options.bouncer_gravity));
-  arr.push(format!("- bouncer_initial_speed: {}", options.bouncer_initial_speed));
-  arr.push(format!("- bouncer_friction: {}", options.bouncer_friction));
-  arr.push(format!("- bouncer_speed_limit: {}", options.bouncer_speed_limit));
-  arr.push(format!("- bouncer_bounce: {}", options.bouncer_bounce));
+  arr.push(format!("- bouncer_decay_rate: {}", options.bouncer_decay_rate));
+  arr.push(format!("- bouncer_initial_angle: {}", options.bouncer_initial_angle));
+  arr.push(format!("- bouncer_angular_freq: {}", options.bouncer_angular_freq));
+  arr.push(format!("- bouncer_time_to_factory: {}", options.bouncer_time_to_factory));
+  arr.push(format!("- bouncer_decay_speed: {}", options.bouncer_decay_speed));
   arr.push(format!("- bouncer_trail_time: {}", options.bouncer_trail_time));
   arr.push(format!("- bouncer_fade_time: {}", options.bouncer_fade_time));
   arr.push(format!("- bouncer_stamp_interval: {}", options.bouncer_stamp_interval));
@@ -404,7 +415,8 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- dbg_trash_is_joker: {}", options.dbg_trash_is_joker));
   arr.push(format!("- db_joker_corrupts_factory: {}", options.db_joker_corrupts_factory));
   arr.push(format!("- dbg_machine_produce_trash: {}", options.dbg_machine_produce_trash));
-  arr.push(format!("- dbg_clickable_quotes: {}", options.dbg_clickable_quotes));
+  arr.push(format!("- dbg_clickable_quotes: {}", options.dbg_clickable_quests));
+  arr.push(format!("- dbg_print_quest_states: {}", options.dbg_print_quest_states));
   arr.push(format!("- default_demand_speed: {}", options.default_demand_speed));
   arr.push(format!("- default_demand_cooldown: {}", options.default_demand_cooldown));
   arr.push(format!("- test: {}", options.test));

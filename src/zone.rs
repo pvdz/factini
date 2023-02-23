@@ -44,12 +44,13 @@ pub const UI_FLOOR_HEIGHT: f64 = FLOOR_HEIGHT;
 pub const UI_QUOTES_OFFSET_X: f64 = GRID_X0;
 pub const UI_QUOTES_OFFSET_Y: f64 = GRID_Y1;
 pub const UI_QUOTES_WIDTH: f64 = GRID_LEFT_WIDTH;
-pub const UI_QUOTES_HEIGHT: f64 = FLOOR_HEIGHT; // TODO: include footer space? or ..
+pub const UI_QUOTES_HEIGHT: f64 = FLOOR_HEIGHT;
 pub const UI_QUOTE_X: f64 = 15.0;
 pub const UI_QUOTE_Y: f64 = 0.0;
-pub const UI_QUOTE_WIDTH: f64 = GRID_LEFT_WIDTH - (2.0 * UI_QUOTE_X);
-pub const UI_QUOTE_HEIGHT: f64 = CELL_H + 4.0;
-pub const UI_QUOTE_MARGIN: f64 = 5.0;
+pub const UI_QUEST_WIDTH: f64 = GRID_LEFT_WIDTH - (2.0 * UI_QUOTE_X);
+pub const UI_QUEST_HEIGHT: f64 = CELL_H + 4.0;
+pub const UI_QUEST_MARGIN: f64 = 5.0;
+pub const QUEST_FADE_TIME: u64 = 4 * ONE_SECOND;
 
 // Undo, redo, clear, and sample buttons
 pub const UI_UNREDO_OFFSET_X: f64 = GRID_X0 + 5.0;
@@ -273,4 +274,12 @@ pub fn hit_test_circle(x: f64, y: f64, cx: f64, cy: f64, r: f64) -> bool {
   // point is smaller than the radius. The formula is relatively simple: (x1-x2)^2+(y1-y2)^2<=r^2
   // https://www.xarg.org/book/computer-graphics/2d-hittest/
   return (cx-x).powf(2.0) + (cy-y).powf(2.0) <= r.powf(2.0);
+}
+
+pub fn get_quest_xy(visible_index: usize, delta: f64) -> (f64, f64 ) {
+  // TODO: take io into account when it is not in sync with index
+  let x = UI_QUOTES_OFFSET_X + UI_QUOTE_X;
+  let y = UI_QUOTES_OFFSET_Y + delta + (visible_index as f64 * (UI_QUEST_HEIGHT + UI_QUEST_MARGIN));
+
+  return ( x, y );
 }

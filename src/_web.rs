@@ -77,6 +77,7 @@ use super::paste::*;
 use super::port::*;
 use super::port_auto::*;
 use super::prio::*;
+use super::quest_state::*;
 use super::quote::*;
 use super::state::*;
 use super::truck::*;
@@ -102,8 +103,6 @@ const COLOR_DEMAND_SEMI: &str = "#00aa0055";
 const COLOR_MACHINE: &str = "lightyellow";
 const COLOR_MACHINE_SEMI: &str = "#aaaa0099";
 
-const QUOTE_FADE_TIME: u64 = 4 * ONE_SECOND;
-
 // Exports from web (on a non-module context, define a global "log" and "dnow" function)
 // Not sure how this works in threads. Probably the same. TBD.
 // I think all natives are exposed in js_sys or web_sys somehow so not sure we need this at all.
@@ -112,7 +111,7 @@ extern {
   pub fn getGameConfig() -> String; // GAME_CONFIG
   pub fn getGameMap() -> String; // GAME_MAP
   pub fn getGameOptions() -> String; // GAME_OPTIONS
-  pub fn setGameOptions(str: JsValue); // GAME_OPTIONS
+  pub fn setGameOptions(str: JsValue, on_load: JsValue); // GAME_OPTIONS
   pub fn getExamples() -> js_sys::Array; // GAME_EXAMPLES, array of string
   pub fn getAction() -> String; // queuedAction, polled every frame
   pub fn receiveConfigNode(name: JsValue, node: JsValue);
@@ -240,6 +239,7 @@ pub fn start() -> Result<(), JsValue> {
   let img_lmb: web_sys::HtmlImageElement = load_tile("./img/lmb.png")?;
   let img_rmb: web_sys::HtmlImageElement = load_tile("./img/rmb.png")?;
   let img_save: web_sys::HtmlImageElement = load_tile("./img/save.png")?;
+  let img_quest_frame: web_sys::HtmlImageElement = load_tile("./img/quest_frame.png")?;
 
   // https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/createPattern
   // https://rustwasm.github.io/wasm-bindgen/api/web_sys/struct.CanvasRenderingContext2d.html#method.create_pattern_with_html_image_element
@@ -505,7 +505,7 @@ pub fn start() -> Result<(), JsValue> {
   };
   let options_started_from_source = if options_started_from_source { 0 } else { option_string.len() as u64 };
   options.initial_map_from_source = initial_map_from_source;
-  parse_and_save_options_string(option_string, &mut options, true, options_started_from_source);
+  parse_and_save_options_string(option_string, &mut options, true, options_started_from_source, true);
   state.event_type_swapped = options.initial_event_type_swapped;
   state_add_examples(getExamples(), &mut state);
 
@@ -577,12 +577,12 @@ pub fn start() -> Result<(), JsValue> {
       down_floor_area: false,
       down_floor_not_corner: false,
 
-      over_quote: false,
-      over_quote_visible_index: 0, // Only if over_quote
-      down_quote: false,
-      down_quote_visible_index: 0, // Only if down_quote
+      over_quest: false,
+      over_quest_visible_index: 0, // Only if over_quote
+      down_quest: false,
+      down_quest_visible_index: 0, // Only if down_quest
       up_quote: false,
-      up_quote_visible_index: 0, // Only if up_quote
+      up_quest_visible_index: 0, // Only if up_quote
 
       over_menu_button: MenuButton::None,
       down_menu_button: MenuButton::None,
@@ -730,119 +730,9 @@ pub fn start() -> Result<(), JsValue> {
         factory_load_map(&mut options, &mut state, &config, &mut factory, map);
       }
 
-      if !state.paused {
+      if !state.paused  {
         for _ in 0..ticks_todo.min(MAX_TICKS_PER_FRAME) {
           tick_factory(&mut options, &mut state, &config, &mut factory);
-
-          // Create bouncers for finished quotes
-          if factory.finished_quotes.len() > 0 {
-            loop {
-              let quote_index = factory.finished_quotes.pop();
-              if let Some(quote_index) = quote_index {
-                // - get the quote and icon to paint
-                // - get the location to start painting
-                let completed_part_index = factory.current_active_quotes[quote_index].part_index;
-                let icon = config.nodes[completed_part_index].icon; // TODO: multiple parts
-                let ( x, y ) = get_quote_xy(quote_index, (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) * quote_index as f64); // Height is incorrect if a quote is fading but that's acceptable
-
-                factory.bouncers.push_back(bouncer_create(x, y, GRID_Y2 + 20.0, factory.current_active_quotes[quote_index].quest_index, completed_part_index, options.bouncer_initial_speed, factory.ticks, 0));
-
-                // From this point onward the Quote will fade out and then reduce its height till zero
-                factory.current_active_quotes[quote_index].completed_at = factory.ticks;
-              } else {
-                break;
-              }
-            }
-          }
-
-          for b in 0..factory.bouncers.len() {
-            let bouncer_progress = bouncer_step(&options, &mut factory, b);
-
-            let f_one_second = ONE_SECOND as f64;
-            let trail_time = options.bouncer_trail_time;
-            let fade_time = options.bouncer_fade_time;
-
-            // Drop expired quote bouncer frames (the ghosts that form the trail)
-            while factory.bouncers[b].frames.len() > 0 {
-              let frame_age = factory.ticks as f64 - factory.bouncers[b].frames[0].2 as f64;
-              if (frame_age / options.speed_modifier_floor) > (f_one_second * (trail_time + fade_time)) {
-                factory.bouncers[b].frames.pop_front();
-              } else {
-                break;
-              }
-            }
-
-            // If completely faded. Start dump truck with resources that were unlocked by quests
-            // that were unlocked by finishing this one.
-            if factory.bouncers[b].frames.len() == 0 {
-              // - Find out which quests were unlocked by finishing this one
-              // - Find out which parts are newly available by unlocking that quest
-              // - Create a dump truck with those parts
-              // - Start them with some delay from each other
-              let finished_quest_index = factory.bouncers[b].quest_index;
-              let mut new_quests: Vec<usize> = vec!();
-              let mut new_parts: Vec<PartKind> = vec!();
-
-              for index in 0..config.nodes.len() {
-                if config.nodes[index].kind == ConfigNodeKind::Quest && config.nodes[index].current_state == ConfigNodeState::Waiting {
-                  let pos = config.nodes[index].unlocks_todo_by_index.binary_search(&finished_quest_index);
-                  if let Ok(unlock_index) = pos {
-                    config.nodes[index].unlocks_todo_by_index.remove(unlock_index);
-                    if config.nodes[index].unlocks_todo_by_index.len() == 0 {
-                      config.nodes[index].current_state = ConfigNodeState::LFG;
-                      new_quests.push(config.nodes[index].index);
-                      config.nodes[index].current_state = ConfigNodeState::Available;
-                      for i in 0..config.nodes[index].starting_part_by_index.len() {
-                        let part = config.nodes[index].starting_part_by_index[i];
-                        // Confirm the part isn't already unlocked before starting the process to unlock it
-                        if !factory.available_parts_rhs_menu.iter().any(|p| part == p.0 as usize) {
-                          new_parts.push(config.nodes[index].starting_part_by_index[i]);
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-
-              // We now have a set of available quests and any starting parts that they enabled.
-              // Let's create quotes and trucks for them and add them to the lists.
-              new_parts.iter().enumerate().for_each(|(index, &part_index)| {
-                log!("Adding truck {} for {}", index, part_index);
-                factory.trucks.push(truck_create(
-                  factory.ticks,
-                  (((index + 1) as f64 * ONE_SECOND as f64) * options.speed_modifier_floor) as u64,
-                  part_index,
-                  factory.available_parts_rhs_menu.len(),
-                ));
-                // Add the part as a placeholder. Do not paint it yet. The truck will drive there first.
-                factory.available_parts_rhs_menu.push( ( part_index , false ) );
-              });
-
-              while new_quests.len() > 0 {
-                if let Some(quest_index) = new_quests.pop() {
-                  let mut quotes = quote_create(&config, quest_index, factory.ticks);
-                  if let Some(quote) = quotes.pop() {
-                    factory.current_active_quotes.push(quote);
-                  }
-                }
-              }
-
-              // TODO: remove ended bouncers. not sure what the right approach is in rust. tbd
-            }
-          }
-
-          if !options.web_output_cli {
-            for t in 0..factory.trucks.len() {
-              // TODO: fix this hack
-              if factory.trucks[t].delay > 0 {
-                factory.trucks[t].delay -= 1;
-                if factory.trucks[t].delay == 0 {
-                  log!("Okay! truck {} is now ready to go!", t);
-                  factory.trucks[t].created_at = factory.ticks;
-                }
-              }
-            }
-          }
         }
       }
 
@@ -850,7 +740,7 @@ pub fn start() -> Result<(), JsValue> {
       if queued_action != "" { log!("getAction() had `{}`", queued_action); }
       let options_started_from_source = options.options_started_from_source; // Don't change this value here.
       match queued_action.as_str() {
-        "apply_options" => parse_and_save_options_string(getGameOptions(), &mut options, false, options_started_from_source ),
+        "apply_options" => parse_and_save_options_string(getGameOptions(), &mut options, false, options_started_from_source, false),
         "load_map" => state.reset_next_frame = true, // implicitly will call getGameMap() which loads the map from UI indirectly
         "load_config" => config = load_config(options.print_fmd_trace, getGameConfig()), // Might crash the game
         "" => {},
@@ -924,7 +814,7 @@ pub fn start() -> Result<(), JsValue> {
 
           // This works but it's not nice. Maybe it should be an option :shrug:
           if options.game_auto_reset_day {
-            day_reset(&mut options, &mut state, &mut config, &mut factory);
+            day_reset(&mut options, &mut state, &config, &mut factory);
           }
         }
 
@@ -955,7 +845,7 @@ pub fn start() -> Result<(), JsValue> {
         // paint_top_stats(&context, &mut factory);
         paint_corner_help_icon(&options, &state, &mut factory, &context, if mouse_state.help_hover { &img_help_red } else { &img_help_black});
         paint_top_bars(&options, &state, &mut factory, &context, &mouse_state);
-        paint_quotes(&options, &state, &config, &context, &factory, &mouse_state);
+        paint_quests(&options, &state, &config, &context, &factory, &mouse_state, &img_quest_frame);
         paint_ui_offers(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
         paint_lasers(&options, &mut state, &config, &context);
         paint_trucks(&options, &state, &config, &context, &mut factory, &img_dumptruck);
@@ -984,7 +874,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_mouse_cursor(&context, &mouse_state);
 
         // In front of all game stuff
-        paint_bouncers(&options, &state, &mut config, &context, &mut factory);
+        paint_bouncers(&options, &state, &config, &context, &mut factory);
         // When dragging make sure that stays on top of bouncers
         paint_mouse_action(&options, &state, &config, &factory, &context, &mouse_state, &cell_selection);
 
@@ -1050,7 +940,7 @@ fn update_mouse_state(
     mouse_state.up_menu_button = MenuButton::None;
     mouse_state.dragging_offer = false;
     mouse_state.dragging_machine = false;
-    mouse_state.down_quote = false;
+    mouse_state.down_quest = false;
     mouse_state.up_quote = false;
     mouse_state.down_save_map = false;
     mouse_state.up_save_map = false;
@@ -1068,7 +958,7 @@ fn update_mouse_state(
   mouse_state.was_up = false;
   mouse_state.was_dragging = false;
   mouse_state.offer_hover = false;
-  mouse_state.over_quote = false;
+  mouse_state.over_quest = false;
   mouse_state.over_machine_button = false;
   mouse_state.over_menu_button = MenuButton::None;
   mouse_state.help_hover = false;
@@ -1136,10 +1026,10 @@ fn update_mouse_state(
         mouse_state.over_redo = true;
       }
       else {
-        mouse_state.over_quote =
-          mouse_state.world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUOTE_WIDTH &&
-          (mouse_state.world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) < UI_QUOTE_HEIGHT;
-        mouse_state.over_quote_visible_index = if mouse_state.over_quote { ((mouse_state.world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN)) as usize } else { 0 };
+        mouse_state.over_quest =
+          mouse_state.world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUEST_WIDTH &&
+          (mouse_state.world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUEST_HEIGHT + UI_QUEST_MARGIN) < UI_QUEST_HEIGHT;
+        mouse_state.over_quest_visible_index = if mouse_state.over_quest { ((mouse_state.world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUEST_HEIGHT + UI_QUEST_MARGIN)) as usize } else { 0 };
       }
     }
     ZONE_SAVE_MAP => {
@@ -1253,10 +1143,10 @@ fn update_mouse_state(
           mouse_state.down_redo = true;
         }
         else {
-          mouse_state.down_quote =
-            mouse_state.last_down_world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.last_down_world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUOTE_WIDTH &&
-            (mouse_state.last_down_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) < UI_QUOTE_HEIGHT;
-          mouse_state.down_quote_visible_index = if mouse_state.down_quote { ((mouse_state.last_down_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN)) as usize } else { 0 };
+          mouse_state.down_quest =
+            mouse_state.last_down_world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.last_down_world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUEST_WIDTH &&
+            (mouse_state.last_down_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUEST_HEIGHT + UI_QUEST_MARGIN) < UI_QUEST_HEIGHT;
+          mouse_state.down_quest_visible_index = if mouse_state.down_quest { ((mouse_state.last_down_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUEST_HEIGHT + UI_QUEST_MARGIN)) as usize } else { 0 };
         }
       }
       ZONE_SAVE_MAP => {
@@ -1399,9 +1289,9 @@ fn update_mouse_state(
         }
         else {
           mouse_state.up_quote =
-            mouse_state.last_up_world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.last_up_world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUOTE_WIDTH &&
-            (mouse_state.last_up_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) < UI_QUOTE_HEIGHT;
-          mouse_state.up_quote_visible_index = if mouse_state.up_quote { ((mouse_state.last_up_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN)) as usize } else { 0 };
+            mouse_state.last_up_world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.last_up_world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUEST_WIDTH &&
+            (mouse_state.last_up_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUEST_HEIGHT + UI_QUEST_MARGIN) < UI_QUEST_HEIGHT;
+          mouse_state.up_quest_visible_index = if mouse_state.up_quote { ((mouse_state.last_up_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUEST_HEIGHT + UI_QUEST_MARGIN)) as usize } else { 0 };
         }
       }
       ZONE_SAVE_MAP => {
@@ -1483,8 +1373,8 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         else if mouse_state.down_redo {
           on_down_redo(options, state, config, factory, mouse_state);
         }
-        else if mouse_state.down_quote {
-          on_down_quote(options, state, config, factory, mouse_state);
+        else if mouse_state.down_quest {
+          on_down_quest(options, state, config, factory, mouse_state);
         }
       }
       _ => {}
@@ -1560,7 +1450,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
             on_up_redo(options, state, config, factory, mouse_state);
           }
           else if mouse_state.up_quote {
-            on_up_quote(options, state, config, factory, mouse_state);
+            on_up_quest(options, state, config, factory, mouse_state);
           }
         }
         ZONE_SAVE_MAP => {
@@ -1746,26 +1636,29 @@ fn on_up_redo(options: &Options, state: &mut State, config: &Config, factory: &F
     state.load_snapshot_next_frame = true;
   }
 }
-fn on_down_quote(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
-  log!("on_down_quote({}). quotes: {}", mouse_state.down_quote_visible_index, factory.current_active_quotes.len());
+fn on_down_quest(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
+  log!("on_down_quest({}). questss: {}", mouse_state.down_quest_visible_index, factory.quests.iter().filter(|q| q.status == QuestStatus::Active).collect::<Vec<_>>().len());
 }
-fn on_up_quote(options: &Options, state: &State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState) {
-  log!("on_up_quote({}), quotes: {}, down on {:?} {}", mouse_state.up_quote_visible_index, factory.current_active_quotes.len(), mouse_state.down_zone, mouse_state.down_quote_visible_index);
+fn on_up_quest(options: &Options, state: &State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState) {
+  log!("on_up_quest({}), quests: {}, down on {:?} {}", mouse_state.up_quest_visible_index, factory.quests.iter().filter(|q| q.status == QuestStatus::Active).collect::<Vec<_>>().len(), mouse_state.down_zone, mouse_state.down_quest_visible_index);
 
-  if options.dbg_clickable_quotes && mouse_state.down_quote && mouse_state.down_quote_visible_index == mouse_state.up_quote_visible_index {
-    log!("  clicked on this quote (down=up). Completing it now...");
+  if options.dbg_clickable_quests && mouse_state.down_quest && mouse_state.down_quest_visible_index == mouse_state.up_quest_visible_index {
+    log!("  clicked on this quest (down=up). Completing it now...");
     let mut visible_index = 0;
-    let quote_fade_time = QUOTE_FADE_TIME as f64 *options.speed_modifier_ui;
+    let quest_fade_time = QUEST_FADE_TIME as f64 * options.speed_modifier_ui;
 
-    for quote_index in 0..factory.current_active_quotes.len() {
-      let add_progress = if factory.current_active_quotes[quote_index].added_at > 0 { ((factory.ticks - factory.current_active_quotes[quote_index].added_at) as f64 / quote_fade_time).max(0.0).min(1.0) } else { 1.0 };
-      let remove_progress = if factory.current_active_quotes[quote_index].completed_at > 0 { ((factory.ticks - factory.current_active_quotes[quote_index].completed_at) as f64 / quote_fade_time).max(0.0).min(1.0) } else { 0.0 };
+    for quest_index in 0..factory.quests.len() {
+      if factory.quests[quest_index].status != QuestStatus::Active && factory.quests[quest_index].status != QuestStatus::FadingAndBouncing {
+        continue;
+      }
+      let fade_in_progress = if factory.quests[quest_index].status == QuestStatus::Active { ((factory.ticks - factory.quests[quest_index].status_at) as f64 / quest_fade_time).max(0.0).min(1.0) } else { 1.0 };
+      let fade_out_progress = if factory.quests[quest_index].status == QuestStatus::FadingAndBouncing { ((factory.ticks - factory.quests[quest_index].status_at) as f64 / quest_fade_time).max(0.0).min(1.0) } else { 0.0 };
 
-      if add_progress * (1.0 - remove_progress) > 0.0 {
-        if visible_index == mouse_state.up_quote_visible_index {
-          log!("  it is quote {}", quote_index);
-          factory.current_active_quotes[quote_index].current_count = factory.current_active_quotes[quote_index].target_count;
-          factory_finish_quote(options, factory, quote_index);
+      if fade_in_progress * (1.0 - fade_out_progress) > 0.0 {
+        if visible_index == mouse_state.up_quest_visible_index {
+          log!("  satisfying quest {} to production target", quest_index);
+          factory.quests[quest_index].production_progress = factory.quests[quest_index].production_target;
+          quest_update_status(&mut factory.quests[quest_index], QuestStatus::Finished, factory.ticks);
           return;
         }
 
@@ -1773,7 +1666,7 @@ fn on_up_quote(options: &Options, state: &State, config: &Config, factory: &mut 
       }
     }
 
-    log!("Clicked on a quote index that doesnt exist right now. mouse_state.down_quote_visible_index={}, mouse_state.up_quote_visible_index={}", mouse_state.down_quote_visible_index, mouse_state.up_quote_visible_index);
+    log!("Clicked on a quest index that doesnt exist right now. mouse_state.down_quest_visible_index={}, mouse_state.up_quest_visible_index={}", mouse_state.down_quest_visible_index, mouse_state.up_quest_visible_index);
   }
 }
 fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, saves: &mut [Option<(web_sys::HtmlCanvasElement, String)>; 9]) {
@@ -4369,26 +4262,36 @@ fn paint_manual(options: &Options, state: &State, context: &Rc<web_sys::CanvasRe
     context.draw_image_with_html_image_element_and_dw_and_dh(&img_manual, 100.0, 20.0, 740.0, 740.0).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
   }
 }
-fn paint_bouncers(options: &Options, state: &State, config: &mut Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory) {
+fn paint_bouncers(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory) {
   let f_one_second = ONE_SECOND as f64 ;
   let trail_time = options.bouncer_trail_time;
   let fade_time = options.bouncer_fade_time;
   // find bouncers that finished and create trucks with the new parts
-  for b in 0..factory.bouncers.len() {
+  for quest_index in 0..factory.quests.len() {
+    if factory.quests[quest_index].status != QuestStatus::FadingAndBouncing && factory.quests[quest_index].status != QuestStatus::Bouncing {
+      continue;
+    }
 
     // Paint all bouncer shadow/trail frames
-    for ( x, y, added ) in factory.bouncers[b].frames.iter() {
-      // Leave trail on screen for 10 seconds. Then fade out in 5 seconds.
-      let existing = (factory.ticks - added) as f64 / options.speed_modifier_floor;
-      let tens = existing > (f_one_second * trail_time);
-      if tens {
-        let alpha = 1.0 - ((existing - f_one_second * trail_time) / (f_one_second * fade_time)).max(0.0).min(1.0);
+    let trail_time = (options.bouncer_trail_time as f64 * ONE_SECOND as f64 * options.speed_modifier_ui) as u64;
+    let fade_time = (options.bouncer_fade_time as f64 * ONE_SECOND as f64 * options.speed_modifier_ui) as u64;
+
+    for ( x, y, added ) in factory.quests[quest_index].bouncer.frames.iter() {
+      let frame_age = factory.ticks - added;
+      let fading = frame_age > trail_time;
+
+      if fading {
+        let alpha = 1.0 - ((frame_age - trail_time) as f64 / fade_time as f64).max(0.0).min(1.0);
         context.set_global_alpha(alpha);
       }
-      paint_segment_part_from_config(&options, &state, &config, &context, factory.bouncers[b].part_index, *x, *y, CELL_W, CELL_H);
-      if tens {
+      paint_segment_part_from_config(&options, &state, &config, &context, factory.quests[quest_index].production_part_index as usize, x + 40.0, UI_QUOTES_OFFSET_Y + UI_QUOTES_HEIGHT + 50.0 + y, CELL_W, CELL_H);
+      if fading {
         context.set_global_alpha(1.0);
       }
+    }
+
+    while factory.quests[quest_index].bouncer.frames.len() > 0 && factory.ticks - factory.quests[quest_index].bouncer.frames[0].2 > trail_time + fade_time {
+      factory.quests[quest_index].bouncer.frames.pop_front();
     }
   }
 }
@@ -4476,123 +4379,74 @@ fn paint_top_bars(options: &Options, state: &State, factory: &Factory, context: 
 
   context.set_font(&"12px monospace");
 }
-fn get_quote_xy(index: usize, height_so_far: f64) -> ( f64, f64 ) {
-  // TODO: take io into account when it is not in sync with index
-  let x = UI_QUOTES_OFFSET_X + UI_QUOTE_X;
-  let y = UI_QUOTES_OFFSET_Y + height_so_far;
-
-  return ( x, y );
-}
-fn paint_quotes(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState) {
-
-  // Do we want to do this serial or parallel? parallel is easier I guess
-
-  let mut height = 0.0;
+fn paint_quests(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, img_quest_frame: &web_sys::HtmlImageElement) {
   let mut visible_index = 0;
-  let quote_fade_time = QUOTE_FADE_TIME as f64 * options.speed_modifier_ui;
+  let quest_fade_time = QUEST_FADE_TIME as f64 * options.speed_modifier_ui;
 
-  for quote_index in 0..factory.current_active_quotes.len() {
-    let add_progress = if factory.current_active_quotes[quote_index].added_at > 0 {
-      let ticks = factory.ticks - factory.current_active_quotes[quote_index].added_at;
-      let relticks = (ticks) as f64 / options.speed_modifier_floor;
-      (relticks / quote_fade_time).max(0.0).min(1.0)
-    } else { 1.0 };
-    let remove_progress = if factory.current_active_quotes[quote_index].completed_at > 0 {
-      let ticks = factory.ticks - factory.current_active_quotes[quote_index].completed_at;
-      let reltime = (ticks) as f64 / options.speed_modifier_floor;
-      (reltime / quote_fade_time).max(0.0).min(1.0)
-    } else { 0.0 };
-    let partial_height = add_progress * (1.0 - remove_progress) * UI_QUOTE_HEIGHT;
-    let partial_margin = add_progress * (1.0 - remove_progress) * UI_QUOTE_MARGIN;
-
-    if add_progress * (1.0 - remove_progress) > 0.0 {
-      let ( x, y ) = get_quote_xy(quote_index, height);
-
-      context.set_fill_style(&"grey".into()); // 100% background
-      context.fill_rect(x, y, UI_QUOTE_WIDTH, partial_height);
-      context.set_fill_style(&"lightgreen".into()); // progress green
-      context.fill_rect(x, y, UI_QUOTE_WIDTH * (factory.current_active_quotes[quote_index].current_count as f64 / factory.current_active_quotes[quote_index].target_count as f64).min(1.0), partial_height);
-      if options.dbg_clickable_quotes && mouse_state.over_quote && mouse_state.over_quote_visible_index == visible_index {
-        context.set_stroke_style(&"red".into());
-      } else {
-        context.set_stroke_style(&"black".into());
-      }
-      context.stroke_rect(x, y, UI_QUOTE_WIDTH, partial_height);
-
-      // Paint the icon(s), the required count, the progress
-
-      assert!(
-        config.nodes[factory.current_active_quotes[quote_index].part_index].kind == ConfigNodeKind::Part,
-        "quote part index should refer to Part node but was {:?}... have index: {}, but it points to: {:?}",
-        config.nodes[factory.current_active_quotes[quote_index].part_index].kind,
-        factory.current_active_quotes[quote_index].part_index,
-        config.nodes[factory.current_active_quotes[quote_index].part_index]
-      );
-      paint_segment_part_from_config(options, state, config, context, factory.current_active_quotes[quote_index].part_index, x + 4.0, y + 2.0, CELL_W, CELL_H);
-
-      context.set_fill_style(&"black".into());
-      context.fill_text(format!("{}/{}x", factory.current_active_quotes[quote_index].current_count, factory.current_active_quotes[quote_index].target_count).as_str(), x + CELL_W + 10.0, y + 23.0).expect("oopsie fill_text");
-
-      visible_index += 1;
+  for quest_index in 0..factory.quests.len() {
+    if factory.quests[quest_index].status != QuestStatus::Active && factory.quests[quest_index].status != QuestStatus::FadingAndBouncing {
+      continue;
     }
 
-    height += partial_height + partial_margin; // margin between quotes
+    let current_quest_progress = factory.quests[quest_index].production_progress;
+    let current_quest_target = factory.quests[quest_index].production_target;
+    let progress = current_quest_progress as f64 / current_quest_target as f64;
+
+    let ( x, y ) = get_quest_xy(visible_index, 0.0);
+    visible_index += 1;
+
+    let part_index = factory.quests[quest_index].production_part_index as usize;
+    assert!(
+      config.nodes[factory.quests[quest_index].production_part_index as usize].kind == ConfigNodeKind::Part,
+      "quest part index should refer to Part node but was {:?}... have index: {:?}, but it points to: {:?}",
+      config.nodes[factory.quests[quest_index].production_part_index as usize].kind,
+      factory.quests[quest_index].production_part_index,
+      config.nodes[factory.quests[quest_index].production_part_index as usize]
+    );
+
+    context.set_fill_style(&"white".into()); // 100% background
+    context.fill_rect(x + 5.0, y + 4.0, UI_QUEST_WIDTH - 10.0, UI_QUEST_HEIGHT - 8.0);
+    if progress > 0.0 {
+      context.set_fill_style(&"grey".into()); // 100% background
+      context.fill_rect(x + 5.0, y + 4.0, (UI_QUEST_WIDTH - 10.0) * progress, UI_QUEST_HEIGHT - 8.0);
+    }
+    context.draw_image_with_html_image_element_and_dw_and_dh(&img_quest_frame, x, y, UI_QUEST_WIDTH, UI_QUEST_HEIGHT).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
+    paint_segment_part_from_config(options, state, config, context, part_index as usize, x + 15.0, y + 8.0, PART_W, PART_H);
+
+    context.set_font(&"12px monospace");
+    context.set_fill_style(&"#ddd".into()); // 100% background
+    context.fill_text(format!("{} / {}x", current_quest_progress, current_quest_target).as_str(), x + 100.0, y + (UI_QUEST_HEIGHT / 2.0) + 5.0).expect("oopsie fill_text");
+
+    if factory.quests[quest_index].status == QuestStatus::FadingAndBouncing {
+      let fade_progress = ((factory.ticks - factory.quests[quest_index].status_at) as f64 / (QUEST_FADE_TIME as f64 * options.speed_modifier_ui)).min(1.0);
+      let fade_cover_width = UI_QUEST_WIDTH * fade_progress;
+      context.set_fill_style(&"#555".into()); // 100% background
+      context.fill_rect(x, y, fade_cover_width, UI_QUEST_HEIGHT);
+    }
   }
-}
-fn paint_undoredo(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState) {
 
-  // Do we want to do this serial or parallel? parallel is easier I guess
+  // Debug
+  if options.dbg_print_quest_states {
+    context.set_fill_style(&"#ffffffaa".into());
+    context.fill_rect(UI_QUOTES_OFFSET_X, UI_QUOTES_OFFSET_Y, UI_QUOTES_WIDTH, UI_QUOTES_HEIGHT);
 
-  let mut height = 0.0;
-  let mut visible_index = 0;
-  let quote_fade_time = QUOTE_FADE_TIME as f64 * options.speed_modifier_ui;
-
-  for quote_index in 0..factory.current_active_quotes.len() {
-    let add_progress = if factory.current_active_quotes[quote_index].added_at > 0 {
-      let ticks = factory.ticks - factory.current_active_quotes[quote_index].added_at;
-      let relticks = (ticks) as f64 / options.speed_modifier_floor;
-      (relticks / quote_fade_time).max(0.0).min(1.0)
-    } else { 1.0 };
-    let remove_progress = if factory.current_active_quotes[quote_index].completed_at > 0 {
-      let ticks = factory.ticks - factory.current_active_quotes[quote_index].completed_at;
-      let reltime = (ticks) as f64 / options.speed_modifier_floor;
-      (reltime / quote_fade_time).max(0.0).min(1.0)
-    } else { 0.0 };
-    let partial_height = add_progress * (1.0 - remove_progress) * UI_QUOTE_HEIGHT;
-    let partial_margin = add_progress * (1.0 - remove_progress) * UI_QUOTE_MARGIN;
-
-    if add_progress * (1.0 - remove_progress) > 0.0 {
-      let ( x, y ) = get_quote_xy(quote_index, height);
-
-      context.set_fill_style(&"grey".into()); // 100% background
-      context.fill_rect(x, y, UI_QUOTE_WIDTH, partial_height);
-      context.set_fill_style(&"lightgreen".into()); // progress green
-      context.fill_rect(x, y, UI_QUOTE_WIDTH * (factory.current_active_quotes[quote_index].current_count as f64 / factory.current_active_quotes[quote_index].target_count as f64).min(1.0), partial_height);
-      if options.dbg_clickable_quotes && mouse_state.over_quote && mouse_state.over_quote_visible_index == visible_index {
-        context.set_stroke_style(&"red".into());
-      } else {
-        context.set_stroke_style(&"black".into());
-      }
-      context.stroke_rect(x, y, UI_QUOTE_WIDTH, partial_height);
-
-      // Paint the icon(s), the required count, the progress
-
-      assert!(
-        config.nodes[factory.current_active_quotes[quote_index].part_index].kind == ConfigNodeKind::Part,
-        "quote part index should refer to Part node but was {:?}... have index: {}, but it points to: {:?}",
-        config.nodes[factory.current_active_quotes[quote_index].part_index].kind,
-        factory.current_active_quotes[quote_index].part_index,
-        config.nodes[factory.current_active_quotes[quote_index].part_index]
-      );
-      paint_segment_part_from_config(options, state, config, context, factory.current_active_quotes[quote_index].part_index, x + 4.0, y + 2.0, CELL_W, CELL_H);
-
-      context.set_fill_style(&"black".into());
-      context.fill_text(format!("{}/{}x", factory.current_active_quotes[quote_index].current_count, factory.current_active_quotes[quote_index].target_count).as_str(), x + CELL_W + 10.0, y + 23.0).expect("oopsie fill_text");
-
-      visible_index += 1;
+    for quest_index in 0..factory.quests.len() {
+      context.set_fill_style(&"black".into()); // 100% background
+      context.fill_text(
+        format!(
+          "Q{:<2}:{} {}/{} @{} > {} : {:?}",
+          quest_index,
+          format!("{:?}", factory.quests[quest_index].status).chars().next().unwrap(),
+          factory.quests[quest_index].production_progress,
+          factory.quests[quest_index].production_target,
+          factory.quests[quest_index].status_at,
+          factory.quests[quest_index].production_part_index,
+          factory.quests[quest_index].unlocks_todo
+        ).as_str(),
+        UI_QUOTES_OFFSET_X,
+        UI_QUOTES_OFFSET_Y + 20.0 + (quest_index as f64) * 15.0
+      ).expect("oopsie fill_text");
     }
-
-    height += partial_height + partial_margin; // margin between quotes
   }
 }
 fn paint_ui_offers(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) {
@@ -4618,13 +4472,13 @@ fn paint_lasers(options: &Options, state: &mut State, config: &Config, context: 
 
     let coord = state.lasers[i].coord;
     let (x, y) = to_xy(coord);
-    let quote_pos = state.lasers[i].quote_pos;
+    let visible_quest_index = state.lasers[i].visible_quest_index;
     let color = &state.lasers[i].color;
 
     context.set_stroke_style(&color.into());
     context.begin_path();
     context.move_to(GRID_X1 + x as f64 * CELL_W + CELL_W / 2.0, GRID_Y1 + y as f64 * CELL_H + CELL_H / 2.0);
-    context.line_to(GRID_X0 as f64 + UI_QUOTES_WIDTH as f64 / 2.0, GRID_Y1 + (UI_QUOTE_HEIGHT + UI_QUOTE_MARGIN) as f64 * quote_pos as f64 + (UI_QUOTE_HEIGHT as f64) / 2.0);
+    context.line_to(GRID_X0 as f64 + UI_QUOTES_WIDTH as f64 / 2.0, GRID_Y1 + (UI_QUEST_HEIGHT + UI_QUEST_MARGIN) as f64 * visible_quest_index as f64 + (UI_QUEST_HEIGHT as f64) / 2.0);
     context.stroke();
 
     state.lasers[i].ttl -= 1;
@@ -5307,7 +5161,7 @@ fn unpart(options: &mut Options, state: &mut State, config: &Config, factory: &m
   }
 }
 
-fn parse_and_save_options_string(option_string: String, options: &mut Options, strict: bool, options_started_from_source: u64) {
+fn parse_and_save_options_string(option_string: String, options: &mut Options, strict: bool, options_started_from_source: u64, on_load: bool) {
   log!("parse_and_save_options_string():\n{} with {}", option_string, options_started_from_source);
   let bak = options.initial_map_from_source;
   parse_options_into(option_string, options, true);
@@ -5317,8 +5171,10 @@ fn parse_and_save_options_string(option_string: String, options: &mut Options, s
 
   log!("Storing options into browser localStorage... ({} bytes)", exp.len());
   let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
-  local_storage.set_item("factini.options", exp.as_str()).unwrap();
+  if !on_load {
+    local_storage.set_item("factini.options", exp.as_str()).unwrap();
+  }
 
   // Update UI to reflect actually loaded options
-  setGameOptions(exp.into());
+  setGameOptions(exp.into(), on_load.into());
 }

@@ -32,6 +32,7 @@ pub mod paste;
 pub mod port;
 pub mod port_auto;
 pub mod prio;
+pub mod quest_state;
 pub mod quote;
 pub mod sprite_config;
 pub mod sprite_frame;

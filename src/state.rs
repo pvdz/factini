@@ -95,12 +95,12 @@ pub struct MouseState {
   pub down_floor_area: bool,
   pub down_floor_not_corner: bool,
 
-  pub over_quote: bool,
-  pub over_quote_visible_index: usize, // Only if over_quote
-  pub down_quote: bool,
-  pub down_quote_visible_index: usize, // Only if down_quote
+  pub over_quest: bool,
+  pub over_quest_visible_index: usize, // Only if over_quote
+  pub down_quest: bool,
+  pub down_quest_visible_index: usize, // Only if down_quest
   pub up_quote: bool,
-  pub up_quote_visible_index: usize, // Only if up_quote
+  pub up_quest_visible_index: usize, // Only if up_quote
 
   pub over_menu_button: MenuButton,
   pub down_menu_button: MenuButton,
@@ -230,7 +230,7 @@ pub enum EventSourceType {
 #[derive(Debug)]
 pub struct Laser {
   pub coord: usize,
-  pub quote_pos: usize,
+  pub visible_quest_index: usize,
   pub ttl: u32,
   pub color: String,
 }

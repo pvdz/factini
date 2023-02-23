@@ -19,8 +19,8 @@
     //console.log('[js] getGameOptions(): going to send it this:\n', $game_options.value);
     return $game_options.value /*GAME_OPTIONS*/;
   }
-  function setGameOptions(optionStr) {
-    console.log('[js] setGameOptions()');
+  function setGameOptions(optionStr, onLoad) {
+    console.log('[js] setGameOptions(onLoad =',onLoad,')');
     //console.log("[js] setGameOptions() received this:\n", optionStr);
     $game_options.value = optionStr;
     $option_bools.innerHTML = '';

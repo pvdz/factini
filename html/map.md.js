@@ -81,4 +81,5 @@ sc = k s:0 c:1000
 sd = r s:0 c:1000
 se = e s:0 c:1000
 d6 s:1000 c:0
+$ w l s W e o
 `;

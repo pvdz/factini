@@ -297,7 +297,7 @@ pub const CONFIG_NODE_BELT___DLRU: usize = 274;
 #[derive(Debug)]
 pub struct Config {
   pub nodes: Vec<ConfigNode>,
-  pub quest_nodes: Vec<usize>, // maps to nodes vec
+  pub quest_nodes_by_index: Vec<usize>, // maps to config.nodes, same order as factory.quests
   pub part_nodes: Vec<PartKind>, // maps to nodes vec
   pub node_name_to_index: HashMap<String, PartKind>,
   pub node_pattern_to_index: HashMap<String, PartKind>,
@@ -320,6 +320,7 @@ pub struct ConfigNode {
 
   // Quest
   // A quest becomes available as soon as all of its starting parts are available.
+  pub quest_index: usize, // Index on the quest lists. Zero for non-quests.
   pub starting_part_by_name: Vec<String>, // Fully qualified name. These parts are available when this quest becomes available
   pub starting_part_by_index: Vec<usize>, // These parts are available when this quest becomes available
   pub production_target_by_name: Vec<(u32, String)>, // Fully qualified name. count,name pairs, you need this to finish the quest
@@ -415,7 +416,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
 
   let mut nodes: Vec<ConfigNode> = get_system_nodes();
   // Indirect references to nodes. Can't share direct references so these index the nodes vec.
-  let mut quest_nodes: Vec<usize> = vec!();
+  let mut quest_nodes_by_index: Vec<usize> = vec!();
   let mut part_nodes: Vec<usize> = vec!(0, 1);
 
   let mut first_frame = true;
@@ -455,6 +456,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
               },
             name: name.to_string(),
             raw_name: rest.to_string(),
+            quest_index: 0,
             unlocks_after_by_name: vec!(),
             unlocks_after_by_index: vec!(),
             unlocks_todo_by_index: vec!(),
@@ -496,7 +498,10 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
           }
           current_node_index = node_index;
           match kind {
-            "Quest" => quest_nodes.push(node_index),
+            "Quest" => {
+              nodes[node_index].quest_index = quest_nodes_by_index.len();
+              quest_nodes_by_index.push(node_index);
+            },
             "Part" => part_nodes.push(node_index),
             "Supply" => {}
             "Demand" => {}
@@ -671,6 +676,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
     }
   );
   if print_fmd_trace { log!("Last node was: {:?}", nodes[nodes.len()-1]); }
+  if print_fmd_trace { log!("Quest nodes: {:?}", quest_nodes_by_index.iter().map(|index| nodes[*index].name.clone()).collect::<Vec<_>>()); }
 
   // So now we have a serial list of nodes but we need to create a hierarchical tree from them
   // We create two models; one is a tree and the other a hashmap
@@ -769,7 +775,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   }
 
   if print_fmd_trace { log!("+ create quest unlocks_after_by_index and starting_part_by_index pointers"); }
-  quest_nodes.iter().for_each(|&node_index| {
+  quest_nodes_by_index.iter().for_each(|&node_index| {
     if print_fmd_trace { log!("++ quest node index = {}, name = {}, unlocks after = `{:?}`", node_index, nodes[node_index].name, nodes[node_index].unlocks_after_by_name); }
 
     let mut indices: Vec<usize> = vec!();
@@ -826,7 +832,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   });
 
   if print_fmd_trace { log!("+ initialize the quest node states"); }
-  quest_nodes.iter().for_each(|&quest_index| {
+  quest_nodes_by_index.iter().for_each(|&quest_index| {
     if print_fmd_trace { log!("++ state loop"); }
     // If the config specified an initial state then just roll with that
     let mut changed = true;
@@ -845,7 +851,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   });
 
   if print_fmd_trace { log!("+ initialize the part node states"); }
-  quest_nodes.iter().for_each(|&quest_index| {
+  quest_nodes_by_index.iter().for_each(|&quest_index| {
     // Clone the list of numbers because otherwise it moves. So be it.
     if print_fmd_trace { log!("++ Quest Part {} is {:?} and would enable parts {:?} ({:?})", nodes[quest_index].name, nodes[quest_index].current_state, nodes[quest_index].starting_part_by_name, nodes[quest_index].starting_part_by_index); }
     if nodes[quest_index].current_state != ConfigNodeState::Waiting {
@@ -871,13 +877,13 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
     }
   });
 
-  quest_nodes.iter().for_each(|&index| {
+  quest_nodes_by_index.iter().for_each(|&index| {
     // For all quests go through list of dependency quests and tag them as being their "unlock parent"
     let mut found = vec!(); // Work around chicken egg problem -> mutability of nodes
     nodes[index].unlocks_after_by_index.iter().for_each(|pindex| found.push(*pindex));
     found.iter().for_each(|pindex| nodes[*pindex].required_by_quest_indexes.push(index));
   });
-  // quest_nodes.iter().for_each(|&index| {
+  // quest_nodes_by_index.iter().for_each(|&index| {
   //   log!("quest {} depends on {:?}", nodes[index].raw_name.clone(), nodes[index].required_by_quest_indexes.iter().map(|pindex| nodes[*pindex].raw_name.clone()).collect::<Vec<String>>());
   // });
 
@@ -906,7 +912,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   if print_fmd_trace { log!("parsed map: {:?}", node_name_to_index); }
   if print_fmd_trace { node_pattern_to_index.iter_mut().for_each(|(str, &mut kind)| log!("- node_pattern_to_index: {} = pattern({}) -> kind: {}", nodes[kind].raw_name, str, kind)); }
 
-  return Config { nodes, quest_nodes, part_nodes, node_name_to_index, node_pattern_to_index, sprite_cache_lookup, sprite_cache_order, sprite_cache_canvas: vec!() };
+  return Config { nodes, quest_nodes_by_index, part_nodes, node_name_to_index, node_pattern_to_index, sprite_cache_lookup, sprite_cache_order, sprite_cache_canvas: vec!() };
 }
 
 fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usize) -> usize {
@@ -1487,6 +1493,7 @@ fn config_node_part(index: PartKind, name: String, icon: char) -> ConfigNode {
   let raw_name = format!("Part_{}", name);
   return ConfigNode {
     index,
+    quest_index: 0,
     kind: ConfigNodeKind::Part,
     name,
     raw_name,
@@ -1532,6 +1539,7 @@ fn config_node_supply(index: PartKind, name: String) -> ConfigNode {
   let raw_name = format!("Supply_{}", name);
   return ConfigNode {
     index,
+    quest_index: 0,
     kind: ConfigNodeKind::Supply,
     name,
     raw_name,
@@ -1577,6 +1585,7 @@ fn config_node_demand(index: PartKind, name: String) -> ConfigNode {
   let raw_name = format!("Demand_{}", name);
   return ConfigNode {
     index,
+    quest_index: 0,
     kind: ConfigNodeKind::Demand,
     name,
     raw_name,
@@ -1622,6 +1631,7 @@ fn config_node_dock(index: PartKind, name: String) -> ConfigNode {
   let raw_name = format!("Dock_{}", name);
   return ConfigNode {
     index,
+    quest_index: 0,
     kind: ConfigNodeKind::Dock,
     name,
     raw_name,
@@ -1667,6 +1677,7 @@ fn config_node_machine(index: PartKind, name: &str, file: &str) -> ConfigNode {
   let raw_name = format!("Machine_{}", name);
   return ConfigNode {
     index,
+    quest_index: 0,
     kind: ConfigNodeKind::Machine,
     name: name.to_string(),
     raw_name,
@@ -1715,6 +1726,7 @@ fn config_node_belt(index: PartKind, name: &str) -> ConfigNode {
   let belt_meta = belt_type_to_belt_meta(belt_type);
   return ConfigNode {
     index,
+    quest_index: 0,
     kind: ConfigNodeKind::Machine,
     name: name.to_string(),
     raw_name,

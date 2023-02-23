@@ -2,13 +2,18 @@
 // Each Quote should have one or more things to complete and a reward upon completion, usually
 // an unlock step of sorts, as well as the next Quote or set of quotes that it unlocks.
 
+use std::collections::VecDeque;
 use std::iter::Map;
 use std::slice::Iter;
-use futures::TryStreamExt;
+
+use super::bouncer::*;
 use super::config::*;
-use super::part::*;
-use super::utils::*;
 use super::log;
+use super::part::*;
+use super::options::*;
+use super::quest_state::*;
+use super::state::*;
+use super::utils::*;
 
 // A Quote represents a single requirement for a quest.
 #[derive(Debug)]
@@ -30,63 +35,98 @@ pub struct Quote {
   pub debug_unlocks_after_by_name: Vec<String>,
 }
 
-pub fn quotes_get_available(config: &Config, ticks: u64, available_parts: &Vec<PartKind>) -> Vec<Quote> {
-  // Find all config nodes that are available
-  // A quote is available when
-  // - the asked part is unlocked, and
-  // - the asked part of at least one of the quests it unlocks is still locked
-  log!("quotes_get_available()");
+fn quote_get_status_first_pass(config: &Config, config_node_index: usize, available_parts: &Vec<PartKind>, quest_index: usize) -> QuestStatus {
+  let quest = &config.nodes[config_node_index as usize];
 
-  return config.quest_nodes.iter()
-    .filter(|&&quest_index| {
-      let quest = &config.nodes[quest_index];
-      log!("is quest {} available? check if {:?} is unlocked (-> {}) and {:?} has no child-quests ({}) or not completely unlocked (-> {:?}): available_parts: {:?}",
-        quest.raw_name,
-        // quest.production_target_by_index,
-        // quest.production_target_by_index.iter().map(|(_c, index)| *index).collect::<Vec<usize>>(),
-        quest.production_target_by_index.iter().map(|(_c, index)| config.nodes[*index].raw_name.clone()).collect::<Vec<String>>(),
-        quest.production_target_by_index.iter().all(|(_count, node_index)| available_parts.contains(node_index)),
-        // quest.required_by_quest_indexes,
-        quest.required_by_quest_indexes.iter().map(|index| config.nodes[*index].raw_name.clone()).collect::<Vec<String>>(),
-        quest.required_by_quest_indexes.len() == 0,
-        quest.required_by_quest_indexes.iter().map(|&index| {
-          config.nodes[index].production_target_by_index.iter().all(|(_count, node_index)| available_parts.contains(node_index))
-        }).collect::<Vec<bool>>(),
-        // available_parts
-        available_parts.iter().map(|index| config.nodes[*index].raw_name.clone()).collect::<Vec<String>>()
-      );
+  // Have you already unlocked this goal part? If not then you can't even start to unlock this quest.
+  // If all parts are unlocked then this quest is considered at least active (maybe even finished)
+  if quest.production_target_by_index.len() > 0 && quest.production_target_by_index.iter().all(|(_count, node_index)| available_parts.contains(node_index)) {
+    return QuestStatus::Active;
+  }
 
-      // Have you already unlocked this goal part? If not then you can't even unlock this quest.
-      if !quest.production_target_by_index.iter().all(|(_count, node_index)| available_parts.contains(node_index)) {
-        return false;
+  // If this quest has no requirements and all its parts aren't already unlocked then it is active
+  if quest.required_by_quest_indexes.len() == 0 {
+    return QuestStatus::Active;
+  }
+
+  // Start awaiting. Another loop will determine if they are active.
+  return QuestStatus::Waiting;
+}
+
+pub fn get_fresh_quest_states(options: &mut Options, state: &mut State, config: &Config, ticks: u64, available_parts: &Vec<PartKind>) -> Vec<QuestState> {
+  // Map config quest nodes to fresh vector of quest states and make sure their
+  // states are correctly initialized based on the current available parts.
+  // If parts is empty then only initial quests will be active.
+
+  log!("get_fresh_quest_states()");
+
+  let mut quests: Vec<QuestState> = config.quest_nodes_by_index.iter().enumerate().map(|(quest_index, &config_node_index)| {
+    let status = quote_get_status_first_pass(config, config_node_index, available_parts, quest_index);
+    let unlock_requirement_indexes = config.nodes[config_node_index].unlocks_after_by_index.iter().map(|&index| config.nodes[index].quest_index).collect::<Vec<usize>>();
+    return QuestState {
+      name: config.nodes[config_node_index].name.clone(),
+      quest_index,
+      config_node_index,
+      unlocks_todo: unlock_requirement_indexes,
+      production_part_index: config.nodes[config_node_index as usize].production_target_by_index[0].1,
+      production_progress: 0,
+      production_target: config.nodes[config_node_index as usize].production_target_by_index[0].0,
+      status,
+      status_at: ticks,
+      bouncer: Bouncer {
+        created_at: ticks, // TODO: deprecate this field?
+        delay: 0, // TODO
+        x: 0.0, // TODO
+        y: 0.0, // TODO
+        max_y: 0.0, // TODO
+        quest_index: PARTKIND_NONE, // TODO
+        part_index: PARTKIND_NONE, // TODO
+        dx: 0.0,
+        dy: 0.0,
+        /**
+         * x, y, added at tick
+         */
+        frames: VecDeque::new(),
+        last_progress: 0.0, // TODO
+        bounce_from_index: 0,
+        bouncing_at: 0,
+      },
+    }
+  }).collect::<Vec<QuestState>>();
+
+  let mut changed = true;
+  while changed {
+    changed = false;
+    for index in 0..quests.len() {
+      let status = quests[index].status;
+      if status == QuestStatus::Active {
+        // If all this quest is active and at least one quest that depends on this one is
+        // also active, or finished, then this quest must also be finished.
+        // While this would also be true for quests that are waiting, you still need to finish
+        // that quest in order to unlock the part. So that's just a save game glitch we'll allow.
+        let mut all = true;
+        let mut has_any = false;
+        for i in 0..quests.len() {
+          if quests[i].unlocks_todo.contains(&index) {
+            has_any = true;
+            if quests[i].status != QuestStatus::Active && quests[i].status != QuestStatus::FadingAndBouncing {
+              all = false;
+            }
+          }
+        }
+        // Finish this quest if all sub-quests that depend on it are active or finished but
+        // only if there is at least one such sub quest (never finish the final quest(s))
+        if has_any && all {
+          quest_update_status(&mut quests[index], QuestStatus::FadingAndBouncing, 0);
+          changed = true;
+        }
       }
+    }
+  }
 
-      if quest.required_by_quest_indexes.len() == 0 {
-        // End goals should always be available as long as their goal part is unlocked?
-        // TODO: This should perhaps be special cased...
-        return true;
-      }
-
-      // Go through each quest that depends on this quest
-      // For each goal part of those quests, confirm whether they are available
-      // If any of those parts is not available then we enable this quest. Otherwise it must be finished already and we sleep.
-      if quest.required_by_quest_indexes.iter().all(|&index| {
-        config.nodes[index].production_target_by_index.iter().all(|(_count, node_index)| available_parts.contains(node_index))
-      }) {
-        return false;
-      }
-
-      // The goals of this quest are all available parts and at least one part the quests that
-      // depend on this quest are not yet unlocked, so we open this quest for completion.
-      return true;
-    })
-    .flat_map(|&quest_index| {
-      log!("- generating quotes for {}: wants {:?} ({:?})", config.nodes[quest_index].name, config.nodes[quest_index].production_target_by_name, config.nodes[quest_index].production_target_by_index);
-      // Quests can require multiple parts before completion
-      let x = quote_create(config, quest_index, ticks);
-      log!("~~> {:?}", x);
-      return x;
-    }).collect();
+  // Now all quest states should be correctly waiting, active, or finished.
+  // We dont care/remember about the other states at load time.
+  return quests;
 }
 
 pub fn quote_create(config: &Config, quest_index: usize, ticks: u64) -> Vec<Quote> {

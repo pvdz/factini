@@ -71,7 +71,7 @@ pub fn demand_receive_part(options: &mut Options, state: &mut State, config: &Co
   for i in 0..factory.floor[demand_coord].demand.received.len() {
     if factory.floor[demand_coord].demand.received[i].0 == kind {
       factory.floor[demand_coord].demand.received[i].1 += 1;
-      break;
+      return;
     }
   }
 
