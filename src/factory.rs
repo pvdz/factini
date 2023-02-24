@@ -263,7 +263,7 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
       // At given interval (tick based, modified by ui speed) create a frame location to paint
       // This will cause something resembling a shadow trail to appear.
       let bounce_time = factory.ticks - factory.quests[quest_current_index].bouncer.bouncing_at;
-      if bounce_time as f64 / (options.bouncer_time_to_factory as f64 * ONE_SECOND as f64 * options.speed_modifier_ui) < options.bouncer_cut_after && bounce_time % options.bouncer_stamp_interval == 0 {
+      if bounce_time as f64 / (options.bouncer_time_to_factory as f64 * ONE_SECOND as f64 * options.speed_modifier_ui) < options.bouncer_stop_after && bounce_time % options.bouncer_stamp_interval == 0 {
         let xy = bouncer_xy_at_t(options, bounce_time, factory.quests[quest_current_index].bouncer.bounce_from_index);
         // log!("Adding coord {:?} to frames", xy);
         factory.quests[quest_current_index].bouncer.frames.push_back( ( xy.0, xy.1, factory.ticks ) );

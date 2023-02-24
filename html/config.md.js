@@ -501,7 +501,7 @@ The old paper
 # Quest_BlueBottle
 - after: Quest_Start
 - parts: Part_Sapphire, Part_PotionBlue, Part_EmptyBottle
-- targets: 10x Part_PotionBlue
+- targets: 2x Part_PotionBlue
 
 # Quest_BlueShield
 - after: Quest_Shield, Quest_BlueBottle

@@ -79,15 +79,17 @@ pub struct Options {
   pub dropzone_bounce_speed: u64, // The rgb color value will "bounce" up and down
   pub dropzone_bounce_distance: u64, // Range that the color bounces
 
-  pub bouncer_time_to_factory: f64,
-  pub bouncer_decay_rate: f64, // Modifies the bounce trail.
-  pub bouncer_initial_angle: f64,
-  pub bouncer_angular_freq: f64,
+  pub bouncer_time_to_factory: f64, // After how much time should the bouncer be considered complete?
+  pub bouncer_decay_rate_modifier: f64, // General decay modifier
+  pub bouncer_amplitude_decay_rate: f64, // How fast the wave become less tall (not shorter)
+  pub bouncer_wave_decay_rate: f64, // How fast the bounces become shorter (not less tall)
+  pub bouncer_initial_angle: f64, // Determines where the wave starts. Kinda sensitive to tune against the badges.
+  pub bouncer_angular_freq: f64, // Influences wave length
   pub bouncer_trail_time: f64, // How long does a ghost stay 100% opaque before starting to fade? Relative to one real world second, subject to be modified by ui speed
   pub bouncer_fade_time: f64, // How long does it take for a ghost to fade out? Relative to one real world second, subject to be modified by ui speed
-  pub bouncer_stamp_interval: u64,
-  pub bouncer_cut_after: f64,
-  pub bouncer_distance: f64,
+  pub bouncer_stamp_interval: u64, // Every how many frames do we create a ghost frame?
+  pub bouncer_stop_after: f64, // On the scale of bouncer_formula_total_distance, how far into the formula do we end the bouncer? this would be ideally when the bouncer is inside the factory.
+  pub bouncer_formula_total_distance: f64, // The bouncer follows a formula and this is the would-be total distance until it "stops bouncing", the bouncer_stop_after is a normalized point onto this value
 
   // obsolete
   pub bouncer_decay_speed: f64,
@@ -155,15 +157,17 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     dropzone_color_offset: 75,
     dropzone_bounce_speed: 10,
     dropzone_bounce_distance: 150,
-    bouncer_decay_rate: 3.0,
+    bouncer_decay_rate_modifier: 3.0,
+    bouncer_amplitude_decay_rate: 1.0,
+    bouncer_wave_decay_rate: 1.0,
     bouncer_initial_angle: 45.0,
     bouncer_angular_freq: 6.28,
     bouncer_time_to_factory: 10.0,
     bouncer_trail_time: 2.0,
     bouncer_fade_time: 2.0,
     bouncer_stamp_interval: 20,
-    bouncer_cut_after: 1200.0,
-    bouncer_distance: 650.0,
+    bouncer_stop_after: 1200.0,
+    bouncer_formula_total_distance: 650.0,
     bouncer_decay_speed: 1.2,
     web_output_cli: false,
     initial_event_type_swapped: false,
@@ -315,7 +319,9 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "ui_section_border_color" => options.ui_section_border_color = parse_string(value.to_string(), name, strict, options.ui_section_border_color.clone()),
             "short_term_window" => options.short_term_window = parse_u64(value, name, strict, options.short_term_window),
             "long_term_window" => options.long_term_window = parse_u64(value, name, strict, options.long_term_window),
-            "bouncer_decay_rate" => options.bouncer_decay_rate = parse_f64(value, name, strict, options.bouncer_decay_rate),
+            "bouncer_decay_rate_modifier" => options.bouncer_decay_rate_modifier = parse_f64(value, name, strict, options.bouncer_decay_rate_modifier),
+            "bouncer_amplitude_decay_rate" => options.bouncer_amplitude_decay_rate = parse_f64(value, name, strict, options.bouncer_amplitude_decay_rate),
+            "bouncer_wave_decay_rate" => options.bouncer_wave_decay_rate = parse_f64(value, name, strict, options.bouncer_wave_decay_rate),
             "bouncer_initial_angle" => options.bouncer_initial_angle = parse_f64(value, name, strict, options.bouncer_initial_angle),
             "bouncer_angular_freq" => options.bouncer_angular_freq = parse_f64(value, name, strict, options.bouncer_angular_freq),
             "bouncer_time_to_factory" => options.bouncer_time_to_factory = parse_f64(value, name, strict, options.bouncer_time_to_factory),
@@ -325,8 +331,8 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "bouncer_trail_time" => options.bouncer_trail_time = parse_f64(value, name, strict, options.bouncer_trail_time),
             "bouncer_fade_time" => options.bouncer_fade_time = parse_f64(value, name, strict, options.bouncer_fade_time),
             "bouncer_stamp_interval" => options.bouncer_stamp_interval = parse_u64(value, name, strict, options.bouncer_stamp_interval),
-            "bouncer_cut_after" => options.bouncer_cut_after = parse_f64(value, name, strict, options.bouncer_cut_after),
-            "bouncer_distance" => options.bouncer_distance = parse_f64(value, name, strict, options.bouncer_distance),
+            "bouncer_stop_after" => options.bouncer_stop_after = parse_f64(value, name, strict, options.bouncer_stop_after),
+            "bouncer_formula_total_distance" => options.bouncer_formula_total_distance = parse_f64(value, name, strict, options.bouncer_formula_total_distance),
             "touch_drag_compensation" => options.touch_drag_compensation = parse_bool(value, name, strict, options.touch_drag_compensation),
             "game_enable_clean_days" => options.game_enable_clean_days = parse_bool(value, name, strict, options.game_enable_clean_days),
             "game_auto_reset_day" => options.game_auto_reset_day = parse_bool(value, name, strict, options.game_auto_reset_day),
@@ -402,7 +408,9 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- dropzone_color_offset: {}", options.dropzone_color_offset));
   arr.push(format!("- dropzone_bounce_speed: {}", options.dropzone_bounce_speed));
   arr.push(format!("- dropzone_bounce_distance: {}", options.dropzone_bounce_distance));
-  arr.push(format!("- bouncer_decay_rate: {}", options.bouncer_decay_rate));
+  arr.push(format!("- bouncer_decay_rate_modifier: {}", options.bouncer_decay_rate_modifier));
+  arr.push(format!("- bouncer_amplitude_decay_rate: {}", options.bouncer_amplitude_decay_rate));
+  arr.push(format!("- bouncer_wave_decay_rate: {}", options.bouncer_wave_decay_rate));
   arr.push(format!("- bouncer_initial_angle: {}", options.bouncer_initial_angle));
   arr.push(format!("- bouncer_angular_freq: {}", options.bouncer_angular_freq));
   arr.push(format!("- bouncer_time_to_factory: {}", options.bouncer_time_to_factory));
