@@ -3416,12 +3416,20 @@ fn paint_background_tiles3(
           // Paint tiny output part
           paint_segment_part_from_config(options, state, config, context, cell.machine.output_want.kind, ox + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].x, oy + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].y, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].w, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].h);
         }
+        else {
+          let (mainx, mainy) = to_xy(cell.machine.main_coord);
+          let maxx = mainx + cell.machine.cell_width;
+          let maxy = mainy + cell.machine.cell_height;
+          let max_coord = to_coord(maxx, maxy);
+          if max_coord == coord {
+            // TODO: seems to not be max... but center is fine too, for now.
+            paint_asset(options, state, config, context, CONFIG_NODE_ASSET_WEE_WOO, factory.ticks,
+              ox + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].x, oy + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].y,
+              config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].w, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].h
+            );
+          }
+        }
 
-
-        paint_asset(options, state, config, context, CONFIG_NODE_ASSET_WEE_WOO, factory.ticks,
-          ox + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].x, oy + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].y,
-          config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].w, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].h
-        );
       },
       CellKind::Supply => {
         // Paint the supplier image with partial transparency, making the belt and part appear semi-transparently

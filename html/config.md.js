@@ -17,7 +17,7 @@ This is an animated alarm (like the rotating light on a police car or ambulance)
 - frame_offset: 0
 - frame_count: 50
 - frame_direction: right
-- frame_delay: 62
+- frame_delay: 80
 - frame: 1
   - file: ./img/weewoo.png
   - x: 0
