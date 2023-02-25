@@ -293,6 +293,7 @@ pub const CONFIG_NODE_BELT___DRU: usize = 271;
 pub const CONFIG_NODE_BELT_L__DRU: usize = 272;
 pub const CONFIG_NODE_BELT__L_DRU: usize = 273;
 pub const CONFIG_NODE_BELT___DLRU: usize = 274;
+pub const CONFIG_NODE_ASSET_WEE_WOO: usize = 275;
 
 #[derive(Debug)]
 pub struct Config {
@@ -343,6 +344,7 @@ pub struct ConfigNode {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ConfigNodeKind {
+  Asset,
   Part,
   Quest,
   Supply,
@@ -445,6 +447,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
             index: node_index,
             kind:
               match kind {
+                "Asset" => ConfigNodeKind::Asset,
                 "Quest" => ConfigNodeKind::Quest,
                 "Part" => ConfigNodeKind::Part,
                 "Demand" => ConfigNodeKind::Demand,
@@ -498,6 +501,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
           }
           current_node_index = node_index;
           match kind {
+            "Asset" => part_nodes.push(node_index),
             "Quest" => {
               nodes[node_index].quest_index = quest_nodes_by_index.len();
               quest_nodes_by_index.push(node_index);
@@ -866,6 +870,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   nodes.iter().for_each(|node| {
     if node.current_state != ConfigNodeState::Waiting {
       match node.kind {
+        ConfigNodeKind::Asset => {}
         ConfigNodeKind::Part => log!("- Part {} will be {:?} from the start", node.raw_name, node.current_state),
         ConfigNodeKind::Quest => log!("- Quest {} will be {:?} from the start", node.raw_name, node.current_state),
         ConfigNodeKind::Demand => {}
@@ -887,6 +892,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   //   log!("quest {} depends on {:?}", nodes[index].raw_name.clone(), nodes[index].required_by_quest_indexes.iter().map(|pindex| nodes[*pindex].raw_name.clone()).collect::<Vec<String>>());
   // });
 
+  let mut assets = 0;
   let mut parts = 0;
   let mut quests = 0;
   let mut demanders = 0;
@@ -896,6 +902,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   let mut belts = 0;
   nodes.iter().for_each(|node| {
     match node.kind {
+      ConfigNodeKind::Asset => assets += 1,
       ConfigNodeKind::Part => parts += 1,
       ConfigNodeKind::Quest => quests += 1,
       ConfigNodeKind::Demand => demanders += 1,
@@ -906,7 +913,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
     }
   });
 
-  log!("Config had: {} parts, {} quests, {} demanders, {} suppliers, {} docks, {} machines, and {} belts", parts, quests, demanders, suppliers, docks, machines, belts);
+  log!("Config had: {} assets, {} parts, {} quests, {} demanders, {} suppliers, {} docks, {} machines, and {} belts", assets, parts, quests, demanders, suppliers, docks, machines, belts);
 
   // log!("parsed nodes: {:?}", &nodes[1..]);
   if print_fmd_trace { log!("parsed map: {:?}", node_name_to_index); }
@@ -917,6 +924,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
 
 fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usize) -> usize {
   return match name {
+    "Asset_WeeWoo" => CONFIG_NODE_ASSET_WEE_WOO,
     "Part_None" => PARTKIND_NONE,
     "Part_Trash" => PARTKIND_TRASH,
     "Supply_Up" => CONFIG_NODE_SUPPLY_UP,

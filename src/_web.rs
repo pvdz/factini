@@ -50,6 +50,7 @@ use wasm_bindgen::JsCast;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 
+use super::asset::*;
 use super::belt::*;
 use super::belt_type::*;
 use super::bouncer::*;
@@ -189,6 +190,7 @@ pub fn start() -> Result<(), JsValue> {
     {
       let kinds: JsValue = [ConfigNodeKind::Part, ConfigNodeKind::Quest, ConfigNodeKind::Supply, ConfigNodeKind::Demand, ConfigNodeKind::Dock, ConfigNodeKind::Machine, ConfigNodeKind::Belt].iter().map(|&kind| {
         return JsValue::from(match kind {
+          ConfigNodeKind::Asset => "Asset",
           ConfigNodeKind::Part => "Part",
           ConfigNodeKind::Quest => "Quest",
           ConfigNodeKind::Supply => "Supply",
@@ -806,8 +808,7 @@ pub fn start() -> Result<(), JsValue> {
           }
         }
 
-
-        // Paint the world (no input or world mutations after this point)
+        // Paint the world (we should not do input or world mutations after this point)
 
         context.set_font(&"12px monospace");
 
@@ -3201,7 +3202,10 @@ fn paint_background_tiles1(
           context.draw_image_with_html_image_element_and_dw_and_dh(machine_img, ox, oy, cell.machine.cell_width as f64 * CELL_W, cell.machine.cell_height as f64 * CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
 
           // Paint tiny output part
-          paint_segment_part_from_config(options, state, config, context, cell.machine.output_want.kind, ox + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].x, oy + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].y, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].w, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].h);
+          paint_segment_part_from_config(options, state, config, context,
+            cell.machine.output_want.kind, ox + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].x, oy + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].y,
+            config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].w, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].h
+          );
         }
       },
       CellKind::Supply => {
@@ -3412,6 +3416,12 @@ fn paint_background_tiles3(
           // Paint tiny output part
           paint_segment_part_from_config(options, state, config, context, cell.machine.output_want.kind, ox + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].x, oy + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].y, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].w, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].h);
         }
+
+
+        paint_asset(options, state, config, context, CONFIG_NODE_ASSET_WEE_WOO, factory.ticks,
+          ox + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].x, oy + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].y,
+          config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].w, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].h
+        );
       },
       CellKind::Supply => {
         // Paint the supplier image with partial transparency, making the belt and part appear semi-transparently
@@ -4898,6 +4908,44 @@ fn paint_segment_part_from_config_bug(options: &Options, state: &State, config: 
       context.fill_text("ε", dx + dw / 2.0 - 4.0, dy + dh / 2.0 + 3.0).expect("to paint");
     } else {
       context.fill_text(format!("{}", config.nodes[segment_part_index].icon).as_str(), dx + dw / 2.0 - 4.0, dy + dh / 2.0 + 3.0).expect("to paint");
+    }
+  }
+
+  return true;
+}
+fn paint_asset(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, config_node_index: usize, ticks: u64, dx: f64, dy: f64, dw: f64, dh: f64) -> bool {
+  assert!(config.nodes[config_node_index].kind == ConfigNodeKind::Asset, "assets should refer to Asset nodes but received index: {}, kind: {:?}, node: {:?}", config_node_index, config.nodes[config_node_index].kind, config.nodes[config_node_index]);
+
+  let (spx, spy, spw, sph, canvas) = config_get_sprite_details(config, config_node_index, 0, true, ticks);
+
+  // let (spx, spy, spw, sph, canvas) = asset_to_sprite_coord_from_config(config, config_node_index);
+  // if bug { log!("meh? {} {} {} {}: {:?} --> {:?}", spx, spy, spw, sph, segment_part_index, config.nodes[segment_part_index]); }
+
+  // log!("wat: {} {} {} {}     {} {} {} {}", spx, spy, spw, sph , dx, dy, dw, dh,);
+  // document().get_element_by_id("$tdb").unwrap().dyn_into::<web_sys::HtmlElement>().unwrap().append_child(&canvas).expect("to work");
+
+  context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+    &canvas,
+    // Sprite position
+    spx, spy, spw, sph,
+    // Paint onto canvas at
+    dx, dy, dw, dh,
+  ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+
+  if options.draw_part_borders {
+    context.set_stroke_style(&"black".into());
+    context.stroke_rect(dx, dy, dw, dh);
+  }
+  if options.draw_part_char_icon || options.draw_part_kind {
+    context.set_fill_style(&"#ffffff99".into());
+    context.fill_rect(dx, dy, dw, dh);
+    context.set_fill_style(&"black".into());
+    if options.draw_part_kind {
+      context.fill_text(config_node_index.to_string().as_str(), dx + dw / 2.0 - (if config_node_index < 9 { 4.0 } else { 14.0 }), dy + dh / 2.0 + 3.0).expect("to paint");
+    } else if config_node_index == PARTKIND_NONE {
+      context.fill_text("ε", dx + dw / 2.0 - 4.0, dy + dh / 2.0 + 3.0).expect("to paint");
+    } else {
+      context.fill_text(format!("{}", config.nodes[config_node_index].icon).as_str(), dx + dw / 2.0 - 4.0, dy + dh / 2.0 + 3.0).expect("to paint");
     }
   }
 
