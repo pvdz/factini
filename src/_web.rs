@@ -1876,7 +1876,7 @@ fn on_drag_end_machine_over_floor(options: &mut Options, state: &mut State, conf
             1, 1
           );
         } else {
-          factory.floor[coord] = machine_sub_cell(options, state, config, found, x, y, ccoord);
+          factory.floor[coord] = machine_sub_cell(options, state, config, found, x, y, ccoord, ocw, och);
         }
         factory.floor[ccoord].machine.coords.push(coord);
 
@@ -3200,12 +3200,6 @@ fn paint_background_tiles1(
             _ => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].file_canvas_cache_index],
           };
           context.draw_image_with_html_image_element_and_dw_and_dh(machine_img, ox, oy, cell.machine.cell_width as f64 * CELL_W, cell.machine.cell_height as f64 * CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
-
-          // Paint tiny output part
-          paint_segment_part_from_config(options, state, config, context,
-            cell.machine.output_want.kind, ox + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].x, oy + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].y,
-            config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].w, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].h
-          );
         }
       },
       CellKind::Supply => {
@@ -3401,35 +3395,22 @@ fn paint_background_tiles3(
         // For machines, paint the top-left cell only but make the painted area cover the whole machine
         // TODO: each machine size should have a unique, customized, sprite
         if cell.machine.main_coord == coord {
-          let machine_img = match ( cell.machine.cell_width, cell.machine.cell_height ) {
-            ( 1, 1 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_1X1].sprite_config.frames[0].file_canvas_cache_index],
-            ( 2, 2 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_2X2].sprite_config.frames[0].file_canvas_cache_index],
-            ( 3, 3 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].file_canvas_cache_index],
-            ( 4, 4 ) => img_machine_1_1,
-            ( 2, 1 ) => img_machine_2_1,
-            ( 4, 2 ) => img_machine_2_1,
-            ( 3, 2 ) => img_machine_3_2,
-            _ => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].file_canvas_cache_index],
-          };
-          context.draw_image_with_html_image_element_and_dw_and_dh(machine_img, ox, oy, cell.machine.cell_width as f64 * CELL_W, cell.machine.cell_height as f64 * CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
-
-          // Paint tiny output part
+          // Paint tiny output part in top-left
           paint_segment_part_from_config(options, state, config, context, cell.machine.output_want.kind, ox + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].x, oy + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].y, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].w, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].h);
         }
         else {
+          // Paint alarm in center if the machine has a problem
           let (mainx, mainy) = to_xy(cell.machine.main_coord);
-          let maxx = mainx + cell.machine.cell_width;
-          let maxy = mainy + cell.machine.cell_height;
+          let maxx = mainx + cell.machine.cell_width - 1;
+          let maxy = mainy + cell.machine.cell_height - 1;
           let max_coord = to_coord(maxx, maxy);
           if max_coord == coord {
-            // TODO: seems to not be max... but center is fine too, for now.
             paint_asset(options, state, config, context, CONFIG_NODE_ASSET_WEE_WOO, factory.ticks,
               ox + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].x, oy + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].y,
               config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].w, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].h
             );
           }
         }
-
       },
       CellKind::Supply => {
         // Paint the supplier image with partial transparency, making the belt and part appear semi-transparently

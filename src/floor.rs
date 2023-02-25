@@ -132,12 +132,14 @@ pub fn auto_layout(options: &mut Options, state: &mut State, config: &Config, fa
 
               factory.floor[ocoord].machine.id = (('0' as u8) + machines) as char;
               factory.floor[ocoord].machine.coords.clear();
+
+              factory.floor[ocoord].machine.cell_width = biggest_area_width;
+              factory.floor[ocoord].machine.cell_height = biggest_area_height;
+
               factory.floor[main_coord].machine.coords.push(ocoord);
             }
           }
           factory.floor[main_coord].machine.kind = MachineKind::Main;
-          factory.floor[main_coord].machine.cell_width = biggest_area_width;
-          factory.floor[main_coord].machine.cell_height = biggest_area_height;
           factory.floor[main_coord].machine.coords.sort(); // Makes debugging easier
 
           // Now that we know the size of the machine, make sure that the wants and haves match

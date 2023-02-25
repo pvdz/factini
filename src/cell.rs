@@ -237,7 +237,7 @@ pub fn machine_main_cell(options: &mut Options, state: &mut State, config: &Conf
   };
 }
 
-pub fn machine_sub_cell(options: &mut Options, state: &mut State, config: &Config, id: char, x: usize, y: usize, main_coord: usize) -> Cell {
+pub fn machine_sub_cell(options: &mut Options, state: &mut State, config: &Config, id: char, x: usize, y: usize, main_coord: usize, ocw: usize, och: usize) -> Cell {
   assert!(x > 0 && y > 0 && x < FLOOR_CELLS_W - 1 && y < FLOOR_CELLS_H - 1);
 
   let coord = x + y * FLOOR_CELLS_W;
@@ -274,7 +274,7 @@ pub fn machine_sub_cell(options: &mut Options, state: &mut State, config: &Confi
     marked: false,
 
     belt: belt_none(config),
-    machine: machine_new(options, state, config, MachineKind::SubBuilding, 0, 0, id, main_coord, vec!(), part_none(config), 666),
+    machine: machine_new(options, state, config, MachineKind::SubBuilding, ocw, och, id, main_coord, vec!(), part_none(config), 666),
     demand: demand_none(),
     supply: supply_none(config),
   };
