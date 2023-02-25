@@ -1489,6 +1489,23 @@ fn get_system_nodes() -> Vec<ConfigNode> {
   return v;
 }
 
+pub fn config_get_initial_unlocks(options: &mut Options, state: &mut State, config: &Config) -> Vec<char> {
+  let mut unlocked_part_icons: Vec<char> = vec!();
+
+  config.nodes.iter().filter(|node| node.unlocks_after_by_index.len() == 0).for_each(|node| {
+    node.starting_part_by_index.iter().for_each(|index| {
+      let icon = config.nodes[*index].icon;
+      if !unlocked_part_icons.contains(&icon) { unlocked_part_icons.push(icon); }
+    });
+    node.production_target_by_index.iter().for_each(|(_count, index)| {
+      let icon = config.nodes[*index].icon;
+      if !unlocked_part_icons.contains(&icon) { unlocked_part_icons.push(icon); }
+    });
+  });
+
+  return unlocked_part_icons;
+}
+
 fn config_node_part(index: PartKind, name: String, icon: char) -> ConfigNode {
   let raw_name = format!("Part_{}", name);
   return ConfigNode {

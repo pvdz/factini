@@ -124,6 +124,8 @@ pub fn get_fresh_quest_states(options: &mut Options, state: &mut State, config: 
     }
   }
 
+  log!("get_fresh_quest_states() initial available quests # are: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| quest.name.clone()).collect::<Vec<String>>());
+
   // Now all quest states should be correctly waiting, active, or finished.
   // We dont care/remember about the other states at load time.
   return quests;

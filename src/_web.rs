@@ -30,7 +30,6 @@
 // - rebalance the fps frame limiter
 // - play button border color affected by laser. also highlights on hover when it supposed to not to
 // - car polish; should make nice corners, should drive same speed to any height
-// - bouncers are taking bouncer index as offsets rather than visible offsets. the last bouncer animations are completely broken
 // - click edge to add supplier. click supplier/demander to toggle.
 // - cars adjust speed too
 // - disable manual resource interface (no clicky on machine internals)
@@ -1645,25 +1644,19 @@ fn on_up_quest(options: &Options, state: &State, config: &Config, factory: &mut 
   if options.dbg_clickable_quests && mouse_state.down_quest && mouse_state.down_quest_visible_index == mouse_state.up_quest_visible_index {
     log!("  clicked on this quest (down=up). Completing it now...");
     let mut visible_index = 0;
-    let quest_fade_time = QUEST_FADE_TIME as f64 * options.speed_modifier_ui;
-
     for quest_index in 0..factory.quests.len() {
       if factory.quests[quest_index].status != QuestStatus::Active && factory.quests[quest_index].status != QuestStatus::FadingAndBouncing {
         continue;
       }
-      let fade_in_progress = if factory.quests[quest_index].status == QuestStatus::Active { ((factory.ticks - factory.quests[quest_index].status_at) as f64 / quest_fade_time).max(0.0).min(1.0) } else { 1.0 };
-      let fade_out_progress = if factory.quests[quest_index].status == QuestStatus::FadingAndBouncing { ((factory.ticks - factory.quests[quest_index].status_at) as f64 / quest_fade_time).max(0.0).min(1.0) } else { 0.0 };
-
-      if fade_in_progress * (1.0 - fade_out_progress) > 0.0 {
-        if visible_index == mouse_state.up_quest_visible_index {
-          log!("  satisfying quest {} to production target", quest_index);
-          factory.quests[quest_index].production_progress = factory.quests[quest_index].production_target;
-          quest_update_status(&mut factory.quests[quest_index], QuestStatus::Finished, factory.ticks);
-          return;
-        }
-
-        visible_index += 1;
+      if visible_index == mouse_state.up_quest_visible_index {
+        log!("  satisfying quest {} to production target", quest_index);
+        factory.quests[quest_index].production_progress = factory.quests[quest_index].production_target;
+        quest_update_status(&mut factory.quests[quest_index], QuestStatus::FadingAndBouncing, factory.ticks);
+        factory.quests[quest_index].bouncer.bounce_from_index = visible_index;
+        factory.quests[quest_index].bouncer.bouncing_at = factory.ticks;
+        return;
       }
+      visible_index += 1;
     }
 
     log!("Clicked on a quest index that doesnt exist right now. mouse_state.down_quest_visible_index={}, mouse_state.up_quest_visible_index={}", mouse_state.down_quest_visible_index, mouse_state.up_quest_visible_index);
@@ -2532,7 +2525,11 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
       log!("(no button here)");
     }
     MenuButton::Row3Button4 => {
-      log!("(no button here)");
+      log!("Clearing the unlock status so you can start again");
+      let available_parts = config_get_initial_unlocks(options, state, config);
+      factory.available_parts_rhs_menu = available_parts.iter().map(|icon| ( part_icon_to_kind(config,*icon), true ) ).collect();
+      factory.quests = get_fresh_quest_states(options, state, config, 0, &available_parts.iter().map(|icon| part_icon_to_kind(config,*icon) ).collect());
+      factory.changed = true;
     }
     MenuButton::Row3Button5 => {
       panic!("Hit the panic button. Or another button without implementation.")
@@ -4381,7 +4378,6 @@ fn paint_top_bars(options: &Options, state: &State, factory: &Factory, context: 
 }
 fn paint_quests(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, img_quest_frame: &web_sys::HtmlImageElement) {
   let mut visible_index = 0;
-  let quest_fade_time = QUEST_FADE_TIME as f64 * options.speed_modifier_ui;
 
   for quest_index in 0..factory.quests.len() {
     if factory.quests[quest_index].status != QuestStatus::Active && factory.quests[quest_index].status != QuestStatus::FadingAndBouncing {
@@ -4776,7 +4772,7 @@ fn paint_ui_buttons2(options: &Options, state: &State, context: &Rc<web_sys::Can
   paint_ui_button2(context, mouse_state, 1.0, "Select", state.mouse_mode_selecting, true, MenuButton::Row3Button1);
   paint_ui_button2(context, mouse_state, 2.0, if state.selected_area_copy.len() > 0{ "Stamp" } else { "Copy" }, state.selected_area_copy.len() > 0, state.mouse_mode_selecting, MenuButton::Row3Button2);
   // paint_ui_button2(context, mouse_state, 3.0, "Undo", false, state.snapshot_undo_pointer > 0, MenuButton::Row3Button3); // should it be 1 for initial map? or dont car, MenuButton::Row3Button3e?
-  // paint_ui_button2(context, mouse_state, 4.0, "Redo", false, state.snapshot_undo_pointer != state.snapshot_pointer, MenuButton::Row3Button4);
+  paint_ui_button2(context, mouse_state, 4.0, "Again", false, true, MenuButton::Row3Button4);
   paint_ui_button2(context, mouse_state, 5.0, "Panic", false, true, MenuButton::Row3Button5);
   // paint_ui_button2(context, mouse_state, 6.0, "Panic");
   assert!(UI_MENU_BUTTONS_COUNT_WIDTH_MAX == 7.0, "Update after adding new buttons");

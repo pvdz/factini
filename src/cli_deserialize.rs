@@ -115,17 +115,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
 
   let mut floor: [Cell; FLOOR_CELLS_WH] = floor_empty(config);
   // Populate the unlocked icons by at least the ones that unlock by default
-  let mut unlocked_part_icons: Vec<char> = vec!();
-  config.nodes.iter().filter(|node| node.unlocks_after_by_index.len() == 0).for_each(|node| {
-    node.starting_part_by_index.iter().for_each(|index| {
-      let icon = config.nodes[*index].icon;
-      if !unlocked_part_icons.contains(&icon) { unlocked_part_icons.push(icon); }
-    });
-    node.production_target_by_index.iter().for_each(|(_count, index)| {
-      let icon = config.nodes[*index].icon;
-      if !unlocked_part_icons.contains(&icon) { unlocked_part_icons.push(icon); }
-    });
-  });
+  let mut unlocked_part_icons: Vec<char> = config_get_initial_unlocks(options, state, config);
 
   let hash: &char = &'#';
   let space: &u8 = &32u8;

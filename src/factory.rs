@@ -270,9 +270,9 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
       }
 
       // Once completely faded. Start dump truck with resources that were unlocked by quests
-      // that were unlocked by finishing this one.
+      // that were unlocked by finishing this one. Make sure it's had time to schedule one frame.
       // TODO: remove from tick loop and move to paint loop
-      if factory.quests[quest_current_index].bouncer.frames.len() == 0 {
+      if factory.quests[quest_current_index].status == QuestStatus::Bouncing && factory.quests[quest_current_index].bouncer.frames.len() == 0 {
         log!("Marking quest {} as Finished", quest_current_index);
         log!("Note: the trucks are not working yet... TOFIX");
         factory.quests[quest_current_index].status = QuestStatus::Finished;
