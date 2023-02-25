@@ -102,8 +102,11 @@ pub struct MouseState {
   pub up_quote: bool,
   pub up_quest_visible_index: usize, // Only if up_quote
 
+  pub over_menu_row: MenuRow,
   pub over_menu_button: MenuButton,
+  pub down_menu_row: MenuRow,
   pub down_menu_button: MenuButton,
+  pub up_menu_row: MenuRow,
   pub up_menu_button: MenuButton,
 
   pub help_hover: bool,
@@ -116,13 +119,7 @@ pub struct MouseState {
   pub offer_selected: bool,
   pub offer_selected_index: usize, // Offer index, not part index
   pub dragging_offer: bool,
-  pub over_machine_button: bool, // Is the mouse currently over the machine button?
-  pub down_machine_button: bool,
-  pub up_machine_button: bool,
   pub dragging_machine: bool,
-  pub over_paint_toggle: bool,
-  pub down_paint_toggle: bool,
-  pub up_paint_toggle: bool,
 
   pub craft_over_ci: CraftInteractable,
   pub craft_over_ci_wx: f64,
@@ -212,6 +209,16 @@ pub enum MenuButton {
   Row3Button4,
   Row3Button5,
   Row3Button6,
+  PaintToggleButton, // Left of the big factory button
+  FactoryButton,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MenuRow {
+  None,
+  First,
+  Second,
+  Third,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

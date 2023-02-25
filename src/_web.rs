@@ -22,16 +22,9 @@
 // - what's up with these assertion traps :(
 //   - `let (received_part_index, received_count) = factory.floor[coord].demand.received[i];` threw oob (1 while len=0). i thin it's somehow related to dropping a demander on the edge
 // - hover over craftable offer should highlight craft-inputs (offers)
-// - config editor in web
-//   - tile editor
-//   - part editor
-//   - quest editor
-//   - prep for animations
 // - rebalance the fps frame limiter
 // - car polish; should make nice corners, should drive same speed to any height
 // - click edge to add supplier. click supplier/demander to toggle.
-// - cars adjust speed too
-// - disable manual resource interface (no clicky on machine internals)
 // - updating machine should open machines
 // - change preview of craftable when selected (the tiny preview on top is not working
 // - create tutorial
@@ -582,8 +575,11 @@ pub fn start() -> Result<(), JsValue> {
       up_quote: false,
       up_quest_visible_index: 0, // Only if up_quote
 
+      over_menu_row: MenuRow::None,
       over_menu_button: MenuButton::None,
+      down_menu_row: MenuRow::None,
       down_menu_button: MenuButton::None,
+      up_menu_row: MenuRow::None,
       up_menu_button: MenuButton::None,
 
       help_hover: false,
@@ -596,13 +592,7 @@ pub fn start() -> Result<(), JsValue> {
       offer_selected: false,
       offer_selected_index: 0, // Offer index, not part index
       dragging_offer: false,
-      over_machine_button: false,
-      down_machine_button: false,
-      up_machine_button: false,
       dragging_machine: false,
-      over_paint_toggle: false,
-      down_paint_toggle: false,
-      up_paint_toggle: false,
 
       craft_over_ci: CraftInteractable::None,
       craft_over_ci_wx: 0.0,
@@ -929,8 +919,6 @@ fn update_mouse_state(
     mouse_state.craft_down_ci = CraftInteractable::None;
     mouse_state.craft_dragging_ci = false;
     mouse_state.offer_down = false;
-    mouse_state.down_machine_button = false;
-    mouse_state.up_machine_button = false;
     mouse_state.help_down = false;
     mouse_state.is_down = false;
     mouse_state.down_floor_not_corner = false;
@@ -948,8 +936,6 @@ fn update_mouse_state(
     mouse_state.up_undo = false;
     mouse_state.up_clear = false;
     mouse_state.up_redo = false;
-    mouse_state.up_paint_toggle = false;
-    mouse_state.down_paint_toggle = false;
   }
   mouse_state.was_down = false;
   mouse_state.is_up = false;
@@ -957,7 +943,6 @@ fn update_mouse_state(
   mouse_state.was_dragging = false;
   mouse_state.offer_hover = false;
   mouse_state.over_quest = false;
-  mouse_state.over_machine_button = false;
   mouse_state.over_menu_button = MenuButton::None;
   mouse_state.help_hover = false;
   mouse_state.over_day_bar = false;
@@ -965,7 +950,6 @@ fn update_mouse_state(
   mouse_state.over_undo = false;
   mouse_state.over_clear = false;
   mouse_state.over_redo = false;
-  mouse_state.over_paint_toggle = false;
 
   mouse_state.up_zone = Zone::None;
   mouse_state.over_zone = Zone::None;
@@ -1049,15 +1033,21 @@ fn update_mouse_state(
         !((mouse_state.cell_x_floored == 0.0 || mouse_state.cell_x_floored == (FLOOR_CELLS_W - 1) as f64) && (mouse_state.cell_y_floored == 0.0 || mouse_state.cell_y_floored == (FLOOR_CELLS_H - 1) as f64));
     }
     ZONE_MENU => {
-      let menu_button = hit_test_menu_button(mouse_state.world_x, mouse_state.world_y);
-      if hit_test_paint_toggle(mouse_state.world_x, mouse_state.world_y) {
-        mouse_state.over_paint_toggle = true;
+      let ( menu_button, button_row ) = hit_test_menu_button(mouse_state.world_x, mouse_state.world_y);
+      if menu_button != MenuButton::None {
+        // time controls, first, second row of menu buttons
+        mouse_state.over_menu_row = button_row;
+        mouse_state.over_menu_button = menu_button;
+      }
+      else if hit_test_paint_toggle(mouse_state.world_x, mouse_state.world_y) {
+        // the paint toggle left of the machine
+        mouse_state.over_menu_row = MenuRow::None;
+        mouse_state.over_menu_button = MenuButton::PaintToggleButton;
       }
       else if hit_test_machine_button(mouse_state.world_x, mouse_state.world_y) {
-        mouse_state.over_machine_button = true;
-      }
-      else if menu_button != MenuButton::None {
-        mouse_state.over_menu_button = menu_button;
+        // the big machine button
+        mouse_state.over_menu_row = MenuRow::None;
+        mouse_state.over_menu_button = MenuButton::FactoryButton;
       }
     }
     Zone::BottomBottom => {}
@@ -1164,16 +1154,21 @@ fn update_mouse_state(
           !((mouse_state.last_down_cell_x_floored == 0.0 || mouse_state.last_down_cell_x_floored == (FLOOR_CELLS_W - 1) as f64) && (mouse_state.last_down_cell_y_floored == 0.0 || mouse_state.last_down_cell_y_floored == (FLOOR_CELLS_H - 1) as f64));
       }
       ZONE_MENU => {
-        let menu_button = hit_test_menu_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
-
-        if hit_test_paint_toggle(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
-          mouse_state.down_paint_toggle = true;
+        let ( menu_button, button_row ) = hit_test_menu_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
+        if menu_button != MenuButton::None {
+          // time controls, first, second row of menu buttons
+          mouse_state.down_menu_row = button_row;
+          mouse_state.down_menu_button = menu_button;
+        }
+        else if hit_test_paint_toggle(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
+          // the paint toggle left of the machine
+          mouse_state.down_menu_row = MenuRow::None;
+          mouse_state.down_menu_button = MenuButton::PaintToggleButton;
         }
         else if hit_test_machine_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
-          mouse_state.down_machine_button = true;
-        }
-        else if menu_button != MenuButton::None {
-          mouse_state.down_menu_button = menu_button;
+          // the big machine button
+          mouse_state.down_menu_row = MenuRow::None;
+          mouse_state.down_menu_button = MenuButton::FactoryButton;
         }
       }
       Zone::BottomBottom => {}
@@ -1304,15 +1299,20 @@ fn update_mouse_state(
       ZONE_FLOOR => {
       }
       ZONE_MENU => {
-        let menu_button = hit_test_menu_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
-        if hit_test_paint_toggle(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
-          mouse_state.up_paint_toggle = true;
+        let ( menu_button, button_row ) = hit_test_menu_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
+        if menu_button != MenuButton::None {
+          // time controls, first, second row of menu buttons
+          mouse_state.up_menu_button = menu_button;
+          mouse_state.up_menu_row = button_row;
+        } else if hit_test_paint_toggle(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
+          // the paint toggle left of the machine
+          mouse_state.up_menu_row = MenuRow::None;
+          mouse_state.up_menu_button = MenuButton::PaintToggleButton;
         }
         else if hit_test_machine_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
-          mouse_state.up_machine_button = true;
-        }
-        else if menu_button != MenuButton::None {
-          mouse_state.up_menu_button = menu_button;
+          // the big machine button
+          mouse_state.up_menu_row = MenuRow::None;
+          mouse_state.up_menu_button = MenuButton::FactoryButton;
         }
       }
       Zone::BottomBottom => {}
@@ -1349,7 +1349,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         }
       }
       ZONE_MENU => {
-        if mouse_state.down_machine_button {
+        if mouse_state.down_menu_button == MenuButton::FactoryButton {
           on_drag_start_machine_button(options, state, config, mouse_state);
         }
       }
@@ -1410,7 +1410,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
           if mouse_state.dragging_offer {
             on_drag_end_offer_over_floor(options, state, config, factory, mouse_state);
           }
-          else if mouse_state.down_machine_button {
+          else if mouse_state.down_menu_button == MenuButton::FactoryButton {
             if mouse_state.dragging_machine {
               on_drag_end_machine_over_floor(options, state, config, factory, mouse_state);
             }
@@ -1462,14 +1462,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
           }
         }
         ZONE_MENU => {
-          if mouse_state.down_machine_button {
-            on_up_machine_button();
-          } else if mouse_state.down_paint_toggle {
-            on_up_paint_toggle(state);
-          } else {
-            log!("({}) on_up_menu from normal", factory.ticks);
-            on_up_menu(cell_selection, mouse_state, options, state, config, factory);
-          }
+          on_up_menu(cell_selection, mouse_state, options, state, config, factory);
         }
         ZONE_FLOOR => {
           on_up_floor(options, state, config, factory, cell_selection, &mouse_state);
@@ -2383,6 +2376,14 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
 
   match mouse_state.up_menu_button {
     MenuButton::None => {}
+
+    MenuButton::FactoryButton => {
+      on_up_machine_button();
+    }
+    MenuButton::PaintToggleButton => {
+      on_up_paint_toggle(state);
+    }
+
     MenuButton::Row1ButtonMin => {
       let m = options.speed_modifier_floor;
       options.speed_modifier_floor = options.speed_modifier_floor.min(0.5) * 0.5;
@@ -2629,14 +2630,14 @@ fn on_up_selecting(options: &mut Options, state: &mut State, config: &Config, fa
   }
 }
 
-fn hit_test_menu_button(x: f64, y: f64) -> MenuButton {
+fn hit_test_menu_button(x: f64, y: f64) -> (MenuButton, MenuRow) {
   // The menu is three rows of buttons. The top row has circular buttons, the bottom two are rects.
 
   // Was one of the buttons below the floor clicked?
   if bounds_check(x, y, UI_MENU_BUTTONS_OFFSET_X, UI_MENU_BUTTONS_OFFSET_Y, UI_MENU_BUTTONS_OFFSET_X + UI_MENU_BUTTONS_WIDTH_MAX, UI_MENU_BUTTONS_OFFSET_Y + UI_MENU_BUTTONS_HEIGHT) {
     let button_index = (x - UI_MENU_BUTTONS_OFFSET_X) / (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING);
     if button_index % 1.0 < (UI_MENU_BUTTONS_WIDTH / (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING)) {
-      match button_index.floor() as u8 {
+      let button = match button_index.floor() as u8 {
         0 => MenuButton::Row2Button0,
         1 => MenuButton::Row2Button1,
         2 => MenuButton::Row2Button2,
@@ -2645,16 +2646,18 @@ fn hit_test_menu_button(x: f64, y: f64) -> MenuButton {
         5 => MenuButton::Row2Button5,
         6 => MenuButton::Row2Button6,
         _ => panic!("what button was clicked?"),
-      }
+      };
+
+      ( button, MenuRow::Second )
     } else {
-      MenuButton::None
+      ( MenuButton::None, MenuRow::None )
     }
   }
   // Second row of buttons?
   else if bounds_check(x, y, UI_MENU_BUTTONS_OFFSET_X, UI_MENU_BUTTONS_OFFSET_Y2, UI_MENU_BUTTONS_OFFSET_X + UI_MENU_BUTTONS_WIDTH_MAX, UI_MENU_BUTTONS_OFFSET_Y2 + UI_MENU_BUTTONS_HEIGHT) {
     let button_index = (x - UI_MENU_BUTTONS_OFFSET_X) / (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING);
     if button_index % 1.0 < (UI_MENU_BUTTONS_WIDTH / (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING)) {
-      match button_index.floor() as u8 {
+      let button = match button_index.floor() as u8 {
         0 => MenuButton::Row3Button0,
         1 => MenuButton::Row3Button1,
         2 => MenuButton::Row3Button2,
@@ -2663,12 +2666,14 @@ fn hit_test_menu_button(x: f64, y: f64) -> MenuButton {
         5 => MenuButton::Row3Button5,
         6 => MenuButton::Row3Button6,
         _ => panic!("what button was clicked?"),
-      }
+      };
+
+      ( button, MenuRow::Third )
     } else {
-      MenuButton::None
+      ( MenuButton::None, MenuRow::None )
     }
   }
-  // Any of the speed bubbles?
+  // Any of the speed bubbles? (most expensive to check)
   else if bounds_check(
     x, y,
     UI_SPEED_BUBBLE_OFFSET_X,
@@ -2677,21 +2682,21 @@ fn hit_test_menu_button(x: f64, y: f64) -> MenuButton {
     UI_SPEED_BUBBLE_OFFSET_Y + (2.0 * UI_SPEED_BUBBLE_RADIUS)
   ) {
     if hit_check_speed_bubble_x(x, y, 0) {
-      MenuButton::Row1ButtonMin
+      ( MenuButton::Row1ButtonMin, MenuRow::First )
     } else if hit_check_speed_bubble_x(x, y, 1) {
-      MenuButton::Row1ButtonHalf
+      ( MenuButton::Row1ButtonHalf, MenuRow::First )
     } else if hit_check_speed_bubble_x(x, y, 2) {
-      MenuButton::Row1ButtonPlay
+      ( MenuButton::Row1ButtonPlay, MenuRow::First )
     } else if hit_check_speed_bubble_x(x, y, 3) {
-      MenuButton::Row1Button2x
+      ( MenuButton::Row1Button2x, MenuRow::First )
     } else if hit_check_speed_bubble_x(x, y, 4) {
-      MenuButton::Row1ButtonPlus
+      ( MenuButton::Row1ButtonPlus, MenuRow::First )
     } else {
-      MenuButton::None
+      ( MenuButton::None, MenuRow::None )
     }
   }
   else {
-    MenuButton::None
+    ( MenuButton::None, MenuRow::None )
   }
 }
 fn hit_test_get_craft_interactable_machine_at(options: &Options, state: &State, factory: &Factory, cell_selection: &CellSelection, mwx: f64, mwy: f64) -> ( CraftInteractable, f64, f64, f64, f64, char, PartKind, u8 ) {
@@ -4699,7 +4704,7 @@ fn paint_bottom_menu(options: &Options, state: &State, context: &Rc<web_sys::Can
   paint_ui_buttons2(options, state, context, mouse_state);
 }
 fn paint_paint_toggle(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  if mouse_state.over_paint_toggle {
+  if mouse_state.over_menu_button == MenuButton::PaintToggleButton {
     context.set_fill_style(&"#aaffaa".into());
   } else {
     context.set_fill_style(&"#aaa".into());
@@ -4801,19 +4806,17 @@ fn paint_ui_button2(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state
 }
 fn paint_ui_time_control(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   // paint_buttons
-  paint_ui_speed_bubble(options, state, context, mouse_state, 0, "-");
-  paint_ui_speed_bubble(options, state, context, mouse_state, 1, "½");
-  paint_ui_speed_bubble(options, state, context, mouse_state, 2, "⏭"); // "play" / "pause" / Row1ButtonPlay
-  paint_ui_speed_bubble(options, state, context, mouse_state, 3, "2");
-  paint_ui_speed_bubble(options, state, context, mouse_state, 4, "+");
+  paint_ui_speed_bubble(MenuButton::Row1ButtonMin, options, state, context, mouse_state, 0, "-");
+  paint_ui_speed_bubble(MenuButton::Row1ButtonHalf, options, state, context, mouse_state, 1, "½");
+  paint_ui_speed_bubble(MenuButton::Row1ButtonPlay, options, state, context, mouse_state, 2, "⏭"); // "play" / "pause" / Row1ButtonPlay
+  paint_ui_speed_bubble(MenuButton::Row1Button2x, options, state, context, mouse_state, 3, "2");
+  paint_ui_speed_bubble(MenuButton::Row1ButtonPlus, options, state, context, mouse_state, 4, "+");
 }
-fn paint_ui_speed_bubble(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, index: usize, text: &str) {
+fn paint_ui_speed_bubble(button: MenuButton, options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, index: usize, text: &str) {
   let cx = UI_SPEED_BUBBLE_OFFSET_X + (2.0 * UI_SPEED_BUBBLE_RADIUS + UI_SPEED_BUBBLE_SPACING) * (index as f64) + UI_SPEED_BUBBLE_RADIUS;
   let cy = UI_SPEED_BUBBLE_OFFSET_Y + UI_SPEED_BUBBLE_RADIUS;
 
-  // TODO: do the bounds check once where hit_test_menu_button is done
-  let over_this_button = bounds_check(mouse_state.world_x, mouse_state.world_y, cx - UI_SPEED_BUBBLE_RADIUS, cy - UI_SPEED_BUBBLE_RADIUS, cx + UI_SPEED_BUBBLE_RADIUS, cy + UI_SPEED_BUBBLE_RADIUS);
-  if over_this_button {
+  if mouse_state.over_menu_button == button {
     context.set_stroke_style(&"red".into()); // border
   } else {
     context.set_stroke_style(&"white".into()); // border
@@ -4837,7 +4840,7 @@ fn paint_ui_speed_bubble(options: &Options, state: &State, context: &Rc<web_sys:
   else if text == "+" && options.speed_modifier_floor > 2.0 {
     context.set_fill_style(&"#0f0".into());
   }
-  else if over_this_button {
+  else if mouse_state.over_menu_button == button {
     context.set_fill_style(&"#eee".into());
   }
   else {
