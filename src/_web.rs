@@ -28,7 +28,6 @@
 //   - quest editor
 //   - prep for animations
 // - rebalance the fps frame limiter
-// - play button border color affected by laser. also highlights on hover when it supposed to not to
 // - car polish; should make nice corners, should drive same speed to any height
 // - click edge to add supplier. click supplier/demander to toggle.
 // - cars adjust speed too
@@ -4801,15 +4800,24 @@ fn paint_ui_button2(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state
   context.fill_text(text, x + 5.0, y + 14.0).expect("to paint");
 }
 fn paint_ui_time_control(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  // paint_buttons
   paint_ui_speed_bubble(options, state, context, mouse_state, 0, "-");
   paint_ui_speed_bubble(options, state, context, mouse_state, 1, "½");
-  paint_ui_speed_bubble(options, state, context, mouse_state, 2, "⏭");
+  paint_ui_speed_bubble(options, state, context, mouse_state, 2, "⏭"); // "play" / "pause" / Row1ButtonPlay
   paint_ui_speed_bubble(options, state, context, mouse_state, 3, "2");
   paint_ui_speed_bubble(options, state, context, mouse_state, 4, "+");
 }
 fn paint_ui_speed_bubble(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, index: usize, text: &str) {
   let cx = UI_SPEED_BUBBLE_OFFSET_X + (2.0 * UI_SPEED_BUBBLE_RADIUS + UI_SPEED_BUBBLE_SPACING) * (index as f64) + UI_SPEED_BUBBLE_RADIUS;
   let cy = UI_SPEED_BUBBLE_OFFSET_Y + UI_SPEED_BUBBLE_RADIUS;
+
+  // TODO: do the bounds check once where hit_test_menu_button is done
+  let over_this_button = bounds_check(mouse_state.world_x, mouse_state.world_y, cx - UI_SPEED_BUBBLE_RADIUS, cy - UI_SPEED_BUBBLE_RADIUS, cx + UI_SPEED_BUBBLE_RADIUS, cy + UI_SPEED_BUBBLE_RADIUS);
+  if over_this_button {
+    context.set_stroke_style(&"red".into()); // border
+  } else {
+    context.set_stroke_style(&"white".into()); // border
+  }
 
   if text == "⏭" && options.speed_modifier_floor == 0.0 {
     context.set_fill_style(&"tomato".into());
@@ -4829,16 +4837,16 @@ fn paint_ui_speed_bubble(options: &Options, state: &State, context: &Rc<web_sys:
   else if text == "+" && options.speed_modifier_floor > 2.0 {
     context.set_fill_style(&"#0f0".into());
   }
-  else if bounds_check(mouse_state.world_x, mouse_state.world_y, cx - UI_SPEED_BUBBLE_RADIUS, cy - UI_SPEED_BUBBLE_RADIUS, cx + UI_SPEED_BUBBLE_RADIUS, cy + UI_SPEED_BUBBLE_RADIUS) {
+  else if over_this_button {
     context.set_fill_style(&"#eee".into());
   }
   else {
     context.set_fill_style(&"#aaa".into());
   }
+
   context.begin_path();
   context.arc(cx, cy, UI_SPEED_BUBBLE_RADIUS, 0.0, 2.0 * 3.14).expect("to paint"); // cx/cy must be _center_ coord of the circle, not top-left
   context.fill();
-  context.set_fill_style(&"stroke".into());
   context.stroke();
   context.set_fill_style(&"black".into());
   context.fill_text(text, cx - 4.0, cy + 4.0).expect("to paint");
