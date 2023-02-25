@@ -15,6 +15,8 @@ This is something that looks like a grey rock
 # Asset_WeeWoo
 This is an animated alarm (like the rotating light on a police car or ambulance)
 - frame_offset: 0
+- frame_count: 50
+- frame_direction: right
 - frame_delay: 62
 - frame: 1
   - file: ./img/weewoo.png
@@ -22,8 +24,6 @@ This is an animated alarm (like the rotating light on a police car or ambulance)
   - y: 0
   - w: 92
   - h: 92
-- frame: 2
-  - x: 32
 
 # Part_BlueWand
 This is the slightly bigger blue wand

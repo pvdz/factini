@@ -476,6 +476,8 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
             icon,
             sprite_config: SpriteConfig {
               frame_offset: 0,
+              frame_count: 1,
+              frame_direction: SpriteConfigDirection::Right,
               initial_delay: 0,
               frame_delay: 0,
               looping: false,
@@ -661,6 +663,22 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
             "frame_offset" => {
               nodes[current_node_index].sprite_config.frame_offset = value_raw.parse::<u64>().or::<Result<u32, &str>>(Ok(0)).unwrap() as usize;
             }
+            "frame_count" => {
+              // The total number of frames this sprite is expected to have
+              let count = value_raw.parse::<u64>().or::<Result<u32, &str>>(Ok(0)).unwrap();
+              nodes[current_node_index].sprite_config.frame_count = count;
+            }
+            "frame_direction" => {
+              // The direction towards which the frames should iterate from the first (up, right, down, left)
+              let dir = match value_raw.trim() {
+                "up" => SpriteConfigDirection::Up,
+                "right" => SpriteConfigDirection::Right,
+                "down" => SpriteConfigDirection::Down,
+                "left" => SpriteConfigDirection::Left,
+                _ => panic!("The config value for `frame_direction` should be one of up, right, down, or left. It was: `{}`", value_raw.trim()),
+              };
+              nodes[current_node_index].sprite_config.frame_direction = dir;
+            }
             "frame_delay" => {
               nodes[current_node_index].sprite_config.frame_delay = value_raw.parse::<u64>().or::<Result<u32, &str>>(Ok(0)).unwrap();
             }
@@ -684,6 +702,35 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
 
   // So now we have a serial list of nodes but we need to create a hierarchical tree from them
   // We create two models; one is a tree and the other a hashmap
+
+  // Extrapolate SpriteConfig frames to match specified frame count
+  nodes.iter_mut().enumerate().for_each(|(i, node)| {
+    let len = node.sprite_config.frames.len();
+    let to_add = node.sprite_config.frame_count as i32 - node.sprite_config.frames.len() as i32;
+    if to_add > 0 {
+      // Take details from last frame and add more frames with same details except their offset
+      // updated to match the frame_direction.
+
+      let delta_x =
+        if node.sprite_config.frame_direction == SpriteConfigDirection::Left { -node.sprite_config.frames[len - 1].w }
+        else if node.sprite_config.frame_direction == SpriteConfigDirection::Right { node.sprite_config.frames[len - 1].w }
+        else { 0.0 };
+      let delta_y =
+        if node.sprite_config.frame_direction == SpriteConfigDirection::Up { -node.sprite_config.frames[len - 1].h }
+        else if node.sprite_config.frame_direction == SpriteConfigDirection::Down { node.sprite_config.frames[len - 1].h }
+        else { 0.0 };
+
+      log!("Extrapolating {} more frames for node {} from {} to {} with delta x: {}, y: {}", to_add, i, len, node.sprite_config.frame_count, delta_x, delta_y);
+
+      for i in 0..to_add {
+        let len = node.sprite_config.frames.len();
+        let mut c = node.sprite_config.frames[len - 1].clone();
+        c.x += delta_x;
+        c.y += delta_y;
+        node.sprite_config.frames.push(c);
+      }
+    }
+  });
 
   // Map (fully qualified) name to index on config nodes
   let mut node_name_to_index = HashMap::new();
@@ -1539,6 +1586,8 @@ fn config_node_part(index: PartKind, name: String, icon: char) -> ConfigNode {
 
     sprite_config: SpriteConfig {
       frame_offset: 0,
+      frame_count: 1,
+      frame_direction: SpriteConfigDirection::Right,
       initial_delay: 10,
       frame_delay: 0,
       looping: true,
@@ -1585,6 +1634,8 @@ fn config_node_supply(index: PartKind, name: String) -> ConfigNode {
 
     sprite_config: SpriteConfig {
       frame_offset: 0,
+      frame_count: 1,
+      frame_direction: SpriteConfigDirection::Right,
       initial_delay: 10,
       frame_delay: 0,
       looping: true,
@@ -1631,6 +1682,8 @@ fn config_node_demand(index: PartKind, name: String) -> ConfigNode {
 
     sprite_config: SpriteConfig {
       frame_offset: 0,
+      frame_count: 1,
+      frame_direction: SpriteConfigDirection::Right,
       initial_delay: 10,
       frame_delay: 0,
       looping: true,
@@ -1677,6 +1730,8 @@ fn config_node_dock(index: PartKind, name: String) -> ConfigNode {
 
     sprite_config: SpriteConfig {
       frame_offset: 0,
+      frame_count: 1,
+      frame_direction: SpriteConfigDirection::Right,
       initial_delay: 10,
       frame_delay: 0,
       looping: true,
@@ -1723,6 +1778,8 @@ fn config_node_machine(index: PartKind, name: &str, file: &str) -> ConfigNode {
 
     sprite_config: SpriteConfig {
       frame_offset: 0,
+      frame_count: 1,
+      frame_direction: SpriteConfigDirection::Right,
       initial_delay: 10,
       frame_delay: 0,
       looping: true,
@@ -1772,6 +1829,8 @@ fn config_node_belt(index: PartKind, name: &str) -> ConfigNode {
 
     sprite_config: SpriteConfig {
       frame_offset: 0,
+      frame_count: 1,
+      frame_direction: SpriteConfigDirection::Right,
       initial_delay: 10,
       frame_delay: 0,
       looping: true,
