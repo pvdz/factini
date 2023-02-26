@@ -296,6 +296,7 @@ pub const CONFIG_NODE_BELT___DLRU: usize = 274;
 pub const CONFIG_NODE_ASSET_WEE_WOO: usize = 275;
 pub const CONFIG_NODE_ASSET_MISSING_INPUTS: usize = 276;
 pub const CONFIG_NODE_ASSET_MISSING_OUTPUTS: usize = 277;
+pub const CONFIG_NODE_ASSET_MISSING_PURPOSE: usize = 277;
 
 #[derive(Debug)]
 pub struct Config {
@@ -976,6 +977,7 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Asset_WeeWoo" => CONFIG_NODE_ASSET_WEE_WOO,
     "Asset_MissingInputs" => CONFIG_NODE_ASSET_MISSING_INPUTS,
     "Asset_MissingOutputs" => CONFIG_NODE_ASSET_MISSING_OUTPUTS,
+    "Asset_MissingPurpose" => CONFIG_NODE_ASSET_MISSING_PURPOSE,
     "Part_None" => PARTKIND_NONE,
     "Part_Trash" => PARTKIND_TRASH,
     "Supply_Up" => CONFIG_NODE_SUPPLY_UP,

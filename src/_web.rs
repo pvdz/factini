@@ -3412,7 +3412,6 @@ fn paint_background_tiles3(
           let maxx = mainx + cell.machine.cell_width - 1;
           let maxy = mainy + cell.machine.cell_height - 1;
           let max_coord = to_coord(maxx, maxy);
-
           let mut weewoo = false;
           if factory.floor[cell.machine.main_coord].ins.len() == 0 {
             paint_asset(options, state, config, context, CONFIG_NODE_ASSET_MISSING_INPUTS, factory.ticks,
@@ -3422,7 +3421,18 @@ fn paint_background_tiles3(
             weewoo = true;
           } else if factory.floor[cell.machine.main_coord].outs.len() == 0 {
             paint_asset(options, state, config, context, CONFIG_NODE_ASSET_MISSING_OUTPUTS, factory.ticks,
-              ox + CELL_W + CELL_W, oy + CELL_H,
+              ox + CELL_W, oy + CELL_H,
+              CELL_W, CELL_H
+            );
+            weewoo = true;
+          } else if factory.floor[cell.machine.main_coord].machine.output_want.icon == ' ' {
+            context.set_fill_style(&"#ffffff9f".into());
+            context.begin_path();
+            context.arc(ox + CELL_W + (CELL_W / 2.0), oy + CELL_H + (CELL_H / 2.0), CELL_W * 0.75, 0.0, 2.0 * 3.14).expect("to paint");
+            context.fill();
+
+            paint_asset(options, state, config, context, CONFIG_NODE_ASSET_MISSING_PURPOSE, factory.ticks,
+              ox + CELL_W, oy + CELL_H,
               CELL_W, CELL_H
             );
             weewoo = true;

@@ -41,6 +41,19 @@ Indicator that a machine is missing an input belt
   - w: 50
   - h: 50
 
+# Asset_MissingPurpose
+Indicator that a machine has no target part to create
+- frame_offset: 0
+- frame_count: 2
+- frame_direction: right
+- frame_delay: 1500
+- frame: 1
+  - file: ./img/missing_purpose.png
+  - x: 0
+  - y: 0
+  - w: 50
+  - h: 50
+
 # Part_Trash
 Hardcoded to be the second node internally but can appear anywhere. We can skin it here.
 This is something that looks like a grey rock
