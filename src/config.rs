@@ -297,6 +297,22 @@ pub const CONFIG_NODE_ASSET_WEE_WOO: usize = 275;
 pub const CONFIG_NODE_ASSET_MISSING_INPUTS: usize = 276;
 pub const CONFIG_NODE_ASSET_MISSING_OUTPUTS: usize = 277;
 pub const CONFIG_NODE_ASSET_MISSING_PURPOSE: usize = 277;
+pub const CONFIG_NODE_ASSET_MACHINE1: usize = 278;
+pub const CONFIG_NODE_ASSET_MACHINE2: usize = 279;
+pub const CONFIG_NODE_ASSET_MACHINE3: usize = 280;
+pub const CONFIG_NODE_ASSET_MACHINE4: usize = 281;
+pub const CONFIG_NODE_ASSET_MACHINE_1_1: usize = 282;
+pub const CONFIG_NODE_ASSET_MACHINE_2_1: usize = 283;
+pub const CONFIG_NODE_ASSET_MACHINE_3_2: usize = 284;
+pub const CONFIG_NODE_ASSET_DUMP_TRUCK: usize = 285;
+pub const CONFIG_NODE_ASSET_SAND: usize = 286;
+pub const CONFIG_NODE_ASSET_HELP_BLACK: usize = 287;
+pub const CONFIG_NODE_ASSET_HELP_RED: usize = 288;
+pub const CONFIG_NODE_ASSET_MANUAL: usize = 289;
+pub const CONFIG_NODE_ASSET_LMB: usize = 290;
+pub const CONFIG_NODE_ASSET_RMB: usize = 291;
+pub const CONFIG_NODE_ASSET_SAVE: usize = 292;
+pub const CONFIG_NODE_ASSET_QUEST_FRAME: usize = 293;
 
 #[derive(Debug)]
 pub struct Config {
@@ -978,6 +994,22 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Asset_MissingInputs" => CONFIG_NODE_ASSET_MISSING_INPUTS,
     "Asset_MissingOutputs" => CONFIG_NODE_ASSET_MISSING_OUTPUTS,
     "Asset_MissingPurpose" => CONFIG_NODE_ASSET_MISSING_PURPOSE,
+    "Asset_Machine1" => CONFIG_NODE_ASSET_MACHINE1,
+    "Asset_Machine2" => CONFIG_NODE_ASSET_MACHINE2,
+    "Asset_Machine3" => CONFIG_NODE_ASSET_MACHINE3,
+    "Asset_Machine4" => CONFIG_NODE_ASSET_MACHINE4,
+    "Asset_Machine_1_1" => CONFIG_NODE_ASSET_MACHINE_1_1,
+    "Asset_Machine_2_1" => CONFIG_NODE_ASSET_MACHINE_2_1,
+    "Asset_Machine_3_2" => CONFIG_NODE_ASSET_MACHINE_3_2,
+    "Asset_DumpTruck" => CONFIG_NODE_ASSET_DUMP_TRUCK,
+    "Asset_Sand" => CONFIG_NODE_ASSET_SAND,
+    "Asset_HelpBlack" => CONFIG_NODE_ASSET_HELP_BLACK,
+    "Asset_HelpRed" => CONFIG_NODE_ASSET_HELP_RED,
+    "Asset_Manual" => CONFIG_NODE_ASSET_MANUAL,
+    "Asset_Lmb" => CONFIG_NODE_ASSET_LMB,
+    "Asset_Rmb" => CONFIG_NODE_ASSET_RMB,
+    "Asset_Save" => CONFIG_NODE_ASSET_SAVE,
+    "Asset_QuestFrame" => CONFIG_NODE_ASSET_QUEST_FRAME,
     "Part_None" => PARTKIND_NONE,
     "Part_Trash" => PARTKIND_TRASH,
     "Supply_Up" => CONFIG_NODE_SUPPLY_UP,

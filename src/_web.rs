@@ -29,6 +29,7 @@
 // - change preview of craftable when selected (the tiny preview on top is not working
 // - create tutorial
 // - should machine give hint of creating/missing in/outbound connection?
+// - create_placeholder_canvas: create actual snapshot screenshot here rather than a blank page. kinda tricky I guess.
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -217,22 +218,7 @@ pub fn start() -> Result<(), JsValue> {
   let def_options = create_options(0.0, 0.0);
   let mut config = load_config(def_options.print_fmd_trace, getGameConfig());
 
-  let img_machine1: web_sys::HtmlImageElement = load_tile("./img/machine1.png")?;
-  let img_machine2: web_sys::HtmlImageElement = load_tile("./img/machine2.png")?;
-  let img_machine3: web_sys::HtmlImageElement = load_tile("./img/machine3.png")?;
-  let img_machine4: web_sys::HtmlImageElement = load_tile("./img/machine4.png")?;
-  let img_machine_1_1: web_sys::HtmlImageElement = load_tile("./img/machine_1_1.png")?;
-  let img_machine_2_1: web_sys::HtmlImageElement = load_tile("./img/machine_2_2.png")?;
-  let img_machine_3_2: web_sys::HtmlImageElement = load_tile("./img/machine_3_2.png")?;
-  let img_dumptruck: web_sys::HtmlImageElement = load_tile("./img/dumptruck.png")?;
   let img_loading_sand: web_sys::HtmlImageElement = load_tile("./img/sand.png")?;
-  let img_help_black: web_sys::HtmlImageElement = load_tile("./img/help.png")?;
-  let img_help_red: web_sys::HtmlImageElement = load_tile("./img/help_red.png")?;
-  let img_manual: web_sys::HtmlImageElement = load_tile("./img/manual.png")?;
-  let img_lmb: web_sys::HtmlImageElement = load_tile("./img/lmb.png")?;
-  let img_rmb: web_sys::HtmlImageElement = load_tile("./img/rmb.png")?;
-  let img_save: web_sys::HtmlImageElement = load_tile("./img/save.png")?;
-  let img_quest_frame: web_sys::HtmlImageElement = load_tile("./img/quest_frame.png")?;
 
   // https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/createPattern
   // https://rustwasm.github.io/wasm-bindgen/api/web_sys/struct.CanvasRenderingContext2d.html#method.create_pattern_with_html_image_element
@@ -447,7 +433,7 @@ pub fn start() -> Result<(), JsValue> {
   let initial_map_from_source = if initial_map_from_source { 0 } else { initial_map.len() as u64 };
   let ( mut options, mut state, mut factory ) = init(&config, initial_map);
   let mut saves: [Option<(web_sys::HtmlCanvasElement, String)>; 9] = [(); 9].map(|_| None);
-  fn create_placeholder_canvas(document: &web_sys::Document, img: &web_sys::HtmlImageElement) -> web_sys::HtmlCanvasElement{
+  fn create_placeholder_canvas(options: &Options, state: &State, config: &Config, factory: &Factory, document: &web_sys::Document) -> web_sys::HtmlCanvasElement {
     // Pre-load snapshots from localStorage, if any were found
     let placeholder_canvas = document.create_element("canvas").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
     placeholder_canvas.set_width(100);
@@ -455,19 +441,7 @@ pub fn start() -> Result<(), JsValue> {
     let context = placeholder_canvas.get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap();
     context.set_fill_style(&"#ccc".into());
     context.fill_rect(0.0, 0.0, 100.0, 100.0);
-    context.draw_image_with_html_image_element_and_dw_and_dh(&img, 0.0, 0.0, 100.0, 100.0).expect("placeholder icon");
-
-
-
-
-
-
     // TODO: create actual snapshot here rather than a blank page. kinda tricky I guess.
-
-
-
-
-
     return placeholder_canvas;
   }
 
@@ -480,10 +454,10 @@ pub fn start() -> Result<(), JsValue> {
       local_storage.get_item("factini.save3").unwrap(),
     )
   };
-  if let Some(saved_map) = saved_map1 { saves[0] = Some(( create_placeholder_canvas(&document, &img_lmb), saved_map )); }
-  if let Some(saved_map) = saved_map2 { saves[1] = Some(( create_placeholder_canvas(&document, &img_lmb), saved_map )); }
-  if let Some(saved_map) = saved_map3 { saves[2] = Some(( create_placeholder_canvas(&document, &img_lmb), saved_map )); }
-  if let Some(saved_map) = saved_map4 { saves[3] = Some(( create_placeholder_canvas(&document, &img_lmb), saved_map )); }
+  if let Some(saved_map) = saved_map1 { saves[0] = Some(( create_placeholder_canvas(&options, &state, &config, &factory, &document), saved_map )); }
+  if let Some(saved_map) = saved_map2 { saves[1] = Some(( create_placeholder_canvas(&options, &state, &config, &factory, &document), saved_map )); }
+  if let Some(saved_map) = saved_map3 { saves[2] = Some(( create_placeholder_canvas(&options, &state, &config, &factory, &document), saved_map )); }
+  if let Some(saved_map) = saved_map4 { saves[3] = Some(( create_placeholder_canvas(&options, &state, &config, &factory, &document), saved_map )); }
 
   let saved_options = {
     let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
@@ -832,17 +806,17 @@ pub fn start() -> Result<(), JsValue> {
 
         paint_zone_hovers(&options, &state, &context, &mouse_state);
         // paint_top_stats(&context, &mut factory);
-        paint_corner_help_icon(&options, &state, &mut factory, &context, if mouse_state.help_hover { &img_help_red } else { &img_help_black});
+        paint_corner_help_icon(&options, &state, &config, &factory, &context, mouse_state.help_hover);
         paint_top_bars(&options, &state, &mut factory, &context, &mouse_state);
-        paint_quests(&options, &state, &config, &context, &factory, &mouse_state, &img_quest_frame);
+        paint_quests(&options, &state, &config, &context, &factory, &mouse_state);
         paint_ui_offers(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
         paint_lasers(&options, &mut state, &config, &context);
-        paint_trucks(&options, &state, &config, &context, &mut factory, &img_dumptruck);
-        paint_bottom_menu(&options, &state, &context, &img_machine_1_1, &mouse_state);
+        paint_trucks(&options, &state, &config, &context, &mut factory);
+        paint_bottom_menu(&options, &state, &config, &factory, &context, &mouse_state);
         // TODO: wait for tiles to be loaded because first few frames won't paint anything while the tiles are loading...
-        paint_background_tiles1(&options, &state, &config, &context, &factory, &img_machine4, &img_machine_1_1, &img_machine_2_1, &img_machine_3_2);
-        paint_background_tiles2(&options, &state, &config, &context, &factory, &img_machine4, &img_machine_1_1, &img_machine_2_1, &img_machine_3_2);
-        paint_background_tiles3(&options, &state, &config, &context, &factory, &img_machine4, &img_machine_1_1, &img_machine_2_1, &img_machine_3_2);
+        paint_background_tiles1(&options, &state, &config, &context, &factory);
+        paint_background_tiles2(&options, &state, &config, &context, &factory);
+        paint_background_tiles3(&options, &state, &config, &context, &factory);
         paint_port_arrows(&options, &state, &config, &context, &factory);
         paint_belt_dbg_id(&options, &state, &config, &context, &factory);
         // paint_belt_items(&options, &state, &config, &context, &factory);
@@ -853,8 +827,8 @@ pub fn start() -> Result<(), JsValue> {
         paint_debug_selected_machine_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_debug_selected_supply_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_debug_selected_demand_cell(&context, &factory, &cell_selection, &mouse_state);
-        paint_map_state_buttons(&state, &context, &mouse_state, &img_save);
-        paint_load_thumbs(&options, &state, &config, &context, &mouse_state, &saves, &img_save);
+        paint_map_state_buttons(&state, &context, &mouse_state);
+        paint_load_thumbs(&options, &state, &config, &factory, &context, &mouse_state, &saves);
 
         // Probably after all backround/floor stuff is finished
         paint_zone_borders(&options, &state, &context);
@@ -868,7 +842,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_mouse_action(&options, &state, &config, &factory, &context, &mouse_state, &cell_selection);
 
         // In front of everything else
-        paint_manual(&options, &state, &context, &img_manual);
+        paint_manual(&options, &state, &config, &factory, &context);
       }
 
       // Schedule next frame
@@ -3144,10 +3118,6 @@ fn paint_background_tiles1(
   config: &Config,
   context: &Rc<web_sys::CanvasRenderingContext2d>,
   factory: &Factory,
-  img_machine2: &web_sys::HtmlImageElement,
-  img_machine_1_1: &web_sys::HtmlImageElement,
-  img_machine_2_1: &web_sys::HtmlImageElement,
-  img_machine_3_2: &web_sys::HtmlImageElement,
 ) {
   // Paint background cell tiles
   for coord in 0..FLOOR_CELLS_WH {
@@ -3190,16 +3160,21 @@ fn paint_background_tiles1(
         // TODO: each machine size should have a unique, customized, sprite
         if cell.machine.main_coord == coord {
           let machine_img = match ( cell.machine.cell_width, cell.machine.cell_height ) {
-            ( 1, 1 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_1X1].sprite_config.frames[0].file_canvas_cache_index],
-            ( 2, 2 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_2X2].sprite_config.frames[0].file_canvas_cache_index],
-            ( 3, 3 ) => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].file_canvas_cache_index],
-            ( 4, 4 ) => img_machine_1_1,
-            ( 2, 1 ) => img_machine_2_1,
-            ( 4, 2 ) => img_machine_2_1,
-            ( 3, 2 ) => img_machine_3_2,
-            _ => &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].file_canvas_cache_index],
+            ( 1, 1 ) => CONFIG_NODE_ASSET_MACHINE1, // &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_1X1].sprite_config.frames[0].file_canvas_cache_index],
+            ( 2, 2 ) => CONFIG_NODE_ASSET_MACHINE2, // &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_2X2].sprite_config.frames[0].file_canvas_cache_index],
+            ( 3, 3 ) => CONFIG_NODE_ASSET_MACHINE_1_1, // &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].file_canvas_cache_index],
+            ( 3, 4 ) => CONFIG_NODE_ASSET_MACHINE3,
+            ( 4, 4 ) => CONFIG_NODE_ASSET_MACHINE4,
+            ( 2, 1 ) => CONFIG_NODE_ASSET_MACHINE_2_1,
+            ( 4, 2 ) => CONFIG_NODE_ASSET_MACHINE_2_1,
+            ( 3, 2 ) => CONFIG_NODE_ASSET_MACHINE_3_2,
+            _ => CONFIG_NODE_ASSET_MACHINE_1_1, // &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].file_canvas_cache_index],
           };
-          context.draw_image_with_html_image_element_and_dw_and_dh(machine_img, ox, oy, cell.machine.cell_width as f64 * CELL_W, cell.machine.cell_height as f64 * CELL_H).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+
+          paint_asset(options, state, config, context, machine_img, factory.ticks,
+            ox, oy,
+            cell.machine.cell_width as f64 * CELL_W, cell.machine.cell_height as f64 * CELL_H
+          );
         }
       },
       CellKind::Supply => {
@@ -3241,10 +3216,6 @@ fn paint_background_tiles2(
   config: &Config,
   context: &Rc<web_sys::CanvasRenderingContext2d>,
   factory: &Factory,
-  img_machine2: &web_sys::HtmlImageElement,
-  img_machine_1_1: &web_sys::HtmlImageElement,
-  img_machine_2_1: &web_sys::HtmlImageElement,
-  img_machine_3_2: &web_sys::HtmlImageElement,
 ) {
   // Paint background cell tiles
   for coord in 0..FLOOR_CELLS_WH {
@@ -3371,10 +3342,6 @@ fn paint_background_tiles3(
   config: &Config,
   context: &Rc<web_sys::CanvasRenderingContext2d>,
   factory: &Factory,
-  img_machine2: &web_sys::HtmlImageElement,
-  img_machine_1_1: &web_sys::HtmlImageElement,
-  img_machine_2_1: &web_sys::HtmlImageElement,
-  img_machine_3_2: &web_sys::HtmlImageElement,
 ) {
   // Paint background cell tiles
   for coord in 0..FLOOR_CELLS_WH {
@@ -4291,9 +4258,11 @@ fn paint_zone_borders(options: &Options, state: &State, context: &Rc<web_sys::Ca
     context.stroke_rect(GRID_X0, GRID_Y3, GRID_LEFT_WIDTH + GRID_SPACING + FLOOR_WIDTH + GRID_SPACING + GRID_RIGHT_WIDTH, GRID_BOTTOM_DEBUG_HEIGHT);
   }
 }
-fn paint_manual(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, img_manual: &web_sys::HtmlImageElement) {
+fn paint_manual(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>) {
   if state.manual_open {
-    context.draw_image_with_html_image_element_and_dw_and_dh(&img_manual, 100.0, 20.0, 740.0, 740.0).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+    paint_asset(options, state, config, context, CONFIG_NODE_ASSET_MANUAL, factory.ticks,
+      100.0, 20.0, 740.0, 740.0
+    );
   }
 }
 fn paint_bouncers(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory) {
@@ -4356,8 +4325,10 @@ fn paint_top_stats(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Fa
   context.fill_text(format!("Ticks: {}, Supplied: {}, Produced: {}, Received: {}, Trashed: {}", factory.ticks, factory.supplied, factory.produced, factory.accepted, factory.trashed).as_str(), 20.0, 20.0).expect("to paint");
   context.fill_text(format!("Current time: {}, day start: {}, modified at: {}", factory.ticks, factory.last_day_start, factory.modified_at).as_str(), 20.0, 40.0).expect("to paint");
 }
-fn paint_corner_help_icon(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, img_help: &web_sys::HtmlImageElement) {
-  context.draw_image_with_html_image_element_and_dw_and_dh(img_help, UI_HELP_X, UI_HELP_Y, UI_HELP_WIDTH, UI_HELP_HEIGHT).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+fn paint_corner_help_icon(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, hovering: bool) {
+  paint_asset(options, state, config, context, if hovering { CONFIG_NODE_ASSET_HELP_RED } else { CONFIG_NODE_ASSET_HELP_BLACK }, factory.ticks,
+    UI_HELP_X, UI_HELP_Y, UI_HELP_WIDTH, UI_HELP_HEIGHT
+  );
 }
 fn paint_top_bars(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   let hovering = mouse_state.over_zone == ZONE_DAY_BAR && !mouse_state.is_down && !mouse_state.is_up && mouse_state.over_day_bar;
@@ -4413,7 +4384,7 @@ fn paint_top_bars(options: &Options, state: &State, factory: &Factory, context: 
 
   context.set_font(&"12px monospace");
 }
-fn paint_quests(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, img_quest_frame: &web_sys::HtmlImageElement) {
+fn paint_quests(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState) {
   let mut visible_index = 0;
 
   for quest_index in 0..factory.quests.len() {
@@ -4443,7 +4414,13 @@ fn paint_quests(options: &Options, state: &State, config: &Config, context: &Rc<
       context.set_fill_style(&"grey".into()); // 100% background
       context.fill_rect(x + 5.0, y + 4.0, (UI_QUEST_WIDTH - 10.0) * progress, UI_QUEST_HEIGHT - 8.0);
     }
-    context.draw_image_with_html_image_element_and_dw_and_dh(&img_quest_frame, x, y, UI_QUEST_WIDTH, UI_QUEST_HEIGHT).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
+
+    paint_asset(options, state, config, context, CONFIG_NODE_ASSET_QUEST_FRAME, factory.ticks,
+      x, y, UI_QUEST_WIDTH, UI_QUEST_HEIGHT
+    );
+
+    // context.draw_image_with_html_image_element_and_dw_and_dh(&img_quest_frame, x, y, UI_QUEST_WIDTH, UI_QUEST_HEIGHT).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
+
     paint_segment_part_from_config(options, state, config, context, part_index as usize, x + 15.0, y + 8.0, PART_W, PART_H);
 
     context.set_font(&"12px monospace");
@@ -4520,7 +4497,7 @@ fn paint_lasers(options: &Options, state: &mut State, config: &Config, context: 
     }
   }
 }
-fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory, img_dumptruck: &web_sys::HtmlImageElement) {
+fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory) {
   // Paint trucks
   let truck_dur_1 = 3.0 * options.speed_modifier_ui; // seconds trucks take to cross the first part
   let truck_dur_2 = 1.0 * options.speed_modifier_ui; // turning circle
@@ -4551,8 +4528,6 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
       context.rotate(std::f64::consts::FRAC_PI_2).expect("oopsie rotate");
       // Compensate for the origin currently being in the middle of the dump truck. Top-left is just easier.
       context.translate(-truck_size/2.0, -truck_size/2.0).expect("oopsie translate");
-      // The truck starts _inside_ the factory and drives to the right (maybe slanted)
-      context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, 0.0, 0.0, truck_size, truck_size).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
       // Paint the part icon on the back of the trick (x-centered, y-bottom)
       paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_index, 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
       context.restore();
@@ -4569,8 +4544,6 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
       context.rotate(std::f64::consts::FRAC_PI_2 * (1.0 - progress)).expect("oopsie rotate");
       // Compensate for the origin currently being in the middle of the dump truck. Top-left is just easier.
       context.translate(-truck_size/2.0, -truck_size/2.0).expect("oopsie translate");
-      // The truck starts _inside_ the factory and drives to the right (maybe slanted)
-      context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, 0.0, 0.0, truck_size, truck_size).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
       // Paint the part icon on the back of the trick (x-centered, y-bottom)
       paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_index, 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
       context.restore();
@@ -4585,7 +4558,11 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
       let x = truck_x + (target_x - truck_x) * progress;
       let y = truck_y + (target_y - truck_y) * progress;
 
-      context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, x, y, truck_size, truck_size).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
+      paint_asset(options, state, config, context, CONFIG_NODE_ASSET_DUMP_TRUCK, factory.ticks,
+        x, y, truck_size, truck_size
+      );
+
+      // context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, x, y, truck_size, truck_size).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
       // Paint the part icon on the back of the trick (x-centered, y-bottom)
       paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_index, x + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), y + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
     } else {
@@ -4729,10 +4706,10 @@ fn paint_green_pixel(context: &Rc<web_sys::CanvasRenderingContext2d>, ticks: u64
     context.stroke_rect(fx, fy + UI_OFFERS_HEIGHT - (pos - (UI_OFFERS_WIDTH + UI_OFFERS_HEIGHT + UI_OFFERS_WIDTH)), 1.0, 1.0);
   }
 }
-fn paint_bottom_menu(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, img_machine_1_1: &web_sys::HtmlImageElement, mouse_state: &MouseState) {
+fn paint_bottom_menu(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   paint_ui_time_control(options, state, context, mouse_state);
   paint_paint_toggle(options, state, context, mouse_state);
-  paint_machine_icon(options, state, context, img_machine_1_1, mouse_state);
+  paint_machine_icon(options, state, config, factory, context, mouse_state);
   paint_ui_buttons(options, state, context, mouse_state);
   paint_ui_buttons2(options, state, context, mouse_state);
 }
@@ -4764,15 +4741,13 @@ fn paint_paint_toggle(options: &Options, state: &State, context: &Rc<web_sys::Ca
   context.set_stroke_style(&"black".into());
   context.stroke_rect(UI_MENU_BOTTOM_PAINT_TOGGLE_X, UI_MENU_BOTTOM_PAINT_TOGGLE_Y, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT);
 }
-fn paint_machine_icon(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, img_machine_1_1: &web_sys::HtmlImageElement, mouse_state: &MouseState) {
+fn paint_machine_icon(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   context.set_fill_style(&"#aaa".into());
   context.fill_rect(UI_MENU_BOTTOM_MACHINE_X, UI_MENU_BOTTOM_MACHINE_Y, UI_MENU_BOTTOM_MACHINE_WIDTH, UI_MENU_BOTTOM_MACHINE_HEIGHT);
 
-  context.draw_image_with_html_image_element_and_dw_and_dh(
-    &img_machine_1_1,
-    // Paint onto canvas at
+  paint_asset(options, state, config, context, CONFIG_NODE_ASSET_MACHINE_1_1, factory.ticks,
     UI_MENU_BOTTOM_MACHINE_X, UI_MENU_BOTTOM_MACHINE_Y, UI_MENU_BOTTOM_MACHINE_WIDTH, UI_MENU_BOTTOM_MACHINE_HEIGHT
-  ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+  );
 
   context.set_stroke_style(&"black".into());
   context.stroke_rect(UI_MENU_BOTTOM_MACHINE_X, UI_MENU_BOTTOM_MACHINE_Y, UI_MENU_BOTTOM_MACHINE_WIDTH, UI_MENU_BOTTOM_MACHINE_HEIGHT);
@@ -4937,6 +4912,9 @@ fn paint_segment_part_from_config_bug(options: &Options, state: &State, config: 
   return true;
 }
 fn paint_asset(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, config_node_index: usize, ticks: u64, dx: f64, dy: f64, dw: f64, dh: f64) -> bool {
+  return paint_asset_raw(options, state, config, context, config_node_index, ticks, dx, dy, dw, dh);
+}
+fn paint_asset_raw(options: &Options, state: &State, config: &Config, context: &web_sys::CanvasRenderingContext2d, config_node_index: usize, ticks: u64, dx: f64, dy: f64, dw: f64, dh: f64) -> bool {
   assert!(config.nodes[config_node_index].kind == ConfigNodeKind::Asset, "assets should refer to Asset nodes but received index: {}, kind: {:?}, node: {:?}", config_node_index, config.nodes[config_node_index].kind, config.nodes[config_node_index]);
 
   let (spx, spy, spw, sph, canvas) = config_get_sprite_details(config, config_node_index, 0, true, ticks);
@@ -5012,13 +4990,13 @@ fn hit_test_save_map_right(x: f64, y: f64, row: f64, col: f64) -> bool {
     GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN) + UI_SAVE_THUMB_WIDTH, GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN) + UI_SAVE_THUMB_HEIGHT,
   );
 }
-fn paint_load_thumbs(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, saves: &[Option<(web_sys::HtmlCanvasElement, String)>; 9], img_icon: &web_sys::HtmlImageElement) {
-  paint_map_load_button(0.0, 0.0, 0, context, &saves[0], img_icon, mouse_state);
-  paint_map_load_button(1.0, 0.0, 1, context, &saves[1], img_icon, mouse_state);
-  paint_map_load_button(0.0, 1.0, 2, context, &saves[2], img_icon, mouse_state);
-  paint_map_load_button(1.0, 1.0, 3, context, &saves[3], img_icon, mouse_state);
+fn paint_load_thumbs(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, saves: &[Option<(web_sys::HtmlCanvasElement, String)>; 9]) {
+  paint_map_load_button(options, state, config,factory, 0.0, 0.0, 0, context, &saves[0], mouse_state);
+  paint_map_load_button(options, state, config,factory, 1.0, 0.0, 1, context, &saves[1], mouse_state);
+  paint_map_load_button(options, state, config,factory, 0.0, 1.0, 2, context, &saves[2], mouse_state);
+  paint_map_load_button(options, state, config,factory, 1.0, 1.0, 3, context, &saves[3], mouse_state);
 }
-fn paint_map_load_button(col: f64, row: f64, button_index: usize, context: &Rc<web_sys::CanvasRenderingContext2d>, save: &Option<(web_sys::HtmlCanvasElement, String)>, img_icon: &web_sys::HtmlImageElement, mouse_state: &MouseState) {
+fn paint_map_load_button(options: &Options, state: &State, config: &Config, factory: &Factory, col: f64, row: f64, button_index: usize, context: &Rc<web_sys::CanvasRenderingContext2d>, save: &Option<(web_sys::HtmlCanvasElement, String)>, mouse_state: &MouseState) {
   assert!(button_index < 6, "there are only 6 save buttons");
   let ox = GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN);
   let oy = GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN);
@@ -5049,17 +5027,16 @@ fn paint_map_load_button(col: f64, row: f64, button_index: usize, context: &Rc<w
   } else {
     let fill_color = if mouse_state.over_save_map && mouse_state.over_save_map_index == button_index { "#aaffaa" } else { "#aaaaaa" };
     round_rect_and_fill_stroke(context, ox, oy, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT, fill_color, "black");
-    context.draw_image_with_html_image_element_and_dw_and_dh(
-      img_icon,
+    paint_asset_raw(options, state, config, &context, CONFIG_NODE_ASSET_SAVE, factory.ticks,
       ox + UI_SAVE_THUMB_WIDTH * 0.35,
       oy + UI_SAVE_THUMB_HEIGHT * 0.2,
       UI_SAVE_THUMB_WIDTH / 3.0,
       UI_SAVE_THUMB_HEIGHT / 2.0
-    ).expect("canvas api call to work");
+    );
   }
 }
 
-fn paint_map_state_buttons(state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, img_icon: &web_sys::HtmlImageElement) {
+fn paint_map_state_buttons(state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   // // Paint trash button
   context.save();
   context.set_font(&"48px monospace");

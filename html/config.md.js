@@ -54,6 +54,150 @@ Indicator that a machine has no target part to create
   - w: 50
   - h: 50
 
+# Asset_Machine1
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/machine1.png
+- x: 0
+- y: 0
+- w: 64
+- h: 64
+
+# Asset_Machine2
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/machine2.png
+- x: 0
+- y: 0
+- w: 64
+- h: 64
+
+# Asset_Machine3
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/machine3.png
+- x: 0
+- y: 0
+- w: 64
+- h: 64
+
+# Asset_Machine4
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/machine4.png
+- x: 0
+- y: 0
+- w: 64
+- h: 64
+
+# Asset_Machine_1_1
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/machine_1_1.png
+- x: 0
+- y: 0
+- w: 320
+- h: 320
+
+# Asset_Machine_2_1
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/machine_2_2.png
+- x: 0
+- y: 0
+- w: 128
+- h: 64
+
+# Asset_Machine_3_2
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/machine_3_2.png
+- x: 0
+- y: 0
+- w: 192
+- h: 128
+
+# Asset_DumpTruck
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/dumptruck.png
+- x: 0
+- y: 0
+- w: 64
+- h: 64
+
+# Asset_Sand
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/sand.png
+- x: 0
+- y: 0
+- w: 128
+- h: 128
+
+# Asset_HelpBlack
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/help.png
+- x: 0
+- y: 0
+- w: 50
+- h: 41
+
+# Asset_HelpRed
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/help_red.png
+- x: 0
+- y: 0
+- w: 50
+- h: 41
+
+# Asset_Manual
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/manual.png
+- x: 0
+- y: 0
+- w: 740
+- h: 740
+
+# Asset_Lmb
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/lmb.png
+- x: 0
+- y: 0
+- w: 50
+- h: 50
+
+# Asset_Rmb
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/rmb.png
+- x: 0
+- y: 0
+- w: 50
+- h: 50
+
+# Asset_Save
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/save.png
+- x: 0
+- y: 0
+- w: 48
+- h: 48
+
+# Asset_QuestFrame
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/quest_frame.png
+- x: 0
+- y: 0
+- w: 490
+- h: 175
+
 # Part_Trash
 Hardcoded to be the second node internally but can appear anywhere. We can skin it here.
 This is something that looks like a grey rock
