@@ -12,7 +12,7 @@
 //   - allow smaller machines still?
 //   - throughput problem. part has to wait at 50% for next part to clear, causing delays. if there's enough outputs there's always room and no such delay. if supply-to-machine is one belt there's also no queueing so it's faster
 //   - putting machine down next to two dead end belts will only connect one?
-//   - make the menu-machine "process" the finished parts before generating trucks
+//   - make the menu-machine "process" the finished parts before text.draw_image_with_html_image_element_and_dw_angenerating trucks
 //   - animate machines at work
 //   - paint the prepared parts of a machine while not selected?
 // - belts
@@ -28,8 +28,8 @@
 // - updating machine should open machines
 // - change preview of craftable when selected (the tiny preview on top is not working
 // - create tutorial
-// - should machine give hint of creating/missing in/outbound connection?
 // - create_placeholder_canvas: create actual snapshot screenshot here rather than a blank page. kinda tricky I guess.
+// - put bouncers behind machine
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -4528,6 +4528,10 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
       context.rotate(std::f64::consts::FRAC_PI_2).expect("oopsie rotate");
       // Compensate for the origin currently being in the middle of the dump truck. Top-left is just easier.
       context.translate(-truck_size/2.0, -truck_size/2.0).expect("oopsie translate");
+      // The truck starts _inside_ the factory and drives to the right (maybe slanted)
+      paint_asset_raw(options, state, config, context, CONFIG_NODE_ASSET_DUMP_TRUCK, factory.ticks,
+        0.0, 0.0, truck_size, truck_size
+      );
       // Paint the part icon on the back of the trick (x-centered, y-bottom)
       paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_index, 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
       context.restore();
@@ -4544,6 +4548,10 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
       context.rotate(std::f64::consts::FRAC_PI_2 * (1.0 - progress)).expect("oopsie rotate");
       // Compensate for the origin currently being in the middle of the dump truck. Top-left is just easier.
       context.translate(-truck_size/2.0, -truck_size/2.0).expect("oopsie translate");
+      // The truck starts _inside_ the factory and drives to the right (maybe slanted)
+      paint_asset_raw(options, state, config, context, CONFIG_NODE_ASSET_DUMP_TRUCK, factory.ticks,
+        0.0, 0.0, truck_size, truck_size
+      );
       // Paint the part icon on the back of the trick (x-centered, y-bottom)
       paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_index, 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
       context.restore();
