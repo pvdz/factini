@@ -3395,18 +3395,42 @@ fn paint_background_tiles3(
         // For machines, paint the top-left cell only but make the painted area cover the whole machine
         // TODO: each machine size should have a unique, customized, sprite
         if cell.machine.main_coord == coord {
+          // Paint all overlays for this machien in this iteration, not just the one for this particular cell
+
           // Paint tiny output part in top-left
           paint_segment_part_from_config(options, state, config, context, cell.machine.output_want.kind, ox + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].x, oy + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].y, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].w, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].h);
-        }
-        else {
-          // Paint alarm in center if the machine has a problem
+
+
+          // Note: the set of all incoming and outgoing ports are stored on .ins and .outs
+          // - If none of the outward ports are connected, then there is a problem
+          // - If there's only outgoing or incoming ports, then there is a problem
+          // - If there are no defined inputs, then there is a problem
+          // - If the inputs don't define an output, then there is a problem (but that can't legally happen in the current iteration)
+
+          // Paint alarm in bottom-right corner if the machine has a problem
           let (mainx, mainy) = to_xy(cell.machine.main_coord);
           let maxx = mainx + cell.machine.cell_width - 1;
           let maxy = mainy + cell.machine.cell_height - 1;
           let max_coord = to_coord(maxx, maxy);
-          if max_coord == coord {
+
+          let mut weewoo = false;
+          if factory.floor[cell.machine.main_coord].ins.len() == 0 {
+            paint_asset(options, state, config, context, CONFIG_NODE_ASSET_MISSING_INPUTS, factory.ticks,
+              ox, oy + CELL_H,
+              CELL_W, CELL_H
+            );
+            weewoo = true;
+          } else if factory.floor[cell.machine.main_coord].outs.len() == 0 {
+            paint_asset(options, state, config, context, CONFIG_NODE_ASSET_MISSING_OUTPUTS, factory.ticks,
+              ox + CELL_W + CELL_W, oy + CELL_H,
+              CELL_W, CELL_H
+            );
+            weewoo = true;
+          }
+
+          if weewoo {
             paint_asset(options, state, config, context, CONFIG_NODE_ASSET_WEE_WOO, factory.ticks,
-              ox + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].x, oy + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].y,
+              ox + CELL_W + CELL_W, oy + CELL_H + CELL_H,
               config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].w, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].h
             );
           }
