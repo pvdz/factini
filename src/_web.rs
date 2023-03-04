@@ -28,7 +28,6 @@
 // - updating machine should open machines
 // - change preview of craftable when selected (the tiny preview on top is not working
 // - create tutorial
-// - create_placeholder_canvas: create actual snapshot screenshot here rather than a blank page. kinda tricky I guess.
 // - put bouncers behind machine
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
@@ -56,6 +55,7 @@ use super::belt::*;
 use super::belt_type::*;
 use super::bouncer::*;
 use super::cell::*;
+use super::canvas::*;
 use super::cli_serialize::*;
 use super::config::*;
 use super::craft::*;
@@ -71,6 +71,7 @@ use super::port::*;
 use super::port_auto::*;
 use super::prio::*;
 use super::quest_state::*;
+use super::quick_save::*;
 use super::quote::*;
 use super::state::*;
 use super::truck::*;
@@ -163,10 +164,7 @@ pub fn start() -> Result<(), JsValue> {
   canvas.style().set_property("border", "solid")?;
   canvas.style().set_property("width", format!("{}px", CANVAS_CSS_WIDTH as u32).as_str())?;
   canvas.style().set_property("height", format!("{}px", CANVAS_CSS_HEIGHT as u32).as_str())?;
-  let context = canvas
-    .get_context("2d")?
-    .unwrap()
-    .dyn_into::<web_sys::CanvasRenderingContext2d>()?;
+  let context = canvas.get_context("2d")?.unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>()?;
   let context = Rc::new(context);
 
   pub fn load_config(print_fmd_trace: bool, config_str: String) -> Config {
@@ -432,32 +430,26 @@ pub fn start() -> Result<(), JsValue> {
   };
   let initial_map_from_source = if initial_map_from_source { 0 } else { initial_map.len() as u64 };
   let ( mut options, mut state, mut factory ) = init(&config, initial_map);
-  let mut saves: [Option<(web_sys::HtmlCanvasElement, String)>; 9] = [(); 9].map(|_| None);
-  fn create_placeholder_canvas(options: &Options, state: &State, config: &Config, factory: &Factory, document: &web_sys::Document) -> web_sys::HtmlCanvasElement {
-    // Pre-load snapshots from localStorage, if any were found
-    let placeholder_canvas = document.create_element("canvas").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
-    placeholder_canvas.set_width(100);
-    placeholder_canvas.set_height(100);
-    let context = placeholder_canvas.get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap();
-    context.set_fill_style(&"#ccc".into());
-    context.fill_rect(0.0, 0.0, 100.0, 100.0);
-    // TODO: create actual snapshot here rather than a blank page. kinda tricky I guess.
-    return placeholder_canvas;
-  }
+  let mut quick_saves: [Option<QuickSave>; 9] = [(); 9].map(|_| None);
 
-  let ( saved_map1, saved_map2, saved_map3, saved_map4 ) = {
+  let ( saved_map1, saved_png1, saved_map2, saved_png2, saved_map3, saved_png3, saved_map4, saved_png4 ) = {
     let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
     (
-      local_storage.get_item("factini.save0").unwrap(),
-      local_storage.get_item("factini.save1").unwrap(),
-      local_storage.get_item("factini.save2").unwrap(),
-      local_storage.get_item("factini.save3").unwrap(),
+      local_storage.get_item("factini.save.snap0").unwrap(),
+      local_storage.get_item("factini.save.png0").unwrap(),
+      local_storage.get_item("factini.save.snap1").unwrap(),
+      local_storage.get_item("factini.save.png1").unwrap(),
+      local_storage.get_item("factini.save.snap2").unwrap(),
+      local_storage.get_item("factini.save.png2").unwrap(),
+      local_storage.get_item("factini.save.snap3").unwrap(),
+      local_storage.get_item("factini.save.png3").unwrap(),
     )
   };
-  if let Some(saved_map) = saved_map1 { saves[0] = Some(( create_placeholder_canvas(&options, &state, &config, &factory, &document), saved_map )); }
-  if let Some(saved_map) = saved_map2 { saves[1] = Some(( create_placeholder_canvas(&options, &state, &config, &factory, &document), saved_map )); }
-  if let Some(saved_map) = saved_map3 { saves[2] = Some(( create_placeholder_canvas(&options, &state, &config, &factory, &document), saved_map )); }
-  if let Some(saved_map) = saved_map4 { saves[3] = Some(( create_placeholder_canvas(&options, &state, &config, &factory, &document), saved_map )); }
+
+  if let Some(saved_map) = saved_map1 { if let Some(saved_png) = saved_png1 { quick_saves[0] = Some(quick_save_create(0, &document, saved_map, saved_png)); } }
+  if let Some(saved_map) = saved_map2 { if let Some(saved_png) = saved_png2 { quick_saves[1] = Some(quick_save_create(1, &document, saved_map, saved_png)); } }
+  if let Some(saved_map) = saved_map3 { if let Some(saved_png) = saved_png3 { quick_saves[2] = Some(quick_save_create(2, &document, saved_map, saved_png)); } }
+  if let Some(saved_map) = saved_map4 { if let Some(saved_png) = saved_png4 { quick_saves[3] = Some(quick_save_create(3, &document, saved_map, saved_png)); } }
 
   let saved_options = {
     let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
@@ -721,7 +713,7 @@ pub fn start() -> Result<(), JsValue> {
         last_mouse_was_up.set(false);
 
         // Handle drag-end or click
-        handle_input(&mut cell_selection, &mut mouse_state, &mut options, &mut state, &config, &mut factory, &mut saves);
+        handle_input(&mut cell_selection, &mut mouse_state, &mut options, &mut state, &config, &mut factory, &mut quick_saves);
 
         if factory.changed {
           // If currently looking at a historic snapshot, then now copy that
@@ -828,7 +820,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_debug_selected_supply_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_debug_selected_demand_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_map_state_buttons(&state, &context, &mouse_state);
-        paint_load_thumbs(&options, &state, &config, &factory, &context, &mouse_state, &saves);
+        paint_load_thumbs(&options, &state, &config, &factory, &context, &mouse_state, &mut quick_saves);
 
         // Probably after all backround/floor stuff is finished
         paint_zone_borders(&options, &state, &context);
@@ -1299,7 +1291,7 @@ fn update_mouse_state(
     }
   }
 }
-fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, saves: &mut [Option<(web_sys::HtmlCanvasElement, String)>; 9]) {
+fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, quick_saves: &mut [Option<QuickSave>; 9]) {
   if state.manual_open {
     // If the manual is open, ignore all other events
     if mouse_state.is_up {
@@ -1428,7 +1420,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         }
         ZONE_SAVE_MAP => {
           if mouse_state.up_save_map {
-            on_up_save_map(options, state, config, factory, mouse_state, saves);
+            on_up_save_map(options, state, config, factory, mouse_state, quick_saves);
           }
         }
         ZONE_HELP => {
@@ -1629,7 +1621,7 @@ fn on_up_quest(options: &Options, state: &State, config: &Config, factory: &mut 
     log!("Clicked on a quest index that doesnt exist right now. mouse_state.down_quest_visible_index={}, mouse_state.up_quest_visible_index={}", mouse_state.down_quest_visible_index, mouse_state.up_quest_visible_index);
   }
 }
-fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, saves: &mut [Option<(web_sys::HtmlCanvasElement, String)>; 9]) {
+fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, quick_saves: &mut [Option<QuickSave>; 9]) {
   log!("on_up_save_map()");
 
   if !mouse_state.down_save_map || mouse_state.down_save_map_index != mouse_state.up_save_map_index {
@@ -1637,7 +1629,7 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
     return;
   }
 
-  if let Some((canvas, map_string)) = &saves[mouse_state.up_save_map_index] {
+  if let Some(quick_save) = &quick_saves[mouse_state.up_save_map_index] {
     let (row, col) = match mouse_state.up_save_map_index {
       0 => (0.0, 0.0),
       1 => (0.0, 1.0),
@@ -1649,15 +1641,16 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
 
     if button_x {
       log!("  deleting saved map");
-      saves[mouse_state.up_save_map_index] = None;
+      quick_saves[mouse_state.up_save_map_index] = None;
       let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
-      local_storage.remove_item(format!("factini.save{}", mouse_state.up_save_map_index).as_str()).unwrap();
+      local_storage.remove_item(format!("factini.save.snap{}", mouse_state.up_save_map_index).as_str()).unwrap();
+      local_storage.remove_item(format!("factini.save.png{}", mouse_state.up_save_map_index).as_str()).unwrap();
     }
     else {
       log!("  loading saved map");
       state.snapshot_pointer += 1;
       state.snapshot_undo_pointer = state.snapshot_pointer;
-      state.snapshot_stack[state.snapshot_pointer % UNDO_STACK_SIZE] = map_string.clone();
+      state.snapshot_stack[state.snapshot_pointer % UNDO_STACK_SIZE] = quick_save.snapshot.clone();
       state.load_snapshot_next_frame = true;
     }
   } else {
@@ -1667,28 +1660,56 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
     // This element is created in this file but it's just easier to query it from the DOM ;)
     let game_map: web_sys::HtmlCanvasElement = document.get_element_by_id("$main_game_canvas").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
 
-    // Create a new canvas and draw the floor part onto that canvas
-    let canvas = document.create_element("canvas").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
-    // document.get_element_by_id("$main_game").unwrap().append_child(&canvas)?;
-    // canvas.set_id(&"$main_game_canvas".into());
-    // canvas.set_width(600 as u32);
-    // canvas.set_height(600 as u32);
-    canvas.set_width((UI_SAVE_THUMB_WIDTH * 0.66) as u32);
-    canvas.set_height(UI_SAVE_THUMB_HEIGHT as u32);
-    let context = canvas.get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap();
-    context.draw_image_with_html_canvas_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+    // Create a new canvas and draw the floor area onto that canvas
+    let floor_canvas = document.create_element("canvas").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
+    floor_canvas.set_width((UI_SAVE_THUMB_IMG_WIDTH) as u32);
+    floor_canvas.set_height(UI_SAVE_THUMB_IMG_HEIGHT as u32);
+    {
+      // Add temp canvas to DOM for debugging
+      // document.get_element_by_id("$main_game").unwrap().append_child(&floor_canvas);
+    }
+    let floor_context = floor_canvas.get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap();
+    floor_context.draw_image_with_html_canvas_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
       &game_map,
       UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_WIDTH, UI_FLOOR_HEIGHT,
       0.0, 0.0, UI_SAVE_THUMB_WIDTH * 0.66, UI_SAVE_THUMB_HEIGHT
     ).expect("canvas api call to work");
 
+    let thumb_canvas = document.create_element("canvas").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
+    thumb_canvas.set_width((UI_SAVE_THUMB_WIDTH) as u32);
+    thumb_canvas.set_height(UI_SAVE_THUMB_HEIGHT as u32);
+    let thumb_context = thumb_canvas.get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap();
+
+    // Now use the temporary floor canvas as a tile. We need that to paint rounded corners.
+    // The rounded corners are created by a rounded corner path() with a .fill() action.
+    if let Some(ptrn) = thumb_context.create_pattern_with_html_canvas_element(&floor_canvas, "repeat").expect("trying to load thumb") {
+      canvas_round_rect(&thumb_context, 0.0, 0.0, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT);
+      thumb_context.set_fill_style(&ptrn);
+      thumb_context.fill();
+      thumb_context.set_stroke_style(&"black".into());
+      thumb_context.stroke();
+    }
+    {
+      // Add temp canvas to DOM for debugging
+      // document.get_element_by_id("$main_game").unwrap().append_child(&thumb_canvas);
+    }
+
+    // The thumb canvas now is a rounded corner rect with the floor in it.
+    // It does not have the close button yet because that's hover sensitive so we paint that at runtime.
+
+    let png: String = thumb_canvas.to_data_url_with_type(&"img/png").unwrap(); // https://rustwasm.github.io/wasm-bindgen/api/web_sys/struct.HtmlCanvasElement.html#method.to_data_url
+    log!("len: {}", png.len());
+    log!("png: {}", png);
+
     // Get string of map
-    let snap = generate_floor_dump(&options, &state, &config, &factory, dnow()).join("\n");
+    let map_snapshot = generate_floor_dump(&options, &state, &config, &factory, dnow()).join("\n");
 
     // Store it there and in local storage
     let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
-    local_storage.set_item(format!("factini.save{}", mouse_state.up_save_map_index).as_str(), &snap).unwrap();
-    saves[mouse_state.up_save_map_index] = Some( ( canvas, snap ) );
+    local_storage.set_item(format!("factini.save.snap{}", mouse_state.up_save_map_index).as_str(), &map_snapshot).unwrap();
+    local_storage.set_item(format!("factini.save.png{}", mouse_state.up_save_map_index).as_str(), &png).unwrap();
+
+    quick_saves[mouse_state.up_save_map_index] = Some(quick_save_create(mouse_state.up_save_map_index, &document, map_snapshot, png));
   }
 }
 fn on_drag_end_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
@@ -2395,10 +2416,14 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
       let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
       local_storage.remove_item("factini.options").unwrap();
       local_storage.remove_item("factini.lastMap").unwrap();
-      local_storage.remove_item("factini.save0").unwrap();
-      local_storage.remove_item("factini.save1").unwrap();
-      local_storage.remove_item("factini.save2").unwrap();
-      local_storage.remove_item("factini.save3").unwrap();
+      local_storage.remove_item("factini.save.snap0").unwrap();
+      local_storage.remove_item("factini.save.png0").unwrap();
+      local_storage.remove_item("factini.save.snap1").unwrap();
+      local_storage.remove_item("factini.save.png1").unwrap();
+      local_storage.remove_item("factini.save.snap2").unwrap();
+      local_storage.remove_item("factini.save.png2").unwrap();
+      local_storage.remove_item("factini.save.snap3").unwrap();
+      local_storage.remove_item("factini.save.png3").unwrap();
       log!("Done! Must reload to take effect");
     }
     MenuButton::Row2Button1 => {
@@ -4998,43 +5023,41 @@ fn hit_test_save_map_right(x: f64, y: f64, row: f64, col: f64) -> bool {
     GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN) + UI_SAVE_THUMB_WIDTH, GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN) + UI_SAVE_THUMB_HEIGHT,
   );
 }
-fn paint_load_thumbs(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, saves: &[Option<(web_sys::HtmlCanvasElement, String)>; 9]) {
-  paint_map_load_button(options, state, config,factory, 0.0, 0.0, 0, context, &saves[0], mouse_state);
-  paint_map_load_button(options, state, config,factory, 1.0, 0.0, 1, context, &saves[1], mouse_state);
-  paint_map_load_button(options, state, config,factory, 0.0, 1.0, 2, context, &saves[2], mouse_state);
-  paint_map_load_button(options, state, config,factory, 1.0, 1.0, 3, context, &saves[3], mouse_state);
+fn paint_load_thumbs(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, quick_saves: &mut [Option<QuickSave>; 9]) {
+  paint_map_load_button(options, state, config,factory, 0.0, 0.0, 0, context, &mut quick_saves[0], mouse_state);
+  paint_map_load_button(options, state, config,factory, 1.0, 0.0, 1, context, &mut quick_saves[1], mouse_state);
+  paint_map_load_button(options, state, config,factory, 0.0, 1.0, 2, context, &mut quick_saves[2], mouse_state);
+  paint_map_load_button(options, state, config,factory, 1.0, 1.0, 3, context, &mut quick_saves[3], mouse_state);
 }
-fn paint_map_load_button(options: &Options, state: &State, config: &Config, factory: &Factory, col: f64, row: f64, button_index: usize, context: &Rc<web_sys::CanvasRenderingContext2d>, save: &Option<(web_sys::HtmlCanvasElement, String)>, mouse_state: &MouseState) {
+fn paint_map_load_button(options: &Options, state: &State, config: &Config, factory: &Factory, col: f64, row: f64, button_index: usize, context: &Rc<web_sys::CanvasRenderingContext2d>, quick_save: &mut Option<QuickSave>, mouse_state: &MouseState) {
   assert!(button_index < 6, "there are only 6 save buttons");
   let ox = GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN);
   let oy = GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN);
-  if let Some((canvas, name)) = save {
-    // I'm using patterns to get around rounded corners but maybe should just use the mask
-    // approach instead? Neither is very portable anyways so why not make it a simple blit...
-    if let Some(ptrn) = context.create_pattern_with_html_canvas_element(&canvas, "repeat").expect("trying to load thumb") {
-      let close = hit_test_save_map_right(mouse_state.world_x, mouse_state.world_y, row, col);
+  if let Some(quick_save) = quick_save {
+    // Save exists. Paint the thumb and then the trash icon on top of it.
 
-      round_rect(context, ox, oy, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT);
-      context.save();
-      // Note: the translate is necessary because the pattern anchor point is always 0.0 of window, not the canvas
-      context.translate(ox, oy).expect("canvas api call to work");
-      context.set_fill_style(&ptrn);
-      context.fill();
-      context.restore();
-      context.set_stroke_style(&"black".into());
-      context.stroke();
-
-      // Paint trash button
-      let fill_color = if mouse_state.over_save_map && mouse_state.over_save_map_index == button_index && close { "#ffaaaa" } else { "#aaaaaa" };
-      round_rect_and_fill_stroke(context, ox + UI_SAVE_THUMB_WIDTH * 0.66, oy, UI_SAVE_THUMB_WIDTH * 0.33, UI_SAVE_THUMB_HEIGHT, fill_color, "black");
-      context.set_fill_style(&"red".into());
-      context.fill_text("X", ox + UI_SAVE_THUMB_WIDTH - 20.0, oy + UI_SAVE_THUMB_HEIGHT / 2.0 + 5.0).expect("canvas api call to work");
-    } else {
-      round_rect_and_fill_stroke(context, ox, oy, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT, "orange", "black");
+    if !quick_save.loaded && quick_save.img.complete() {
+      quick_save_onload(&document(), quick_save);
     }
+
+    if quick_save.loaded {
+      // The thumb has been prepared with a rounded corner. Draw it first.
+      context.draw_image_with_html_canvas_element_and_dw_and_dh(
+        &quick_save.thumb,
+        ox, oy, UI_SAVE_THUMB_IMG_WIDTH, UI_SAVE_THUMB_IMG_HEIGHT,
+      ).expect("draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh should work"); // requires web_sys HtmlImageElement feature
+    } else {
+      canvas_round_rect_and_fill_stroke(context, ox, oy, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT,"#aaa", "black");
+    }
+
+    // Paint trash button
+    let fill_color = if mouse_state.over_save_map && mouse_state.over_save_map_index == button_index { "#ffaaaa" } else { "#aaaaaa" };
+    canvas_round_rect_and_fill_stroke(context, ox + UI_SAVE_THUMB_IMG_WIDTH, oy, UI_SAVE_THUMB_WIDTH - UI_SAVE_THUMB_IMG_WIDTH, UI_SAVE_THUMB_HEIGHT, fill_color, "black");
+    context.set_fill_style(&"red".into());
+    context.fill_text("X", ox + UI_SAVE_THUMB_WIDTH - 20.0, oy + UI_SAVE_THUMB_HEIGHT / 2.0 + 5.0).expect("canvas api call to work");
   } else {
     let fill_color = if mouse_state.over_save_map && mouse_state.over_save_map_index == button_index { "#aaffaa" } else { "#aaaaaa" };
-    round_rect_and_fill_stroke(context, ox, oy, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT, fill_color, "black");
+    canvas_round_rect_and_fill_stroke(context, ox, oy, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT, fill_color, "black");
     paint_asset_raw(options, state, config, &context, CONFIG_NODE_ASSET_SAVE, factory.ticks,
       ox + UI_SAVE_THUMB_WIDTH * 0.35,
       oy + UI_SAVE_THUMB_HEIGHT * 0.2,
@@ -5050,46 +5073,23 @@ fn paint_map_state_buttons(state: &State, context: &Rc<web_sys::CanvasRenderingC
   context.set_font(&"48px monospace");
 
   let fill_color = if state.snapshot_undo_pointer <= 0 { "#777" } else if mouse_state.over_undo { "#aaffaa" } else { "#aaaaaa" };
-  round_rect_and_fill_stroke(context, UI_UNREDO_UNDO_OFFSET_X, UI_UNREDO_UNDO_OFFSET_Y, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHTH, fill_color, "black");
+  canvas_round_rect_and_fill_stroke(context, UI_UNREDO_UNDO_OFFSET_X, UI_UNREDO_UNDO_OFFSET_Y, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHTH, fill_color, "black");
   let text_color = if state.snapshot_undo_pointer <= 0 { "#ccc" } else { "black" };
   context.set_fill_style(&text_color.into());
   context.fill_text("↶", UI_UNREDO_UNDO_OFFSET_X + UI_UNREDO_UNDO_WIDTH / 2.0 - 16.0, UI_UNREDO_UNDO_OFFSET_Y + UI_UNREDO_UNDO_HEIGHTH / 2.0 + 16.0).expect("canvas api call to work");
 
-  round_rect_and_fill_stroke(context, UI_UNREDO_CLEAR_OFFSET_X, UI_UNREDO_CLEAR_OFFSET_Y, UI_UNREDO_CLEAR_WIDTH, UI_UNREDO_CLEAR_HEIGHTH, if mouse_state.over_clear { "#aaffaa" } else { "#aaaaaa" }, "black");
+  canvas_round_rect_and_fill_stroke(context, UI_UNREDO_CLEAR_OFFSET_X, UI_UNREDO_CLEAR_OFFSET_Y, UI_UNREDO_CLEAR_WIDTH, UI_UNREDO_CLEAR_HEIGHTH, if mouse_state.over_clear { "#aaffaa" } else { "#aaaaaa" }, "black");
   context.set_fill_style(&"black".into());
   context.fill_text("🗑", UI_UNREDO_CLEAR_OFFSET_X + UI_UNREDO_UNDO_WIDTH / 2.0 - 15.0, UI_UNREDO_CLEAR_OFFSET_Y + UI_UNREDO_CLEAR_HEIGHTH / 2.0 + 16.0).expect("canvas api call to work");
   // 🚮
 
   let fill_color = if state.snapshot_undo_pointer == state.snapshot_pointer { "#777" } else if mouse_state.over_redo { "#aaffaa" } else { "#aaaaaa" };
-  round_rect_and_fill_stroke(context, UI_UNREDO_REDO_OFFSET_X, UI_UNREDO_REDO_OFFSET_Y, UI_UNREDO_REDO_WIDTH, UI_UNREDO_REDO_HEIGHTH, fill_color, "black");
+  canvas_round_rect_and_fill_stroke(context, UI_UNREDO_REDO_OFFSET_X, UI_UNREDO_REDO_OFFSET_Y, UI_UNREDO_REDO_WIDTH, UI_UNREDO_REDO_HEIGHTH, fill_color, "black");
   let text_color = if state.snapshot_undo_pointer == state.snapshot_pointer { "#ccc" } else { "black" };
   context.set_fill_style(&text_color.into());
   context.fill_text("↷", UI_UNREDO_REDO_OFFSET_X + UI_UNREDO_REDO_WIDTH / 2.0 - 16.0, UI_UNREDO_REDO_OFFSET_Y + UI_UNREDO_REDO_HEIGHTH / 2.0 + 16.0).expect("canvas api call to work");
 
   context.restore();
-}
-
-
-fn round_rect_and_fill_stroke(context: &Rc<web_sys::CanvasRenderingContext2d>, x: f64, y: f64, w: f64, h: f64, fill: &str, stroke: &str) {
-  round_rect(context, x, y, w, h);
-  context.set_fill_style(&fill.into());
-  context.fill();
-  context.set_stroke_style(&stroke.into());
-  context.stroke();
-}
-fn round_rect(context: &Rc<web_sys::CanvasRenderingContext2d>, x: f64, y: f64, w: f64, h: f64) {
-  // web_sys is not exposing the new roundRect so this SO answer will have to do
-  // https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/roundRect
-  let mut r = 10.0;
-  if w < 2.0 * r { r = w / 2.0; }
-  if h < 2.0 * r { r = h / 2.0; }
-  context.begin_path();
-  context.move_to(x+r, y);
-  context.arc_to(x+w, y,   x+w, y+h, r).expect("canvas api call to work");
-  context.arc_to(x+w, y+h, x,   y+h, r).expect("canvas api call to work");
-  context.arc_to(x,   y+h, x,   y,   r).expect("canvas api call to work");
-  context.arc_to(x,   y,   x+w, y,   r).expect("canvas api call to work");
-  context.close_path();
 }
 
 fn paint_factory_belt(options: &Options, state: &State, config: &Config, factory: &Factory, coord: usize, context: &Rc<web_sys::CanvasRenderingContext2d>, dx: f64, dy: f64, dw: f64, dh: f64) {

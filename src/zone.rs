@@ -94,6 +94,8 @@ pub const UI_SAVE_OFFSET_Y: f64 = 8.0;
 // Note: game is currently at 1000 x 800. The floor is 600x600, so 1:1 ratio
 pub const UI_SAVE_THUMB_WIDTH: f64 = 90.0;
 pub const UI_SAVE_THUMB_HEIGHT: f64 = 60.0;
+pub const UI_SAVE_THUMB_IMG_WIDTH: f64 = UI_SAVE_THUMB_WIDTH * 0.66; // Leave room for the close button
+pub const UI_SAVE_THUMB_IMG_HEIGHT: f64 = UI_SAVE_THUMB_HEIGHT;
 pub const UI_SAVE_MARGIN: f64 = 7.0;
 // Note: we have 3x2 save tiles
 pub const UI_SAVE_THUMB_X1: f64 = UI_SAVE_OFFSET_X;
