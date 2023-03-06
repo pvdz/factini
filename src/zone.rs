@@ -128,14 +128,14 @@ pub const UI_MENU_BOTTOM_MACHINE_Y: f64 = UI_BOTTOM_OFFSET_Y + 5.0;
 pub const UI_MENU_BOTTOM_MACHINE_WIDTH: f64 = 70.0;
 pub const UI_MENU_BOTTOM_MACHINE_HEIGHT: f64 = 70.0;
 
-pub const UI_DEBUG_OFFSET_X: f64 = GRID_X0;
-pub const UI_DEBUG_OFFSET_Y: f64 = GRID_Y3;
+pub const UI_DEBUG_OFFSET_X: f64 = GRID_X0 + 5.0;
+pub const UI_DEBUG_OFFSET_Y: f64 = GRID_Y3 + 10.0;
 pub const UI_DEBUG_WIDTH: f64 = GRID_LEFT_WIDTH + GRID_SPACING + FLOOR_WIDTH + GRID_SPACING + GRID_RIGHT_WIDTH;
 pub const UI_DEBUG_HEIGHT: f64 = GRID_BOTTOM_DEBUG_HEIGHT;
 // The app stats
-pub const UI_DEBUG_APP_OFFSET_X: f64 = GRID_X2;
-pub const UI_DEBUG_APP_OFFSET_Y: f64 = GRID_Y3;
-pub const UI_DEBUG_APP_WIDTH: f64 = 250.0;
+pub const UI_DEBUG_APP_OFFSET_X: f64 = GRID_X2 + 5.0;
+pub const UI_DEBUG_APP_OFFSET_Y: f64 = GRID_Y3 + 10.0;
+pub const UI_DEBUG_APP_WIDTH: f64 = 240.0;
 pub const UI_DEBUG_APP_LINE_H: f64 = 25.0;
 pub const UI_DEBUG_APP_FONT_H: f64 = 16.0;
 pub const UI_DEBUG_APP_SPACING: f64 = 6.0;
@@ -150,11 +150,14 @@ pub const UI_DEBUG_CELL_FONT_HEIGHT: f64 = 16.0; // at 12px + bottom spacing
 
 pub const UI_OFFERS_OFFSET_X: f64 = GRID_X2 + 10.0;
 pub const UI_OFFERS_OFFSET_Y: f64 = GRID_Y1;
-pub const UI_OFFERS_WIDTH: f64 = 50.0;
-pub const UI_OFFERS_HEIGHT: f64 = 50.0;
+pub const UI_OFFER_WIDTH: f64 = 50.0;
+pub const UI_OFFER_HEIGHT: f64 = 50.0;
+pub const UI_OFFER_WIDTH_PLUS_MARGIN: f64 = UI_OFFER_WIDTH + 10.0;
+pub const UI_OFFER_HEIGHT_PLUS_MARGIN: f64 = UI_OFFER_HEIGHT + 10.0;
 pub const UI_OFFERS_PER_ROW: f64 = 4.0;
-pub const UI_OFFERS_WIDTH_PLUS_MARGIN: f64 = UI_OFFERS_WIDTH + 10.0;
-pub const UI_OFFERS_HEIGHT_PLUS_MARGIN: f64 = UI_OFFERS_HEIGHT + 10.0;
+pub const UI_OFFERS_WIDTH: f64 = UI_OFFER_WIDTH + ((UI_OFFERS_PER_ROW - 1.0) * UI_OFFER_WIDTH_PLUS_MARGIN);
+pub const UI_OFFER_TOOLTIP_WIDTH: f64 = 185.0;
+pub const UI_OFFER_TOOLTIP_HEIGHT: f64 = 3.0 + (0.75 * CELL_H) + 5.0 + (0.75 * CELL_H) + 5.0 + (0.75 * CELL_H) + 3.0;
 
 // The UI is a 3x3 grid of sections. The center section is the main part of the game, "the Floor"
 // Define the coordinates of each "tab" (whatever the terminology ought to be) that defines the grid

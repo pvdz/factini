@@ -313,6 +313,9 @@ pub const CONFIG_NODE_ASSET_LMB: usize = 290;
 pub const CONFIG_NODE_ASSET_RMB: usize = 291;
 pub const CONFIG_NODE_ASSET_SAVE: usize = 292;
 pub const CONFIG_NODE_ASSET_QUEST_FRAME: usize = 293;
+pub const CONFIG_NODE_ASSET_DOUBLE_ARROW_RIGHT: usize = 294;
+pub const CONFIG_NODE_ASSET_SINGLE_ARROW_DOWN: usize = 295;
+pub const CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT: usize = 296;
 
 #[derive(Debug)]
 pub struct Config {
@@ -1010,6 +1013,9 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Asset_Rmb" => CONFIG_NODE_ASSET_RMB,
     "Asset_Save" => CONFIG_NODE_ASSET_SAVE,
     "Asset_QuestFrame" => CONFIG_NODE_ASSET_QUEST_FRAME,
+    "Asset_DoubleArrowRight" => CONFIG_NODE_ASSET_DOUBLE_ARROW_RIGHT,
+    "Asset_SingleArrowDown" => CONFIG_NODE_ASSET_SINGLE_ARROW_DOWN,
+    "Asset_SingleArrowRight" => CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT,
     "Part_None" => PARTKIND_NONE,
     "Part_Trash" => PARTKIND_TRASH,
     "Supply_Up" => CONFIG_NODE_SUPPLY_UP,

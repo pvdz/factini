@@ -62,7 +62,8 @@ pub fn quick_save_onload(document: &web_sys::Document, quick_save: &mut QuickSav
   // Generate a cached thumbnail to use going forward
   let thumb_context = quick_save.thumb.get_context("2d").expect("canvas api to work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().expect("canvas api to work");
   {
-    document.get_element_by_id("$main_game").unwrap().append_child(&quick_save.thumb);
+    // Add to window for debugging
+    // document.get_element_by_id("$main_game").unwrap().append_child(&quick_save.thumb);
   }
   let ptrn = thumb_context.create_pattern_with_html_image_element(&quick_save.img, "repeat").expect("trying to load thumb").unwrap();
   canvas_round_rect(&thumb_context, 0.0, 0.0, UI_SAVE_THUMB_IMG_WIDTH, UI_SAVE_THUMB_IMG_HEIGHT);

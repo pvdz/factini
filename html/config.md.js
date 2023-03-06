@@ -198,6 +198,33 @@ Indicator that a machine has no target part to create
 - w: 490
 - h: 175
 
+# Asset_DoubleArrowRight
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/double_arrow_right.png
+- x: 0
+- y: 0
+- w: 13
+- h: 38
+
+# Asset_SingleArrowDown
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/single_arrow_down.png
+- x: 0
+- y: 0
+- w: 18
+- h: 13
+
+# Asset_SingleArrowRight
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/single_arrow_right.png
+- x: 0
+- y: 0
+- w: 13
+- h: 18
+
 # Part_Trash
 Hardcoded to be the second node internally but can appear anywhere. We can skin it here.
 This is something that looks like a grey rock
@@ -600,7 +627,7 @@ The old paper
 - h: 24
 
 # Part_GoldCoin
-- pattern: Part_SilverCoins Part_GoldDust
+- pattern: Part_SilverCoins Part_GoldDust Part_DirtWhite
 - file: ./img/bigset.png
 - x: 0
 - y: 2232
@@ -632,6 +659,8 @@ The old paper
 
 # Part_SantaHat
 - pattern: Part_PotionRed Part_Rope Part_GrayHat
+Testing:
+- pattern: Part_Wood Part_Thread Part_SilverCoin Part_SilverCoins Part_GoldCoin Part_Sapphire Part_ShieldWood Part_IngotWhite Part_BookWhite
 - file: ./img/bigset.png
 - x: 169
 - y: 5688
@@ -663,6 +692,8 @@ The old paper
 
 # Part_FishingRod
 - pattern: Part_Wood Part_Thread
+Temporarily 7 input parts for debugging
+- pattern: Part_Wood Part_Thread Part_SilverCoin Part_SilverCoins Part_GoldCoin Part_Sapphire Part_ShieldWood Part_IngotWhite Part_BookWhite
 - file: ./img/bigset.png
 - x: 144
 - y: 2448
