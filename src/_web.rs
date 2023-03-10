@@ -31,9 +31,9 @@
 // - help the player
 //   - create tutorial
 //   - if there's no factory, hover over offers should indicate that
-//   - change preview of craftable when selected (the tiny preview on top is not working
-//
-
+// - what's up with the mouse??
+// - hover over paint toggle is broken in left-bottom corner?
+// Letters!
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -808,7 +808,6 @@ pub fn start() -> Result<(), JsValue> {
         paint_lasers(&options, &mut state, &config, &context);
         paint_trucks(&options, &state, &config, &context, &mut factory);
         paint_bottom_menu(&options, &state, &config, &factory, &context, &mouse_state);
-        // TODO: wait for tiles to be loaded because first few frames won't paint anything while the tiles are loading...
         paint_background_tiles1(&options, &state, &config, &context, &factory);
         paint_background_tiles2(&options, &state, &config, &context, &factory);
         paint_background_tiles3(&options, &state, &config, &context, &factory);
@@ -1452,22 +1451,6 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
 
 // on over, out, hover, down, up, drag start, dragging, drag end. but not everything makes sense for all cases.
 
-fn on_drag_start_offer(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
-  // Is that offer visible / interactive yet?
-  if factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].1 {
-    // Need to remember which offer we are currently dragging (-> offer_down_offer_index).
-    log!("is_drag_start from offer {} ({:?})", mouse_state.offer_down_offer_index, factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0);
-    mouse_state.dragging_offer = true;
-    state.mouse_mode_selecting = false;
-
-    log!("not closing machine while dragging atomic part");
-    // let part_index = factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0;
-    // if config.nodes[part_index].pattern_unique_kinds.len() == 0 {
-    //   log(format!("closing machine craft menu because dragging offer without pattern"));
-    //   cell_selection.on = false;
-    // }
-  }
-}
 fn on_click_help(options: &Options, state: &mut State, config: &Config) {
   log!("on_click_help()");
   state.manual_open = !state.manual_open;
@@ -1477,6 +1460,10 @@ fn on_down_floor(mouse_state: &mut MouseState) {
   // Set the current cell as the last coord so we can track the next
   mouse_state.last_cell_x = mouse_state.last_down_cell_x_floored;
   mouse_state.last_cell_y = mouse_state.last_down_cell_y_floored;
+}
+fn on_up_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
+  log!("on_up_floor()");
+  on_click_inside_floor(options, state, config, factory, cell_selection, mouse_state);
 }
 fn on_drag_floor(options: &Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState) {
   // Do not log drag events by default :)
@@ -1539,6 +1526,27 @@ fn on_drag_floor(options: &Options, state: &mut State, config: &Config, factory:
     }
   }
 }
+fn on_drag_end_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
+  log!("on_drag_end_floor()");
+  // Is the mouse currently on the floor?
+  on_drag_end_floor_other(options, state, config, factory, cell_selection, mouse_state);
+}
+fn on_drag_start_offer(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
+  // Is that offer visible / interactive yet?
+  if factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].1 {
+    // Need to remember which offer we are currently dragging (-> offer_down_offer_index).
+    log!("is_drag_start from offer {} ({:?})", mouse_state.offer_down_offer_index, factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0);
+    mouse_state.dragging_offer = true;
+    state.mouse_mode_selecting = false;
+
+    log!("not closing machine while dragging atomic part");
+    // let part_index = factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0;
+    // if config.nodes[part_index].pattern_unique_kinds.len() == 0 {
+    //   log(format!("closing machine craft menu because dragging offer without pattern"));
+    //   cell_selection.on = false;
+    // }
+  }
+}
 fn on_up_offer(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
   log!("on_up_offer({} -> {})", mouse_state.offer_down_offer_index, mouse_state.offer_hover_offer_index);
 
@@ -1552,7 +1560,7 @@ fn on_up_offer(options: &Options, state: &State, config: &Config, factory: &Fact
     return;
   }
 
-  if mouse_state.offer_selected && mouse_state.offer_selected_index == mouse_state.offer_hover_offer_index{
+  if mouse_state.offer_selected && mouse_state.offer_selected_index == mouse_state.offer_hover_offer_index {
     log!("Deselecting offer {}", mouse_state.offer_hover_offer_index);
     mouse_state.offer_selected = false;
   } else {
@@ -1721,15 +1729,6 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
 
     quick_saves[mouse_state.up_save_map_index] = Some(quick_save_create(mouse_state.up_save_map_index, &document, map_snapshot, png));
   }
-}
-fn on_drag_end_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
-  log!("on_drag_end_floor()");
-  // Is the mouse currently on the floor?
-  on_drag_end_floor_other(options, state, config, factory, cell_selection, mouse_state);
-}
-fn on_up_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
-  log!("on_up_floor()");
-  on_click_inside_floor(options, state, config, factory, cell_selection, mouse_state);
 }
 fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
   log!("on_click_inside_floor()");
@@ -4623,6 +4622,8 @@ fn paint_ui_offer_tooltip(options: &Options, state: &State, config: &Config, fac
     13.0,
     38.0
   );
+
+  // If there's no machine the tooltip should indicate that
 
   let machine_img = &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].file_canvas_cache_index];
   context.draw_image_with_html_image_element_and_dw_and_dh(machine_img,
