@@ -1569,6 +1569,48 @@ fn on_up_offer(options: &Options, state: &State, config: &Config, factory: &Fact
     mouse_state.offer_selected_index = mouse_state.offer_hover_offer_index;
   }
 }
+fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
+  log!("on_click_inside_floor()");
+  let last_mouse_up_cell_x = mouse_state.last_up_cell_x.floor();
+  let last_mouse_up_cell_y = mouse_state.last_up_cell_y.floor();
+
+  let action = mouse_button_to_action(state, mouse_state);
+
+  if action == Action::Remove {
+    // Clear the cell if that makes sense for it. Delete a belt with one or zero ports.
+    let coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
+
+    let mut ports = 0;
+    if factory.floor[coord].port_u != Port::None { ports += 1; }
+    if factory.floor[coord].port_r != Port::None { ports += 1; }
+    if factory.floor[coord].port_d != Port::None { ports += 1; }
+    if factory.floor[coord].port_l != Port::None { ports += 1; }
+    if ports <= 1 || factory.floor[coord].kind == CellKind::Machine {
+      log!("Deleting stub @{} after rmb click", coord);
+      floor_delete_cell_at_partial(options, state, config, factory, coord);
+      factory.changed = true;
+    }
+
+    // If this wasn't a belt (ports=999) or the belt had more than 1 ports, then just drop its part.
+    if ports > 1 {
+      log!("Clearing part from @{} after rmb click (ports={})", coord, ports);
+      clear_part_from_cell(options, state, config, factory, coord);
+    }
+  }
+  else if action == Action::Add {
+    // De-/Select this cell
+    log!("clicked {} {} cell selection before: {:?}, belt: {:?}", last_mouse_up_cell_x, last_mouse_up_cell_y, cell_selection, factory.floor[to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize)].belt);
+
+    if cell_selection.on && cell_selection.x == last_mouse_up_cell_x && cell_selection.y == last_mouse_up_cell_y {
+      cell_selection.on = false;
+    } else {
+      cell_selection.on = true;
+      cell_selection.x = last_mouse_up_cell_x;
+      cell_selection.y = last_mouse_up_cell_y;
+      cell_selection.coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
+    }
+  }
+}
 fn on_down_undo(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
   log!("on_down_undo()");
 }
@@ -1728,48 +1770,6 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
     local_storage.set_item(format!("factini.save.png{}", mouse_state.up_save_map_index).as_str(), &png).unwrap();
 
     quick_saves[mouse_state.up_save_map_index] = Some(quick_save_create(mouse_state.up_save_map_index, &document, map_snapshot, png));
-  }
-}
-fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
-  log!("on_click_inside_floor()");
-  let last_mouse_up_cell_x = mouse_state.last_up_cell_x.floor();
-  let last_mouse_up_cell_y = mouse_state.last_up_cell_y.floor();
-
-  let action = mouse_button_to_action(state, mouse_state);
-
-  if action == Action::Remove {
-    // Clear the cell if that makes sense for it. Delete a belt with one or zero ports.
-    let coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
-
-    let mut ports = 0;
-    if factory.floor[coord].port_u != Port::None { ports += 1; }
-    if factory.floor[coord].port_r != Port::None { ports += 1; }
-    if factory.floor[coord].port_d != Port::None { ports += 1; }
-    if factory.floor[coord].port_l != Port::None { ports += 1; }
-    if ports <= 1 || factory.floor[coord].kind == CellKind::Machine {
-      log!("Deleting stub @{} after rmb click", coord);
-      floor_delete_cell_at_partial(options, state, config, factory, coord);
-      factory.changed = true;
-    }
-
-    // If this wasn't a belt (ports=999) or the belt had more than 1 ports, then just drop its part.
-    if ports > 1 {
-      log!("Clearing part from @{} after rmb click (ports={})", coord, ports);
-      clear_part_from_cell(options, state, config, factory, coord);
-    }
-  }
-  else if action == Action::Add {
-    // De-/Select this cell
-    log!("clicked {} {} cell selection before: {:?}, belt: {:?}", last_mouse_up_cell_x, last_mouse_up_cell_y, cell_selection, factory.floor[to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize)].belt);
-
-    if cell_selection.on && cell_selection.x == last_mouse_up_cell_x && cell_selection.y == last_mouse_up_cell_y {
-      cell_selection.on = false;
-    } else {
-      cell_selection.on = true;
-      cell_selection.x = last_mouse_up_cell_x;
-      cell_selection.y = last_mouse_up_cell_y;
-      cell_selection.coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
-    }
   }
 }
 fn on_up_craft(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
