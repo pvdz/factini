@@ -30,7 +30,6 @@
 // - updating machine should open machines
 // - help the player
 //   - create tutorial
-//   - if there's no factory, hover over offers should indicate that
 // - what's up with the mouse??
 // - hover over paint toggle is broken in left-bottom corner?
 // Letters!
@@ -734,6 +733,7 @@ pub fn start() -> Result<(), JsValue> {
           log!("Auto porting after modification");
           keep_auto_porting(&mut options, &mut state, &mut factory);
           fix_ins_and_outs_for_all_belts_and_machines(&mut factory);
+          factory.machines = factory_collect_machines(&factory.floor);
 
           // Recreate cell traversal order
           let prio: Vec<usize> = create_prio_list(&mut options, &config, &mut factory.floor);
@@ -1899,6 +1899,8 @@ fn on_drag_end_machine_over_floor(options: &mut Options, state: &mut State, conf
 
     machine_discover_ins_and_outs(factory, ccoord);
 
+    factory.machines.push(ccoord);
+
     factory.changed = true;
   } else {
     log!("Dropped a machine on the edge. Ignoring. {} {}", mouse_state.last_up_cell_x, mouse_state.last_up_cell_y as usize);
@@ -2982,7 +2984,7 @@ fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::Canva
   context.stroke_rect(UI_DEBUG_APP_OFFSET_X, UI_DEBUG_APP_OFFSET_Y + (UI_DEBUG_APP_LINE_H * ui_lines), UI_DEBUG_APP_WIDTH, (UI_DEBUG_LINES + 1.0) * UI_DEBUG_APP_LINE_H);
 
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("fps: {}", fps.len()).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("fps: {}  {}", fps.len(), factory.machines.len()).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"black".into());
@@ -4633,19 +4635,31 @@ fn paint_ui_offer_tooltip(options: &Options, state: &State, config: &Config, fac
     CELL_H * 1.5
   ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
 
-  paint_asset_raw(options, state, config, &context, CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT, factory.ticks,
-    machine_ox + CELL_W * 1.5 + 5.0 + (factory.ticks / 500 % 3) as f64,
-    machine_oy + 3.0,
-    13.0,
-    38.0
-  );
+  if factory.machines.len() == 0 {
+    if (factory.ticks as f64 / (ONE_SECOND as f64 * options.speed_modifier_ui)) as u64 % 2 == 0 {
+      context.save();
+      context.set_font(&"48px monospace");
+      context.set_fill_style(&"red".into());
+      context.fill_text(&"?", machine_ox + 10.0, machine_oy + CELL_H * 1.3);
+      context.set_stroke_style(&"white".into());
+      context.stroke_text(&"?", machine_ox + 10.0, machine_oy + CELL_H * 1.3);
+      context.restore();
+    }
+  } else {
+    paint_asset_raw(options, state, config, &context, CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT, factory.ticks,
+      machine_ox + CELL_W * 1.5 + 5.0 + (factory.ticks / 500 % 3) as f64,
+      machine_oy + 3.0,
+      13.0,
+      38.0
+    );
 
-  paint_segment_part_from_config(options, state, config, context, part_index,
-    machine_ox + CELL_W * 1.5 + (CELL_H * 0.75),
-    machine_oy + 3.0 + 3.0,
-    CELL_W,
-    CELL_H,
-  );
+    paint_segment_part_from_config(options, state, config, context, part_index,
+      machine_ox + CELL_W * 1.5 + (CELL_H * 0.75),
+      machine_oy + 3.0 + 3.0,
+      CELL_W,
+      CELL_H,
+    );
+  }
 }
 fn paint_lasers(options: &Options, state: &mut State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>) {
   // Paint quote lasers (parts that are received draw a line to the left menu)

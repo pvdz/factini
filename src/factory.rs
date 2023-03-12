@@ -42,6 +42,7 @@ pub struct Factory {
   pub curr_day_progress: f64,
   pub finished_at: u64, // Do not set for invalid scores. If at any point before the end of day the targets have been fulfilled, set this value so it sticks at it in the UI. Zero value is ignored.
   pub finished_with: u64, // Do not set for invalid scores. If at the end of day the targets have not been fulfilled, set this value to the % of progress where it failed so it sticks in the UI. Zero value is ignored.
+  pub machines: Vec<usize>, // List of main_coord for all machines, actively maintained
 
   pub supplied: u64,
   pub produced: u64,
@@ -59,6 +60,7 @@ pub fn create_factory(options: &mut Options, state: &mut State, config: &Config,
   let available_parts: Vec<PartKind> = unlocked_part_icons.iter().map(|icon| part_icon_to_kind(config,*icon)).collect();
   let available_parts_rhs_menu: Vec<(PartKind, bool)> = available_parts.iter().map(|kind| ( *kind, true )).collect();
   let quests = get_fresh_quest_states(options, state, config, 0, &available_parts);
+  let machines = factory_collect_machines(&floor);
   log!("initial available_parts: {:?}", available_parts.iter().map(|index| config.nodes[*index].name.clone()).collect::<Vec<_>>());
   log!("available quests: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| quest.name.clone()).collect::<Vec<_>>());
   log!("target quest parts: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| config.nodes[quest.production_part_index].name.clone()).collect::<Vec<_>>());
@@ -74,6 +76,7 @@ pub fn create_factory(options: &mut Options, state: &mut State, config: &Config,
     curr_day_progress: 0.0,
     finished_at: 0,
     finished_with: 0,
+    machines,
     supplied: 0,
     produced: 0,
     accepted: 0,
@@ -82,6 +85,7 @@ pub fn create_factory(options: &mut Options, state: &mut State, config: &Config,
     day_corrupted: false,
     quests,
   };
+
   auto_layout(options, state, config, &mut factory);
   auto_ins_outs(options, state, config, &mut factory);
   let prio = create_prio_list(options, config, &mut factory.floor);
@@ -345,4 +349,18 @@ pub fn factory_tick_trucks(options: &mut Options, state: &mut State, config: &Co
       }
     }
   }
+}
+
+pub fn factory_collect_machines(floor: &[Cell; FLOOR_CELLS_WH]) -> Vec<usize> {
+  let machines =
+    floor
+    .iter()
+    .enumerate()
+    .filter(|(index, cell)| { return cell.kind == CellKind::Machine && cell.machine.main_coord == *index; })
+    .map(|(index, cell)| { return index; })
+    .collect::<Vec<usize>>();
+
+  log!("factory_collect_machines(): {}", machines.len());
+
+  return machines;
 }
