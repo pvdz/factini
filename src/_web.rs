@@ -90,7 +90,7 @@ const CANVAS_WIDTH: f64 = 1010.0;
 const CANVAS_HEIGHT: f64 = 1100.0;
 
 // Need this for mouse2world coord conversion. Rest of the coords/sizes are in world (canvas) pixels.
-const CANVAS_CSS_WIDTH: f64 = 1100.0;
+const CANVAS_CSS_WIDTH: f64 = 1010.0;
 const CANVAS_CSS_HEIGHT: f64 = 1100.0;
 
 // Temp placeholder
@@ -2993,7 +2993,7 @@ fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::Canva
 
   ui_lines += 1.0;
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("Since prev: {} (@{})", since_prev.floor(), estimated_fps).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("Since prev: {: >3} (@{})", since_prev.floor(), estimated_fps.round()).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"black".into());
@@ -3012,7 +3012,7 @@ fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::Canva
   context.fill_text(
     format!(
       "mouse abs  : {} x {} {} {}",
-      mouse_state.world_x, mouse_state.world_y,
+      (mouse_state.world_x * 100.0).round() / 100.0, (mouse_state.world_y * 100.0).round() / 100.0,
       if mouse_state.is_dragging { "drag" } else if mouse_state.is_down { "down" } else { "up" },
       mouse_state.last_down_button,
     ).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H
