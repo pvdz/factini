@@ -327,6 +327,7 @@ pub struct Config {
   pub sprite_cache_lookup: HashMap<String, usize>, // indexes into sprite_cache_canvas
   pub sprite_cache_order: Vec<String>, // srcs by index.
   pub sprite_cache_canvas: Vec<web_sys::HtmlImageElement>,
+  pub sprite_cache_loading: bool,
 }
 
 #[derive(Debug)]
@@ -988,7 +989,17 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   if print_fmd_trace { log!("parsed map: {:?}", node_name_to_index); }
   if print_fmd_trace { node_pattern_to_index.iter_mut().for_each(|(str, &mut kind)| log!("- node_pattern_to_index: {} = pattern({}) -> kind: {}", nodes[kind].raw_name, str, kind)); }
 
-  return Config { nodes, quest_nodes_by_index, part_nodes, node_name_to_index, node_pattern_to_index, sprite_cache_lookup, sprite_cache_order, sprite_cache_canvas: vec!() };
+  return Config {
+    nodes,
+    quest_nodes_by_index,
+    part_nodes,
+    node_name_to_index,
+    node_pattern_to_index,
+    sprite_cache_lookup,
+    sprite_cache_order,
+    sprite_cache_canvas: vec!(),
+    sprite_cache_loading: false,
+  };
 }
 
 fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usize) -> usize {

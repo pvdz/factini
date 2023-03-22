@@ -23,9 +23,8 @@
 //   - `let (received_part_index, received_count) = factory.floor[coord].demand.received[i];` threw oob (1 while len=0). i thin it's somehow related to dropping a demander on the edge
 // - hover over craftable offer should highlight craft-inputs (offers)
 // - rebalance the fps frame limiter
-// - unock animations
+// - unblock animations
 //   - car polish; should make nice corners, should drive same speed to any height
-//   - make the bouncer-into-machine-into-trucks prettier
 // - click edge to add supplier. click supplier/demander to toggle.
 // - updating machine should open machines
 // - help the player
@@ -187,6 +186,9 @@ pub fn start() -> Result<(), JsValue> {
       // log!("Canvas {} src {}", _index, src);
       return load_tile(src.clone().as_str()).expect("worky worky");
     }).collect();
+    config.sprite_cache_loading = true;
+    log!("Queued up {} images to load...", config.sprite_cache_canvas.len());
+
     if print_fmd_trace { log!("Loading {} sprite files for the parts: {:?}", config.sprite_cache_canvas.len(), config.sprite_cache_lookup); }
     else { log!("Loading {} sprite files (enable print_fmd_trace for details)", config.sprite_cache_canvas.len()); }
 
@@ -669,6 +671,38 @@ pub fn start() -> Result<(), JsValue> {
         } else {
           ( ticks_todo, 0u64 )
         };
+
+      if config.sprite_cache_loading {
+        let mut loading = 0;
+        for img in config.sprite_cache_canvas.iter() {
+          if !img.complete() {
+            loading += 1;
+          }
+        }
+
+        context.set_stroke_style(&"white".into());
+        context.fill_rect(UI_FLOOR_OFFSET_X + (UI_FLOOR_WIDTH / 2.0) - 310.0, UI_FLOOR_OFFSET_Y + (UI_FLOOR_HEIGHT / 2.0), 600.0, 50.0);
+        context.set_fill_style(&"yellow".into());
+        context.fill_rect(UI_FLOOR_OFFSET_X + (UI_FLOOR_WIDTH / 2.0) - 310.0, UI_FLOOR_OFFSET_Y + (UI_FLOOR_HEIGHT / 2.0), ((config.sprite_cache_canvas.len() - loading) as f64 / config.sprite_cache_canvas.len() as f64) * 600.0, 50.0);
+        context.set_stroke_style(&"yellow".into());
+        context.stroke_rect(UI_FLOOR_OFFSET_X + (UI_FLOOR_WIDTH / 2.0) - 310.0, UI_FLOOR_OFFSET_Y + (UI_FLOOR_HEIGHT / 2.0), 600.0, 50.0);
+        context.set_font(&"24px monospace");
+        context.set_fill_style(&"orange".into());
+        context.fill_text(format!("Images loading... loaded {} of {}", config.sprite_cache_canvas.len() - loading, config.sprite_cache_canvas.len()).as_str(), UI_FLOOR_OFFSET_X + (UI_FLOOR_WIDTH / 2.0) - 300.0, UI_FLOOR_OFFSET_Y + (UI_FLOOR_HEIGHT / 2.0) + 35.0).expect("it to work");
+
+        context.set_font(&"12px monospace");
+        paint_debug_app(&options, &state, &context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
+
+        if loading > 0 {
+          // log!("Images loading... loaded {} of {}", config.sprite_cache_canvas.len() - loading, config.sprite_cache_canvas.len());
+          // Schedule next frame
+          request_animation_frame(f.borrow().as_ref().unwrap());
+          return;
+        } else {
+          log!("Loaded all {} images!", config.sprite_cache_canvas.len());
+          config.sprite_cache_loading = false;
+        }
+      }
 
       if state.load_example_next_frame {
         state.load_example_next_frame = false;
@@ -4640,9 +4674,9 @@ fn paint_ui_offer_tooltip(options: &Options, state: &State, config: &Config, fac
       context.save();
       context.set_font(&"48px monospace");
       context.set_fill_style(&"red".into());
-      context.fill_text(&"?", machine_ox + 10.0, machine_oy + CELL_H * 1.3);
+      context.fill_text(&"?", machine_ox + 10.0, machine_oy + CELL_H * 1.3).expect("not to fail");
       context.set_stroke_style(&"white".into());
-      context.stroke_text(&"?", machine_ox + 10.0, machine_oy + CELL_H * 1.3);
+      context.stroke_text(&"?", machine_ox + 10.0, machine_oy + CELL_H * 1.3).expect("not to fail");
       context.restore();
     }
   } else {
