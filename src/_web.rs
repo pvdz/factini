@@ -31,6 +31,9 @@
 //   - create tutorial
 // - what's up with the mouse??
 // - hover over paint toggle is broken in left-bottom corner?
+// - config_node_dock -> asset
+// - paint_supply_and_part_for_edge and paint_dock_stripes should use paint_asset
+
 // Letters!
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
@@ -120,7 +123,6 @@ extern {
   // pub async fn suspend_app_to_start() -> JsValue;
 }
 
-
 // Would this be a better/more efficient way? Probably slow either way.
 // // lifted from the `console_log` example
 // #[wasm_bindgen]
@@ -133,12 +135,14 @@ fn dnow() -> u64 {
   js_sys::Date::now() as u64
 }
 
-fn load_tile(src: &str) -> Result<web_sys::HtmlImageElement, JsValue> {
+fn load_tile(src: &str) -> web_sys::HtmlImageElement {
   let document = document();
 
   let img = document
-    .create_element("img")?
-    .dyn_into::<web_sys::HtmlImageElement>()?;
+    .create_element("img")
+    .expect("to work")
+    .dyn_into::<web_sys::HtmlImageElement>()
+    .expect("to work");
 
   img.set_src(src);
 
@@ -146,7 +150,7 @@ fn load_tile(src: &str) -> Result<web_sys::HtmlImageElement, JsValue> {
   // let div = document.get_element_by_id("$tdb").unwrap().dyn_into::<web_sys::HtmlElement>().unwrap();
   // div.append_child(&img).expect("to work");
 
-  return Ok(img);
+  return img;
 }
 
 #[wasm_bindgen(start)]
@@ -181,11 +185,29 @@ pub fn start() -> Result<(), JsValue> {
       });
     }
 
-    // Load sprite maps. Once per image.
-    config.sprite_cache_canvas = config.sprite_cache_order.iter().enumerate().map(|(_index, src)| {
-      // log!("Canvas {} src {}", _index, src);
-      return load_tile(src.clone().as_str()).expect("worky worky");
-    }).collect();
+    let image_loader_prio = vec!(
+      // Load the loader splash screen first
+      config.nodes[CONFIG_NODE_ASSET_SCREEN_LOADER].sprite_config.frames[0].file_canvas_cache_index,
+    );
+
+    // Load sprite maps. Once per image. Start with prio, then the rest, then unbox them.
+    let mut boxed: Vec<Option<web_sys::HtmlImageElement>> =
+      config.sprite_cache_order.iter().enumerate().map(|(index, src)| {
+        if image_loader_prio.contains(&index) {
+          log!("Loading {} with prio", src);
+          return Some(load_tile(src.clone().as_str()));
+        }
+        return None;
+      }).collect::<Vec<Option<web_sys::HtmlImageElement>>>();
+    // Now load the no-prio's
+    config.sprite_cache_order.iter().enumerate().for_each(|(index, src)| {
+      if boxed[index] == None {
+        boxed[index] = Some(load_tile(src.clone().as_str()));
+      }
+    });
+    // Now unbox them so we don't have to do the unbox dance every time
+    config.sprite_cache_canvas = boxed.into_iter().filter_map(|e| e).collect();
+
     config.sprite_cache_loading = true;
     log!("Queued up {} images to load...", config.sprite_cache_canvas.len());
 
@@ -222,7 +244,7 @@ pub fn start() -> Result<(), JsValue> {
   let def_options = create_options(0.0, 0.0);
   let mut config = load_config(def_options.print_fmd_trace, getGameConfig());
 
-  let img_loading_sand: web_sys::HtmlImageElement = load_tile("./img/sand.png")?;
+  let img_loading_sand: web_sys::HtmlImageElement = load_tile("./img/sand.png");
 
   // https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/createPattern
   // https://rustwasm.github.io/wasm-bindgen/api/web_sys/struct.CanvasRenderingContext2d.html#method.create_pattern_with_html_image_element
@@ -636,7 +658,7 @@ pub fn start() -> Result<(), JsValue> {
     // From https://rustwasm.github.io/wasm-bindgen/examples/request-animation-frame.html
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
-    *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
+    *g.borrow_mut() = Some(Closure::wrap(Box::new(move |e| {
       // This is the raF frame callback:
 
       let real_world_ms_at_start_of_curr_frame: f64 = perf.now();
@@ -672,7 +694,9 @@ pub fn start() -> Result<(), JsValue> {
           ( ticks_todo, 0u64 )
         };
 
-      if config.sprite_cache_loading {
+      let mut pregame = false;
+
+      if (config.sprite_cache_loading || options.splash_keep_loader) && !options.splash_no_loader {
         let mut loading = 0;
         for img in config.sprite_cache_canvas.iter() {
           if !img.complete() {
@@ -680,27 +704,59 @@ pub fn start() -> Result<(), JsValue> {
           }
         }
 
+        // Find the sprite that is the first frame of the loader. If it is loaded, paint the loading screen. Otherwise paint an ugly loading bar.
+        if config.sprite_cache_canvas[config.nodes[CONFIG_NODE_ASSET_SCREEN_LOADER].sprite_config.frames[0].file_canvas_cache_index].complete() {
+          paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_SCREEN_LOADER, factory.ticks,
+            100.0, 100.0,
+            800.0, 600.0
+          );
+        }
+
         context.set_stroke_style(&"white".into());
-        context.fill_rect(UI_FLOOR_OFFSET_X + (UI_FLOOR_WIDTH / 2.0) - 310.0, UI_FLOOR_OFFSET_Y + (UI_FLOOR_HEIGHT / 2.0), 600.0, 50.0);
+        context.fill_rect(UI_FLOOR_OFFSET_X + (UI_FLOOR_WIDTH / 2.0) - 310.0, UI_FLOOR_OFFSET_Y + (UI_FLOOR_HEIGHT / 2.0) + 200.0, 600.0, 50.0);
         context.set_fill_style(&"yellow".into());
-        context.fill_rect(UI_FLOOR_OFFSET_X + (UI_FLOOR_WIDTH / 2.0) - 310.0, UI_FLOOR_OFFSET_Y + (UI_FLOOR_HEIGHT / 2.0), ((config.sprite_cache_canvas.len() - loading) as f64 / config.sprite_cache_canvas.len() as f64) * 600.0, 50.0);
+        context.fill_rect(UI_FLOOR_OFFSET_X + (UI_FLOOR_WIDTH / 2.0) - 310.0, UI_FLOOR_OFFSET_Y + (UI_FLOOR_HEIGHT / 2.0) + 200.0, ((config.sprite_cache_canvas.len() - loading) as f64 / config.sprite_cache_canvas.len() as f64) * 600.0, 50.0);
         context.set_stroke_style(&"yellow".into());
-        context.stroke_rect(UI_FLOOR_OFFSET_X + (UI_FLOOR_WIDTH / 2.0) - 310.0, UI_FLOOR_OFFSET_Y + (UI_FLOOR_HEIGHT / 2.0), 600.0, 50.0);
+        context.stroke_rect(UI_FLOOR_OFFSET_X + (UI_FLOOR_WIDTH / 2.0) - 310.0, UI_FLOOR_OFFSET_Y + (UI_FLOOR_HEIGHT / 2.0) + 200.0, 600.0, 50.0);
         context.set_font(&"24px monospace");
-        context.set_fill_style(&"orange".into());
-        context.fill_text(format!("Images loading... loaded {} of {}", config.sprite_cache_canvas.len() - loading, config.sprite_cache_canvas.len()).as_str(), UI_FLOOR_OFFSET_X + (UI_FLOOR_WIDTH / 2.0) - 300.0, UI_FLOOR_OFFSET_Y + (UI_FLOOR_HEIGHT / 2.0) + 35.0).expect("it to work");
+        context.set_fill_style(&"red".into());
+        context.fill_text(format!("Images {}: {} of {}", if loading == 0 { "loaded" } else { "loading" }, config.sprite_cache_canvas.len() - loading, config.sprite_cache_canvas.len()).as_str(), UI_FLOOR_OFFSET_X + (UI_FLOOR_WIDTH / 2.0) - 150.0, UI_FLOOR_OFFSET_Y + (UI_FLOOR_HEIGHT / 2.0) + 35.0 + 200.0).expect("it to work");
 
         context.set_font(&"12px monospace");
         paint_debug_app(&options, &state, &context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
 
-        if loading > 0 {
-          // log!("Images loading... loaded {} of {}", config.sprite_cache_canvas.len() - loading, config.sprite_cache_canvas.len());
-          // Schedule next frame
-          request_animation_frame(f.borrow().as_ref().unwrap());
-          return;
-        } else {
+        if loading == 0 {
           log!("Loaded all {} images!", config.sprite_cache_canvas.len());
           config.sprite_cache_loading = false;
+
+          let was_up = last_mouse_was_up.get();
+          last_mouse_was_down.set(false);
+          last_mouse_was_up.set(false);
+          if was_up {
+            options.splash_keep_loader = false;
+          }
+        }
+
+        if loading > 0 || options.splash_keep_loader {
+          pregame = true; // Handle config updates etc but shedule a new raF and return before the game loop
+        }
+      }
+      if !pregame && (state.pregame || options.splash_keep_main) && !options.splash_no_main {
+        paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_SCREEN_MAIN, factory.ticks,
+          100.0, 100.0,
+          800.0, 600.0
+        );
+
+        let was_up = last_mouse_was_up.get();
+        last_mouse_was_down.set(false);
+        last_mouse_was_up.set(false);
+
+        if was_up {
+          log!("clicked on main splash. closing it.");
+          state.pregame = false; // Click anywhere to continue
+          options.splash_keep_main = false;
+        } else {
+          pregame = true; // Handle config updates etc but shedule a new raF and return before the game loop
         }
       }
 
@@ -724,12 +780,6 @@ pub fn start() -> Result<(), JsValue> {
         factory_load_map(&mut options, &mut state, &config, &mut factory, map);
       }
 
-      if !state.paused  {
-        for _ in 0..ticks_todo.min(MAX_TICKS_PER_FRAME) {
-          tick_factory(&mut options, &mut state, &config, &mut factory);
-        }
-      }
-
       let queued_action = getAction();
       if queued_action != "" { log!("getAction() had `{}`", queued_action); }
       let options_started_from_source = options.options_started_from_source; // Don't change this value here.
@@ -739,6 +789,18 @@ pub fn start() -> Result<(), JsValue> {
         "load_config" => config = load_config(options.print_fmd_trace, getGameConfig()), // Might crash the game
         "" => {},
         _ => panic!("getAction() returned an unsupported value: `{}`", queued_action),
+      }
+
+      if pregame {
+        // Showing the splash loading screen or main screen. Just return now.
+        request_animation_frame(f.borrow().as_ref().unwrap());
+        return;
+      }
+
+      if !state.paused  {
+        for _ in 0..ticks_todo.min(MAX_TICKS_PER_FRAME) {
+          tick_factory(&mut options, &mut state, &config, &mut factory);
+        }
       }
 
       if options.web_output_cli {
@@ -5372,3 +5434,4 @@ fn parse_and_save_options_string(option_string: String, options: &mut Options, s
   // Update UI to reflect actually loaded options
   setGameOptions(exp.into(), on_load.into());
 }
+

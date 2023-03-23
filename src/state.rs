@@ -25,6 +25,7 @@ use super::log;
 pub const UNDO_STACK_SIZE: usize = 100;
 
 pub struct State {
+  pub pregame: bool, // Showing main screen or loading screen?
   pub paused: bool,
   pub mouse_mode_mirrored: bool, // Note: all this really does is flip the lmb and rmb actions but we need this toggle for touch-only mode
   pub event_type_swapped: bool, // Treat a mouse event like a touch event and a touch event like a mouse event? (Mostly for debugging)
@@ -244,6 +245,7 @@ pub struct Laser {
 
 pub fn state_create() -> State {
   return State {
+    pregame: true,
     paused: false,
     reset_next_frame: false,
     mouse_mode_mirrored: false,

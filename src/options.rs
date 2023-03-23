@@ -94,6 +94,11 @@ pub struct Options {
   // obsolete
   pub bouncer_decay_speed: f64,
 
+  pub splash_keep_loader: bool, // Keep showing the loader screen, even when loading is complete
+  pub splash_no_loader: bool, // Skip the loader screen and go straight to the game
+  pub splash_keep_main: bool, // Show main menu?
+  pub splash_no_main: bool, // Skip main menu?
+
   pub web_output_cli: bool, // Print the simplified cli output in web version?
 
   pub initial_event_type_swapped: bool, // sets initial state.event_type_swapped -> MOUSE / TOUCH
@@ -168,6 +173,10 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     bouncer_stamp_interval: 20,
     bouncer_stop_after: 1200.0,
     bouncer_formula_total_distance: 650.0,
+    splash_keep_loader: false,
+    splash_no_loader: false,
+    splash_keep_main: false,
+    splash_no_main: false,
     bouncer_decay_speed: 1.2,
     web_output_cli: false,
     initial_event_type_swapped: false,
@@ -333,6 +342,10 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "bouncer_stamp_interval" => options.bouncer_stamp_interval = parse_u64(value, name, strict, options.bouncer_stamp_interval),
             "bouncer_stop_after" => options.bouncer_stop_after = parse_f64(value, name, strict, options.bouncer_stop_after),
             "bouncer_formula_total_distance" => options.bouncer_formula_total_distance = parse_f64(value, name, strict, options.bouncer_formula_total_distance),
+            "splash_keep_loader" => options.splash_keep_loader = parse_bool(value, name, strict, options.splash_keep_loader),
+            "splash_no_loader" => options.splash_no_loader = parse_bool(value, name, strict, options.splash_no_loader),
+            "splash_keep_main" => options.splash_keep_main = parse_bool(value, name, strict, options.splash_keep_main),
+            "splash_no_main" => options.splash_no_main = parse_bool(value, name, strict, options.splash_no_main),
             "touch_drag_compensation" => options.touch_drag_compensation = parse_bool(value, name, strict, options.touch_drag_compensation),
             "game_enable_clean_days" => options.game_enable_clean_days = parse_bool(value, name, strict, options.game_enable_clean_days),
             "game_auto_reset_day" => options.game_auto_reset_day = parse_bool(value, name, strict, options.game_auto_reset_day),
@@ -408,16 +421,22 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- dropzone_color_offset: {}", options.dropzone_color_offset));
   arr.push(format!("- dropzone_bounce_speed: {}", options.dropzone_bounce_speed));
   arr.push(format!("- dropzone_bounce_distance: {}", options.dropzone_bounce_distance));
+  arr.push(format!("- bouncer_time_to_factory: {}", options.bouncer_time_to_factory));
   arr.push(format!("- bouncer_decay_rate_modifier: {}", options.bouncer_decay_rate_modifier));
   arr.push(format!("- bouncer_amplitude_decay_rate: {}", options.bouncer_amplitude_decay_rate));
   arr.push(format!("- bouncer_wave_decay_rate: {}", options.bouncer_wave_decay_rate));
   arr.push(format!("- bouncer_initial_angle: {}", options.bouncer_initial_angle));
   arr.push(format!("- bouncer_angular_freq: {}", options.bouncer_angular_freq));
-  arr.push(format!("- bouncer_time_to_factory: {}", options.bouncer_time_to_factory));
-  arr.push(format!("- bouncer_decay_speed: {}", options.bouncer_decay_speed));
   arr.push(format!("- bouncer_trail_time: {}", options.bouncer_trail_time));
   arr.push(format!("- bouncer_fade_time: {}", options.bouncer_fade_time));
   arr.push(format!("- bouncer_stamp_interval: {}", options.bouncer_stamp_interval));
+  arr.push(format!("- bouncer_stop_after: {}", options.bouncer_stop_after));
+  arr.push(format!("- bouncer_formula_total_distance: {}", options.bouncer_formula_total_distance));
+  arr.push(format!("- bouncer_decay_speed: {}", options.bouncer_decay_speed));
+  arr.push(format!("- splash_keep_loader: {}", options.splash_keep_loader));
+  arr.push(format!("- splash_no_loader: {}", options.splash_no_loader));
+  arr.push(format!("- splash_keep_main: {}", options.splash_keep_main));
+  arr.push(format!("- splash_no_main: {}", options.splash_no_main));
   arr.push(format!("- web_output_cli: {}", options.web_output_cli));
   arr.push(format!("- initial_event_type_swapped: {}", options.initial_event_type_swapped));
   arr.push(format!("- dbg_trash_is_joker: {}", options.dbg_trash_is_joker));

@@ -296,26 +296,28 @@ pub const CONFIG_NODE_BELT___DLRU: usize = 274;
 pub const CONFIG_NODE_ASSET_WEE_WOO: usize = 275;
 pub const CONFIG_NODE_ASSET_MISSING_INPUTS: usize = 276;
 pub const CONFIG_NODE_ASSET_MISSING_OUTPUTS: usize = 277;
-pub const CONFIG_NODE_ASSET_MISSING_PURPOSE: usize = 277;
-pub const CONFIG_NODE_ASSET_MACHINE1: usize = 278;
-pub const CONFIG_NODE_ASSET_MACHINE2: usize = 279;
-pub const CONFIG_NODE_ASSET_MACHINE3: usize = 280;
-pub const CONFIG_NODE_ASSET_MACHINE4: usize = 281;
-pub const CONFIG_NODE_ASSET_MACHINE_1_1: usize = 282;
-pub const CONFIG_NODE_ASSET_MACHINE_2_1: usize = 283;
-pub const CONFIG_NODE_ASSET_MACHINE_3_2: usize = 284;
-pub const CONFIG_NODE_ASSET_DUMP_TRUCK: usize = 285;
-pub const CONFIG_NODE_ASSET_SAND: usize = 286;
-pub const CONFIG_NODE_ASSET_HELP_BLACK: usize = 287;
-pub const CONFIG_NODE_ASSET_HELP_RED: usize = 288;
-pub const CONFIG_NODE_ASSET_MANUAL: usize = 289;
-pub const CONFIG_NODE_ASSET_LMB: usize = 290;
-pub const CONFIG_NODE_ASSET_RMB: usize = 291;
-pub const CONFIG_NODE_ASSET_SAVE: usize = 292;
-pub const CONFIG_NODE_ASSET_QUEST_FRAME: usize = 293;
-pub const CONFIG_NODE_ASSET_DOUBLE_ARROW_RIGHT: usize = 294;
-pub const CONFIG_NODE_ASSET_SINGLE_ARROW_DOWN: usize = 295;
-pub const CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT: usize = 296;
+pub const CONFIG_NODE_ASSET_MISSING_PURPOSE: usize = 278;
+pub const CONFIG_NODE_ASSET_MACHINE1: usize = 279;
+pub const CONFIG_NODE_ASSET_MACHINE2: usize = 280;
+pub const CONFIG_NODE_ASSET_MACHINE3: usize = 281;
+pub const CONFIG_NODE_ASSET_MACHINE4: usize = 282;
+pub const CONFIG_NODE_ASSET_MACHINE_1_1: usize = 283;
+pub const CONFIG_NODE_ASSET_MACHINE_2_1: usize = 284;
+pub const CONFIG_NODE_ASSET_MACHINE_3_2: usize = 285;
+pub const CONFIG_NODE_ASSET_DUMP_TRUCK: usize = 286;
+pub const CONFIG_NODE_ASSET_SAND: usize = 287;
+pub const CONFIG_NODE_ASSET_HELP_BLACK: usize = 288;
+pub const CONFIG_NODE_ASSET_HELP_RED: usize = 289;
+pub const CONFIG_NODE_ASSET_MANUAL: usize = 290;
+pub const CONFIG_NODE_ASSET_LMB: usize = 291;
+pub const CONFIG_NODE_ASSET_RMB: usize = 292;
+pub const CONFIG_NODE_ASSET_SAVE: usize = 293;
+pub const CONFIG_NODE_ASSET_QUEST_FRAME: usize = 294;
+pub const CONFIG_NODE_ASSET_DOUBLE_ARROW_RIGHT: usize = 295;
+pub const CONFIG_NODE_ASSET_SINGLE_ARROW_DOWN: usize = 296;
+pub const CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT: usize = 297;
+pub const CONFIG_NODE_ASSET_SCREEN_LOADER: usize = 298;
+pub const CONFIG_NODE_ASSET_SCREEN_MAIN: usize = 299;
 
 #[derive(Debug)]
 pub struct Config {
@@ -1025,6 +1027,8 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Asset_Save" => CONFIG_NODE_ASSET_SAVE,
     "Asset_QuestFrame" => CONFIG_NODE_ASSET_QUEST_FRAME,
     "Asset_DoubleArrowRight" => CONFIG_NODE_ASSET_DOUBLE_ARROW_RIGHT,
+    "Asset_ScreenLoader" => CONFIG_NODE_ASSET_SCREEN_LOADER,
+    "Asset_ScreenMain" => CONFIG_NODE_ASSET_SCREEN_MAIN,
     "Asset_SingleArrowDown" => CONFIG_NODE_ASSET_SINGLE_ARROW_DOWN,
     "Asset_SingleArrowRight" => CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT,
     "Part_None" => PARTKIND_NONE,
@@ -1592,6 +1596,31 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_belt(CONFIG_NODE_BELT_L__DRU, "L__DRU"),
     config_node_belt(CONFIG_NODE_BELT__L_DRU, "_L_DRU"),
     config_node_belt(CONFIG_NODE_BELT___DLRU, "__DLRU"),
+    config_node_asset(CONFIG_NODE_ASSET_WEE_WOO, "WEE_WOO"),
+    config_node_asset(CONFIG_NODE_ASSET_MISSING_INPUTS, "MISSING_INPUTS"),
+    config_node_asset(CONFIG_NODE_ASSET_MISSING_OUTPUTS, "MISSING_OUTPUTS"),
+    config_node_asset(CONFIG_NODE_ASSET_MISSING_PURPOSE, "MISSING_PURPOSE"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE1, "MACHINE1"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE2, "MACHINE2"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE3, "MACHINE3"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE4, "MACHINE4"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_1_1, "MACHINE_1_1"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_2_1, "MACHINE_2_1"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_3_2, "MACHINE_3_2"),
+    config_node_asset(CONFIG_NODE_ASSET_DUMP_TRUCK, "DUMP_TRUCK"),
+    config_node_asset(CONFIG_NODE_ASSET_SAND, "SAND"),
+    config_node_asset(CONFIG_NODE_ASSET_HELP_BLACK, "HELP_BLACK"),
+    config_node_asset(CONFIG_NODE_ASSET_HELP_RED, "HELP_RED"),
+    config_node_asset(CONFIG_NODE_ASSET_MANUAL, "MANUAL"),
+    config_node_asset(CONFIG_NODE_ASSET_LMB, "LMB"),
+    config_node_asset(CONFIG_NODE_ASSET_RMB, "RMB"),
+    config_node_asset(CONFIG_NODE_ASSET_SAVE, "SAVE"),
+    config_node_asset(CONFIG_NODE_ASSET_QUEST_FRAME, "QUEST_FRAME"),
+    config_node_asset(CONFIG_NODE_ASSET_DOUBLE_ARROW_RIGHT, "DOUBLE_ARROW_RIGHT"),
+    config_node_asset(CONFIG_NODE_ASSET_SINGLE_ARROW_DOWN, "SINGLE_ARROW_DOWN"),
+    config_node_asset(CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT, "SINGLE_ARROW_RIGHT"),
+    config_node_asset(CONFIG_NODE_ASSET_SCREEN_LOADER, "SCREEN_LOADER"),
+    config_node_asset(CONFIG_NODE_ASSET_SCREEN_MAIN, "SCREEN_MAIN"),
   );
 
   v.iter().enumerate().for_each(|(i, node)| assert!(node.index == i, "system node indexes must match their global constant value; mismatch for index {}", i));
@@ -1864,7 +1893,7 @@ fn config_node_belt(index: PartKind, name: &str) -> ConfigNode {
   return ConfigNode {
     index,
     quest_index: 0,
-    kind: ConfigNodeKind::Machine,
+    kind: ConfigNodeKind::Belt,
     name: name.to_string(),
     raw_name,
     unlocks_after_by_name: vec!(),
@@ -1900,6 +1929,54 @@ fn config_node_belt(index: PartKind, name: &str) -> ConfigNode {
           y: 0.0,
           w: 160.0,
           h: 160.0
+        }
+      )
+    },
+
+    current_state: ConfigNodeState::Available,
+  };
+}
+fn config_node_asset(index: PartKind, name: &str) -> ConfigNode {
+  let raw_name = format!("Belt_{}", name);
+  return ConfigNode {
+    index,
+    quest_index: 0,
+    kind: ConfigNodeKind::Asset,
+    name: name.to_string(),
+    raw_name,
+    unlocks_after_by_name: vec!(),
+    unlocks_after_by_index: vec!(),
+    unlocks_todo_by_index: vec!(),
+    starting_part_by_name: vec!(),
+    starting_part_by_index: vec!(),
+    pattern_unique_kinds: vec!(),
+    production_target_by_name: vec!(),
+    production_target_by_index: vec!(),
+    required_by_quest_indexes: vec!(),
+    pattern_by_index: vec!(),
+    pattern_by_name: vec!(),
+    pattern_by_icon: vec!(),
+    pattern: "".to_string(),
+    icon: '?',
+
+    sprite_config: SpriteConfig {
+      frame_offset: 0,
+      frame_count: 1,
+      frame_direction: SpriteConfigDirection::Right,
+      initial_delay: 10,
+      frame_delay: 0,
+      looping: false,
+      loop_delay: 0,
+      loop_backwards: false,
+      frames: vec!(
+        SpriteFrame {
+          file: "./img/none.png".to_string(),
+          name: "do not use me; belt".to_string(),
+          file_canvas_cache_index: 0,
+          x: 0.0,
+          y: 0.0,
+          w: 64.0,
+          h: 64.0
         }
       )
     },

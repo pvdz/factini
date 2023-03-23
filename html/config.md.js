@@ -2,6 +2,19 @@ const GAME_CONFIG = `
 # Part_None
 Hardcoded first node internally but can appear anywhere, or nowhere, because there's no properties to this one
 
+# Asset_ScreenLoader
+This should be the cover screen. It should be at the top so it starts to load first.
+A placeholder is shown as long as the loader hasn't finished loading yet.
+- file: ./img/screen_load.png
+- w: 800
+- h: 571
+
+# Asset_ScreenMain
+This should be the main menu screen.
+- file: ./img/screen_main.png
+- w: 800
+- h: 571
+
 # Asset_WeeWoo
 This is an animated alarm (like the rotating light on a police car or ambulance)
 - frame_offset: 0
