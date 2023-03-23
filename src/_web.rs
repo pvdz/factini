@@ -654,14 +654,22 @@ pub fn start() -> Result<(), JsValue> {
       up_clear: false,
       up_redo: false,
     };
+    let mut last_time: f64 = 0.0;
 
     // From https://rustwasm.github.io/wasm-bindgen/examples/request-animation-frame.html
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
-    *g.borrow_mut() = Some(Closure::wrap(Box::new(move |e| {
-      // This is the raF frame callback:
+    *g.borrow_mut() = Some(Closure::wrap(Box::new(move |time: f64| {
+      // This is the raF frame callback
 
-      let real_world_ms_at_start_of_curr_frame: f64 = perf.now();
+      if last_time == 0.0 || last_time == time {
+        // Either it's the same frame (can happen) or the first frame. Bail.
+        last_time = time;
+        request_animation_frame(f.borrow().as_ref().unwrap());
+        return;
+      }
+
+      let real_world_ms_at_start_of_curr_frame: f64 = time;
       let real_world_ms_since_start_of_prev_frame: f64 = real_world_ms_at_start_of_curr_frame - real_world_ms_at_start_of_prev_frame;
       real_world_ms_at_start_of_prev_frame = real_world_ms_at_start_of_curr_frame;
 
@@ -684,13 +692,17 @@ pub fn start() -> Result<(), JsValue> {
       let ( ticks_todo, rounded_fps ) =
         if estimated_fps >= (1.0 - variation) * 30.0 && estimated_fps <= (1.0 + variation) * 30.0 {
           ( (ticks_per_second_wanted / 30.0).round() as u64, 30u64 )
-        } else if estimated_fps >= (1.0 - variation) * 60.0 && estimated_fps <= (1.0 + variation) * 60.0 {
+        }
+        else if estimated_fps >= (1.0 - variation) * 60.0 && estimated_fps <= (1.0 + variation) * 60.0 {
           ( (ticks_per_second_wanted / 60.0).round() as u64, 60u64 )
-        } else if estimated_fps >= (1.0 - variation) * 100.0 && estimated_fps <= (1.0 + variation) * 100.0 {
+        }
+        else if estimated_fps >= (1.0 - variation) * 100.0 && estimated_fps <= (1.0 + variation) * 100.0 {
           ( (ticks_per_second_wanted / 100.0).round() as u64, 100u64 )
-        } else if estimated_fps >= (1.0 - variation) * 120.0 && estimated_fps <= (1.0 + variation) * 120.0 {
+        }
+        else if estimated_fps >= (1.0 - variation) * 120.0 && estimated_fps <= (1.0 + variation) * 120.0 {
           ( (ticks_per_second_wanted / 120.0).round() as u64, 120u64 )
-        } else {
+        }
+        else {
           ( ticks_todo, 0u64 )
         };
 
@@ -944,7 +956,7 @@ pub fn start() -> Result<(), JsValue> {
 
       // Schedule next frame
       request_animation_frame(f.borrow().as_ref().unwrap());
-    }) as Box<dyn FnMut()>));
+    }) as Box<dyn FnMut(f64)>));
 
     request_animation_frame(g.borrow().as_ref().unwrap());
   }
@@ -5385,7 +5397,7 @@ fn paint_demander(options: &Options, state: &State, config: &Config, factory: &F
   // ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
 }
 
-fn request_animation_frame(f: &Closure<dyn FnMut()>) {
+fn request_animation_frame(f: &Closure<dyn FnMut(f64)>) {
   window()
     .request_animation_frame(f.as_ref().unchecked_ref())
     .expect("should register `requestAnimationFrame` OK");
