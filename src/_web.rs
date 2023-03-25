@@ -174,6 +174,7 @@ pub fn start() -> Result<(), JsValue> {
   canvas.style().set_property("border", "solid")?;
   canvas.style().set_property("width", format!("{}px", CANVAS_CSS_WIDTH as u32).as_str())?;
   canvas.style().set_property("height", format!("{}px", CANVAS_CSS_HEIGHT as u32).as_str())?;
+  canvas.style().set_property("background-image", "url(./img/sand.png)");
   let context = canvas.get_context("2d")?.unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>()?;
   let context = Rc::new(context);
 
@@ -740,12 +741,6 @@ pub fn start() -> Result<(), JsValue> {
           );
         }
 
-        context.set_stroke_style(&"white".into());
-        context.fill_rect(UI_FLOOR_OFFSET_X + (UI_FLOOR_WIDTH / 2.0) - 310.0, UI_FLOOR_OFFSET_Y + (UI_FLOOR_HEIGHT / 2.0) + 200.0, 600.0, 50.0);
-        context.set_fill_style(&"yellow".into());
-        context.fill_rect(UI_FLOOR_OFFSET_X + (UI_FLOOR_WIDTH / 2.0) - 310.0, UI_FLOOR_OFFSET_Y + (UI_FLOOR_HEIGHT / 2.0) + 200.0, ((config.sprite_cache_canvas.len() - loading) as f64 / config.sprite_cache_canvas.len() as f64) * 600.0, 50.0);
-        context.set_stroke_style(&"yellow".into());
-        context.stroke_rect(UI_FLOOR_OFFSET_X + (UI_FLOOR_WIDTH / 2.0) - 310.0, UI_FLOOR_OFFSET_Y + (UI_FLOOR_HEIGHT / 2.0) + 200.0, 600.0, 50.0);
         context.set_font(&"24px monospace");
         context.set_fill_style(&"red".into());
         context.fill_text(format!("Images {}: {} of {}", if loading == 0 { "loaded" } else { "loading" }, config.sprite_cache_canvas.len() - loading, config.sprite_cache_canvas.len()).as_str(), UI_FLOOR_OFFSET_X + (UI_FLOOR_WIDTH / 2.0) - 150.0, UI_FLOOR_OFFSET_Y + (UI_FLOOR_HEIGHT / 2.0) + 35.0 + 200.0).expect("it to work");
@@ -926,15 +921,17 @@ pub fn start() -> Result<(), JsValue> {
 
         // Clear canvas
         // Global background
-        if let Some(ptrn_sand) = context.create_pattern_with_html_image_element(&img_loading_sand, "repeat").expect("trying to load sand ztile") {
-          context.set_fill_style(&ptrn_sand);
-          context.fill_rect(0.0, 0.0, CANVAS_WIDTH as f64, GRID_Y3);
-        } else {
-          context.set_fill_style(&"#E86A17".into());
-          context.fill_rect(0.0, 0.0, CANVAS_WIDTH as f64, CANVAS_HEIGHT as f64);
-          context.set_stroke_style(&"#aaa".into());
-          context.stroke_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, FLOOR_CELLS_W as f64 * CELL_W, FLOOR_CELLS_H as f64 * CELL_H);
-        }
+        // if let Some(ptrn_sand) = context.create_pattern_with_html_image_element(&img_loading_sand, "repeat").expect("trying to load sand ztile") {
+          // context.set_fill_style(&ptrn_sand);
+          // context.fill_rect(0.0, 0.0, CANVAS_WIDTH as f64, GRID_Y3);
+          context.clear_rect(0.0, 0.0, CANVAS_WIDTH as f64, GRID_Y3);
+        // } else {
+        //   context.set_fill_style(&"#E86A17".into());
+        //   context.fill_rect(0.0, 0.0, CANVAS_WIDTH as f64, CANVAS_HEIGHT as f64);
+        //   context.set_stroke_style(&"#aaa".into());
+        //   context.stroke_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, FLOOR_CELLS_W as f64 * CELL_W, FLOOR_CELLS_H as f64 * CELL_H);
+        // }
+
         // Put a semi-transparent layer over the inner floor part to make it darker
         // context.set_fill_style(&"#00000077".into());
         context.set_fill_style(&"#ffcf8e".into());
