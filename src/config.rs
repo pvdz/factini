@@ -318,6 +318,22 @@ pub const CONFIG_NODE_ASSET_SINGLE_ARROW_DOWN: usize = 296;
 pub const CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT: usize = 297;
 pub const CONFIG_NODE_ASSET_SCREEN_LOADER: usize = 298;
 pub const CONFIG_NODE_ASSET_SCREEN_MAIN: usize = 299;
+pub const CONFIG_NODE_ASSET_BUTTON_UP_1: usize = 300; // 9-slice, in order
+pub const CONFIG_NODE_ASSET_BUTTON_UP_2: usize = 301;
+pub const CONFIG_NODE_ASSET_BUTTON_UP_3: usize = 302;
+pub const CONFIG_NODE_ASSET_BUTTON_UP_4: usize = 303;
+pub const CONFIG_NODE_ASSET_BUTTON_UP_6: usize = 304;
+pub const CONFIG_NODE_ASSET_BUTTON_UP_7: usize = 305;
+pub const CONFIG_NODE_ASSET_BUTTON_UP_8: usize = 306;
+pub const CONFIG_NODE_ASSET_BUTTON_UP_9: usize = 307;
+pub const CONFIG_NODE_ASSET_BUTTON_DOWN_1: usize = 308; // 9-slice, in order
+pub const CONFIG_NODE_ASSET_BUTTON_DOWN_2: usize = 309;
+pub const CONFIG_NODE_ASSET_BUTTON_DOWN_3: usize = 310;
+pub const CONFIG_NODE_ASSET_BUTTON_DOWN_4: usize = 311;
+pub const CONFIG_NODE_ASSET_BUTTON_DOWN_6: usize = 312;
+pub const CONFIG_NODE_ASSET_BUTTON_DOWN_7: usize = 313;
+pub const CONFIG_NODE_ASSET_BUTTON_DOWN_8: usize = 314;
+pub const CONFIG_NODE_ASSET_BUTTON_DOWN_9: usize = 315;
 
 #[derive(Debug)]
 pub struct Config {
@@ -1029,6 +1045,22 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Asset_DoubleArrowRight" => CONFIG_NODE_ASSET_DOUBLE_ARROW_RIGHT,
     "Asset_ScreenLoader" => CONFIG_NODE_ASSET_SCREEN_LOADER,
     "Asset_ScreenMain" => CONFIG_NODE_ASSET_SCREEN_MAIN,
+    "Asset_ButtonUp1" => CONFIG_NODE_ASSET_BUTTON_UP_1,
+    "Asset_ButtonUp2" => CONFIG_NODE_ASSET_BUTTON_UP_2,
+    "Asset_ButtonUp3" => CONFIG_NODE_ASSET_BUTTON_UP_3,
+    "Asset_ButtonUp4" => CONFIG_NODE_ASSET_BUTTON_UP_4,
+    "Asset_ButtonUp6" => CONFIG_NODE_ASSET_BUTTON_UP_6,
+    "Asset_ButtonUp7" => CONFIG_NODE_ASSET_BUTTON_UP_7,
+    "Asset_ButtonUp8" => CONFIG_NODE_ASSET_BUTTON_UP_8,
+    "Asset_ButtonUp9" => CONFIG_NODE_ASSET_BUTTON_UP_9,
+    "Asset_ButtonDown1" => CONFIG_NODE_ASSET_BUTTON_DOWN_1,
+    "Asset_ButtonDown2" => CONFIG_NODE_ASSET_BUTTON_DOWN_2,
+    "Asset_ButtonDown3" => CONFIG_NODE_ASSET_BUTTON_DOWN_3,
+    "Asset_ButtonDown4" => CONFIG_NODE_ASSET_BUTTON_DOWN_4,
+    "Asset_ButtonDown6" => CONFIG_NODE_ASSET_BUTTON_DOWN_6,
+    "Asset_ButtonDown7" => CONFIG_NODE_ASSET_BUTTON_DOWN_7,
+    "Asset_ButtonDown8" => CONFIG_NODE_ASSET_BUTTON_DOWN_8,
+    "Asset_ButtonDown9" => CONFIG_NODE_ASSET_BUTTON_DOWN_9,
     "Asset_SingleArrowDown" => CONFIG_NODE_ASSET_SINGLE_ARROW_DOWN,
     "Asset_SingleArrowRight" => CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT,
     "Part_None" => PARTKIND_NONE,
@@ -1621,6 +1653,22 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_asset(CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT, "SINGLE_ARROW_RIGHT"),
     config_node_asset(CONFIG_NODE_ASSET_SCREEN_LOADER, "SCREEN_LOADER"),
     config_node_asset(CONFIG_NODE_ASSET_SCREEN_MAIN, "SCREEN_MAIN"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_1, "BUTTON_UP_1"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_2, "BUTTON_UP_2"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_3, "BUTTON_UP_3"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_4, "BUTTON_UP_4"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_6, "BUTTON_UP_6"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_7, "BUTTON_UP_7"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_8, "BUTTON_UP_8"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_9, "BUTTON_UP_9"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_1, "BUTTON_DOWN_1"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_2, "BUTTON_DOWN_2"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_3, "BUTTON_DOWN_3"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_4, "BUTTON_DOWN_4"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_6, "BUTTON_DOWN_6"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_7, "BUTTON_DOWN_7"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_8, "BUTTON_DOWN_8"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_9, "BUTTON_DOWN_9"),
   );
 
   v.iter().enumerate().for_each(|(i, node)| assert!(node.index == i, "system node indexes must match their global constant value; mismatch for index {}", i));

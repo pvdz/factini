@@ -174,6 +174,8 @@ pub fn start() -> Result<(), JsValue> {
   let context = canvas.get_context("2d")?.unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>()?;
   let context = Rc::new(context);
 
+  context.set_image_smoothing_enabled(false);
+
   pub fn load_config(print_fmd_trace: bool, config_str: String) -> Config {
     let mut config = parse_fmd(print_fmd_trace, config_str);
 
@@ -655,6 +657,11 @@ pub fn start() -> Result<(), JsValue> {
       up_redo: false,
     };
     let mut last_time: f64 = 0.0;
+    let mut todo_create_buttons: bool = true;
+    let button_canvii: Vec<web_sys::HtmlCanvasElement> = vec!(
+      prerender_button(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHTH, true),
+      prerender_button(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHTH, false),
+    );
 
     // From https://rustwasm.github.io/wasm-bindgen/examples/request-animation-frame.html
     let f = Rc::new(RefCell::new(None));
@@ -803,6 +810,13 @@ pub fn start() -> Result<(), JsValue> {
         _ => panic!("getAction() returned an unsupported value: `{}`", queued_action),
       }
 
+      if !config.sprite_cache_loading && todo_create_buttons {
+        log!("Filling in button styles now...");
+        todo_create_buttons = false;
+        prerender_button_stage2(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHTH, &(button_canvii[0].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), true);
+        prerender_button_stage2(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHTH, &(button_canvii[1].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), false);
+      }
+
       if pregame {
         // Showing the splash loading screen or main screen. Just return now.
         request_animation_frame(f.borrow().as_ref().unwrap());
@@ -830,12 +844,10 @@ pub fn start() -> Result<(), JsValue> {
         if factory.changed {
           // If currently looking at a historic snapshot, then now copy that
           // snapshot to the front of the stack before adding a new state to it
-          if !state.load_snapshot_next_frame && state.snapshot_pointer != state.snapshot_undo_pointer {
+          if state.load_snapshot_next_frame && state.snapshot_pointer != state.snapshot_undo_pointer {
             let snap = state.snapshot_stack[state.snapshot_undo_pointer].clone();
-            log!("Pushing current undo snapshot to the front of the stack; size: {} bytes, undo pointer: {}, pointer: {}", snap.len(), state.snapshot_undo_pointer, state.snapshot_pointer);
-            state.snapshot_pointer += 1;
-            state.snapshot_undo_pointer = state.snapshot_pointer;
-            state.snapshot_stack[state.snapshot_pointer % UNDO_STACK_SIZE] = snap;
+            log!("Pushing current undo/redo snapshot to the front of the stack; size: {} bytes, undo pointer: {}, pointer: {}", snap.len(), state.snapshot_undo_pointer, state.snapshot_pointer + 1);
+            state.snapshot_stack[(state.snapshot_pointer + 1) % UNDO_STACK_SIZE] = snap;
           }
 
           log!("Auto porting after modification");
@@ -849,6 +861,13 @@ pub fn start() -> Result<(), JsValue> {
           factory.prio = prio;
 
           if !state.load_snapshot_next_frame {
+
+            if state.snapshot_undo_pointer != state.snapshot_pointer {
+              log!("snapshot pointer was in the past({} < {}). its snapshot should be one ahead. move past it to {}", state.snapshot_undo_pointer, state.snapshot_pointer, state.snapshot_pointer + 1);
+              state.snapshot_pointer += 1;
+              state.snapshot_undo_pointer = state.snapshot_pointer;
+            }
+
             // Create snapshot in history, except for unredo
             let snap = generate_floor_dump(&options, &state, &config, &factory, dnow()).join("\n");
             // log!("Snapshot:\n{}", snap);
@@ -870,7 +889,10 @@ pub fn start() -> Result<(), JsValue> {
           factory.produced = 0;
           factory.trashed = 0;
           factory.supplied = 0;
-          state.load_snapshot_next_frame = false;
+          if state.load_snapshot_next_frame {
+            log!("now unsetting state.load_snapshot_next_frame");
+            state.load_snapshot_next_frame = false;
+          }
 
           // Dump current map to debug UI
           let game_map = document.get_element_by_id("$game_map").unwrap();
@@ -929,7 +951,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_debug_selected_machine_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_debug_selected_supply_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_debug_selected_demand_cell(&context, &factory, &cell_selection, &mouse_state);
-        paint_map_state_buttons(&state, &context, &mouse_state);
+        paint_map_state_buttons(&options, &state, &config, &context, &button_canvii, &mouse_state);
         paint_load_thumbs(&options, &state, &config, &factory, &context, &mouse_state, &mut quick_saves);
 
         // Probably after all backround/floor stuff is finished
@@ -1734,6 +1756,7 @@ fn on_up_undo(options: &Options, state: &mut State, config: &Config, factory: &F
   // means we have to track an undo pointer as well, which is a temporary pointer as long as it is not equal to the real pointer
 
   if state.snapshot_undo_pointer > 0 {
+    log!("Going back one snapshot from {} to {}, setting load_snapshot_next_frame=true", state.snapshot_undo_pointer, state.snapshot_undo_pointer - 1);
     state.snapshot_undo_pointer -= 1;
     state.load_snapshot_next_frame = true;
   }
@@ -1758,8 +1781,11 @@ fn on_up_redo(options: &Options, state: &mut State, config: &Config, factory: &F
   // if state.snapshot_undo_pointer is not equal to state.snapshot_pointer
   // move the pointer forward. otherwise assume that you can't go forward
   if state.snapshot_undo_pointer != state.snapshot_pointer {
+    log!("Increasing snapshot pointer to {}, setting load_snapshot_next_frame=true", state.snapshot_undo_pointer + 1);
     state.snapshot_undo_pointer += 1;
     state.load_snapshot_next_frame = true;
+  } else {
+    log!("ignored because {} == {}", state.snapshot_undo_pointer, state.snapshot_pointer)
   }
 }
 fn on_down_quest(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
@@ -1815,7 +1841,7 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
       local_storage.remove_item(format!("factini.save.png{}", mouse_state.up_save_map_index).as_str()).unwrap();
     }
     else {
-      log!("  loading saved map");
+      log!("  loading saved map, snapshot pointer to {}, undo pointer too, setting load_snapshot_next_frame=true", state.snapshot_pointer);
       state.snapshot_pointer += 1;
       state.snapshot_undo_pointer = state.snapshot_pointer;
       state.snapshot_stack[state.snapshot_pointer % UNDO_STACK_SIZE] = quick_save.snapshot.clone();
@@ -1837,6 +1863,7 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
       // document.get_element_by_id("$main_game").unwrap().append_child(&floor_canvas);
     }
     let floor_context = floor_canvas.get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap();
+    floor_context.set_image_smoothing_enabled(false);
     floor_context.draw_image_with_html_canvas_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
       &game_map,
       UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_WIDTH, UI_FLOOR_HEIGHT,
@@ -1847,6 +1874,7 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
     thumb_canvas.set_width((UI_SAVE_THUMB_WIDTH) as u32);
     thumb_canvas.set_height(UI_SAVE_THUMB_HEIGHT as u32);
     let thumb_context = thumb_canvas.get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap();
+    thumb_context.set_image_smoothing_enabled(false);
 
     // Now use the temporary floor canvas as a tile. We need that to paint rounded corners.
     // The rounded corners are created by a rounded corner path() with a .fill() action.
@@ -5272,25 +5300,24 @@ fn paint_map_load_button(options: &Options, state: &State, config: &Config, fact
   }
 }
 
-fn paint_map_state_buttons(state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+fn paint_map_state_buttons(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
   // // Paint trash button
   context.save();
   context.set_font(&"48px monospace");
 
-  let fill_color = if state.snapshot_undo_pointer <= 0 { "#777" } else if mouse_state.over_undo { "#aaffaa" } else { "#aaaaaa" };
-  canvas_round_rect_and_fill_stroke(context, UI_UNREDO_UNDO_OFFSET_X, UI_UNREDO_UNDO_OFFSET_Y, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHTH, fill_color, "black");
-  let text_color = if state.snapshot_undo_pointer <= 0 { "#ccc" } else { "black" };
+  paint_button(options, state, config, context, button_canvii, if state.snapshot_undo_pointer > 0 && mouse_state.down_undo { 1 } else { 0 }, UI_UNREDO_UNDO_OFFSET_X, UI_UNREDO_UNDO_OFFSET_Y);
+  let text_color = if state.snapshot_undo_pointer <= 0 { "#777" } else if mouse_state.over_undo { "#aaa" } else { "#ddd" };
   context.set_fill_style(&text_color.into());
   context.fill_text("↶", UI_UNREDO_UNDO_OFFSET_X + UI_UNREDO_UNDO_WIDTH / 2.0 - 16.0, UI_UNREDO_UNDO_OFFSET_Y + UI_UNREDO_UNDO_HEIGHTH / 2.0 + 16.0).expect("canvas api call to work");
 
-  canvas_round_rect_and_fill_stroke(context, UI_UNREDO_CLEAR_OFFSET_X, UI_UNREDO_CLEAR_OFFSET_Y, UI_UNREDO_CLEAR_WIDTH, UI_UNREDO_CLEAR_HEIGHTH, if mouse_state.over_clear { "#aaffaa" } else { "#aaaaaa" }, "black");
-  context.set_fill_style(&"black".into());
+  paint_button(options, state, config, context, button_canvii, if mouse_state.down_clear { 1 } else { 0 }, UI_UNREDO_CLEAR_OFFSET_X, UI_UNREDO_CLEAR_OFFSET_Y);
+  let text_color = if mouse_state.over_clear { "#aaa" } else { "#ddd" };
+  context.set_fill_style(&text_color.into());
   context.fill_text("🗑", UI_UNREDO_CLEAR_OFFSET_X + UI_UNREDO_UNDO_WIDTH / 2.0 - 15.0, UI_UNREDO_CLEAR_OFFSET_Y + UI_UNREDO_CLEAR_HEIGHTH / 2.0 + 16.0).expect("canvas api call to work");
   // 🚮
 
-  let fill_color = if state.snapshot_undo_pointer == state.snapshot_pointer { "#777" } else if mouse_state.over_redo { "#aaffaa" } else { "#aaaaaa" };
-  canvas_round_rect_and_fill_stroke(context, UI_UNREDO_REDO_OFFSET_X, UI_UNREDO_REDO_OFFSET_Y, UI_UNREDO_REDO_WIDTH, UI_UNREDO_REDO_HEIGHTH, fill_color, "black");
-  let text_color = if state.snapshot_undo_pointer == state.snapshot_pointer { "#ccc" } else { "black" };
+  paint_button(options, state, config, context, button_canvii, if state.snapshot_undo_pointer != state.snapshot_pointer && mouse_state.down_redo { 1 } else { 0 }, UI_UNREDO_REDO_OFFSET_X, UI_UNREDO_REDO_OFFSET_Y);
+  let text_color = if state.snapshot_undo_pointer == state.snapshot_pointer { "#777" } else if mouse_state.over_redo { "#aaa" } else { "#ddd" };
   context.set_fill_style(&text_color.into());
   context.fill_text("↷", UI_UNREDO_REDO_OFFSET_X + UI_UNREDO_REDO_WIDTH / 2.0 - 16.0, UI_UNREDO_REDO_OFFSET_Y + UI_UNREDO_REDO_HEIGHTH / 2.0 + 16.0).expect("canvas api call to work");
 
@@ -5447,3 +5474,40 @@ fn parse_and_save_options_string(option_string: String, options: &mut Options, s
   setGameOptions(exp.into(), on_load.into());
 }
 
+fn prerender_button(options: &Options, state: &State, config: &Config, width: f64, height: f64, button_style_up: bool) -> web_sys::HtmlCanvasElement {
+  let document = document();
+  let canvas = document.create_element("canvas").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
+  canvas.set_width(width as u32);
+  canvas.set_height(height as u32);
+  let context = canvas.get_context("2d").unwrap().unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap();
+  context.set_image_smoothing_enabled(false);
+
+  // color: #392946
+  context.clear_rect(0.0, 0.0, width, height); // make the whole thing semi trans first
+  context.set_fill_style(&"#392946".into());
+  context.fill_rect(4.0, 4.0, width - 8.0, height - 8.0);
+
+  prerender_button_stage2(options, state, config, width, height, &context, button_style_up);
+
+  return canvas;
+}
+fn prerender_button_stage2(options: &Options, state: &State, config: &Config, width: f64, height: f64, context: &web_sys::CanvasRenderingContext2d, button_style_up: bool) {
+  const ZOOM: f64 = 2.0; // how big should the fixed corners be?
+
+  paint_asset_raw(options, state, config, &context, if button_style_up { CONFIG_NODE_ASSET_BUTTON_UP_1 } else { CONFIG_NODE_ASSET_BUTTON_DOWN_1 }, 0, 0.0, 0.0, 14.0 * ZOOM, 10.0 * ZOOM);
+  paint_asset_raw(options, state, config, &context, if button_style_up { CONFIG_NODE_ASSET_BUTTON_UP_3 } else { CONFIG_NODE_ASSET_BUTTON_DOWN_3 }, 0, width - 14.0 * ZOOM, 0.0, 14.0 * ZOOM, 10.0 * ZOOM);
+  paint_asset_raw(options, state, config, &context, if button_style_up { CONFIG_NODE_ASSET_BUTTON_UP_7 } else { CONFIG_NODE_ASSET_BUTTON_DOWN_7 }, 0, 0.0, height - 11.0 * ZOOM, 14.0 * ZOOM, 11.0 * ZOOM);
+  paint_asset_raw(options, state, config, &context, if button_style_up { CONFIG_NODE_ASSET_BUTTON_UP_9 } else { CONFIG_NODE_ASSET_BUTTON_DOWN_9 }, 0, width - 14.0 * ZOOM, height - 11.0 * ZOOM, 14.0 * ZOOM, 11.0 * ZOOM);
+
+  for i in 0..(width - 28.0 * ZOOM).max(0.0) as u16 {
+    paint_asset_raw(options, state, config, &context, if button_style_up { CONFIG_NODE_ASSET_BUTTON_UP_2 } else { CONFIG_NODE_ASSET_BUTTON_DOWN_2 }, 0, 14.0 * ZOOM + (i as f64), 0.0,           1.0, 10.0 * ZOOM);
+    paint_asset_raw(options, state, config, &context, if button_style_up { CONFIG_NODE_ASSET_BUTTON_UP_8 } else { CONFIG_NODE_ASSET_BUTTON_DOWN_8 }, 0, 14.0 * ZOOM + (i as f64), height - 11.0 * ZOOM, 1.0, 11.0 * ZOOM);
+  }
+  for i in 0..(height - 21.0 * ZOOM).max(0.0) as u16 {
+    paint_asset_raw(options, state, config, &context, if button_style_up { CONFIG_NODE_ASSET_BUTTON_UP_4 } else { CONFIG_NODE_ASSET_BUTTON_DOWN_4 }, 0, 0.0,          10.0 * ZOOM + (i as f64), 14.0 * ZOOM, 1.0);
+    paint_asset_raw(options, state, config, &context, if button_style_up { CONFIG_NODE_ASSET_BUTTON_UP_6 } else { CONFIG_NODE_ASSET_BUTTON_DOWN_6 }, 0, width - 14.0 * ZOOM, 10.0 * ZOOM + (i as f64), 14.0 * ZOOM, 1.0);
+  }
+}
+fn paint_button(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, button_canvii_index: usize, x: f64, y: f64) {
+  context.draw_image_with_html_canvas_element(&button_canvii[button_canvii_index], x, y).expect("draw_image_with_html_canvas_element should work"); // requires web_sys HtmlImageElement feature
+}

@@ -238,6 +238,86 @@ Indicator that a machine has no target part to create
 - w: 13
 - h: 18
 
+# Asset_ButtonDown1
+- file: ./img/button/down/button_down_1.png
+- w: 65
+- h: 55
+
+# Asset_ButtonDown2
+- file: ./img/button/down/button_down_2.png
+- w: 1
+- h: 55
+
+# Asset_ButtonDown3
+- file: ./img/button/down/button_down_3.png
+- w: 65
+- h: 55
+
+# Asset_ButtonDown4
+- file: ./img/button/down/button_down_4.png
+- w: 70
+- h: 1
+
+# Asset_ButtonDown6
+- file: ./img/button/down/button_down_6.png
+- w: 70
+- h: 1
+
+# Asset_ButtonDown7
+- file: ./img/button/down/button_down_7.png
+- w: 75
+- h: 60
+
+# Asset_ButtonDown8
+- file: ./img/button/down/button_down_8.png
+- w: 1
+- h: 60
+
+# Asset_ButtonDown9
+- file: ./img/button/down/button_down_9.png
+- w: 75
+- h: 60
+
+# Asset_ButtonUp1
+- file: ./img/button/up/button_up_1.png
+- w: 70
+- h: 50
+
+# Asset_ButtonUp2
+- file: ./img/button/up/button_up_2.png
+- w: 1
+- h: 50
+
+# Asset_ButtonUp3
+- file: ./img/button/up/button_up_3.png
+- w: 70
+- h: 50
+
+# Asset_ButtonUp4
+- file: ./img/button/up/button_up_4.png
+- w: 70
+- h: 1
+
+# Asset_ButtonUp6
+- file: ./img/button/up/button_up_6.png
+- w: 70
+- h: 1
+
+# Asset_ButtonUp7
+- file: ./img/button/up/button_up_7.png
+- w: 70
+- h: 55
+
+# Asset_ButtonUp8
+- file: ./img/button/up/button_up_8.png
+- w: 1
+- h: 55
+
+# Asset_ButtonUp9
+- file: ./img/button/up/button_up_9.png
+- w: 70
+- h: 55
+
 # Part_Trash
 Hardcoded to be the second node internally but can appear anywhere. We can skin it here.
 This is something that looks like a grey rock

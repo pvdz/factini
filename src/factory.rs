@@ -243,7 +243,6 @@ pub fn factory_load_map(options: &mut Options, state: &mut State, config: &Confi
   factory.changed = true;
   state.reset_next_frame = false;
   state.load_example_next_frame = false;
-  state.load_snapshot_next_frame = false;
   // Clear trucks to prevent indexing problems
   factory.trucks = vec!();
 }
