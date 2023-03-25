@@ -3270,7 +3270,7 @@ fn paint_dock_stripes(
     &config.sprite_cache_canvas[config.nodes[dock_target].sprite_config.frames[0].file_canvas_cache_index],
     config.nodes[dock_target].sprite_config.frames[0].x, config.nodes[dock_target].sprite_config.frames[0].y, config.nodes[dock_target].sprite_config.frames[0].w, config.nodes[dock_target].sprite_config.frames[0].h,
     ox, oy, w, h
-  ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+  ).expect("something error draw_image()"); // requires web_sys HtmlImageElement feature
   context.set_global_alpha(1.0);
 }
 fn paint_background_tiles1(

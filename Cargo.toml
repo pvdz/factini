@@ -3,6 +3,32 @@ name = "factini"
 version = "0.1.0"
 edition = "2018"
 
+[profile.release]
+opt-level = 1
+debug = true
+split-debuginfo = '...'  # Platform-specific.
+debug-assertions = false
+overflow-checks = false
+lto = true
+panic = 'unwind'
+incremental = false
+codegen-units = 1
+rpath = false
+
+# https://doc.rust-lang.org/cargo/reference/profiles.html
+[profile.dev]
+opt-level = 1 # 0 will fail with an overflow
+embed-bitcode = "no" # faster
+debug = true
+split-debuginfo = 'off'  # Platform-specific.
+debug-assertions = true
+overflow-checks = false
+lto = "off" # skips an optimization step that is slow
+panic = 'unwind'
+incremental = true
+codegen-units = 256
+rpath = false
+
 # TODO: copy compilation flags from https://betterprogramming.pub/how-to-pass-arrays-between-javascript-and-wasm-in-rust-9f2eeee7f2b6
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 futures = "*"
