@@ -29,7 +29,6 @@
 // - updating machine should open machines
 // - help the player
 //   - create tutorial
-// - what's up with the mouse??
 // - hover over paint toggle is broken in left-bottom corner?
 // - config_node_dock -> asset
 // - paint_supply_and_part_for_edge and paint_dock_stripes should use paint_asset
@@ -3541,7 +3540,7 @@ fn paint_background_tiles3(
             weewoo = true;
           } else if factory.floor[cell.machine.main_coord].outs.len() == 0 {
             paint_asset(options, state, config, context, CONFIG_NODE_ASSET_MISSING_OUTPUTS, factory.ticks,
-              ox + CELL_W, oy + CELL_H,
+              ox + CELL_W + CELL_W, oy + CELL_H,
               CELL_W, CELL_H
             );
             weewoo = true;
@@ -3560,7 +3559,7 @@ fn paint_background_tiles3(
 
           if weewoo {
             paint_asset(options, state, config, context, CONFIG_NODE_ASSET_WEE_WOO, factory.ticks,
-              ox + CELL_W + CELL_W, oy + CELL_H + CELL_H,
+              ox + CELL_W + 5.0, oy + CELL_H + CELL_H + 5.0,
               config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].w, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].h
             );
           }
