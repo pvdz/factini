@@ -109,7 +109,7 @@ pub const UI_SPEED_BUBBLE_OFFSET_Y: f64 = UI_BOTTOM_OFFSET_Y + 5.0;
 pub const UI_SPEED_BUBBLE_RADIUS: f64 = 20.0; // half the diameter...
 pub const UI_SPEED_BUBBLE_SPACING: f64 = 15.0;
 
-pub const UI_MENU_BUTTONS_COUNT_WIDTH_MAX: f64 = 7.0; // Update after adding new button
+pub const UI_MENU_BUTTONS_COUNT_WIDTH_MAX: f64 = 6.0; // Update after adding new button
 pub const UI_MENU_BUTTONS_OFFSET_X: f64 = UI_BOTTOM_OFFSET_X + 2.0;
 pub const UI_MENU_BUTTONS_OFFSET_Y: f64 = UI_BOTTOM_OFFSET_Y + 55.0;
 pub const UI_MENU_BUTTONS_OFFSET_Y2: f64 = UI_BOTTOM_OFFSET_Y + 85.0;

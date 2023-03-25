@@ -29,7 +29,6 @@
 // - updating machine should open machines
 // - help the player
 //   - create tutorial
-// - hover over paint toggle is broken in left-bottom corner?
 // - config_node_dock -> asset
 // - paint_supply_and_part_for_edge and paint_dock_stripes should use paint_asset
 
@@ -5013,7 +5012,7 @@ fn paint_ui_buttons(options: &Options, state: &State, context: &Rc<web_sys::Canv
   paint_ui_button(context, mouse_state, 2.0, "Unpart", MenuButton::Row2Button2);
   paint_ui_button(context, mouse_state, 3.0, "Undir", MenuButton::Row2Button3);
   paint_ui_button(context, mouse_state, 4.0, "Sample", MenuButton::Row2Button4);
-  assert!(UI_MENU_BUTTONS_COUNT_WIDTH_MAX == 7.0, "Update after adding new buttons");
+  assert!(UI_MENU_BUTTONS_COUNT_WIDTH_MAX == 6.0, "Update after adding new buttons");
 }
 fn paint_ui_button(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, index: f64, text: &str, button_id: MenuButton) {
   let x = UI_MENU_BUTTONS_OFFSET_X + index * (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING);
@@ -5040,7 +5039,7 @@ fn paint_ui_buttons2(options: &Options, state: &State, context: &Rc<web_sys::Can
   paint_ui_button2(context, mouse_state, 4.0, "Again", false, true, MenuButton::Row3Button4);
   paint_ui_button2(context, mouse_state, 5.0, "Panic", false, true, MenuButton::Row3Button5);
   // paint_ui_button2(context, mouse_state, 6.0, "Panic");
-  assert!(UI_MENU_BUTTONS_COUNT_WIDTH_MAX == 7.0, "Update after adding new buttons");
+  assert!(UI_MENU_BUTTONS_COUNT_WIDTH_MAX == 6.0, "Update after adding new buttons");
 }
 fn paint_ui_button2(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, index: f64, text: &str, on: bool, enabled: bool, button_id: MenuButton) {
   let x = UI_MENU_BUTTONS_OFFSET_X + index * (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING);
