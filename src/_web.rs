@@ -658,8 +658,13 @@ pub fn start() -> Result<(), JsValue> {
     let mut last_time: f64 = 0.0;
     let mut todo_create_buttons: bool = true;
     let button_canvii: Vec<web_sys::HtmlCanvasElement> = vec!(
+      // Buttons on the left (undo, trash, redo)
       prerender_button(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHTH, true),
       prerender_button(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHTH, false),
+
+      // paint toggle button (left of big machine button)
+      prerender_button(&options, &state, &config, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT, true),
+      prerender_button(&options, &state, &config, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT, false),
     );
 
     // From https://rustwasm.github.io/wasm-bindgen/examples/request-animation-frame.html
@@ -814,6 +819,8 @@ pub fn start() -> Result<(), JsValue> {
         todo_create_buttons = false;
         prerender_button_stage2(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHTH, &(button_canvii[0].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), true);
         prerender_button_stage2(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHTH, &(button_canvii[1].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), false);
+        prerender_button_stage2(&options, &state, &config, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT, &(button_canvii[2].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), true);
+        prerender_button_stage2(&options, &state, &config, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT, &(button_canvii[3].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), false);
       }
 
       if pregame {
@@ -936,7 +943,7 @@ pub fn start() -> Result<(), JsValue> {
         let highlight_index = paint_ui_offers(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
         paint_lasers(&options, &mut state, &config, &context);
         paint_trucks(&options, &state, &config, &context, &mut factory);
-        paint_bottom_menu(&options, &state, &config, &factory, &context, &mouse_state);
+        paint_bottom_menu(&options, &state, &config, &factory, &context, &button_canvii, &mouse_state);
         paint_background_tiles1(&options, &state, &config, &context, &factory);
         paint_background_tiles2(&options, &state, &config, &context, &factory);
         paint_background_tiles3(&options, &state, &config, &context, &factory);
@@ -4971,40 +4978,21 @@ fn paint_green_pixel(context: &Rc<web_sys::CanvasRenderingContext2d>, ticks: u64
     context.stroke_rect(fx, fy + UI_OFFER_HEIGHT - (pos - (UI_OFFER_WIDTH + UI_OFFER_HEIGHT + UI_OFFER_WIDTH)), 1.0, 1.0);
   }
 }
-fn paint_bottom_menu(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+fn paint_bottom_menu(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
   // Note: Machine button is painted elsewhere due to bouncer z-index priority
   paint_ui_time_control(options, state, context, mouse_state);
-  paint_paint_toggle(options, state, context, mouse_state);
+  paint_paint_toggle(options, state, config, context, button_canvii, mouse_state);
   paint_ui_buttons(options, state, context, mouse_state);
   paint_ui_buttons2(options, state, context, mouse_state);
 }
-fn paint_paint_toggle(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  if mouse_state.over_menu_button == MenuButton::PaintToggleButton {
-    context.set_fill_style(&"#aaffaa".into());
-  } else {
-    context.set_fill_style(&"#aaa".into());
-  }
-
-  context.fill_rect(UI_MENU_BOTTOM_PAINT_TOGGLE_X, UI_MENU_BOTTOM_PAINT_TOGGLE_Y, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT);
+fn paint_paint_toggle(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
+  paint_button(options, state, config, context, button_canvii, if state.mouse_mode_mirrored { 3 } else { 2 }, UI_MENU_BOTTOM_PAINT_TOGGLE_X, UI_MENU_BOTTOM_PAINT_TOGGLE_Y);
 
   context.save();
   context.set_font(&"48px monospace");
-  context.set_fill_style(&"black".into());
+  context.set_fill_style(&(if mouse_state.over_menu_button == MenuButton::PaintToggleButton { if state.mouse_mode_mirrored { "red" } else { "#aaa" } } else if state.mouse_mode_mirrored { "tomato" } else { "#ddd" }).into());
   context.fill_text("🖌", UI_MENU_BOTTOM_PAINT_TOGGLE_X + UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH / 2.0 - 24.0, UI_MENU_BOTTOM_PAINT_TOGGLE_Y + UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
-  if state.mouse_mode_mirrored {
-    context.set_fill_style(&"red".into());
-    context.fill_text("X", UI_MENU_BOTTOM_PAINT_TOGGLE_X + UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH / 2.0 - 12.0, UI_MENU_BOTTOM_PAINT_TOGGLE_Y + UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
-  }
   context.restore();
-
-  // context.draw_image_with_html_image_element_and_dw_and_dh(
-  //   &img_machine_1_1,
-  //   // Paint onto canvas at
-  //   UI_MENU_BOTTOM_PAINT_TOGGLE_X, UI_MENU_BOTTOM_PAINT_TOGGLE_Y, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT
-  // ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
-
-  context.set_stroke_style(&"black".into());
-  context.stroke_rect(UI_MENU_BOTTOM_PAINT_TOGGLE_X, UI_MENU_BOTTOM_PAINT_TOGGLE_Y, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT);
 }
 fn paint_machine_icon(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   context.set_fill_style(&"#aaa".into());
@@ -5298,7 +5286,6 @@ fn paint_map_load_button(options: &Options, state: &State, config: &Config, fact
     );
   }
 }
-
 fn paint_map_state_buttons(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
   // // Paint trash button
   context.save();
