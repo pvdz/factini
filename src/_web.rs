@@ -101,6 +101,11 @@ const COLOR_DEMAND_SEMI: &str = "#00aa0055";
 const COLOR_MACHINE: &str = "lightyellow";
 const COLOR_MACHINE_SEMI: &str = "#aaaa0099";
 
+const BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP: usize = 0;
+const BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN: usize = 1;
+const BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_UP: usize = 2;
+const BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_DOWN: usize = 3;
+
 // Exports from web (on a non-module context, define a global "log" and "dnow" function)
 // Not sure how this works in threads. Probably the same. TBD.
 // I think all natives are exposed in js_sys or web_sys somehow so not sure we need this at all.
@@ -656,6 +661,7 @@ pub fn start() -> Result<(), JsValue> {
     };
     let mut last_time: f64 = 0.0;
     let mut todo_create_buttons: bool = true;
+
     let button_canvii: Vec<web_sys::HtmlCanvasElement> = vec!(
       // Buttons on the left (undo, trash, redo)
       prerender_button(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHTH, true),
@@ -816,10 +822,10 @@ pub fn start() -> Result<(), JsValue> {
       if !config.sprite_cache_loading && todo_create_buttons {
         log!("Filling in button styles now...");
         todo_create_buttons = false;
-        prerender_button_stage2(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHTH, &(button_canvii[0].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), true);
-        prerender_button_stage2(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHTH, &(button_canvii[1].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), false);
-        prerender_button_stage2(&options, &state, &config, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT, &(button_canvii[2].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), true);
-        prerender_button_stage2(&options, &state, &config, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT, &(button_canvii[3].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), false);
+        prerender_button_stage2(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHTH, &(button_canvii[BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), true);
+        prerender_button_stage2(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHTH, &(button_canvii[BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), false);
+        prerender_button_stage2(&options, &state, &config, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_UP].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), true);
+        prerender_button_stage2(&options, &state, &config, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_DOWN].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), false);
       }
 
       if pregame {
@@ -4985,7 +4991,7 @@ fn paint_bottom_menu(options: &Options, state: &State, config: &Config, factory:
   paint_ui_buttons2(options, state, context, mouse_state);
 }
 fn paint_paint_toggle(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
-  paint_button(options, state, config, context, button_canvii, if state.mouse_mode_mirrored { 3 } else { 2 }, UI_MENU_BOTTOM_PAINT_TOGGLE_X, UI_MENU_BOTTOM_PAINT_TOGGLE_Y);
+  paint_button(options, state, config, context, button_canvii, if state.mouse_mode_mirrored { BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_UP }, UI_MENU_BOTTOM_PAINT_TOGGLE_X, UI_MENU_BOTTOM_PAINT_TOGGLE_Y);
 
   context.save();
   context.set_font(&"48px monospace");
@@ -5290,18 +5296,18 @@ fn paint_map_state_buttons(options: &Options, state: &State, config: &Config, co
   context.save();
   context.set_font(&"48px monospace");
 
-  paint_button(options, state, config, context, button_canvii, if state.snapshot_undo_pointer > 0 && mouse_state.down_undo { 1 } else { 0 }, UI_UNREDO_UNDO_OFFSET_X, UI_UNREDO_UNDO_OFFSET_Y);
+  paint_button(options, state, config, context, button_canvii, if state.snapshot_undo_pointer > 0 && mouse_state.down_undo { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_UNREDO_UNDO_OFFSET_X, UI_UNREDO_UNDO_OFFSET_Y);
   let text_color = if state.snapshot_undo_pointer <= 0 { "#777" } else if mouse_state.over_undo { "#aaa" } else { "#ddd" };
   context.set_fill_style(&text_color.into());
   context.fill_text("↶", UI_UNREDO_UNDO_OFFSET_X + UI_UNREDO_UNDO_WIDTH / 2.0 - 16.0, UI_UNREDO_UNDO_OFFSET_Y + UI_UNREDO_UNDO_HEIGHTH / 2.0 + 16.0).expect("canvas api call to work");
 
-  paint_button(options, state, config, context, button_canvii, if mouse_state.down_clear { 1 } else { 0 }, UI_UNREDO_CLEAR_OFFSET_X, UI_UNREDO_CLEAR_OFFSET_Y);
+  paint_button(options, state, config, context, button_canvii, if mouse_state.down_clear { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_UNREDO_CLEAR_OFFSET_X, UI_UNREDO_CLEAR_OFFSET_Y);
   let text_color = if mouse_state.over_clear { "#aaa" } else { "#ddd" };
   context.set_fill_style(&text_color.into());
   context.fill_text("🗑", UI_UNREDO_CLEAR_OFFSET_X + UI_UNREDO_UNDO_WIDTH / 2.0 - 15.0, UI_UNREDO_CLEAR_OFFSET_Y + UI_UNREDO_CLEAR_HEIGHTH / 2.0 + 16.0).expect("canvas api call to work");
   // 🚮
 
-  paint_button(options, state, config, context, button_canvii, if state.snapshot_undo_pointer != state.snapshot_pointer && mouse_state.down_redo { 1 } else { 0 }, UI_UNREDO_REDO_OFFSET_X, UI_UNREDO_REDO_OFFSET_Y);
+  paint_button(options, state, config, context, button_canvii, if state.snapshot_undo_pointer != state.snapshot_pointer && mouse_state.down_redo { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_UNREDO_REDO_OFFSET_X, UI_UNREDO_REDO_OFFSET_Y);
   let text_color = if state.snapshot_undo_pointer == state.snapshot_pointer { "#777" } else if mouse_state.over_redo { "#aaa" } else { "#ddd" };
   context.set_fill_style(&text_color.into());
   context.fill_text("↷", UI_UNREDO_REDO_OFFSET_X + UI_UNREDO_REDO_WIDTH / 2.0 - 16.0, UI_UNREDO_REDO_OFFSET_Y + UI_UNREDO_REDO_HEIGHTH / 2.0 + 16.0).expect("canvas api call to work");
