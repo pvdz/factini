@@ -805,16 +805,16 @@ The old paper
 - w: 24
 - h: 24
 
-# Part_GrayHat
+# Part_WizardHat
 - pattern: Part_Rope Part_Cloth
-- file: ./img/bigset.png
-- x: 48
-- y: 10320
-- w: 24
-- h: 24
+- file: ./img/parts/hat.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
 
 # Part_SantaHat
-- pattern: Part_PotionRed Part_Rope Part_GrayHat
+- pattern: Part_PotionRed Part_Rope Part_WizardHat
 Testing:
 - pattern: Part_Wood Part_Thread Part_SilverCoin Part_SilverCoins Part_GoldCoin Part_Sapphire Part_ShieldWood Part_IngotWhite Part_BookWhite
 - file: ./img/bigset.png
@@ -936,13 +936,13 @@ Temporarily 7 input parts for debugging
 - parts: Part_Ruby, Part_PotionRed
 - targets: 10x Part_PotionRed
 
-# Quest_GreyHat
+# Quest_WizardHat
 - after: Quest_Start
-- parts: Part_GrayHat Part_Cloth
-- targets: 10x Part_GrayHat
+- parts: Part_WizardHat Part_Cloth
+- targets: 10x Part_WizardHat
 
 # Quest_SantaHat
-- after: Quest_PotionRed Quest_WhiteBook Quest_GreyHat
+- after: Quest_PotionRed Quest_WhiteBook Quest_WizardHat
 - parts: Part_SantaHat
 - targets: 10x Part_SantaHat
 
