@@ -22,7 +22,6 @@
 // - what's up with these assertion traps :(
 //   - `let (received_part_index, received_count) = factory.floor[coord].demand.received[i];` threw oob (1 while len=0). i thin it's somehow related to dropping a demander on the edge
 // - hover over craftable offer should highlight craft-inputs (offers)
-// - rebalance the fps frame limiter
 // - unblock animations
 //   - car polish; should make nice corners, should drive same speed to any height
 // - click edge to add supplier. click supplier/demander to toggle.
@@ -174,7 +173,7 @@ pub fn start() -> Result<(), JsValue> {
   canvas.style().set_property("border", "solid")?;
   canvas.style().set_property("width", format!("{}px", CANVAS_CSS_WIDTH as u32).as_str())?;
   canvas.style().set_property("height", format!("{}px", CANVAS_CSS_HEIGHT as u32).as_str())?;
-  canvas.style().set_property("background-image", "url(./img/sand.png)");
+  canvas.style().set_property("background-image", "url(./img/sand.png)").expect("should work");
   let context = canvas.get_context("2d")?.unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>()?;
   let context = Rc::new(context);
 
@@ -4547,6 +4546,15 @@ fn paint_quests(options: &Options, state: &State, config: &Config, context: &Rc<
     let ( x, y ) = get_quest_xy(visible_index, 0.0);
     visible_index += 1;
 
+    context.set_fill_style(&"white".into()); // 100% background
+    context.fill_rect(x + 5.0, y + 4.0, UI_QUEST_WIDTH - 10.0, UI_QUEST_HEIGHT - 8.0);
+    if progress > 0.0 {
+      context.set_fill_style(&"grey".into()); // 100% background
+      context.fill_rect(x + 5.0, y + 4.0, (UI_QUEST_WIDTH - 10.0) * progress, UI_QUEST_HEIGHT - 8.0);
+    }
+
+    paint_asset(options, state, config, context, CONFIG_NODE_ASSET_QUEST_FRAME, factory.ticks, x, y, UI_QUEST_WIDTH, UI_QUEST_HEIGHT);
+
     let part_index = factory.quests[quest_index].production_part_index as usize;
     assert!(
       config.nodes[factory.quests[quest_index].production_part_index as usize].kind == ConfigNodeKind::Part,
@@ -4556,24 +4564,24 @@ fn paint_quests(options: &Options, state: &State, config: &Config, context: &Rc<
       config.nodes[factory.quests[quest_index].production_part_index as usize]
     );
 
-    context.set_fill_style(&"white".into()); // 100% background
-    context.fill_rect(x + 5.0, y + 4.0, UI_QUEST_WIDTH - 10.0, UI_QUEST_HEIGHT - 8.0);
-    if progress > 0.0 {
-      context.set_fill_style(&"grey".into()); // 100% background
-      context.fill_rect(x + 5.0, y + 4.0, (UI_QUEST_WIDTH - 10.0) * progress, UI_QUEST_HEIGHT - 8.0);
+    let composed_of = &config.nodes[part_index].pattern_unique_kinds;
+    // Print input parts inside a given width. Spacing depends on how many parts there are.
+    let margin_left = 10.0;
+    let space_left = 120.0 - (margin_left + 25.0 + PART_W + 5.0);
+    // Either put parts to the left with 5px spacing, or put them closer together if there are too many
+    let spacing = (space_left / composed_of.len() as f64).min(PART_W + 5.0);
+
+    for i in 0..composed_of.len() {
+      paint_segment_part_from_config(options, state, config, context, composed_of[i], x + margin_left + (i as f64 * spacing), y + 8.0, PART_W, PART_H);
     }
 
-    paint_asset(options, state, config, context, CONFIG_NODE_ASSET_QUEST_FRAME, factory.ticks,
-      x, y, UI_QUEST_WIDTH, UI_QUEST_HEIGHT
-    );
+    paint_asset(options, state, config, context, CONFIG_NODE_ASSET_DOUBLE_ARROW_RIGHT, 0, x + 120.0 - PART_W - 18.0, y + 8.0, 10.0, PART_H);
 
-    // context.draw_image_with_html_image_element_and_dw_and_dh(&img_quest_frame, x, y, UI_QUEST_WIDTH, UI_QUEST_HEIGHT).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
-
-    paint_segment_part_from_config(options, state, config, context, part_index as usize, x + 15.0, y + 8.0, PART_W, PART_H);
+    paint_segment_part_from_config(options, state, config, context, part_index as usize, x + 120.0 - PART_W - 5.0, y + 8.0, PART_W, PART_H);
 
     context.set_font(&"12px monospace");
     context.set_fill_style(&"#ddd".into()); // 100% background
-    context.fill_text(format!("{} / {}x", current_quest_progress, current_quest_target).as_str(), x + 100.0, y + (UI_QUEST_HEIGHT / 2.0) + 5.0).expect("oopsie fill_text");
+    context.fill_text(format!("{}/{}x", current_quest_progress, current_quest_target).as_str(), x + 120.0, y + (UI_QUEST_HEIGHT / 2.0) + 5.0).expect("oopsie fill_text");
 
     if factory.quests[quest_index].status == QuestStatus::FadingAndBouncing {
       let fade_progress = ((factory.ticks - factory.quests[quest_index].status_at) as f64 / (QUEST_FADE_TIME as f64 * options.speed_modifier_ui)).min(1.0);
