@@ -400,17 +400,17 @@
 
       const finalWidth = 64;
       const finalHeight = 64;
-      const scalex = finalWidth / node.w;
-      const scaley = finalHeight / node.h;
+      const scalex = finalWidth / node.sprite_config[0]?.w;
+      const scaley = finalHeight / node.sprite_config[0]?.h;
 
       // The outer gives a viewport on the inner, scaled, div. Cutting away the overflow.
       const outer = $all_parts.appendChild(document.createElement('div'));
       outer.title = `${node.raw_name}`;
       // The inner has the image as background with a zoom factor to scale the sprite
       const inner = outer.appendChild(document.createElement('img'));
-      inner.src = node.file;
+      inner.src = node.sprite_config[0]?.file;
       outer.style = `position: relative; width: ${finalWidth}px; height: ${finalHeight}px; overflow: hidden; float: right; border: 1px solid black;`;
-      inner.style = `position: absolute; left: -${Math.round(scalex * node.x)}px; top: -${Math.round(scaley * node.y)}px; transform: scale(${scalex}, ${scaley}); transform-origin: top left;`;
+      inner.style = `position: absolute; left: -${Math.round(scalex * node.sprite_config[0]?.x)}px; top: -${Math.round(scaley * node.sprite_config[0]?.y)}px; transform: scale(${scalex}, ${scaley}); transform-origin: top left;`;
     });
   }
   function updateMermaid(nodes) {
