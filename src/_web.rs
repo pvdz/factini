@@ -30,6 +30,7 @@
 //   - create tutorial
 // - config_node_dock -> asset
 // - paint_supply_and_part_for_edge and paint_dock_stripes should use paint_asset
+// - cut up the config.md
 
 // Letters!
 
@@ -104,6 +105,10 @@ const BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP: usize = 0;
 const BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN: usize = 1;
 const BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_UP: usize = 2;
 const BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_DOWN: usize = 3;
+const BUTTON_PRERENDER_INDEX_SAVE_BIG_UP: usize = 4;
+const BUTTON_PRERENDER_INDEX_SAVE_BIG_DOWN: usize = 5;
+const BUTTON_PRERENDER_INDEX_SAVE_THIN_UP: usize = 6;
+const BUTTON_PRERENDER_INDEX_SAVE_THIN_DOWN: usize = 7;
 
 // Exports from web (on a non-module context, define a global "log" and "dnow" function)
 // Not sure how this works in threads. Probably the same. TBD.
@@ -670,6 +675,14 @@ pub fn start() -> Result<(), JsValue> {
       // paint toggle button (left of big machine button)
       prerender_button(&options, &state, &config, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT, true),
       prerender_button(&options, &state, &config, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT, false),
+
+      // paint big quick save button
+      prerender_button(&options, &state, &config, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT, true),
+      prerender_button(&options, &state, &config, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT, false),
+
+      // Thin save-delete buttons
+      prerender_button(&options, &state, &config, UI_SAVE_THUMB_WIDTH - UI_SAVE_THUMB_IMG_WIDTH, UI_SAVE_THUMB_HEIGHT, true),
+      prerender_button(&options, &state, &config, UI_SAVE_THUMB_WIDTH - UI_SAVE_THUMB_IMG_WIDTH, UI_SAVE_THUMB_HEIGHT, false),
     );
 
     // From https://rustwasm.github.io/wasm-bindgen/examples/request-animation-frame.html
@@ -820,6 +833,10 @@ pub fn start() -> Result<(), JsValue> {
         prerender_button_stage2(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHTH, &(button_canvii[BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), false);
         prerender_button_stage2(&options, &state, &config, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_UP].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), true);
         prerender_button_stage2(&options, &state, &config, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_DOWN].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), false);
+        prerender_button_stage2(&options, &state, &config, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_SAVE_BIG_UP].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), true);
+        prerender_button_stage2(&options, &state, &config, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_SAVE_BIG_DOWN].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), false);
+        prerender_button_stage2(&options, &state, &config, UI_SAVE_THUMB_WIDTH - UI_SAVE_THUMB_IMG_WIDTH, UI_SAVE_THUMB_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_SAVE_THIN_UP].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), true);
+        prerender_button_stage2(&options, &state, &config, UI_SAVE_THUMB_WIDTH - UI_SAVE_THUMB_IMG_WIDTH, UI_SAVE_THUMB_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_SAVE_THIN_DOWN].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), false);
       }
 
       if pregame {
@@ -959,7 +976,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_debug_selected_supply_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_debug_selected_demand_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_map_state_buttons(&options, &state, &config, &context, &button_canvii, &mouse_state);
-        paint_load_thumbs(&options, &state, &config, &factory, &context, &mouse_state, &mut quick_saves);
+        paint_load_thumbs(&options, &state, &config, &factory, &context, &button_canvii, &mouse_state, &mut quick_saves);
 
         // Probably after all backround/floor stuff is finished
         paint_zone_borders(&options, &state, &context);
@@ -5253,13 +5270,13 @@ fn hit_test_save_map_right(x: f64, y: f64, row: f64, col: f64) -> bool {
     GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN) + UI_SAVE_THUMB_WIDTH, GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN) + UI_SAVE_THUMB_HEIGHT,
   );
 }
-fn paint_load_thumbs(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, quick_saves: &mut [Option<QuickSave>; 9]) {
-  paint_map_load_button(options, state, config,factory, 0.0, 0.0, 0, context, &mut quick_saves[0], mouse_state);
-  paint_map_load_button(options, state, config,factory, 1.0, 0.0, 1, context, &mut quick_saves[1], mouse_state);
-  paint_map_load_button(options, state, config,factory, 0.0, 1.0, 2, context, &mut quick_saves[2], mouse_state);
-  paint_map_load_button(options, state, config,factory, 1.0, 1.0, 3, context, &mut quick_saves[3], mouse_state);
+fn paint_load_thumbs(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState, quick_saves: &mut [Option<QuickSave>; 9]) {
+  paint_map_load_button(options, state, config,factory, 0.0, 0.0, 0, context, &mut quick_saves[0], button_canvii, mouse_state);
+  paint_map_load_button(options, state, config,factory, 1.0, 0.0, 1, context, &mut quick_saves[1], button_canvii, mouse_state);
+  paint_map_load_button(options, state, config,factory, 0.0, 1.0, 2, context, &mut quick_saves[2], button_canvii, mouse_state);
+  paint_map_load_button(options, state, config,factory, 1.0, 1.0, 3, context, &mut quick_saves[3], button_canvii, mouse_state);
 }
-fn paint_map_load_button(options: &Options, state: &State, config: &Config, factory: &Factory, col: f64, row: f64, button_index: usize, context: &Rc<web_sys::CanvasRenderingContext2d>, quick_save: &mut Option<QuickSave>, mouse_state: &MouseState) {
+fn paint_map_load_button(options: &Options, state: &State, config: &Config, factory: &Factory, col: f64, row: f64, button_index: usize, context: &Rc<web_sys::CanvasRenderingContext2d>, quick_save: &mut Option<QuickSave>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
   assert!(button_index < 6, "there are only 6 save buttons");
   let ox = GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN);
   let oy = GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN);
@@ -5281,16 +5298,28 @@ fn paint_map_load_button(options: &Options, state: &State, config: &Config, fact
     }
 
     // Paint trash button
-    let fill_color = if mouse_state.over_save_map && mouse_state.over_save_map_index == button_index { "#ffaaaa" } else { "#aaaaaa" };
-    canvas_round_rect_and_fill_stroke(context, ox + UI_SAVE_THUMB_IMG_WIDTH, oy, UI_SAVE_THUMB_WIDTH - UI_SAVE_THUMB_IMG_WIDTH, UI_SAVE_THUMB_HEIGHT, fill_color, "black");
-    context.set_fill_style(&"red".into());
-    context.fill_text("X", ox + UI_SAVE_THUMB_WIDTH - 20.0, oy + UI_SAVE_THUMB_HEIGHT / 2.0 + 5.0).expect("canvas api call to work");
+
+    let down = mouse_state.down_save_map && mouse_state.down_save_map_index == button_index;
+    paint_button(options, state, config, context, button_canvii, if down { BUTTON_PRERENDER_INDEX_SAVE_THIN_DOWN } else { BUTTON_PRERENDER_INDEX_SAVE_THIN_UP }, ox + UI_SAVE_THUMB_IMG_WIDTH, oy);
+
+    let hovering = mouse_state.over_save_map && mouse_state.over_save_map_index == button_index;
+    let over_delete_part = mouse_state.world_x > ox + UI_SAVE_THUMB_IMG_WIDTH;
+
+    paint_asset_raw(
+      options, state, config, &context, if !hovering { CONFIG_NODE_ASSET_TRASH_LIGHT } else if over_delete_part { CONFIG_NODE_ASSET_TRASH_RED } else { CONFIG_NODE_ASSET_TRASH_GREEN }, factory.ticks,
+      ox + UI_SAVE_THUMB_IMG_WIDTH + 5.0, oy + UI_SAVE_THUMB_HEIGHT / 2.0 - 8.0, 16.0, 16.0
+    );
   } else {
-    let fill_color = if mouse_state.over_save_map && mouse_state.over_save_map_index == button_index { "#aaffaa" } else { "#aaaaaa" };
-    canvas_round_rect_and_fill_stroke(context, ox, oy, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT, fill_color, "black");
-    paint_asset_raw(options, state, config, &context, CONFIG_NODE_ASSET_SAVE, factory.ticks,
+    let down = mouse_state.down_save_map && mouse_state.down_save_map_index == button_index;
+
+    paint_button(options, state, config, context, button_canvii, if down { BUTTON_PRERENDER_INDEX_SAVE_BIG_DOWN } else { BUTTON_PRERENDER_INDEX_SAVE_BIG_UP }, ox, oy);
+
+    let hovering = mouse_state.over_save_map && mouse_state.over_save_map_index == button_index;
+
+    // canvas_round_rect_and_fill_stroke(context, ox, oy, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT, fill_color, "black");
+    paint_asset_raw(options, state, config, &context, if hovering { CONFIG_NODE_ASSET_SAVE_GREY } else { CONFIG_NODE_ASSET_SAVE_LIGHT }, factory.ticks,
       ox + UI_SAVE_THUMB_WIDTH * 0.35,
-      oy + UI_SAVE_THUMB_HEIGHT * 0.2,
+      oy + UI_SAVE_THUMB_HEIGHT * 0.25,
       UI_SAVE_THUMB_WIDTH / 3.0,
       UI_SAVE_THUMB_HEIGHT / 2.0
     );
@@ -5307,11 +5336,13 @@ fn paint_map_state_buttons(options: &Options, state: &State, config: &Config, co
   context.fill_text("↶", UI_UNREDO_UNDO_OFFSET_X + UI_UNREDO_UNDO_WIDTH / 2.0 - 16.0, UI_UNREDO_UNDO_OFFSET_Y + UI_UNREDO_UNDO_HEIGHTH / 2.0 + 16.0).expect("canvas api call to work");
 
   paint_button(options, state, config, context, button_canvii, if mouse_state.down_clear { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_UNREDO_CLEAR_OFFSET_X, UI_UNREDO_CLEAR_OFFSET_Y);
-  let text_color = if mouse_state.over_clear { "#aaa" } else { "#ddd" };
-  context.set_fill_style(&text_color.into());
-  context.fill_text("🗑", UI_UNREDO_CLEAR_OFFSET_X + UI_UNREDO_UNDO_WIDTH / 2.0 - 15.0, UI_UNREDO_CLEAR_OFFSET_Y + UI_UNREDO_CLEAR_HEIGHTH / 2.0 + 16.0).expect("canvas api call to work");
-  // 🚮
 
+  paint_asset_raw(
+    options, state, config, &context, if mouse_state.over_clear { CONFIG_NODE_ASSET_TRASH_RED } else { CONFIG_NODE_ASSET_TRASH_LIGHT }, 0,
+    UI_UNREDO_CLEAR_OFFSET_X + UI_UNREDO_UNDO_WIDTH / 2.0 - 16.0, UI_UNREDO_CLEAR_OFFSET_Y + UI_UNREDO_CLEAR_HEIGHTH / 2.0 - 16.0, 32.0, 32.0
+  );
+
+  // 🗑 🚮
   paint_button(options, state, config, context, button_canvii, if state.snapshot_undo_pointer != state.snapshot_pointer && mouse_state.down_redo { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_UNREDO_REDO_OFFSET_X, UI_UNREDO_REDO_OFFSET_Y);
   let text_color = if state.snapshot_undo_pointer == state.snapshot_pointer { "#777" } else if mouse_state.over_redo { "#aaa" } else { "#ddd" };
   context.set_fill_style(&text_color.into());

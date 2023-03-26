@@ -311,7 +311,7 @@ pub const CONFIG_NODE_ASSET_HELP_RED: usize = 289;
 pub const CONFIG_NODE_ASSET_MANUAL: usize = 290;
 pub const CONFIG_NODE_ASSET_LMB: usize = 291;
 pub const CONFIG_NODE_ASSET_RMB: usize = 292;
-pub const CONFIG_NODE_ASSET_SAVE: usize = 293;
+pub const CONFIG_NODE_ASSET_SAVE_DARK: usize = 293;
 pub const CONFIG_NODE_ASSET_QUEST_FRAME: usize = 294;
 pub const CONFIG_NODE_ASSET_DOUBLE_ARROW_RIGHT: usize = 295;
 pub const CONFIG_NODE_ASSET_SINGLE_ARROW_DOWN: usize = 296;
@@ -334,6 +334,13 @@ pub const CONFIG_NODE_ASSET_BUTTON_DOWN_6: usize = 312;
 pub const CONFIG_NODE_ASSET_BUTTON_DOWN_7: usize = 313;
 pub const CONFIG_NODE_ASSET_BUTTON_DOWN_8: usize = 314;
 pub const CONFIG_NODE_ASSET_BUTTON_DOWN_9: usize = 315;
+pub const CONFIG_NODE_ASSET_SAVE_LIGHT: usize = 316;
+pub const CONFIG_NODE_ASSET_SAVE_GREY: usize = 317;
+pub const CONFIG_NODE_ASSET_TRASH_DARK: usize = 318;
+pub const CONFIG_NODE_ASSET_TRASH_LIGHT: usize = 319;
+pub const CONFIG_NODE_ASSET_TRASH_GREY: usize = 320;
+pub const CONFIG_NODE_ASSET_TRASH_RED: usize = 321;
+pub const CONFIG_NODE_ASSET_TRASH_GREEN: usize = 322;
 
 #[derive(Debug)]
 pub struct Config {
@@ -1040,7 +1047,14 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Asset_Manual" => CONFIG_NODE_ASSET_MANUAL,
     "Asset_Lmb" => CONFIG_NODE_ASSET_LMB,
     "Asset_Rmb" => CONFIG_NODE_ASSET_RMB,
-    "Asset_Save" => CONFIG_NODE_ASSET_SAVE,
+    "Asset_SaveDark" => CONFIG_NODE_ASSET_SAVE_DARK,
+    "Asset_SaveLight" => CONFIG_NODE_ASSET_SAVE_LIGHT,
+    "Asset_SaveGrey" => CONFIG_NODE_ASSET_SAVE_GREY,
+    "Asset_TrashDark" => CONFIG_NODE_ASSET_TRASH_DARK,
+    "Asset_TrashLight" => CONFIG_NODE_ASSET_TRASH_LIGHT,
+    "Asset_TrashGrey" => CONFIG_NODE_ASSET_TRASH_GREY,
+    "Asset_TrashRed" => CONFIG_NODE_ASSET_TRASH_RED,
+    "Asset_TrashGreen" => CONFIG_NODE_ASSET_TRASH_GREEN,
     "Asset_QuestFrame" => CONFIG_NODE_ASSET_QUEST_FRAME,
     "Asset_DoubleArrowRight" => CONFIG_NODE_ASSET_DOUBLE_ARROW_RIGHT,
     "Asset_ScreenLoader" => CONFIG_NODE_ASSET_SCREEN_LOADER,
@@ -1646,7 +1660,7 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_asset(CONFIG_NODE_ASSET_MANUAL, "MANUAL"),
     config_node_asset(CONFIG_NODE_ASSET_LMB, "LMB"),
     config_node_asset(CONFIG_NODE_ASSET_RMB, "RMB"),
-    config_node_asset(CONFIG_NODE_ASSET_SAVE, "SAVE"),
+    config_node_asset(CONFIG_NODE_ASSET_SAVE_DARK, "SAVE_DARK"),
     config_node_asset(CONFIG_NODE_ASSET_QUEST_FRAME, "QUEST_FRAME"),
     config_node_asset(CONFIG_NODE_ASSET_DOUBLE_ARROW_RIGHT, "DOUBLE_ARROW_RIGHT"),
     config_node_asset(CONFIG_NODE_ASSET_SINGLE_ARROW_DOWN, "SINGLE_ARROW_DOWN"),
@@ -1669,6 +1683,13 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_7, "BUTTON_DOWN_7"),
     config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_8, "BUTTON_DOWN_8"),
     config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_9, "BUTTON_DOWN_9"),
+    config_node_asset(CONFIG_NODE_ASSET_SAVE_LIGHT, "SAVE_DARK"),
+    config_node_asset(CONFIG_NODE_ASSET_SAVE_GREY, "SAVE_DARK"),
+    config_node_asset(CONFIG_NODE_ASSET_TRASH_DARK, "TRASH_DARK"),
+    config_node_asset(CONFIG_NODE_ASSET_TRASH_LIGHT, "TRASH_LIGHT"),
+    config_node_asset(CONFIG_NODE_ASSET_TRASH_GREY, "TRASH_GREY"),
+    config_node_asset(CONFIG_NODE_ASSET_TRASH_RED, "TRASH_RED"),
+    config_node_asset(CONFIG_NODE_ASSET_TRASH_GREEN, "TRASH_GREEN"),
   );
 
   v.iter().enumerate().for_each(|(i, node)| assert!(node.index == i, "system node indexes must match their global constant value; mismatch for index {}", i));

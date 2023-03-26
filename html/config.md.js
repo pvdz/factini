@@ -193,14 +193,77 @@ Indicator that a machine has no target part to create
 - w: 50
 - h: 50
 
-# Asset_Save
+# Asset_SaveDark
 - frame_offset: 0
 - frame_count: 1
-- file: ./img/save.png
+- file: ./img/save_dark.png
 - x: 0
 - y: 0
 - w: 48
 - h: 48
+
+# Asset_SaveLight
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/save_light.png
+- x: 0
+- y: 0
+- w: 48
+- h: 48
+
+# Asset_SaveGrey
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/save_grey.png
+- x: 0
+- y: 0
+- w: 48
+- h: 48
+
+# Asset_TrashDark
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/trash_dark.png
+- x: 0
+- y: 0
+- w: 43
+- h: 43
+
+# Asset_TrashLight
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/trash_light.png
+- x: 0
+- y: 0
+- w: 43
+- h: 43
+
+# Asset_TrashGrey
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/trash_grey.png
+- x: 0
+- y: 0
+- w: 43
+- h: 43
+
+# Asset_TrashRed
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/trash_red.png
+- x: 0
+- y: 0
+- w: 43
+- h: 43
+
+# Asset_TrashGreen
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/trash_green.png
+- x: 0
+- y: 0
+- w: 43
+- h: 43
 
 # Asset_QuestFrame
 - frame_offset: 0
