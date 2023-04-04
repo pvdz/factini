@@ -43,7 +43,7 @@ pub fn floor_empty(config: &Config) -> [Cell; FLOOR_CELLS_WH] {
 }
 
 
-pub fn auto_layout(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
+pub fn auto_layout(options: &Options, state: &mut State, config: &Config, factory: &mut Factory) {
   log!("auto_layout(options.print_auto_layout_debug={})", options.print_auto_layout_debug);
   let mut machines = 0;
   for coord in 0..FLOOR_CELLS_WH {

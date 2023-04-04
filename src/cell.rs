@@ -151,7 +151,7 @@ pub fn belt_cell(config: &Config, x: usize, y: usize, meta: BeltMeta) -> Cell {
   };
 }
 
-pub fn machine_any_cell(options: &mut Options, state: &mut State, config: &Config, id: char, x: usize, y: usize, cell_width: usize, cell_height: usize, kind: MachineKind, wants: Vec<Part>, output: Part, speed: u64, machine_production_price: i32, machine_trash_price: i32) -> Cell {
+pub fn machine_any_cell(options: &Options, state: &mut State, config: &Config, id: char, x: usize, y: usize, cell_width: usize, cell_height: usize, kind: MachineKind, wants: Vec<Part>, output: Part, speed: u64, machine_production_price: i32, machine_trash_price: i32) -> Cell {
   assert!(x > 0 && y > 0 && x < FLOOR_CELLS_W - 1 && y < FLOOR_CELLS_H - 1);
 
   let coord = x + y * FLOOR_CELLS_W;
@@ -371,7 +371,7 @@ pub fn supply_cell(config: &Config, x: usize, y: usize, part: Part, speed: u64, 
 }
 
 pub fn demand_cell(config: &Config, x: usize, y: usize, speed: u64, cooldown: u64) -> Cell {
-  log!("demand_cell: speed: {}, cooldown: {}", speed, cooldown);
+  // log!("demand_cell: speed: {}, cooldown: {}", speed, cooldown);
   let coord = x + y * FLOOR_CELLS_W;
 
   let coord_u = if y == 0 { None } else { Some(to_coord_up(coord)) };
@@ -424,9 +424,9 @@ pub fn fix_belt_meta_floor(options: &Options, state: &State, floor: &mut [Cell; 
   let pd = floor[coord].port_d;
   let pl = floor[coord].port_l;
   let belt_type = belt_type_from_ports(pu, pr, pd, pl);
-  if floor[coord].belt.meta.btype != belt_type {
-    log!("    -- fix_belt_meta() modifying @{}! from: {:?}, to: {:?} ;; old ports: {:?} {:?} {:?} {:?} ;; new ports: {:?} {:?} {:?} {:?}", coord, floor[coord].belt.meta.btype, belt_type, pu, pr, pd, pl, floor[coord].port_u, floor[coord].port_r, floor[coord].port_d, floor[coord].port_l);
-  }
+  // if floor[coord].belt.meta.btype != belt_type {
+  //   log!("    -- fix_belt_meta() modifying @{}! from: {:?}, to: {:?} ;; old ports: {:?} {:?} {:?} {:?} ;; new ports: {:?} {:?} {:?} {:?}", coord, floor[coord].belt.meta.btype, belt_type, pu, pr, pd, pl, floor[coord].port_u, floor[coord].port_r, floor[coord].port_d, floor[coord].port_l);
+  // }
   let belt_meta = belt_type_to_belt_meta(belt_type);
   floor[coord].belt.meta = belt_meta;
 }

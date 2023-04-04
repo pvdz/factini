@@ -6,7 +6,18 @@
 <!--  <meta name="viewport" content="width=device-width, user-scalable=no">-->
 </head>
 <body>
+
 <script src="config.md.js" charset="UTF-8"></script>
+<script src="config.assets.md.js" charset="UTF-8"></script>
+<script src="config.belts.md.js" charset="UTF-8"></script>
+<script src="config.machines.md.js" charset="UTF-8"></script>
+<script src="config.supplydemandock.md.js" charset="UTF-8"></script>
+
+<script src="quests/dev.quests.md.js" charset="UTF-8"></script>
+<script src="quests/dev.parts.md.js" charset="UTF-8"></script>
+
+<script src="quests/bucket_quest.md.js" charset="UTF-8"></script>
+
 <script src="map.md.js" charset="UTF-8"></script>
 <script src="options.md.js" charset="UTF-8"></script>
 <script src="examples.md.js" charset="UTF-8"></script>
@@ -55,11 +66,6 @@
       else if (value === 'true' || value === 'false') {
         const e = $option_bools.appendChild(document.createElement('label'));
         e.className = 'option-label';
-        e.onclick = () => {
-          console.log('[js] Toggling option', [key], 'to', [!!i.checked]);
-          $game_options.value = $game_options.value.replace(new RegExp(`- ${key}: (?:true|false)`), `- ${key}: ${Boolean(i.checked)}`);
-          queuedAction = 'apply_options';
-        };
 
         const s = e.appendChild(document.createElement('span'));
         s.innerHTML = '<span style="color: #ccc;">options.</span>' + key;
@@ -67,6 +73,13 @@
         const i = e.appendChild(document.createElement('input'));
         i.type = 'checkbox';
         i.checked = value === 'true';
+        i.onclick = () => {
+          console.log('[js] Toggling option', [key], 'to', [!!i.checked]);
+          $game_options.value = $game_options.value.replace(new RegExp(`- ${key}: (?:true|false)`), `- ${key}: ${Boolean(i.checked)}`);
+          queuedAction = 'apply_options';
+          console.log('[js] Stored new options into localStorage');
+          window.localStorage.setItem('factini.options', $game_options.value);
+        };
       }
     });
   }
@@ -487,7 +500,7 @@
     <div>Quest Tree:</div>
     <div style="float: right;">
       <textarea id="$game_config" style="min-width: 50px; min-height: 50px; width: 400px; height: 100px; margin-top: 5px; margin-right: 5px;" autocomplete="off" spellcheck="false"></textarea>
-      <script>$game_config.value = GAME_CONFIG.trim();</script>
+      <script>$game_config.value = (GAME_CONFIG_PRELUDE + GAME_CONFIG_ASSETS + GAME_CONFIG_BELTS + GAME_CONFIG_MACHINES + DEV_QUEST_PARTS + DEV_QUEST_QUESTS + GAME_CONFIG_SUPPLYDEMANDOCK + CONFIG_BUCKET_QUEST).trim();</script>
       <div id="$sprite_preview"></div>
       <div style="margin-bottom: 15px;"><button style="margin-top: 5px; margin-right: 5px;" onclick="queuedAction = 'load_config';">Set as config</button></div>
       <div id="$config_editor">

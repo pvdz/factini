@@ -115,10 +115,10 @@ pub fn auto_port_cell_belt2(options: &Options, state: &State, floor: &mut [Cell;
 
   return (true, false); // One unknown, no changes
 }
-pub fn auto_ins_outs(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
+pub fn auto_ins_outs(options: &Options, state: &mut State, config: &Config, factory: &mut Factory) {
   auto_ins_outs_floor(options, state, config, &mut factory.floor);
 }
-pub fn auto_ins_outs_floor(options: &mut Options, state: &mut State, config: &Config, floor: &mut [Cell; FLOOR_CELLS_WH]) {
+pub fn auto_ins_outs_floor(options: &Options, state: &mut State, config: &Config, floor: &mut [Cell; FLOOR_CELLS_WH]) {
   // Clear .ins and .outs and discover them for the entire floor.
   // Only checks own ports, not if they're actually connected.
 
@@ -167,7 +167,7 @@ pub fn auto_ins_outs_floor(options: &mut Options, state: &mut State, config: &Co
     }
   }
 }
-fn auto_port_belt_u(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize) -> bool {
+fn auto_port_belt_u(options: &Options, state: &mut State, factory: &mut Factory, coord: usize) -> bool {
   if factory.floor[coord].port_u != Port::Unknown {
     return false;
   }
@@ -204,7 +204,7 @@ fn auto_port_belt_u(options: &mut Options, state: &mut State, factory: &mut Fact
   }
   return true;
 }
-fn auto_port_belt_r(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize) -> bool {
+fn auto_port_belt_r(options: &Options, state: &mut State, factory: &mut Factory, coord: usize) -> bool {
   if factory.floor[coord].port_r != Port::Unknown {
     return false;
   }
@@ -241,7 +241,7 @@ fn auto_port_belt_r(options: &mut Options, state: &mut State, factory: &mut Fact
   }
   return true;
 }
-fn auto_port_belt_d(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize) -> bool {
+fn auto_port_belt_d(options: &Options, state: &mut State, factory: &mut Factory, coord: usize) -> bool {
   if factory.floor[coord].port_d != Port::Unknown {
     return false;
   }
@@ -278,7 +278,7 @@ fn auto_port_belt_d(options: &mut Options, state: &mut State, factory: &mut Fact
   }
   return true;
 }
-fn auto_port_belt_l(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize) -> bool {
+fn auto_port_belt_l(options: &Options, state: &mut State, factory: &mut Factory, coord: usize) -> bool {
   if factory.floor[coord].port_l != Port::Unknown {
     return false;
   }
@@ -315,7 +315,7 @@ fn auto_port_belt_l(options: &mut Options, state: &mut State, factory: &mut Fact
   }
   return true;
 }
-fn auto_port_machine_u(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize, attempt: u32) -> bool {
+fn auto_port_machine_u(options: &Options, state: &mut State, factory: &mut Factory, coord: usize, attempt: u32) -> bool {
   assert_eq!(factory.floor[coord].kind, CellKind::Machine);
 
   if factory.floor[coord].port_u != Port::Unknown {
@@ -360,7 +360,7 @@ fn auto_port_machine_u(options: &mut Options, state: &mut State, factory: &mut F
   }
   return true;
 }
-fn auto_port_machine_r(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize, attempt: u32) -> bool {
+fn auto_port_machine_r(options: &Options, state: &mut State, factory: &mut Factory, coord: usize, attempt: u32) -> bool {
   assert_eq!(factory.floor[coord].kind, CellKind::Machine);
 
   if factory.floor[coord].port_r != Port::Unknown {
@@ -405,7 +405,7 @@ fn auto_port_machine_r(options: &mut Options, state: &mut State, factory: &mut F
   }
   return true;
 }
-fn auto_port_machine_d(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize, attempt: u32) -> bool {
+fn auto_port_machine_d(options: &Options, state: &mut State, factory: &mut Factory, coord: usize, attempt: u32) -> bool {
   assert_eq!(factory.floor[coord].kind, CellKind::Machine);
 
   if factory.floor[coord].port_d != Port::Unknown {
@@ -453,7 +453,7 @@ fn auto_port_machine_d(options: &mut Options, state: &mut State, factory: &mut F
   }
   return true;
 }
-fn auto_port_machine_l(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize, attempt: u32) -> bool {
+fn auto_port_machine_l(options: &Options, state: &mut State, factory: &mut Factory, coord: usize, attempt: u32) -> bool {
   assert_eq!(factory.floor[coord].kind, CellKind::Machine);
 
   if factory.floor[coord].port_l != Port::Unknown {
@@ -498,7 +498,7 @@ fn auto_port_machine_l(options: &mut Options, state: &mut State, factory: &mut F
   }
   return true;
 }
-fn auto_port_machine_neighbors(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize, attempt: u32) -> bool {
+fn auto_port_machine_neighbors(options: &Options, state: &mut State, factory: &mut Factory, coord: usize, attempt: u32) -> bool {
   assert_eq!(factory.floor[coord].kind, CellKind::Machine);
   assert_eq!(factory.floor[coord].machine.kind, MachineKind::Main);
 
@@ -557,7 +557,7 @@ fn auto_port_discover_machine_ports_floor(floor: &mut [Cell; FLOOR_CELLS_WH], co
 
   return ( ins, ous, uns );
 }
-fn auto_port_convert_machine_unknown_to(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize, new_port: Port, attempt: u32) {
+fn auto_port_convert_machine_unknown_to(options: &Options, state: &mut State, factory: &mut Factory, coord: usize, new_port: Port, attempt: u32) {
   // Given a machine cell, find a port that is unknown and change it to the given port type.
   // Stop as soon as you find one. There should only be one such port, anyways.
 
@@ -619,7 +619,7 @@ fn auto_port_convert_machine_unknown_to(options: &mut Options, state: &mut State
   panic!("should find at least (and most) one unknown port in this machine...");
 }
 
-pub fn keep_auto_porting(options: &mut Options, state: &mut State, factory: &mut Factory) {
+pub fn keep_auto_porting(options: &Options, state: &mut State, factory: &mut Factory) {
   log!("keep_auto_porting(options.trace_porting_step = {})", options.trace_porting_step);
   // Start at demands, mark connected belts
   // From connected belts, mark any other connected belt if it is connected to only one unmarked
@@ -647,7 +647,7 @@ pub fn keep_auto_porting(options: &mut Options, state: &mut State, factory: &mut
     attempt += 1;
   }
 }
-pub fn auto_port(options: &mut Options, state: &mut State, factory: &mut Factory, attempt: u32, force_unknowns: bool) -> ( bool, bool ) {
+pub fn auto_port(options: &Options, state: &mut State, factory: &mut Factory, attempt: u32, force_unknowns: bool) -> ( bool, bool ) {
   assert!(attempt > 0, "attempt must be non-zero because it gets deducted");
   if options.trace_porting_step { log!("  - auto_port({}, {})", attempt, force_unknowns); }
   let mut changed = false;

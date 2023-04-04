@@ -82,7 +82,7 @@ pub fn machine_none(config: &Config, main_coord: usize) -> Machine {
   };
 }
 
-pub fn machine_new(options: &mut Options, state: &mut State, config: &Config, kind: MachineKind, cell_width: usize, cell_height: usize, id: char, main_coord: usize, in_wants: Vec<Part>, output: Part, speed: u64) -> Machine {
+pub fn machine_new(options: &Options, state: &mut State, config: &Config, kind: MachineKind, cell_width: usize, cell_height: usize, id: char, main_coord: usize, in_wants: Vec<Part>, output: Part, speed: u64) -> Machine {
   // Note: this is also called for each machine sub cell once
   let mut wants = in_wants.clone();
   let mut haves = vec!();

@@ -28,6 +28,7 @@ pub struct Options {
   pub options_started_from_source: u64, // If non-zero, the current config started from local storage rather than source (options.md.js) and it will be the byte size
   pub initial_map_from_source: u64, // If non-zero, the initial map started from local storage rather than source (map.md.js) and it will be the byte size
 
+  pub print_options_string: bool,
   pub print_choices: bool,
   pub print_choices_belt: bool,
   pub print_choices_machine: bool,
@@ -44,6 +45,7 @@ pub struct Options {
   pub print_stats_interval: u64,
   pub print_auto_layout_debug: bool,
   pub print_fmd_trace: bool,
+  pub print_img_loader_trace: bool,
   pub trace_priority_step: bool,
   pub trace_porting_step: bool,
   pub trace_map_parsing: bool,
@@ -120,6 +122,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     options_started_from_source: 0, // Updated elsewhere
     initial_map_from_source: 0, // Updated elsewhere
 
+    print_options_string: true,
     print_choices: false,
     print_choices_belt: false,
     print_choices_machine: false,
@@ -136,6 +139,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     print_stats_interval: 100000,
     print_auto_layout_debug: false,
     print_fmd_trace: false,
+    print_img_loader_trace: false,
     trace_priority_step: false,
     trace_porting_step: false,
     trace_map_parsing: false,
@@ -191,7 +195,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
   };
 }
 
-fn parse_bool(value: &str, key: &str, strict: bool, def: bool) -> bool {
+fn parse_bool(value: &str, key: &str, strict: bool, def: bool, verbose: bool) -> bool {
   let out = match value {
     "true" => true,
     "false" => false,
@@ -199,18 +203,18 @@ fn parse_bool(value: &str, key: &str, strict: bool, def: bool) -> bool {
       if strict {
         panic!("Invalid value for options.{}; expecting a boolean, received `{}`", key, value)
       } else {
-        log!("Invalid value for options.{}; expecting a boolean, received `{}`", key, value);
+        if verbose { log!("Invalid value for options.{}; expecting a boolean, received `{}`", key, value); }
         def
       }
     },
   };
-  if out != def {
+  if out != def && verbose{
     log!("Changed value for options.{}: from: {}, to: {}", key, def, out);
   }
   return out;
 }
 
-fn parse_f64(value: &str, key: &str, strict: bool, def: f64) -> f64 {
+fn parse_f64(value: &str, key: &str, strict: bool, def: f64, verbose: bool) -> f64 {
   let b =
     if !value.contains(".") {
       format!("{}.0", value)
@@ -225,31 +229,30 @@ fn parse_f64(value: &str, key: &str, strict: bool, def: f64) -> f64 {
     } else {
       t.or::<f64>(Ok(def)).unwrap()
     };
-  if out != def {
+  if out != def && verbose{
     log!("Changed value for options.{}: from: {}, to: {}", key, def, out);
   }
   return out;
 }
 
-fn parse_u64(value: &str, key: &str, strict: bool, def: u64) -> u64 {
-  return parse_f64(value, key, strict, def as f64) as u64;
+fn parse_u64(value: &str, key: &str, strict: bool, def: u64, verbose: bool) -> u64 {
+  return parse_f64(value, key, strict, def as f64, verbose) as u64;
 }
 
-fn parse_string(value: String, key: &str, strict: bool, def: String) -> String {
-  let out = _parse_string(value, key, strict, &def);
-  if out != def {
+fn parse_string(value: String, key: &str, strict: bool, def: String, verbose: bool) -> String {
+  let out = _parse_string(value, key, strict, &def, verbose);
+  if out != def && verbose {
     log!("Changed value for options.{}: from: {}, to: {}", key, def, out);
   }
   return out;
 }
-fn _parse_string(value: String, key: &str, strict: bool, def: &String) -> String {
-  log!("what the bloody fuck: {:?}", value.clone().chars().next().unwrap());
+fn _parse_string(value: String, key: &str, strict: bool, def: &String, verbose: bool) -> String {
   if value.starts_with("\"") {
     if !value.ends_with("\"") {
       if strict {
         panic!("Missing double quote at end of value; options.{}, value = `{:?}`", key, value);
       } else {
-        log!("Missing double quote at end of value; options.{}, value = `{:?}`", key, value);
+        if verbose { log!("Missing double quote at end of value; options.{}, value = `{:?}`", key, value); }
         return def.clone();
       }
     }
@@ -259,7 +262,7 @@ fn _parse_string(value: String, key: &str, strict: bool, def: &String) -> String
       if strict {
         panic!("Missing single quote at end of value; options.{}, value = `{:?}`", key, value);
       } else {
-        log!("Missing single quote at end of value; options.{}, value = `{:?}`", key, value);
+        if verbose { log!("Missing single quote at end of value; options.{}, value = `{:?}`", key, value); }
         return def.clone();
       }
     }
@@ -268,7 +271,7 @@ fn _parse_string(value: String, key: &str, strict: bool, def: &String) -> String
     if strict {
       panic!("Unable to strict parse string for options.{}; value was `{:?}`, {}, {}", key, value, value.starts_with("\""), value.starts_with("'"));
     } else {
-      log!("Unable to parse string for options.{}; value was `{:?}`", key, value);
+      if verbose { log!("Unable to parse string for options.{}; value was `{:?}`", key, value); }
       return def.clone();
     }
   }
@@ -278,6 +281,8 @@ fn _parse_string(value: String, key: &str, strict: bool, def: &String) -> String
 
 pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
   log!("parse_options_into()");
+
+  let mut verbose = options.print_options_string;
 
   let trimmed = input.trim().clone().split('\n');
   trimmed.for_each(|line| {
@@ -289,79 +294,83 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
         Some((name, value)) => {
           let name = name.trim();
           let value = value.trim();
-          log!("- updating options.{} to `{}`", name, value);
+
+          if name == "print_options_string" { verbose = value == "true"; }
+          if verbose { log!("- updating options.{} to `{}`", name, value); }
 
           match name {
-            "options_started_from_source" => options.options_started_from_source = parse_u64(value, name, strict, options.options_started_from_source),
-            "initial_map_from_source" => options.initial_map_from_source = parse_u64(value, name, strict, options.initial_map_from_source),
-            "print_choices" => options.print_choices = parse_bool(value, name, strict, options.print_choices),
-            "print_choices_belt" => options.print_choices_belt = parse_bool(value, name, strict, options.print_choices_belt),
-            "print_choices_machine" => options.print_choices_machine = parse_bool(value, name, strict, options.print_choices_machine),
-            "print_choices_supply" => options.print_choices_supply = parse_bool(value, name, strict, options.print_choices_supply),
-            "print_choices_demand" => options.print_choices_demand = parse_bool(value, name, strict, options.print_choices_demand),
-            "print_moves" => options.print_moves = parse_bool(value, name, strict, options.print_moves),
-            "print_moves_belt" => options.print_moves_belt = parse_bool(value, name, strict, options.print_moves_belt),
-            "print_moves_machine" => options.print_moves_machine = parse_bool(value, name, strict, options.print_moves_machine),
-            "print_moves_supply" => options.print_moves_supply = parse_bool(value, name, strict, options.print_moves_supply),
-            "print_moves_demand" => options.print_moves_demand = parse_bool(value, name, strict, options.print_moves_demand),
-            "print_price_deltas" => options.print_price_deltas = parse_bool(value, name, strict, options.print_price_deltas),
-            "print_machine_actions" => options.print_machine_actions = parse_bool(value, name, strict, options.print_machine_actions),
-            "print_factory_interval" => options.print_factory_interval = parse_u64(value, name, strict, options.print_factory_interval),
-            "print_stats_interval" => options.print_stats_interval = parse_u64(value, name, strict, options.print_stats_interval),
-            "print_auto_layout_debug" => options.print_auto_layout_debug = parse_bool(value, name, strict, options.print_auto_layout_debug),
-            "print_fmd_trace" => options.print_fmd_trace = parse_bool(value, name, strict, options.print_fmd_trace),
-            "trace_priority_step" => options.trace_priority_step = parse_bool(value, name, strict, options.trace_priority_step),
-            "trace_porting_step" => options.trace_porting_step = parse_bool(value, name, strict, options.trace_porting_step),
-            "trace_map_parsing" => options.trace_map_parsing = parse_bool(value, name, strict, options.trace_map_parsing),
-            "print_priority_tile_order" => options.print_priority_tile_order = parse_bool(value, name, strict, options.print_priority_tile_order),
-            "print_initial_table" => options.print_initial_table = parse_bool(value, name, strict, options.print_initial_table),
-            "draw_part_borders" => options.draw_part_borders = parse_bool(value, name, strict, options.draw_part_borders),
-            "draw_part_char_icon" => options.draw_part_char_icon = parse_bool(value, name, strict, options.draw_part_char_icon),
-            "draw_part_kind" => options.draw_part_kind = parse_bool(value, name, strict, options.draw_part_kind),
-            "draw_port_arrows" => options.draw_port_arrows = parse_bool(value, name, strict, options.draw_port_arrows),
-            "paint_belts" => options.paint_belts = parse_bool(value, name, strict, options.paint_belts),
-            "draw_belt_dbg_id" => options.draw_belt_dbg_id = parse_bool(value, name, strict, options.draw_belt_dbg_id),
-            "draw_zone_hovers" => options.draw_zone_hovers = parse_bool(value, name, strict, options.draw_zone_hovers),
-            "enable_craft_menu_circle" => options.enable_craft_menu_circle = parse_bool(value, name, strict, options.enable_craft_menu_circle),
-            "enable_craft_menu_interact" => options.enable_craft_menu_interact = parse_bool(value, name, strict, options.enable_craft_menu_interact),
-            "draw_ui_section_border" => options.draw_ui_section_border = parse_bool(value, name, strict, options.draw_ui_section_border),
-            "ui_section_border_color" => options.ui_section_border_color = parse_string(value.to_string(), name, strict, options.ui_section_border_color.clone()),
-            "short_term_window" => options.short_term_window = parse_u64(value, name, strict, options.short_term_window),
-            "long_term_window" => options.long_term_window = parse_u64(value, name, strict, options.long_term_window),
-            "bouncer_decay_rate_modifier" => options.bouncer_decay_rate_modifier = parse_f64(value, name, strict, options.bouncer_decay_rate_modifier),
-            "bouncer_amplitude_decay_rate" => options.bouncer_amplitude_decay_rate = parse_f64(value, name, strict, options.bouncer_amplitude_decay_rate),
-            "bouncer_wave_decay_rate" => options.bouncer_wave_decay_rate = parse_f64(value, name, strict, options.bouncer_wave_decay_rate),
-            "bouncer_initial_angle" => options.bouncer_initial_angle = parse_f64(value, name, strict, options.bouncer_initial_angle),
-            "bouncer_angular_freq" => options.bouncer_angular_freq = parse_f64(value, name, strict, options.bouncer_angular_freq),
-            "bouncer_time_to_factory" => options.bouncer_time_to_factory = parse_f64(value, name, strict, options.bouncer_time_to_factory),
-            "bouncer_decay_speed" => options.bouncer_decay_speed = parse_f64(value, name, strict, options.bouncer_decay_speed),
-            "speed_modifier_floor" => options.speed_modifier_floor = parse_f64(value, name, strict, options.speed_modifier_floor),
-            "speed_modifier_ui" => options.speed_modifier_ui = parse_f64(value, name, strict, options.speed_modifier_ui),
-            "bouncer_trail_time" => options.bouncer_trail_time = parse_f64(value, name, strict, options.bouncer_trail_time),
-            "bouncer_fade_time" => options.bouncer_fade_time = parse_f64(value, name, strict, options.bouncer_fade_time),
-            "bouncer_stamp_interval" => options.bouncer_stamp_interval = parse_u64(value, name, strict, options.bouncer_stamp_interval),
-            "bouncer_stop_after" => options.bouncer_stop_after = parse_f64(value, name, strict, options.bouncer_stop_after),
-            "bouncer_formula_total_distance" => options.bouncer_formula_total_distance = parse_f64(value, name, strict, options.bouncer_formula_total_distance),
-            "splash_keep_loader" => options.splash_keep_loader = parse_bool(value, name, strict, options.splash_keep_loader),
-            "splash_no_loader" => options.splash_no_loader = parse_bool(value, name, strict, options.splash_no_loader),
-            "splash_keep_main" => options.splash_keep_main = parse_bool(value, name, strict, options.splash_keep_main),
-            "splash_no_main" => options.splash_no_main = parse_bool(value, name, strict, options.splash_no_main),
-            "touch_drag_compensation" => options.touch_drag_compensation = parse_bool(value, name, strict, options.touch_drag_compensation),
-            "game_enable_clean_days" => options.game_enable_clean_days = parse_bool(value, name, strict, options.game_enable_clean_days),
-            "game_auto_reset_day" => options.game_auto_reset_day = parse_bool(value, name, strict, options.game_auto_reset_day),
-            "dropzone_color_offset" => options.dropzone_color_offset = parse_u64(value, name, strict, options.dropzone_color_offset),
-            "dropzone_bounce_speed" => options.dropzone_bounce_speed = parse_u64(value, name, strict, options.dropzone_bounce_speed),
-            "dropzone_bounce_distance" => options.dropzone_bounce_distance = parse_u64(value, name, strict, options.dropzone_bounce_distance),
-            "web_output_cli" => options.web_output_cli = parse_bool(value, name, strict, options.web_output_cli),
-            "initial_event_type_swapped" => options.initial_event_type_swapped = parse_bool(value, name, strict, options.initial_event_type_swapped),
-            "dbg_trash_is_joker" => options.dbg_trash_is_joker = parse_bool(value, name, strict, options.dbg_trash_is_joker),
-            "db_joker_corrupts_factory" => options.db_joker_corrupts_factory = parse_bool(value, name, strict, options.db_joker_corrupts_factory),
-            "dbg_machine_produce_trash" => options.dbg_machine_produce_trash = parse_bool(value, name, strict, options.dbg_machine_produce_trash),
-            "dbg_clickable_quotes" => options.dbg_clickable_quests = parse_bool(value, name, strict, options.dbg_clickable_quests),
-            "dbg_print_quest_states" => options.dbg_print_quest_states = parse_bool(value, name, strict, options.dbg_print_quest_states),
-            "default_demand_speed" => options.default_demand_speed = parse_u64(value, name, strict, options.default_demand_speed),
-            "default_demand_cooldown" => options.default_demand_cooldown = parse_u64(value, name, strict, options.default_demand_cooldown),
-            "test" => options.test = parse_u64(value, name, strict, options.test),
+            "print_options_string" => options.print_options_string = parse_bool(value, name, strict, options.print_options_string, verbose),
+            "options_started_from_source" => options.options_started_from_source = parse_u64(value, name, strict, options.options_started_from_source, verbose),
+            "initial_map_from_source" => options.initial_map_from_source = parse_u64(value, name, strict, options.initial_map_from_source, verbose),
+            "print_choices" => options.print_choices = parse_bool(value, name, strict, options.print_choices, verbose),
+            "print_choices_belt" => options.print_choices_belt = parse_bool(value, name, strict, options.print_choices_belt, verbose),
+            "print_choices_machine" => options.print_choices_machine = parse_bool(value, name, strict, options.print_choices_machine, verbose),
+            "print_choices_supply" => options.print_choices_supply = parse_bool(value, name, strict, options.print_choices_supply, verbose),
+            "print_choices_demand" => options.print_choices_demand = parse_bool(value, name, strict, options.print_choices_demand, verbose),
+            "print_moves" => options.print_moves = parse_bool(value, name, strict, options.print_moves, verbose),
+            "print_moves_belt" => options.print_moves_belt = parse_bool(value, name, strict, options.print_moves_belt, verbose),
+            "print_moves_machine" => options.print_moves_machine = parse_bool(value, name, strict, options.print_moves_machine, verbose),
+            "print_moves_supply" => options.print_moves_supply = parse_bool(value, name, strict, options.print_moves_supply, verbose),
+            "print_moves_demand" => options.print_moves_demand = parse_bool(value, name, strict, options.print_moves_demand, verbose),
+            "print_price_deltas" => options.print_price_deltas = parse_bool(value, name, strict, options.print_price_deltas, verbose),
+            "print_machine_actions" => options.print_machine_actions = parse_bool(value, name, strict, options.print_machine_actions, verbose),
+            "print_factory_interval" => options.print_factory_interval = parse_u64(value, name, strict, options.print_factory_interval, verbose),
+            "print_stats_interval" => options.print_stats_interval = parse_u64(value, name, strict, options.print_stats_interval, verbose),
+            "print_auto_layout_debug" => options.print_auto_layout_debug = parse_bool(value, name, strict, options.print_auto_layout_debug, verbose),
+            "print_fmd_trace" => options.print_fmd_trace = parse_bool(value, name, strict, options.print_fmd_trace, verbose),
+            "print_img_loader_trace" => options.print_img_loader_trace = parse_bool(value, name, strict, options.print_img_loader_trace, verbose),
+            "trace_priority_step" => options.trace_priority_step = parse_bool(value, name, strict, options.trace_priority_step, verbose),
+            "trace_porting_step" => options.trace_porting_step = parse_bool(value, name, strict, options.trace_porting_step, verbose),
+            "trace_map_parsing" => options.trace_map_parsing = parse_bool(value, name, strict, options.trace_map_parsing, verbose),
+            "print_priority_tile_order" => options.print_priority_tile_order = parse_bool(value, name, strict, options.print_priority_tile_order, verbose),
+            "print_initial_table" => options.print_initial_table = parse_bool(value, name, strict, options.print_initial_table, verbose),
+            "draw_part_borders" => options.draw_part_borders = parse_bool(value, name, strict, options.draw_part_borders, verbose),
+            "draw_part_char_icon" => options.draw_part_char_icon = parse_bool(value, name, strict, options.draw_part_char_icon, verbose),
+            "draw_part_kind" => options.draw_part_kind = parse_bool(value, name, strict, options.draw_part_kind, verbose),
+            "draw_port_arrows" => options.draw_port_arrows = parse_bool(value, name, strict, options.draw_port_arrows, verbose),
+            "paint_belts" => options.paint_belts = parse_bool(value, name, strict, options.paint_belts, verbose),
+            "draw_belt_dbg_id" => options.draw_belt_dbg_id = parse_bool(value, name, strict, options.draw_belt_dbg_id, verbose),
+            "draw_zone_hovers" => options.draw_zone_hovers = parse_bool(value, name, strict, options.draw_zone_hovers, verbose),
+            "enable_craft_menu_circle" => options.enable_craft_menu_circle = parse_bool(value, name, strict, options.enable_craft_menu_circle, verbose),
+            "enable_craft_menu_interact" => options.enable_craft_menu_interact = parse_bool(value, name, strict, options.enable_craft_menu_interact, verbose),
+            "draw_ui_section_border" => options.draw_ui_section_border = parse_bool(value, name, strict, options.draw_ui_section_border, verbose),
+            "ui_section_border_color" => options.ui_section_border_color = parse_string(value.to_string(), name, strict, options.ui_section_border_color.clone(), verbose),
+            "short_term_window" => options.short_term_window = parse_u64(value, name, strict, options.short_term_window, verbose),
+            "long_term_window" => options.long_term_window = parse_u64(value, name, strict, options.long_term_window, verbose),
+            "bouncer_decay_rate_modifier" => options.bouncer_decay_rate_modifier = parse_f64(value, name, strict, options.bouncer_decay_rate_modifier, verbose),
+            "bouncer_amplitude_decay_rate" => options.bouncer_amplitude_decay_rate = parse_f64(value, name, strict, options.bouncer_amplitude_decay_rate, verbose),
+            "bouncer_wave_decay_rate" => options.bouncer_wave_decay_rate = parse_f64(value, name, strict, options.bouncer_wave_decay_rate, verbose),
+            "bouncer_initial_angle" => options.bouncer_initial_angle = parse_f64(value, name, strict, options.bouncer_initial_angle, verbose),
+            "bouncer_angular_freq" => options.bouncer_angular_freq = parse_f64(value, name, strict, options.bouncer_angular_freq, verbose),
+            "bouncer_time_to_factory" => options.bouncer_time_to_factory = parse_f64(value, name, strict, options.bouncer_time_to_factory, verbose),
+            "bouncer_decay_speed" => options.bouncer_decay_speed = parse_f64(value, name, strict, options.bouncer_decay_speed, verbose),
+            "speed_modifier_floor" => options.speed_modifier_floor = parse_f64(value, name, strict, options.speed_modifier_floor, verbose),
+            "speed_modifier_ui" => options.speed_modifier_ui = parse_f64(value, name, strict, options.speed_modifier_ui, verbose),
+            "bouncer_trail_time" => options.bouncer_trail_time = parse_f64(value, name, strict, options.bouncer_trail_time, verbose),
+            "bouncer_fade_time" => options.bouncer_fade_time = parse_f64(value, name, strict, options.bouncer_fade_time, verbose),
+            "bouncer_stamp_interval" => options.bouncer_stamp_interval = parse_u64(value, name, strict, options.bouncer_stamp_interval, verbose),
+            "bouncer_stop_after" => options.bouncer_stop_after = parse_f64(value, name, strict, options.bouncer_stop_after, verbose),
+            "bouncer_formula_total_distance" => options.bouncer_formula_total_distance = parse_f64(value, name, strict, options.bouncer_formula_total_distance, verbose),
+            "splash_keep_loader" => options.splash_keep_loader = parse_bool(value, name, strict, options.splash_keep_loader, verbose),
+            "splash_no_loader" => options.splash_no_loader = parse_bool(value, name, strict, options.splash_no_loader, verbose),
+            "splash_keep_main" => options.splash_keep_main = parse_bool(value, name, strict, options.splash_keep_main, verbose),
+            "splash_no_main" => options.splash_no_main = parse_bool(value, name, strict, options.splash_no_main, verbose),
+            "touch_drag_compensation" => options.touch_drag_compensation = parse_bool(value, name, strict, options.touch_drag_compensation, verbose),
+            "game_enable_clean_days" => options.game_enable_clean_days = parse_bool(value, name, strict, options.game_enable_clean_days, verbose),
+            "game_auto_reset_day" => options.game_auto_reset_day = parse_bool(value, name, strict, options.game_auto_reset_day, verbose),
+            "dropzone_color_offset" => options.dropzone_color_offset = parse_u64(value, name, strict, options.dropzone_color_offset, verbose),
+            "dropzone_bounce_speed" => options.dropzone_bounce_speed = parse_u64(value, name, strict, options.dropzone_bounce_speed, verbose),
+            "dropzone_bounce_distance" => options.dropzone_bounce_distance = parse_u64(value, name, strict, options.dropzone_bounce_distance, verbose),
+            "web_output_cli" => options.web_output_cli = parse_bool(value, name, strict, options.web_output_cli, verbose),
+            "initial_event_type_swapped" => options.initial_event_type_swapped = parse_bool(value, name, strict, options.initial_event_type_swapped, verbose),
+            "dbg_trash_is_joker" => options.dbg_trash_is_joker = parse_bool(value, name, strict, options.dbg_trash_is_joker, verbose),
+            "db_joker_corrupts_factory" => options.db_joker_corrupts_factory = parse_bool(value, name, strict, options.db_joker_corrupts_factory, verbose),
+            "dbg_machine_produce_trash" => options.dbg_machine_produce_trash = parse_bool(value, name, strict, options.dbg_machine_produce_trash, verbose),
+            "dbg_clickable_quotes" => options.dbg_clickable_quests = parse_bool(value, name, strict, options.dbg_clickable_quests, verbose),
+            "dbg_print_quest_states" => options.dbg_print_quest_states = parse_bool(value, name, strict, options.dbg_print_quest_states, verbose),
+            "default_demand_speed" => options.default_demand_speed = parse_u64(value, name, strict, options.default_demand_speed, verbose),
+            "default_demand_cooldown" => options.default_demand_cooldown = parse_u64(value, name, strict, options.default_demand_cooldown, verbose),
+            "test" => options.test = parse_u64(value, name, strict, options.test, verbose),
             _ => {
               log!("  - ignoring `{}` because it is an unknown option or because it needs to be added to the options parser", name);
             }
@@ -379,6 +388,7 @@ pub fn options_serialize(options: &Options) -> String {
   let mut arr = vec!();
   arr.push(format!("- options_started_from_source: {}", options.options_started_from_source));
   arr.push(format!("- initial_map_from_source: {}", options.initial_map_from_source));
+  arr.push(format!("- print_options_string: {}", options.print_options_string));
   arr.push(format!("- print_choices: {}", options.print_choices));
   arr.push(format!("- print_choices_belt: {}", options.print_choices_belt));
   arr.push(format!("- print_choices_machine: {}", options.print_choices_machine));
@@ -395,6 +405,7 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- print_stats_interval: {}", options.print_stats_interval));
   arr.push(format!("- print_auto_layout_debug: {}", options.print_auto_layout_debug));
   arr.push(format!("- print_fmd_trace: {}", options.print_fmd_trace));
+  arr.push(format!("- print_img_loader_trace: {}", options.print_img_loader_trace));
   arr.push(format!("- trace_priority_step: {}", options.trace_priority_step));
   arr.push(format!("- trace_porting_step: {}", options.trace_porting_step));
   arr.push(format!("- trace_map_parsing: {}", options.trace_map_parsing));

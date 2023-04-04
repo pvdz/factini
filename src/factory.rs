@@ -55,13 +55,25 @@ pub struct Factory {
   pub day_corrupted: bool, // Used trash as jokers to create parts in machines?
 }
 
-pub fn create_factory(options: &mut Options, state: &mut State, config: &Config, floor_str: String) -> Factory {
+pub fn create_factory(options: &Options, state: &mut State, config: &Config, floor_str: String) -> Factory {
   let ( floor, unlocked_part_icons ) = floor_from_str(options, state, config, &floor_str);
   let available_parts: Vec<PartKind> = unlocked_part_icons.iter().map(|icon| part_icon_to_kind(config,*icon)).collect();
-  let available_parts_rhs_menu: Vec<(PartKind, bool)> = available_parts.iter().map(|kind| ( *kind, true )).collect();
+  let available_parts_rhs_menu: Vec<(PartKind, bool)> = available_parts.iter().filter(|part| {
+    // Search for this part in the default story (system nodes) and the current active story.
+    // If it is part of the node list for either story then include it, otherwise exclude it.
+    for (story_index, (story_node_index, story_nodes, _story_quests)) in config.stories.iter().enumerate() {
+      if story_index == 0 || story_index == state.active_story_index {
+        if story_nodes.contains(&(**part as usize)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }).map(|kind| ( *kind, true )).collect();
   let quests = get_fresh_quest_states(options, state, config, 0, &available_parts);
-  let machines = factory_collect_machines(&floor);
-  log!("initial available_parts: {:?}", available_parts.iter().map(|index| config.nodes[*index].name.clone()).collect::<Vec<_>>());
+  log!("initial available_parts (all): {:?}", available_parts.iter().map(|index| (index, config.nodes[*index].name.clone())).collect::<Vec<_>>());
+  log!("initial available_parts (active story): {:?}", available_parts_rhs_menu.iter().map(|(index, _)| config.nodes[*index].name.clone()).collect::<Vec<_>>());
+  log!("active story {} nodes: {:?}", state.active_story_index, config.stories[state.active_story_index].1);
   log!("available quests: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| quest.name.clone()).collect::<Vec<_>>());
   log!("target quest parts: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| config.nodes[quest.production_part_index].name.clone()).collect::<Vec<_>>());
 
@@ -76,7 +88,7 @@ pub fn create_factory(options: &mut Options, state: &mut State, config: &Config,
     curr_day_progress: 0.0,
     finished_at: 0,
     finished_with: 0,
-    machines,
+    machines: vec!(),
     supplied: 0,
     produced: 0,
     accepted: 0,
@@ -88,7 +100,9 @@ pub fn create_factory(options: &mut Options, state: &mut State, config: &Config,
 
   auto_layout(options, state, config, &mut factory);
   auto_ins_outs(options, state, config, &mut factory);
+  factory.machines = factory_collect_machines(&factory.floor);
   let prio = create_prio_list(options, config, &mut factory.floor);
+
   factory.prio = prio;
   factory.changed = false;
   return factory;
@@ -160,6 +174,7 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
               if factory.quests[quest_index].production_part_index == received_part_index {
                 factory.quests[quest_index].production_progress += received_count;
                 if factory.quests[quest_index].production_progress >= factory.quests[quest_index].production_target {
+                  log!("quest_update_status: production progress exceeds target, we finished {}", config.nodes[factory.quests[quest_index].config_node_index].raw_name);
                   quest_update_status(&mut factory.quests[quest_index], QuestStatus::FadingAndBouncing, factory.ticks);
                   factory.quests[quest_index].bouncer.bounce_from_index = visible_index;
                   factory.quests[quest_index].bouncer.bouncing_at = factory.ticks;
@@ -180,6 +195,7 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
 
               let fade_progress = ((factory.ticks - factory.quests[quest_index].status_at) as f64 / QUEST_FADE_TIME as f64).min(1.0);
               if fade_progress >= 1.0 {
+                log!("quest_update_status: fade finished {}", config.nodes[factory.quests[quest_index].config_node_index].raw_name);
                 quest_update_status(&mut factory.quests[quest_index], QuestStatus::Finished, factory.ticks);
               }
             }
@@ -230,6 +246,18 @@ pub fn factory_load_map(options: &mut Options, state: &mut State, config: &Confi
   log!("available_parts_rhs_menu (1): {:?}", factory.available_parts_rhs_menu);
   factory.floor = floor;
   let available_parts: Vec<PartKind> = unlocked_part_icons.iter().map(|icon| part_icon_to_kind(config,*icon)).collect();
+  let available_parts: Vec<PartKind> = available_parts.iter().filter(|part| {
+    // Search for this part in the default story (system nodes) and the current active story.
+    // If it is part of the node list for either story then include it, otherwise exclude it.
+    for (story_index, (story_node_index, story_nodes, _story_quests)) in config.stories.iter().enumerate() {
+      if story_index == 0 || story_index == state.active_story_index {
+        if story_nodes.contains(&(**part as usize)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }).map(|&x| x).collect();
   let available_parts_rhs_menu = available_parts.iter().map(|kind| (*kind, true)).collect();
   factory.available_parts_rhs_menu = available_parts_rhs_menu;
   log!("available_parts_rhs_menu (2): {:?}", factory.available_parts_rhs_menu);
@@ -237,6 +265,7 @@ pub fn factory_load_map(options: &mut Options, state: &mut State, config: &Confi
   log!("new current_active_quests: {:?}", factory.quests.iter().map(|quest| config.nodes[quest.config_node_index as usize].name.clone()).collect::<Vec<String>>().join(", "));
   auto_layout(options, state, config, factory);
   auto_ins_outs(options, state, config, factory);
+  factory.machines = factory_collect_machines(&factory.floor);
   // TODO: I think we can move this (and other steps) to the factory.changed steps but there's some time between this place and the changed place
   let prio = create_prio_list(options, config, &mut factory.floor);
   factory.prio = prio;
@@ -258,6 +287,7 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
     if factory.quests[quest_current_index].status == QuestStatus::FadingAndBouncing {
       let fade_progress = ((factory.ticks - factory.quests[quest_current_index].status_at) as f64 / (QUEST_FADE_TIME as f64 * options.speed_modifier_ui)).min(1.0);
       if fade_progress >= 1.0 {
+        log!("quest_update_status: fade also finished {}", config.nodes[factory.quests[quest_current_index].config_node_index].raw_name);
         quest_update_status(&mut factory.quests[quest_current_index], QuestStatus::Bouncing, factory.ticks);
       }
     }
@@ -298,6 +328,7 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
               factory.quests[quest_unlock_search_index].unlocks_todo.remove(unlock_index);
               if factory.quests[quest_unlock_search_index].unlocks_todo.len() == 0 {
 
+                log!("quest_update_status: unlocks todo is zero so it goes brrr {}", config.nodes[factory.quests[quest_unlock_search_index].config_node_index].raw_name);
                 quest_update_status(&mut factory.quests[quest_unlock_search_index], QuestStatus::Active, factory.ticks);
                 for i in 0..config.nodes[factory.quests[quest_unlock_search_index].config_node_index].starting_part_by_index.len() {
                   let part = config.nodes[factory.quests[quest_unlock_search_index].config_node_index].starting_part_by_index[i];
@@ -351,15 +382,22 @@ pub fn factory_tick_trucks(options: &mut Options, state: &mut State, config: &Co
 }
 
 pub fn factory_collect_machines(floor: &[Cell; FLOOR_CELLS_WH]) -> Vec<usize> {
+  let mut unique = 0;
   let machines =
     floor
     .iter()
     .enumerate()
-    .filter(|(index, cell)| { return cell.kind == CellKind::Machine && cell.machine.main_coord == *index; })
+    .filter(|(index, cell)| {
+      let is_main = cell.kind == CellKind::Machine && cell.machine.main_coord == *index;
+      if is_main {
+        unique += 1;
+      }
+      return is_main;
+    })
     .map(|(index, cell)| { return index; })
     .collect::<Vec<usize>>();
 
-  log!("factory_collect_machines(): {}", machines.len());
+  log!("factory_collect_machines(): cells: {}, unique: {}", machines.len(), unique);
 
   return machines;
 }

@@ -41,36 +41,47 @@ fn quote_get_status_first_pass(config: &Config, config_node_index: usize, availa
   // Have you already unlocked this goal part? If not then you can't even start to unlock this quest.
   // If all parts are unlocked then this quest is considered at least active (maybe even finished)
   if quest.production_target_by_index.len() > 0 && quest.production_target_by_index.iter().all(|(_count, node_index)| available_parts.contains(node_index)) {
+    log!("quote_get_status_first_pass: {} is active because production_target_by_index.len>0 and all of them are available", config_node_index);
     return QuestStatus::Active;
   }
 
   // If this quest has no requirements and all its parts aren't already unlocked then it is active
-  if quest.required_by_quest_indexes.len() == 0 {
+  if quest.unlocks_after_by_index.len() == 0 {
+    log!("quote_get_status_first_pass: {} is active because production_target_by_index.len==0", config_node_index);
     return QuestStatus::Active;
   }
 
+  log!("quote_get_status_first_pass: {} is waiting", config_node_index);
   // Start awaiting. Another loop will determine if they are active.
   return QuestStatus::Waiting;
 }
 
-pub fn get_fresh_quest_states(options: &mut Options, state: &mut State, config: &Config, ticks: u64, available_parts: &Vec<PartKind>) -> Vec<QuestState> {
+pub fn get_fresh_quest_states(options: &Options, state: &mut State, config: &Config, ticks: u64, available_parts: &Vec<PartKind>) -> Vec<QuestState> {
   // Map config quest nodes to fresh vector of quest states and make sure their
   // states are correctly initialized based on the current available parts.
   // If parts is empty then only initial quests will be active.
 
-  log!("get_fresh_quest_states()");
+  log!("get_fresh_quest_states() {:?}: {:?}", config.nodes[config.stories[state.active_story_index].0].raw_name, config.stories[1]);
 
-  let mut quests: Vec<QuestState> = config.quest_nodes_by_index.iter().enumerate().map(|(quest_index, &config_node_index)| {
-    let status = quote_get_status_first_pass(config, config_node_index, available_parts, quest_index);
-    let unlock_requirement_indexes = config.nodes[config_node_index].unlocks_after_by_index.iter().map(|&index| config.nodes[index].quest_index).collect::<Vec<usize>>();
+  let mut quests: Vec<QuestState> = config.stories[state.active_story_index].2.iter().enumerate().map(|(quest_index, &quest_node_index)| {
+    // log!("- quest {} node {}", quest_index, quest_node_index);
+    // log!("node: {:?}", config.nodes[quest_node_index]);
+    let status = quote_get_status_first_pass(config, quest_node_index, available_parts, quest_index);
+    // log!("  - status: {:?}", status);
+    let unlock_requirement_indexes = config.nodes[quest_node_index].unlocks_after_by_index.iter().map(|&index| config.nodes[index].quest_index).collect::<Vec<usize>>();
+    // log!("  - unlock_requirement_indexes: {:?}", unlock_requirement_indexes);
+    let production_part_index = config.nodes[quest_node_index].production_target_by_index[0].1;
+    // log!("  - production_part_index: {:?}", production_part_index);
+    let production_target = config.nodes[quest_node_index].production_target_by_index[0].0;
+    // log!("  - production_target: {:?}", production_target);
     return QuestState {
-      name: config.nodes[config_node_index].name.clone(),
+      name: config.nodes[quest_node_index].name.clone(),
       quest_index,
-      config_node_index,
+      config_node_index: quest_node_index,
       unlocks_todo: unlock_requirement_indexes,
-      production_part_index: config.nodes[config_node_index as usize].production_target_by_index[0].1,
+      production_part_index,
       production_progress: 0,
-      production_target: config.nodes[config_node_index as usize].production_target_by_index[0].0,
+      production_target,
       status,
       status_at: ticks,
       bouncer: Bouncer {
@@ -94,30 +105,39 @@ pub fn get_fresh_quest_states(options: &mut Options, state: &mut State, config: 
     }
   }).collect::<Vec<QuestState>>();
 
+  log!("initial quest states: {:?}", quests.iter().map(|q| q.status).collect::<Vec<_>>());
+
+  log!("checking active quests...");
   let mut changed = true;
   while changed {
     changed = false;
-    for index in 0..quests.len() {
-      let status = quests[index].status;
+    for quest_index in 0..quests.len() {
+      let status = quests[quest_index].status;
       if status == QuestStatus::Active {
-        // If all this quest is active and at least one quest that depends on this one is
+        log!("Quest {} is active", quest_index);
+        // If this quest is active and at least one quest that depends on this one is
         // also active, or finished, then this quest must also be finished.
         // While this would also be true for quests that are waiting, you still need to finish
         // that quest in order to unlock the part. So that's just a save game glitch we'll allow.
         let mut all = true;
         let mut has_any = false;
         for i in 0..quests.len() {
-          if quests[i].unlocks_todo.contains(&index) {
+          if quests[i].unlocks_todo.contains(&quest_index) {
+
+            all = false;
             has_any = true;
+            log!("Quest {} is a todo of {} which has status {:?}", quest_index, i, quests[i].status);
             if quests[i].status != QuestStatus::Active && quests[i].status != QuestStatus::FadingAndBouncing {
               all = false;
+              break;
             }
           }
         }
         // Finish this quest if all sub-quests that depend on it are active or finished but
         // only if there is at least one such sub quest (never finish the final quest(s))
         if has_any && all {
-          quest_update_status(&mut quests[index], QuestStatus::FadingAndBouncing, 0);
+          log!("quest_update_status: all sub quests are finished so finishing {}", config.nodes[quests[quest_index].config_node_index].raw_name);
+          quest_update_status(&mut quests[quest_index], QuestStatus::FadingAndBouncing, 0);
           changed = true;
         }
       }

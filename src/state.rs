@@ -27,6 +27,7 @@ pub const UNDO_STACK_SIZE: usize = 100;
 pub struct State {
   pub pregame: bool, // Showing main screen or loading screen?
   pub paused: bool,
+  pub active_story_index: usize, // Story quest/parts that are currently used
   pub mouse_mode_mirrored: bool, // Note: all this really does is flip the lmb and rmb actions but we need this toggle for touch-only mode
   pub event_type_swapped: bool, // Treat a mouse event like a touch event and a touch event like a mouse event? (Mostly for debugging)
   pub mouse_mode_selecting: bool,
@@ -243,13 +244,14 @@ pub struct Laser {
   pub color: String,
 }
 
-pub fn state_create() -> State {
+pub fn state_create(options: &Options) -> State {
   return State {
     pregame: true,
     paused: false,
+    active_story_index: 1, // 0=system. dont default to 0.
     reset_next_frame: false,
     mouse_mode_mirrored: false,
-    event_type_swapped: false,
+    event_type_swapped: options.initial_event_type_swapped,
     mouse_mode_selecting: false,
     selected_area_copy: vec!(),
     test: false,

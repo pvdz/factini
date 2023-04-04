@@ -18,14 +18,11 @@ use super::truck::*;
 use super::utils::*;
 use super::log;
 
-pub fn init(config: &Config, map_str: String) -> ( Options, State, Factory ) {
-  // Static state configuration (can still be changed by user)
-  let mut options = create_options(1.0, 1.0);
-
+pub fn init(options: &Options, config: &Config, map_str: String) -> ( State, Factory ) {
   // General app state
-  let mut state = state_create();
+  let mut state = state_create(options);
 
-  let mut factory = create_factory(&mut options, &mut state, &config, map_str);
+  let mut factory = create_factory(options, &mut state, &config, map_str);
   let parts = config_get_available_parts(config);
   log!("available_parts_rhs_menu (4): {:?}", factory.available_parts_rhs_menu);
 
@@ -34,7 +31,7 @@ pub fn init(config: &Config, map_str: String) -> ( Options, State, Factory ) {
 
   factory.changed = true; // Store the initial map
 
-  return ( options, state, factory );
+  return ( state, factory );
 }
 
 // @deprecated

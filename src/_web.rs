@@ -31,6 +31,7 @@
 // - config_node_dock -> asset
 // - paint_supply_and_part_for_edge and paint_dock_stripes should use paint_asset
 // - cut up the config.md
+// - again button broken (maybe while truck in flight?)
 
 // Letters!
 
@@ -184,13 +185,14 @@ pub fn start() -> Result<(), JsValue> {
 
   context.set_image_smoothing_enabled(false);
 
-  pub fn load_config(print_fmd_trace: bool, config_str: String) -> Config {
-    let mut config = parse_fmd(print_fmd_trace, config_str);
+  pub fn load_config(print_img_loader_trace: bool, config: &mut Config) {
+    log!("load_config(options.print_img_loader_trace={})", print_img_loader_trace);
 
-    if print_fmd_trace {
+    if print_img_loader_trace {
+      log!("  - Nodes that want to load a file:");
       config.nodes.iter().for_each(|node| {
         if node.sprite_config.frames[0].file != "" {
-          log!("node `{}` wants to load `{}` at canvas index {}", node.raw_name, node.sprite_config.frames[0].file, node.sprite_config.frames[0].file_canvas_cache_index);
+          log!("    - node `{}` wants to load `{}` at canvas index {}", node.raw_name, node.sprite_config.frames[0].file, node.sprite_config.frames[0].file_canvas_cache_index);
         }
       });
     }
@@ -204,7 +206,7 @@ pub fn start() -> Result<(), JsValue> {
     let mut boxed: Vec<Option<web_sys::HtmlImageElement>> =
       config.sprite_cache_order.iter().enumerate().map(|(index, src)| {
         if image_loader_prio.contains(&index) {
-          log!("Loading {} with prio", src);
+          if print_img_loader_trace { log!("Loading {} with prio", src); }
           return Some(load_tile(src.clone().as_str()));
         }
         return None;
@@ -219,10 +221,9 @@ pub fn start() -> Result<(), JsValue> {
     config.sprite_cache_canvas = boxed.into_iter().filter_map(|e| e).collect();
 
     config.sprite_cache_loading = true;
-    log!("Queued up {} images to load...", config.sprite_cache_canvas.len());
 
-    if print_fmd_trace { log!("Loading {} sprite files for the parts: {:?}", config.sprite_cache_canvas.len(), config.sprite_cache_lookup); }
-    else { log!("Loading {} sprite files (enable print_fmd_trace for details)", config.sprite_cache_canvas.len()); }
+    if print_img_loader_trace { log!("Queued up {} sprite files for these parts: {:?}", config.sprite_cache_canvas.len(), config.sprite_cache_lookup); }
+    else { log!("Queued up {} sprite files to load...", config.sprite_cache_canvas.len()); }
 
     {
       let kinds: JsValue = [ConfigNodeKind::Part, ConfigNodeKind::Quest, ConfigNodeKind::Supply, ConfigNodeKind::Demand, ConfigNodeKind::Dock, ConfigNodeKind::Machine, ConfigNodeKind::Belt].iter().map(|&kind| {
@@ -235,6 +236,7 @@ pub fn start() -> Result<(), JsValue> {
           ConfigNodeKind::Dock => "Dock",
           ConfigNodeKind::Machine => "Machine",
           ConfigNodeKind::Belt => "Belt",
+          ConfigNodeKind::Story => "Story",
         });
       }).collect::<js_sys::Array>().into();
 
@@ -245,14 +247,28 @@ pub fn start() -> Result<(), JsValue> {
         vec!(JsValue::from("nodes"), nodes).iter().collect::<js_sys::Array>(),
       ).iter().collect::<js_sys::Array>().into());
     }
-
-    return config;
   }
 
-  // Load game "level" and part content config dynamic so we don't have to recompile it for
-  // ingame changes relating to parts and unlock order of them. This config includes sprite details.
-  let def_options = create_options(0.0, 0.0);
-  let mut config = load_config(def_options.print_fmd_trace, getGameConfig());
+  // Static state configuration (can still be changed by user). Prefer localStorage over options.md
+  let mut options = create_options(1.0, 1.0);
+  // If there are options in localStorage, apply them now
+  let saved_options = {
+    log!("onload: Reading options from localStorage");
+    let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+    local_storage.get_item("factini.options").unwrap()
+  };
+  let ( option_string, options_started_from_source ) = match saved_options {
+    Some(str) => {
+      log!("Using options json from localStorage ({} bytes)", str.len());
+      ( str, false )
+    },
+    None => ( getGameOptions(), true ),
+  };
+  let options_started_from_source = if options_started_from_source { 0 } else { option_string.len() as u64 };
+  parse_and_save_options_string(option_string.clone(), &mut options, true, options_started_from_source, true);
+
+  let mut config = parse_fmd(options.print_fmd_trace, getGameConfig());
+  load_config(options.print_img_loader_trace, &mut config);
 
   let img_loading_sand: web_sys::HtmlImageElement = load_tile("./img/sand.png");
 
@@ -467,8 +483,11 @@ pub fn start() -> Result<(), JsValue> {
     }
   };
   let initial_map_from_source = if initial_map_from_source { 0 } else { initial_map.len() as u64 };
-  let ( mut options, mut state, mut factory ) = init(&config, initial_map);
+  options.initial_map_from_source = initial_map_from_source;
+  let ( mut state, mut factory ) = init(&mut options, &config, initial_map);
   let mut quick_saves: [Option<QuickSave>; 9] = [(); 9].map(|_| None);
+
+  state_add_examples(getExamples(), &mut state);
 
   let ( saved_map1, saved_png1, saved_map2, saved_png2, saved_map3, saved_png3, saved_map4, saved_png4 ) = {
     let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
@@ -489,22 +508,6 @@ pub fn start() -> Result<(), JsValue> {
   if let Some(saved_map) = saved_map3 { if let Some(saved_png) = saved_png3 { quick_saves[2] = Some(quick_save_create(2, &document, saved_map, saved_png)); } }
   if let Some(saved_map) = saved_map4 { if let Some(saved_png) = saved_png4 { quick_saves[3] = Some(quick_save_create(3, &document, saved_map, saved_png)); } }
 
-  let saved_options = {
-    let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
-    local_storage.get_item("factini.options").unwrap()
-  };
-  let ( option_string, options_started_from_source ) = match saved_options {
-    Some(str) => {
-      log!("Using options json from localStorage ({} bytes)", str.len());
-      ( str, false )
-    },
-    None => ( getGameOptions(), true ),
-  };
-  let options_started_from_source = if options_started_from_source { 0 } else { option_string.len() as u64 };
-  options.initial_map_from_source = initial_map_from_source;
-  parse_and_save_options_string(option_string, &mut options, true, options_started_from_source, true);
-  state.event_type_swapped = options.initial_event_type_swapped;
-  state_add_examples(getExamples(), &mut state);
 
   if options.print_initial_table {
     print_floor_with_views(&mut options, &mut state, &mut factory);
@@ -821,7 +824,10 @@ pub fn start() -> Result<(), JsValue> {
       match queued_action.as_str() {
         "apply_options" => parse_and_save_options_string(getGameOptions(), &mut options, false, options_started_from_source, false),
         "load_map" => state.reset_next_frame = true, // implicitly will call getGameMap() which loads the map from UI indirectly
-        "load_config" => config = load_config(options.print_fmd_trace, getGameConfig()), // Might crash the game
+        "load_config" => {
+          let mut config = parse_fmd(options.print_fmd_trace, getGameConfig());
+          load_config(options.print_img_loader_trace, &mut config);
+        }, // Might crash the game
         "" => {},
         _ => panic!("getAction() returned an unsupported value: `{}`", queued_action),
       }
@@ -1826,7 +1832,7 @@ fn on_up_quest(options: &Options, state: &State, config: &Config, factory: &mut 
         continue;
       }
       if visible_index == mouse_state.up_quest_visible_index {
-        log!("  satisfying quest {} to production target", quest_index);
+        log!("  quest_update_status: satisfying quest {} to production target", quest_index);
         factory.quests[quest_index].production_progress = factory.quests[quest_index].production_target;
         quest_update_status(&mut factory.quests[quest_index], QuestStatus::FadingAndBouncing, factory.ticks);
         factory.quests[quest_index].bouncer.bounce_from_index = visible_index;
@@ -2698,8 +2704,19 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
     MenuButton::Row3Button4 => {
       log!("Clearing the unlock status so you can start again");
       let available_parts = config_get_initial_unlocks(options, state, config);
-      factory.available_parts_rhs_menu = available_parts.iter().map(|icon| ( part_icon_to_kind(config,*icon), true ) ).collect();
-      factory.quests = get_fresh_quest_states(options, state, config, 0, &available_parts.iter().map(|icon| part_icon_to_kind(config,*icon) ).collect());
+      factory.available_parts_rhs_menu = available_parts.iter().map(|icon| ( part_icon_to_kind(config,*icon), true ) ).filter(|(part, _visible)| {
+        // Search for this part in the default story (system nodes) and the current active story.
+        // If it is part of the node list for either story then include it, otherwise exclude it.
+        for (story_index, (story_node_index, story_nodes, _story_quests)) in config.stories.iter().enumerate() {
+          if story_index == 0 || story_index == state.active_story_index {
+            if story_nodes.contains(&(*part as usize)) {
+              return true;
+            }
+          }
+        }
+        return false;
+      }).collect();
+      factory.quests = get_fresh_quest_states(options, state, config, 0, &factory.available_parts_rhs_menu.iter().map(|(kind, _visible)| *kind).collect());
       factory.changed = true;
     }
     MenuButton::Row3Button5 => {
@@ -5484,16 +5501,18 @@ fn unpart(options: &mut Options, state: &mut State, config: &Config, factory: &m
 }
 
 fn parse_and_save_options_string(option_string: String, options: &mut Options, strict: bool, options_started_from_source: u64, on_load: bool) {
-  log!("parse_and_save_options_string():\n{} with {}", option_string, options_started_from_source);
+  log!("parse_and_save_options_string(options.print_options_string = ?) {} (len = {})", if options_started_from_source > 0 { "from source" } else { "compiled defaults" }, option_string.len());
   let bak = options.initial_map_from_source;
-  parse_options_into(option_string, options, true);
+  parse_options_into(option_string.clone(), options, true);
   options.options_started_from_source = options_started_from_source; // This prop will be overwritten by the above, first
   options.initial_map_from_source = bak; // Do not overwrite this.
   let exp = options_serialize(options);
 
-  log!("Storing options into browser localStorage... ({} bytes)", exp.len());
+  if options.print_options_string { log!("{}", option_string); } // Default is on but localStorage could turn this off
+
   let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
   if !on_load {
+    log!("parse_and_save_options_string: Storing options into browser localStorage... ({} bytes)", exp.len());
     local_storage.set_item("factini.options", exp.as_str()).unwrap();
   }
 

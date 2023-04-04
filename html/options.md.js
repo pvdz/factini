@@ -1,6 +1,7 @@
 const GAME_OPTIONS = `
 - options_started_from_source: 0
 - initial_map_from_source: 0
+- print_options_string: true
 - print_choices: false
 - print_choices_belt: false
 - print_choices_machine: false
@@ -17,6 +18,7 @@ const GAME_OPTIONS = `
 - print_stats_interval: 100000
 - print_auto_layout_debug: false
 - print_fmd_trace: false
+- print_img_loader_trace: false
 - trace_priority_step: false
 - trace_porting_step: false
 - trace_map_parsing: false

@@ -21,7 +21,7 @@ use super::supply::*;
 use super::utils::*;
 use super::log;
 
-pub fn floor_from_str(options: &mut Options, state: &mut State, config: &Config, str: &String) -> ( [Cell; FLOOR_CELLS_WH], Vec<char> ) {
+pub fn floor_from_str(options: &Options, state: &mut State, config: &Config, str: &String) -> ( [Cell; FLOOR_CELLS_WH], Vec<char> ) {
   if str.trim().len() == 0 {
     return (floor_empty(config), vec!());
   }
@@ -29,7 +29,7 @@ pub fn floor_from_str(options: &mut Options, state: &mut State, config: &Config,
   return str_to_floor2(options, state, config, str);
 }
 
-fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str: &String) -> ([Cell; FLOOR_CELLS_WH], Vec<char>) {
+fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &String) -> ([Cell; FLOOR_CELLS_WH], Vec<char>) {
   // Given a string in a grid format, generate a floor
   // The string starts with at least one line of config.
   // - For now the only modifier are the dimension of the hardcoded 11x11
@@ -111,7 +111,8 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
   // om = b         -> g s:0  d:4x4
   // $ abc
 
-  log!("str_to_floor2(options.trace_map_parsing={}):\n{}", options.trace_map_parsing, str);
+  log!("str_to_floor2(options.trace_map_parsing={})", options.trace_map_parsing);
+  if options.trace_map_parsing { log!("{}", str); }
 
   let mut floor: [Cell; FLOOR_CELLS_WH] = floor_empty(config);
   // Populate the unlocked icons by at least the ones that unlock by default
@@ -192,7 +193,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
         }
 
         // Okay, we now have a proper width and height and it matches the current hardcoded values. Move along.
-        log!("Map size: {} x {}", w, h);
+        if options.trace_map_parsing { log!("Map size: {} x {}", w, h); }
       }
       _ => {}
     }
@@ -258,7 +259,7 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
       let port_d = h;
       let port_l = d;
 
-      fn add_machine(options: &mut Options, state: &mut State, config: &Config, floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, x: usize, y: usize, cell_kind: char, machine_main_coords: &mut [usize; 63], port_u: char, port_r: char, port_d: char, port_l: char) {
+      fn add_machine(options: &Options, state: &mut State, config: &Config, floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, x: usize, y: usize, cell_kind: char, machine_main_coords: &mut [usize; 63], port_u: char, port_r: char, port_d: char, port_l: char) {
         // Auto layout will have to reconcile the individual machine parts into one machine
         // Any modifiers as well as the input and output parameters of this machine are
         // listed below the floor model. Expect them to be filled in later.
@@ -666,11 +667,13 @@ fn str_to_floor2(options: &mut Options, state: &mut State, config: &Config, str:
               }
             },
             '$' => {
+              if options.trace_map_parsing { log!("Parsing $ unlocked parts list:"); }
+              // Unlocked parts icons.
               // Expect a-zA-Z or >127. Spaces are skipped. Stops at EOL, EOF, or #
               loop {
 
                 let c = line.next().or(Some('#')).unwrap();
-                log!("c: {} : {}", c, c as u32);
+                if options.trace_map_parsing { log!("unlocked part icon: `{}` : ascii {}", c, c as u32); }
                 if c == '#' { break; }
                 if c != ' ' {
                   if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c as u8 > 127) { panic!("Unexpected input on line {} while parsing available parts ($): input characters must be a-zA-Z or non-ascii, found `{}` ({})", line_no, c, c as u8); }
