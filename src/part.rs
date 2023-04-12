@@ -78,5 +78,5 @@ pub fn part_kind_to_icon(config: &Config, kind: PartKind) -> char {
 pub fn part_to_sprite_coord_from_config(config: &Config, belt_type: PartKind) -> (f64, f64, f64, f64, &web_sys::HtmlImageElement ) {
   assert!((belt_type as usize) < config.nodes.len(), "part kind should be a node index: {} < {}", belt_type, config.nodes.len());
 
-  return config_get_sprite_details(config, belt_type as usize, 0, true, 0);
+  return config_get_sprite_details(config, belt_type as usize, 0, 0);
 }

@@ -9,6 +9,7 @@ Note: Supply, Demand, and Dock names are hardcoded.
 - frame_offset: 0
 - frame_delay: 150
 - loop_delay: 50
+- looping: false
 - frame: 1
   - file: ./img/supplier_up_anim_v2.png
   - y: 0
@@ -34,6 +35,7 @@ Note: Supply, Demand, and Dock names are hardcoded.
 - frame_offset: 0
 - frame_delay: 150
 - loop_delay: 50
+- looping: false
 - frame: 1
   - file: ./img/supplier_right_anim_v2.png
   - y: 0
@@ -59,6 +61,7 @@ Note: Supply, Demand, and Dock names are hardcoded.
 - frame_offset: 0
 - frame_delay: 150
 - loop_delay: 50
+- looping: false
 - frame: 1
   - file: ./img/supplier_down_anim_v2.png
   - y: 0
@@ -84,6 +87,7 @@ Note: Supply, Demand, and Dock names are hardcoded.
 - frame_offset: 0
 - frame_delay: 150
 - loop_delay: 50
+- looping: false
 - frame: 1
   - file: ./img/supplier_left_anim_v2.png
   - y: 0
@@ -114,6 +118,7 @@ Note: Supply, Demand, and Dock names are hardcoded.
 - frame_delay: 100
 - loop_delay: 50
 - loop_backwards: true
+- looping: false
 - frame: 1
   - file: ./img/demander_anim_up.png
   - y: 0
@@ -140,6 +145,7 @@ Note: Supply, Demand, and Dock names are hardcoded.
 - frame_delay: 100
 - loop_delay: 50
 - loop_backwards: true
+- looping: false
 - frame: 1
   - file: ./img/demander_anim_right.png
   - y: 0
@@ -166,6 +172,7 @@ Note: Supply, Demand, and Dock names are hardcoded.
 - frame_delay: 100
 - loop_backwards: true
 - loop_delay: 50
+- looping: false
 - frame: 1
   - file: ./img/demander_anim_down.png
   - y: 0
@@ -189,9 +196,10 @@ Note: Supply, Demand, and Dock names are hardcoded.
 
 # Demand_Left
 - frame_offset: 0
-- frame_delay: 100
+- frame_delay: 200
 - loop_backwards: true
 - loop_delay: 50
+- looping: false
 - frame: 1
   - file: ./img/demander_anim_left.png
   - y: 0

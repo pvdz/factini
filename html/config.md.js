@@ -35,9 +35,9 @@ These are the known node kinds:
 * Asset: hardcoded parts of the game, so you can skin them (update their looks/animation)
 * Quest: the set of unlocks
 * Part: the parts which you are to combine to fulfill quests
-* Demand: the demander cell animation (where parts should end up), one for each orientation
-* Supply: the supplier cell animation (where raw materials are given), one for each orientation
-* Dock: the backdrop for the edge, one for each orientation
+* Demand: the demander cell animation (where parts should end up), one for each orientation. Special kind of Asset.
+* Supply: the supplier cell animation (where raw materials are given), one for each orientation. Special kind of Asset.
+* Dock: the backdrop for the edge, one for each orientation. Special kind of Asset.
 * Machine: machine cells. Only a handful are defined and currently only one is actually ever used at all.
 * Belt: animation for belt cells.
   * The game maintains a hardcoded list of brute force variations for all port states of a belt cell
@@ -69,8 +69,9 @@ Supported animation properties:
 * "frame_count": This defines how many frames the animation will have, even if fewer are defined. If fewer are defined, that many will be cloned from the last and appended, anyways.
 * "frame_direction": Defines whether an animation goes forwards or backwards.
 * "frame_delay": Expected animation frame delay in Factory ticks. Cannot be set per frame. 
+* "looping": Does the animation repeat at all?
 * "loop_delay": Pause at the end of each animation before starting the next loop, in Factory ticks.
-* "loop_backwards": Basically defines whether the loop starts from the first or "reverses" the animation until the start, like a bounce. This must be either "true" or anything else to mean "false".
+* "loop_backwards": Basically defines whether the loop starts from the first or "reverses" the animation until the start, like a bounce. This must be either "true" or anything else to mean "false". Irrelevant of "looping" state, despite the name.
 * "frame": This starts the definition of the next frame of the animation.
   * The text that follows "frame" will be its raw name, although it's not actually used.
   * The name is not an index and you cannot refer to specific frame indexes at all.

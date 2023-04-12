@@ -28,8 +28,6 @@
 // - updating machine should open machines
 // - help the player
 //   - create tutorial
-// - config_node_dock -> asset
-// - paint_supply_and_part_for_edge and paint_dock_stripes should use paint_asset
 
 // Letters!
 
@@ -3229,10 +3227,10 @@ fn paint_world_cli(context: &Rc<web_sys::CanvasRenderingContext2d>, options: &mu
     context.fill_text(format!("{}", lines[n]).as_str(), 50.0, (n as f64) * 24.0 + 50.0).expect("something lower error fill_text");
   }
 }
-fn paint_supply_and_part_for_edge(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, cx: usize, cy: usize, part_index: PartKind) {
+fn paint_supply_and_part_for_edge(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, cx: usize, cy: usize, part_index: PartKind) {
   let ox = UI_FLOOR_OFFSET_X + CELL_W * (cx as f64);
   let oy = UI_FLOOR_OFFSET_Y + CELL_H * (cy as f64);
-  let dock_target =
+  let supply_config_node =
     if cy == 0 {
       CONFIG_NODE_SUPPLY_UP
     } else if cx == FLOOR_CELLS_W-1 {
@@ -3244,12 +3242,7 @@ fn paint_supply_and_part_for_edge(options: &Options, state: &State, config: &Con
     } else {
       panic!("no");
     };
-  // TODO: should we offer the option to draw the dock behind in case of semi-transparent supply imgs?
-  context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-    &config.sprite_cache_canvas[config.nodes[dock_target].sprite_config.frames[0].file_canvas_cache_index],
-    config.nodes[dock_target].sprite_config.frames[0].x, config.nodes[dock_target].sprite_config.frames[0].y, config.nodes[dock_target].sprite_config.frames[0].w, config.nodes[dock_target].sprite_config.frames[0].h,
-    ox, oy, CELL_W, CELL_H
-  ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+  paint_asset(&options, &state, &config, &context, supply_config_node, factory.ticks, ox, oy, CELL_W, CELL_H);
   paint_segment_part_from_config(options, state, config, context, part_index, ox + CELL_W/4.0, oy + CELL_H/4.0, CELL_W/2.0, CELL_H/2.0);
 }
 fn paint_supply_and_part_not_edge(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, ox: f64, oy: f64, part_index: PartKind) {
@@ -3288,6 +3281,7 @@ fn paint_dock_stripes(
   options: &Options,
   state: &State,
   config: &Config,
+  factory: &Factory,
   context: &Rc<web_sys::CanvasRenderingContext2d>,
   dock_target: usize,
   ox: f64,
@@ -3298,11 +3292,7 @@ fn paint_dock_stripes(
   // Paint the loading docks, which is where the suppliers and demanders can go
   context.set_global_alpha(0.5); // TODO: the alpha should probably be governed by the image (semi-trans) or a configurable setting...
   // Paint the dock image for non-corner edge cells
-  context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-    &config.sprite_cache_canvas[config.nodes[dock_target].sprite_config.frames[0].file_canvas_cache_index],
-    config.nodes[dock_target].sprite_config.frames[0].x, config.nodes[dock_target].sprite_config.frames[0].y, config.nodes[dock_target].sprite_config.frames[0].w, config.nodes[dock_target].sprite_config.frames[0].h,
-    ox, oy, w, h
-  ).expect("something error draw_image()"); // requires web_sys HtmlImageElement feature
+  paint_asset(&options, &state, &config, &context, dock_target, factory.ticks, ox, oy, w, h);
   context.set_global_alpha(1.0);
 }
 fn paint_background_tiles1(
@@ -3343,7 +3333,7 @@ fn paint_background_tiles1(
             continue;
           };
 
-        paint_dock_stripes(options, state, config, context, dock_target, ox, oy, CELL_W, CELL_H);
+        paint_dock_stripes(options, state, config, factory, context, dock_target, ox, oy, CELL_W, CELL_H);
       },
       CellKind::Belt => {
         paint_factory_belt(options, state, config, factory, coord, context, ox, oy, CELL_W, CELL_H);
@@ -4097,7 +4087,7 @@ fn paint_mouse_while_dragging_offer(options: &Options, state: &State, config: &C
   else {
     // Only edge. No point in dumping into machine, I guess? Maybe as an expensive supply? Who cares?
     if is_edge_not_corner(mouse_state.cell_x_floored, mouse_state.cell_y_floored) {
-      paint_supply_and_part_for_edge(options, state, config, context, mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize, part_index);
+      paint_supply_and_part_for_edge(options, state, config, factory, context, mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize, part_index);
     } else {
       paint_supply_and_part_not_edge(options, state, config, context, mouse_state.world_x - ((CELL_W as f64) / 2.0), mouse_state.world_y - ((CELL_H as f64) / 2.0), part_index);
     }
@@ -4680,7 +4670,7 @@ fn paint_ui_offer(
     context.set_fill_style(&"#c99110".into());
     context.fill_rect(x, y, UI_OFFER_WIDTH, UI_OFFER_HEIGHT);
   } else {
-    paint_dock_stripes(options, state, config, context, CONFIG_NODE_DOCK_UP, x, y, UI_OFFER_WIDTH, UI_OFFER_HEIGHT);
+    paint_dock_stripes(options, state, config, factory, context, CONFIG_NODE_DOCK_UP, x, y, UI_OFFER_WIDTH, UI_OFFER_HEIGHT);
   }
 
   let px = x + (UI_OFFER_WIDTH / 2.0) - (CELL_W / 2.0);
@@ -5211,9 +5201,14 @@ fn paint_asset(options: &Options, state: &State, config: &Config, context: &Rc<w
   return paint_asset_raw(options, state, config, context, config_node_index, ticks, dx, dy, dw, dh);
 }
 fn paint_asset_raw(options: &Options, state: &State, config: &Config, context: &web_sys::CanvasRenderingContext2d, config_node_index: usize, ticks: u64, dx: f64, dy: f64, dw: f64, dh: f64) -> bool {
-  assert!(config.nodes[config_node_index].kind == ConfigNodeKind::Asset, "assets should refer to Asset nodes but received index: {}, kind: {:?}, node: {:?}", config_node_index, config.nodes[config_node_index].kind, config.nodes[config_node_index]);
+  assert!(
+    config.nodes[config_node_index].kind == ConfigNodeKind::Asset ||
+      config.nodes[config_node_index].kind == ConfigNodeKind::Dock ||
+      config.nodes[config_node_index].kind == ConfigNodeKind::Supply ||
+      config.nodes[config_node_index].kind == ConfigNodeKind::Demand
+    , "assets should refer to Asset, Dock, Supply, or Demand nodes but received index: {}, kind: {:?}, node: {:?}", config_node_index, config.nodes[config_node_index].kind, config.nodes[config_node_index]);
 
-  let (spx, spy, spw, sph, canvas) = config_get_sprite_details(config, config_node_index, 0, true, ticks);
+  let (spx, spy, spw, sph, canvas) = config_get_sprite_details(config, config_node_index, 0, ticks);
 
   // let (spx, spy, spw, sph, canvas) = asset_to_sprite_coord_from_config(config, config_node_index);
   // if bug { log!("meh? {} {} {} {}: {:?} --> {:?}", spx, spy, spw, sph, segment_part_index, config.nodes[segment_part_index]); }
@@ -5411,7 +5406,7 @@ fn paint_supplier(options: &Options, state: &State, config: &Config, factory: &F
       panic!("no");
     };
 
-  let (spx, spy, spw, sph, canvas) = config_get_sprite_details(config, supply_kind, sprite_start_at, false, ticks);
+  let (spx, spy, spw, sph, canvas) = config_get_sprite_details(config, supply_kind, sprite_start_at, ticks);
 
   context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
     &canvas,
@@ -5424,7 +5419,7 @@ fn paint_supplier(options: &Options, state: &State, config: &Config, factory: &F
 
 fn paint_demander(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, dx: f64, dy: f64, dw: f64, dh: f64, last_part_at: u64, ticks: u64, coord: usize) {
   let (x, y) = to_xy(coord);
-  let demand_kind =
+  let demand_config_node =
     if y == 0 {
       CONFIG_NODE_DEMAND_UP
     } else if x == FLOOR_CELLS_W-1 {
@@ -5437,34 +5432,7 @@ fn paint_demander(options: &Options, state: &State, config: &Config, factory: &F
       panic!("no");
     };
 
-  // TODO: do not loop
-  let (spx, spy, spw, sph, canvas) = config_get_sprite_details(config, demand_kind, last_part_at, false, ticks);
-
-  context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-    &canvas,
-    // Sprite position
-    spx, spy, spw, sph,
-    // Paint onto canvas at
-    dx, dy, dw, dh,
-  ).expect("paint_demander() something error draw_image"); // requires web_sys HtmlImageElement feature
-
-  // return
-  //
-  //
-  // let dock_dir =
-  //   match dir {
-  //     Direction::Up => CONFIG_NODE_DEMAND_UP,
-  //     Direction::Right => CONFIG_NODE_DEMAND_RIGHT,
-  //     Direction::Down => CONFIG_NODE_DEMAND_DOWN,
-  //     Direction::Left => CONFIG_NODE_DEMAND_LEFT,
-  //   };
-  //
-  // // TODO: should we offer the option to draw the dock behind in case of semi-transparent supply imgs?
-  // context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-  //   &config.sprite_cache_canvas[config.nodes[dock_dir].sprite_config.frames[0].file_canvas_cache_index],
-  //   config.nodes[dock_dir].sprite_config.frames[0].x, config.nodes[dock_dir].sprite_config.frames[0].y, config.nodes[dock_dir].sprite_config.frames[0].w, config.nodes[dock_dir].sprite_config.frames[0].h,
-  //   ox, oy, dw, dh
-  // ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+  paint_asset(&options, &state, &config, &context, demand_config_node, factory.ticks - last_part_at, dx, dy, dw, dh);
 }
 
 fn request_animation_frame(f: &Closure<dyn FnMut(f64)>) {

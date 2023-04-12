@@ -811,6 +811,9 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
             "frame_delay" => {
               nodes[current_node_index].sprite_config.frame_delay = value_raw.parse::<u64>().or::<Result<u32, &str>>(Ok(0)).unwrap();
             }
+            "looping" => {
+              nodes[current_node_index].sprite_config.looping = value_raw == "true";
+            }
             "loop_delay" => {
               nodes[current_node_index].sprite_config.loop_delay = value_raw.parse::<u64>().or::<Result<u32, &str>>(Ok(0)).unwrap();
             }
@@ -2227,19 +2230,10 @@ fn config_node_story(index: PartKind, name: &str) -> ConfigNode {
   };
 }
 
-pub fn config_get_sprite_details(config: &Config, config_index: usize, sprite_start_at: u64, looping: bool, ticks: u64) -> (f64, f64, f64, f64, &web_sys::HtmlImageElement) {
+pub fn config_get_sprite_details(config: &Config, config_index: usize, sprite_start_at: u64, ticks: u64) -> (f64, f64, f64, f64, &web_sys::HtmlImageElement) {
   assert!(config_index < config.nodes.len(), "config_index should be a node index: {} < {}", config_index, config.nodes.len());
   let node = &config.nodes[config_index];
   let sprite_config = &node.sprite_config;
-
-  // Which frame should be considered to be the first? Frame index.
-  // - frame_offset: usize,
-  // Show the initial frame this long before starting the rest of the animation
-  // - initial_delay: u64,
-  // Show each frame for this long (pause between frames)
-  // - frame_delay: u64,
-  // Restart animation after last frame was shown?
-  // - looping: bool,
 
   let frame_offset = sprite_config.frame_offset;
 
@@ -2253,6 +2247,7 @@ pub fn config_get_sprite_details(config: &Config, config_index: usize, sprite_st
   let loop_delay = sprite_config.loop_delay.max(0);
   let progress = ticks - (sprite_start_at + sprite_config.initial_delay);
   let frame_duration_loop = frame_count as u64 * frame_delay;
+  let looping = sprite_config.looping;
   let loop_duration = frame_count as u64 * frame_delay + loop_delay;
   let current_loop = if looping { progress % loop_duration.max(1) } else { progress.max(1).min(loop_duration - 1) };
   let frame_index = (current_loop / sprite_config.frame_delay.max(1)) as usize;
@@ -2341,7 +2336,7 @@ pub fn config_to_jsvalue(config: &Config) -> JsValue {
 }
 
 pub fn config_get_sprite_for_belt_type(config: &Config, belt_type: BeltType, sprite_start_at: u64, ticks: u64) -> (f64, f64, f64, f64, &web_sys::HtmlImageElement) {
-  return config_get_sprite_details(config, belt_type as usize, sprite_start_at, true, ticks);
+  return config_get_sprite_details(config, belt_type as usize, sprite_start_at, ticks);
 }
 
 pub const EXAMPLE_CONFIG: &str = "
