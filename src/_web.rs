@@ -31,7 +31,6 @@
 // - config_node_dock -> asset
 // - paint_supply_and_part_for_edge and paint_dock_stripes should use paint_asset
 // - cut up the config.md
-// - again button broken (maybe while truck in flight?)
 
 // Letters!
 
@@ -2716,6 +2715,7 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
         }
         return false;
       }).collect();
+      factory.trucks = vec!();
       factory.quests = get_fresh_quest_states(options, state, config, 0, &factory.available_parts_rhs_menu.iter().map(|(kind, _visible)| *kind).collect());
       factory.changed = true;
     }
