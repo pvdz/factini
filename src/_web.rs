@@ -30,7 +30,6 @@
 //   - create tutorial
 // - config_node_dock -> asset
 // - paint_supply_and_part_for_edge and paint_dock_stripes should use paint_asset
-// - cut up the config.md
 
 // Letters!
 
