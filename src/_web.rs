@@ -24,10 +24,12 @@
 // - hover over craftable offer should highlight craft-inputs (offers)
 // - unblock animations
 //   - car polish; should make nice corners, should drive same speed to any height
+//   - fix item animation in and out of suppliers/demanders. looks ugly rn
+//   - certain things should be painted as a background layer once
 // - click edge to add supplier. click supplier/demander to toggle.
-// - updating machine should open machines
 // - help the player
 //   - create tutorial
+// - back to the training thing idea?
 
 // Letters!
 
@@ -1540,7 +1542,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         }
         ZONE_FLOOR => {
           if mouse_state.dragging_offer {
-            on_drag_end_offer_over_floor(options, state, config, factory, mouse_state);
+            on_drag_end_offer_over_floor(options, state, config, factory, mouse_state, cell_selection);
           }
           else if mouse_state.down_menu_button == MenuButton::FactoryButton {
             if mouse_state.dragging_machine {
@@ -2107,7 +2109,7 @@ fn on_drag_end_offer_over_craft(options: &mut Options, state: &mut State, config
     log!("Dropped an offer in the middle on a craft menu but not on the machine. Ignoring...");
   }
 }
-fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
+fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState, cell_selection: &mut CellSelection) {
   log!("on_drag_end_offer_over_floor()");
 
   let last_mouse_up_cell_x = mouse_state.last_up_cell_x.floor();
@@ -2186,7 +2188,7 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
     if factory.floor[coord].kind == CellKind::Machine {
       let main_coord = factory.floor[coord].machine.main_coord;
       if config.nodes[dragged_part_index].pattern_unique_kinds.len() > 0 {
-        log!("Dropped an offer with pattern on a machine. Update the machine!");
+        log!("Dropped an offer _with_ pattern on a machine. Update the machine!");
         // Update machine to the pattern of the dragged part
         for want_index in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
           let part_index = config.nodes[dragged_part_index].pattern_by_index.get(want_index).unwrap_or(&PARTKIND_NONE);
@@ -2194,21 +2196,29 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
           // Make sure the haves are cleared as well
           factory.floor[main_coord].machine.haves[want_index] = part_none(config);
         }
+        cell_selection.on = true;
+        cell_selection.area = false;
+        cell_selection.x = last_mouse_up_cell_x;
+        cell_selection.y = last_mouse_up_cell_y;
+        cell_selection.coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
       }
       else {
-        // Add dragged offer pattern to machine want list, if possible
-        log!("Dropped an offer without pattern on a machine. Update the machine!");
-        // Find first empty spot and fill it.
-        for want_index in 0..factory.floor[main_coord].machine.wants.len() {
-          if factory.floor[main_coord].machine.wants[want_index].kind == PARTKIND_NONE {
-            log!("Machine want index {} is empty. Filling now with {}", want_index, dragged_part_index);
-            machine_change_want_kind(options, state, config, factory, main_coord, want_index, dragged_part_index);
-            // Make sure the haves are cleared as well
-            factory.floor[main_coord].machine.haves[want_index] = part_none(config);
-            break;
-          }
-        }
+        log!("Dropped an offer without pattern on a machine. Ignoring.");
       }
+      // else {
+      //   // Add dragged offer pattern to machine want list, if possible
+      //   log!("Dropped an offer _without_ pattern on a machine. Update the machine!");
+      //   // Find first empty spot and fill it.
+      //   for want_index in 0..factory.floor[main_coord].machine.wants.len() {
+      //     if factory.floor[main_coord].machine.wants[want_index].kind == PARTKIND_NONE {
+      //       log!("Machine want index {} is empty. Filling now with {}", want_index, dragged_part_index);
+      //       machine_change_want_kind(options, state, config, factory, main_coord, want_index, dragged_part_index);
+      //       // Make sure the haves are cleared as well
+      //       factory.floor[main_coord].machine.haves[want_index] = part_none(config);
+      //       break;
+      //     }
+      //   }
+      // }
     } else {
       log!("Dropped an offer in the floor but not on a machine. Ignoring...");
     }
