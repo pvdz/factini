@@ -61,9 +61,9 @@ pub fn create_factory(options: &Options, state: &mut State, config: &Config, flo
   let available_parts_rhs_menu: Vec<(PartKind, bool)> = available_parts.iter().filter(|part| {
     // Search for this part in the default story (system nodes) and the current active story.
     // If it is part of the node list for either story then include it, otherwise exclude it.
-    for (story_index, (story_node_index, story_nodes, _story_quests)) in config.stories.iter().enumerate() {
+    for (story_index, story) in config.stories.iter().enumerate() {
       if story_index == 0 || story_index == state.active_story_index {
-        if story_nodes.contains(&(**part as usize)) {
+        if story.part_nodes.contains(&(**part as usize)) {
           return true;
         }
       }
@@ -73,7 +73,7 @@ pub fn create_factory(options: &Options, state: &mut State, config: &Config, flo
   let quests = get_fresh_quest_states(options, state, config, 0, &available_parts);
   log!("initial available_parts (all): {:?}", available_parts.iter().map(|index| (index, config.nodes[*index].name.clone())).collect::<Vec<_>>());
   log!("initial available_parts (active story): {:?}", available_parts_rhs_menu.iter().map(|(index, _)| config.nodes[*index].name.clone()).collect::<Vec<_>>());
-  log!("active story {} nodes: {:?}", state.active_story_index, config.stories[state.active_story_index].1);
+  log!("active story {} nodes: {:?}", state.active_story_index, config.stories[state.active_story_index].part_nodes);
   log!("available quests: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| quest.name.clone()).collect::<Vec<_>>());
   log!("target quest parts: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| config.nodes[quest.production_part_index].name.clone()).collect::<Vec<_>>());
 
@@ -249,9 +249,9 @@ pub fn factory_load_map(options: &mut Options, state: &mut State, config: &Confi
   let available_parts: Vec<PartKind> = available_parts.iter().filter(|part| {
     // Search for this part in the default story (system nodes) and the current active story.
     // If it is part of the node list for either story then include it, otherwise exclude it.
-    for (story_index, (story_node_index, story_nodes, _story_quests)) in config.stories.iter().enumerate() {
+    for (story_index, story) in config.stories.iter().enumerate() {
       if story_index == 0 || story_index == state.active_story_index {
-        if story_nodes.contains(&(**part as usize)) {
+        if story.part_nodes.contains(&(**part as usize)) {
           return true;
         }
       }

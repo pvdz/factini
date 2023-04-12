@@ -61,9 +61,9 @@ pub fn get_fresh_quest_states(options: &Options, state: &mut State, config: &Con
   // states are correctly initialized based on the current available parts.
   // If parts is empty then only initial quests will be active.
 
-  log!("get_fresh_quest_states() {:?}: {:?}", config.nodes[config.stories[state.active_story_index].0].raw_name, config.stories[1]);
+  log!("get_fresh_quest_states() {:?}: {:?}", config.nodes[config.stories[state.active_story_index].story_node_index].raw_name, config.stories[1]);
 
-  let mut quests: Vec<QuestState> = config.stories[state.active_story_index].2.iter().enumerate().map(|(quest_index, &quest_node_index)| {
+  let mut quests: Vec<QuestState> = config.stories[state.active_story_index].quest_nodes.iter().enumerate().map(|(quest_index, &quest_node_index)| {
     // log!("- quest {} node {}", quest_index, quest_node_index);
     // log!("node: {:?}", config.nodes[quest_node_index]);
     let status = quote_get_status_first_pass(config, quest_node_index, available_parts, quest_index);

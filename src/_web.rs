@@ -2707,9 +2707,9 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
       factory.available_parts_rhs_menu = available_parts.iter().map(|icon| ( part_icon_to_kind(config,*icon), true ) ).filter(|(part, _visible)| {
         // Search for this part in the default story (system nodes) and the current active story.
         // If it is part of the node list for either story then include it, otherwise exclude it.
-        for (story_index, (story_node_index, story_nodes, _story_quests)) in config.stories.iter().enumerate() {
+        for (story_index, story) in config.stories.iter().enumerate() {
           if story_index == 0 || story_index == state.active_story_index {
-            if story_nodes.contains(&(*part as usize)) {
+            if story.part_nodes.contains(&(*part as usize)) {
               return true;
             }
           }

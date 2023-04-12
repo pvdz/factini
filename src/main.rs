@@ -40,6 +40,7 @@ pub mod quote;
 pub mod sprite_config;
 pub mod sprite_frame;
 pub mod state;
+pub mod story;
 pub mod supply;
 pub mod truck;
 pub mod utils;

@@ -16,6 +16,7 @@ use super::part::*;
 use super::sprite_config::*;
 use super::sprite_frame::*;
 use super::state::*;
+use super::story::*;
 use super::utils::*;
 use super::log;
 
@@ -346,7 +347,7 @@ pub const CONFIG_NODE_STORY_DEFAULT: usize = 323;
 #[derive(Debug)]
 pub struct Config {
   pub nodes: Vec<ConfigNode>,
-  pub stories: Vec<( usize, Vec<usize>, Vec<usize> ) >, // ( story_node_index, story_nodes, quest_nodes ) The quest_nodes are same order as factory.quests. story/quest nodes map onto global nodes.
+  pub stories: Vec<Story>,
   pub part_nodes: Vec<PartKind>, // maps to nodes vec
   pub node_name_to_index: HashMap<String, PartKind>,
   pub node_pattern_to_index: HashMap<String, PartKind>,
@@ -473,9 +474,11 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   // let mut quest_nodes_by_index: Vec<usize> = vec!(); // superseded by stories
   let mut part_nodes: Vec<usize> = vec!(0, 1);
   // Stories: ( node_index, story_nodes, story_quests )
-  let mut stories: Vec<( usize, Vec<usize>, Vec<usize> ) > = vec!(
-    ( CONFIG_NODE_STORY_DEFAULT, vec!(), vec!() )
-  );
+  let mut stories: Vec<Story> = vec!(Story {
+    story_node_index: CONFIG_NODE_STORY_DEFAULT,
+    part_nodes: vec!(),
+    quest_nodes: vec!(),
+  });
 
   let mut first_frame = true;
   let mut seen_header = false;
@@ -595,17 +598,16 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
               // quest_nodes_by_index.push(node_index);
               // Register as node for the current story
               log!("Adding quest_node_index {} to story_index {}", node_index, current_story_index);
-              let ( _node_index, story_nodes, quests ) = &mut stories[current_story_index];
-              nodes[node_index].quest_index = quests.len();
-              quests.push(node_index);
-              story_nodes.push(node_index);
+              let story = &mut stories[current_story_index];
+              nodes[node_index].quest_index = story.quest_nodes.len();
+              story.quest_nodes.push(node_index);
+              story.part_nodes.push(node_index);
             },
             "Part" => {
               part_nodes.push(node_index);
               // Register as node for the current story
               if print_fmd_trace { log!("Adding part {} to stories {} / {}", node_index, current_story_index, stories.len()); }
-              let ( _node_index, story_nodes, _quests ) = &mut stories[current_story_index];
-              story_nodes.push(node_index);
+              stories[current_story_index].part_nodes.push(node_index);
             },
             "Supply" => {}
             "Demand" => {}
@@ -615,16 +617,18 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
             "Story" => {
               let mut next_story_index = stories.len();
               for (story_index, story) in stories.iter().enumerate() {
-                if story.0 == node_index {
+                if story.story_node_index == node_index {
                   next_story_index = story_index;
                 }
               }
               current_story_index = next_story_index;
               if next_story_index == stories.len() {
                 log!("Added new Story, index {}, name {}", next_story_index, nodes[node_index].raw_name);
-                stories.push(
-                  ( node_index, vec!(), vec!() )
-                );
+                stories.push(Story {
+                  story_node_index: node_index,
+                  part_nodes: vec!(),
+                  quest_nodes: vec!(),
+                });
               }
               log!("Changing to quest_index {} ({})", current_story_index, nodes[node_index].raw_name);
             },
@@ -835,9 +839,9 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   if print_fmd_trace { log!("Last node was: {:?}", nodes[nodes.len()-1]); }
   if print_fmd_trace {
     log!("+ Have {} stories:", stories.len());
-    stories.iter().for_each(|( node_index, story_nodes, quests )| {
-      log!("  - Story {}, has {} quests", nodes[*node_index].name, quests.len());
-      quests.iter().enumerate().for_each(|(i, &quest_node_index)| {
+    stories.iter().for_each(|story| {
+      log!("  - Story {}, has {} quests", nodes[story.story_node_index].name, story.quest_nodes.len());
+      story.quest_nodes.iter().enumerate().for_each(|(i, &quest_node_index)| {
         log!("    - Quest node {}: {:?}", i, nodes[quest_node_index]);
       });
     });
@@ -974,10 +978,10 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   }
 
   if print_fmd_trace { log!("+ Create quest unlocks_after_by_index and starting_part_by_index pointers"); }
-  stories.iter().for_each(|( node_index, story_nodes, quest_nodes_by_index )| {
-    if print_fmd_trace { log!("  - Story: {}", nodes[*node_index].name); }
+  stories.iter().for_each(|story| {
+    if print_fmd_trace { log!("  - Story: {}", nodes[story.story_node_index].name); }
 
-    quest_nodes_by_index.iter().for_each(|&node_index| {
+    story.quest_nodes.iter().for_each(|&node_index| {
       if print_fmd_trace { log!("    ++ quest node index = {}, name = {}, unlocks after = `{:?}`", node_index, nodes[node_index].name, nodes[node_index].unlocks_after_by_name); }
 
       let mut indices: Vec<usize> = vec!();
@@ -1036,9 +1040,9 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   });
 
   if print_fmd_trace { log!("+ Initialize the quest node states"); }
-  stories.iter().for_each(|( node_index, story_nodes, quest_nodes_by_index )| {
-    if print_fmd_trace { log!("  - Story: {}", nodes[*node_index].name); }
-    quest_nodes_by_index.iter().for_each(|&quest_index| {
+  stories.iter().for_each(|story| {
+    if print_fmd_trace { log!("  - Story: {}", nodes[story.story_node_index].name); }
+    story.quest_nodes.iter().for_each(|&quest_index| {
       if print_fmd_trace { log!("    - state loop"); }
       // If the config specified an initial state then just roll with that
       let mut changed = true;
@@ -1058,9 +1062,9 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   });
 
   if print_fmd_trace { log!("+ Initialize the part node states"); }
-  stories.iter().for_each(|( node_index, story_nodes, quest_nodes_by_index )| {
-    if print_fmd_trace { log!("  - Story: {}", nodes[*node_index].name); }
-    quest_nodes_by_index.iter().for_each(|&quest_index| {
+  stories.iter().for_each(|story| {
+    if print_fmd_trace { log!("  - Story: {}", nodes[story.story_node_index].name); }
+    story.quest_nodes.iter().for_each(|&quest_index| {
       // Clone the list of numbers because otherwise it moves. So be it.
       if print_fmd_trace { log!("    - Quest Part {} is {:?} and would enable parts {:?} ({:?})", nodes[quest_index].name, nodes[quest_index].current_state, nodes[quest_index].starting_part_by_name, nodes[quest_index].starting_part_by_index); }
       if nodes[quest_index].current_state != ConfigNodeState::Waiting {
@@ -1092,9 +1096,9 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   }
 
   if print_fmd_trace { log!("+ Determine unlock requirements for each quest"); }
-  stories.iter_mut().for_each(| ( story_node_index, _story_nodes, quest_nodes_by_index ) | {
-    if print_fmd_trace {  log!("  - Story: {}", nodes[*story_node_index].name); }
-    quest_nodes_by_index.iter().for_each(|&quest_node_index| {
+  stories.iter_mut().for_each(|story| {
+    if print_fmd_trace {  log!("  - Story: {}", nodes[story.story_node_index].name); }
+    story.quest_nodes.iter().for_each(|&quest_node_index| {
       // For all quests go through list of dependency quests and tag them as being their "unlock parent"
       let mut found = vec!(); // Work around chicken egg problem -> mutability of nodes
       nodes[quest_node_index].unlocks_after_by_index.iter().for_each(|pindex| found.push(*pindex));
