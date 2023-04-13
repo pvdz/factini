@@ -26,7 +26,6 @@
 //   - car polish; should make nice corners, should drive same speed to any height
 //   - fix item animation in and out of suppliers/demanders. looks ugly rn
 //   - certain things should be painted as a background layer once
-// - click edge to add supplier. click supplier/demander to toggle.
 // - help the player
 //   - create tutorial
 // - back to the training thing idea?

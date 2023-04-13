@@ -26,6 +26,7 @@ This is an animated alarm (like the rotating light on a police car or ambulance)
 - frame_count: 50
 - frame_direction: right
 - frame_delay: 80
+- looping: true
 - frame: 1
 - file: ./img/weewoo.png
 - x: 0
@@ -39,6 +40,7 @@ Indicator that a machine is missing an input belt
 - frame_count: 2
 - frame_direction: right
 - frame_delay: 1500
+- looping: true
 - frame: 1
 - file: ./img/missing_inputs.png
 - x: 0
@@ -52,6 +54,7 @@ Indicator that a machine is missing an input belt
 - frame_count: 2
 - frame_direction: right
 - frame_delay: 1500
+- looping: true
 - frame: 1
 - file: ./img/missing_outputs.png
 - x: 0
@@ -64,7 +67,8 @@ Indicator that a machine has no target part to create
 - frame_offset: 0
 - frame_count: 2
 - frame_direction: right
-- frame_delay: 1500
+- frame_delay: 2000
+- looping: true
 - frame: 1
 - file: ./img/missing_purpose.png
 - x: 0
