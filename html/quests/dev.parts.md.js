@@ -151,9 +151,9 @@ The old paper
 - char: o
 - pattern: _   _   _   W   l   W   _  _  _
 - file: ./img/roguelikeitems.png
-- x: 144 
-- y: 176 
-- w: 16 
+- x: 144
+- y: 176
+- w: 16
 - h: 16
 
 # Part_BookGreen

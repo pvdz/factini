@@ -1936,7 +1936,7 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
     floor_context.draw_image_with_html_canvas_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
       &game_map,
       UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_WIDTH, UI_FLOOR_HEIGHT,
-      0.0, 0.0, UI_SAVE_THUMB_WIDTH * 0.66, UI_SAVE_THUMB_HEIGHT
+      0.0, 0.0, (UI_SAVE_THUMB_WIDTH * 0.66).floor(), UI_SAVE_THUMB_HEIGHT
     ).expect("canvas api call to work");
 
     let thumb_canvas = document.create_element("canvas").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
@@ -4867,8 +4867,8 @@ fn paint_ui_offer_tooltip(options: &Options, state: &State, config: &Config, fac
   }
 
   paint_asset_raw(options, state, config, &context, CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT, factory.ticks,
-    machine_ox - 18.0 + (factory.ticks / 500 % 3) as f64,
-    machine_oy + 3.0,
+    (machine_ox - 18.0 + (factory.ticks / 500 % 3) as f64).floor(),
+    (machine_oy + 3.0).floor(),
     13.0,
     38.0
   );
@@ -4879,8 +4879,8 @@ fn paint_ui_offer_tooltip(options: &Options, state: &State, config: &Config, fac
   context.draw_image_with_html_image_element_and_dw_and_dh(machine_img,
     machine_ox,
     machine_oy,
-    CELL_W * 1.5,
-    CELL_H * 1.5
+    (CELL_W * 1.5).floor(),
+    (CELL_H * 1.5).floor()
   ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
 
   if factory.machines.len() == 0 {
@@ -4888,15 +4888,15 @@ fn paint_ui_offer_tooltip(options: &Options, state: &State, config: &Config, fac
       context.save();
       context.set_font(&"48px monospace");
       context.set_fill_style(&"red".into());
-      context.fill_text(&"?", machine_ox + 10.0, machine_oy + CELL_H * 1.3).expect("not to fail");
+      context.fill_text(&"?", machine_ox + 10.0, (machine_oy + CELL_H * 1.3).floor()).expect("not to fail");
       context.set_stroke_style(&"white".into());
-      context.stroke_text(&"?", machine_ox + 10.0, machine_oy + CELL_H * 1.3).expect("not to fail");
+      context.stroke_text(&"?", machine_ox + 10.0, (machine_oy + CELL_H * 1.3).floor()).expect("not to fail");
       context.restore();
     }
   } else {
     paint_asset_raw(options, state, config, &context, CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT, factory.ticks,
-      machine_ox + CELL_W * 1.5 + 5.0 + (factory.ticks / 500 % 3) as f64,
-      machine_oy + 3.0,
+      (machine_ox + CELL_W * 1.5 + 5.0 + (factory.ticks / 500 % 3) as f64).floor(),
+      (machine_oy + 3.0).floor(),
       13.0,
       38.0
     );
@@ -5005,7 +5005,6 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
         x, y, truck_size, truck_size
       );
 
-      // context.draw_image_with_html_image_element_and_dw_and_dh(&img_dumptruck, x, y, truck_size, truck_size).expect("oopsie draw_image_with_html_image_element_and_dw_and_dh");
       // Paint the part icon on the back of the trick (x-centered, y-bottom)
       paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_index, x + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), y + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
     } else {
@@ -5231,6 +5230,11 @@ fn paint_segment_part_from_config(options: &Options, state: &State, config: &Con
   return paint_segment_part_from_config_bug(options, state, config, context, segment_part_index, dx, dy, dw, dh, false);
 }
 fn paint_segment_part_from_config_bug(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, segment_part_index: PartKind, dx: f64, dy: f64, dw: f64, dh: f64, bug: bool) -> bool {
+  let dx = dx.floor();
+  let dy = dy.floor();
+  let dw = dw.floor();
+  let dh = dh.floor();
+
   if segment_part_index == PARTKIND_NONE {
     return false;
   }
@@ -5274,6 +5278,11 @@ fn paint_asset(options: &Options, state: &State, config: &Config, context: &Rc<w
   return paint_asset_raw(options, state, config, context, config_node_index, ticks, dx, dy, dw, dh);
 }
 fn paint_asset_raw(options: &Options, state: &State, config: &Config, context: &web_sys::CanvasRenderingContext2d, config_node_index: usize, ticks: u64, dx: f64, dy: f64, dw: f64, dh: f64) -> bool {
+  let dx = dx.floor();
+  let dy = dy.floor();
+  let dw = dw.floor();
+  let dh = dh.floor();
+
   assert!(
     config.nodes[config_node_index].kind == ConfigNodeKind::Asset ||
       config.nodes[config_node_index].kind == ConfigNodeKind::Dock ||
@@ -5362,8 +5371,8 @@ fn paint_load_thumbs(options: &Options, state: &State, config: &Config, factory:
 }
 fn paint_map_load_button(options: &Options, state: &State, config: &Config, factory: &Factory, col: f64, row: f64, button_index: usize, context: &Rc<web_sys::CanvasRenderingContext2d>, quick_save: &mut Option<QuickSave>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
   assert!(button_index < 6, "there are only 6 save buttons");
-  let ox = GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN);
-  let oy = GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN);
+  let ox = (GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN)).floor();
+  let oy = (GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN)).floor();
   if let Some(quick_save) = quick_save {
     // Save exists. Paint the thumb and then the trash icon on top of it.
 
@@ -5376,7 +5385,7 @@ fn paint_map_load_button(options: &Options, state: &State, config: &Config, fact
       context.draw_image_with_html_canvas_element_and_dw_and_dh(
         &quick_save.thumb,
         ox, oy, UI_SAVE_THUMB_IMG_WIDTH, UI_SAVE_THUMB_IMG_HEIGHT,
-      ).expect("draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh should work"); // requires web_sys HtmlImageElement feature
+      ).expect("draw_image_with_html_canvas_element_and_dw_and_dh should work"); // requires web_sys HtmlImageElement feature
     } else {
       canvas_round_rect_and_fill_stroke(context, ox, oy, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT,"#aaa", "black");
     }
@@ -5453,6 +5462,11 @@ fn paint_belt(options: &Options, state: &State, config: &Config, context: &Rc<we
     return;
   }
 
+  let dx = dx.floor();
+  let dy = dy.floor();
+  let dw = dw.floor();
+  let dh = dh.floor();
+
   let (spx, spy, spw, sph, canvas) = config_get_sprite_for_belt_type(config, belt_type, sprite_start_at, ticks);
 
   context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
@@ -5466,7 +5480,7 @@ fn paint_belt(options: &Options, state: &State, config: &Config, context: &Rc<we
 
 fn paint_supplier(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, dx: f64, dy: f64, dw: f64, dh: f64, sprite_start_at: u64, ticks: u64, coord: usize) {
   let (x, y) = to_xy(coord);
-  let supply_kind =
+  let supply_config_node =
     if y == 0 {
       CONFIG_NODE_SUPPLY_UP
     } else if x == FLOOR_CELLS_W-1 {
@@ -5479,15 +5493,7 @@ fn paint_supplier(options: &Options, state: &State, config: &Config, factory: &F
       panic!("no");
     };
 
-  let (spx, spy, spw, sph, canvas) = config_get_sprite_details(config, supply_kind, sprite_start_at, ticks);
-
-  context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-    &canvas,
-    // Sprite position
-    spx, spy, spw, sph,
-    // Paint onto canvas at
-    dx, dy, dw, dh,
-  ).expect("paint_supplier() something error draw_image"); // requires web_sys HtmlImageElement feature
+  paint_asset(&options, &state, &config, &context, supply_config_node, factory.ticks - sprite_start_at, dx, dy, dw, dh);
 }
 
 fn paint_demander(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, dx: f64, dy: f64, dw: f64, dh: f64, last_part_at: u64, ticks: u64, coord: usize) {
@@ -5595,5 +5601,5 @@ fn prerender_button_stage2(options: &Options, state: &State, config: &Config, wi
   }
 }
 fn paint_button(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, button_canvii_index: usize, x: f64, y: f64) {
-  context.draw_image_with_html_canvas_element(&button_canvii[button_canvii_index], x, y).expect("draw_image_with_html_canvas_element should work"); // requires web_sys HtmlImageElement feature
+  context.draw_image_with_html_canvas_element(&button_canvii[button_canvii_index], x.floor(), y.floor()).expect("draw_image_with_html_canvas_element should work"); // requires web_sys HtmlImageElement feature
 }
