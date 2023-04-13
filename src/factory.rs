@@ -53,6 +53,9 @@ pub struct Factory {
   pub quests: Vec<QuestState>,
 
   pub day_corrupted: bool, // Used trash as jokers to create parts in machines?
+
+  // mouse xy, offer xy, tick start, tick duration
+  pub edge_hint: (PartKind, (f64, f64), (f64, f64), u64, u64),
 }
 
 pub fn create_factory(options: &Options, state: &mut State, config: &Config, floor_str: String) -> Factory {
@@ -95,6 +98,7 @@ pub fn create_factory(options: &Options, state: &mut State, config: &Config, flo
     trashed: 0,
     trucks: vec!(),
     day_corrupted: false,
+    edge_hint: (PARTKIND_NONE, (0.0, 0.0), (0.0, 0.0), 0, 0),
     quests,
   };
 

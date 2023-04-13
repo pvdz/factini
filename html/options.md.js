@@ -30,11 +30,11 @@ const GAME_OPTIONS = `
 - draw_port_arrows: false
 - paint_belts: true
 - draw_belt_dbg_id: false
-- draw_zone_hovers: false
 - enable_craft_menu_circle: false
 - enable_craft_menu_interact: false
-- draw_ui_section_border: false
-- ui_section_border_color: "white"
+- draw_zone_hovers: false
+- draw_zone_borders: false
+- zone_borders_color: "white"
 - short_term_window: 10000
 - long_term_window: 600000
 - speed_modifier_floor: 0.4

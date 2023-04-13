@@ -85,12 +85,12 @@ use super::zone::*;
 use super::log;
 
 // These are the actual pixels we can paint to
-const CANVAS_WIDTH: f64 = 1010.0;
-const CANVAS_HEIGHT: f64 = 1100.0;
+const CANVAS_WIDTH: f64 = GRID_X3;
+const CANVAS_HEIGHT: f64 = GRID_Y4;
 
 // Need this for mouse2world coord conversion. Rest of the coords/sizes are in world (canvas) pixels.
-const CANVAS_CSS_WIDTH: f64 = 1010.0;
-const CANVAS_CSS_HEIGHT: f64 = 1100.0;
+const CANVAS_CSS_WIDTH: f64 = GRID_X3;
+const CANVAS_CSS_HEIGHT: f64 = GRID_Y4;
 
 // Temp placeholder
 const COLOR_SUPPLY: &str = "pink";
@@ -985,6 +985,7 @@ pub fn start() -> Result<(), JsValue> {
         // Probably after all backround/floor stuff is finished
         paint_zone_borders(&options, &state, &context);
 
+        paint_border_hint(&options, &state, &config, &factory, &context);
         // In front of all game stuff
         paint_bouncers(&options, &state, &config, &context, &mut factory);
         // Paint big machine button now so bouncers go behind it
@@ -1202,6 +1203,7 @@ fn update_mouse_state(
     }
     Zone::BottomRight => {}
     Zone::BottomBottomRight => {}
+    Zone::Margin => {}
   }
 
   // on mouse down
@@ -1315,6 +1317,7 @@ fn update_mouse_state(
       }
       Zone::BottomRight => {}
       Zone::BottomBottomRight => {}
+      Zone::Margin => {}
     }
   }
 
@@ -1455,6 +1458,7 @@ fn update_mouse_state(
       }
       Zone::BottomRight => {}
       Zone::BottomBottomRight => {}
+      Zone::Margin => {}
     }
   }
 }
@@ -1599,6 +1603,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
           on_up_menu(cell_selection, mouse_state, options, state, config, factory);
         }
         ZONE_FLOOR => {
+
           on_up_floor(options, state, config, factory, cell_selection, &mouse_state);
         }
         _ => {}
@@ -1759,8 +1764,45 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
     // De-/Select this cell
     log!("clicked {} {} cell selection before: {:?}, belt: {:?}", last_mouse_up_cell_x, last_mouse_up_cell_y, cell_selection, factory.floor[to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize)].belt);
 
+    let coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
+
     if cell_selection.on && cell_selection.x == last_mouse_up_cell_x && cell_selection.y == last_mouse_up_cell_y {
       cell_selection.on = false;
+    } else if factory.floor[coord].kind == CellKind::Empty {
+      if is_edge_not_corner(last_mouse_up_cell_x, last_mouse_up_cell_y) {
+        log!("Clicked on empty edge. Not selecting it. Removing current selection. Showing user edge drag hint.");
+        cell_selection.on = false;
+
+        // - find the first visible unlocked part that has no pattern
+        // - find the coord of its offer
+        // - record the current mouse coordinate
+        // - record the start time and compute the time it should take to move to the current coordinate
+        // - every frame while the animation is active, paint a shadow of the offer at the progress
+
+        let mut part = PARTKIND_NONE;
+        let mut index = 0;
+        factory.available_parts_rhs_menu.iter().enumerate().any(|(i, (kind, visible))| {
+          if !visible { return false; }
+          part = *kind;
+          index = i;
+          return true;
+        });
+
+        let xy = to_xy(coord);
+
+        factory.edge_hint = (
+          part,
+          (UI_FLOOR_OFFSET_X + (xy.0 as f64) * CELL_W, UI_FLOOR_OFFSET_Y + (xy.1 as f64) * CELL_H),
+          get_offer_xy(index),
+          factory.ticks,
+          2 * (ONE_SECOND as f64 * options.speed_modifier_ui) as u64
+        );
+
+        log!("edge_hint is now: {:?}", factory.edge_hint);
+      } else {
+        log!("Clicked on empty cell. Not selecting it. Removing current selection.");
+        cell_selection.on = false;
+      }
     } else {
       cell_selection.on = true;
       cell_selection.x = last_mouse_up_cell_x;
@@ -4426,16 +4468,16 @@ fn paint_debug_selected_demand_cell(context: &Rc<web_sys::CanvasRenderingContext
   // context.fill_text(format!("Received: {:?}", demand.received).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (9.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
 }
 fn paint_zone_borders(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>) {
-  if options.draw_ui_section_border {
-    context.set_stroke_style(&options.ui_section_border_color.clone().into());
+  if options.draw_zone_borders {
+    context.set_stroke_style(&options.zone_borders_color.clone().into());
     context.stroke_rect(GRID_X0, GRID_Y0, GRID_LEFT_WIDTH, GRID_TOP_HEIGHT);
     context.stroke_rect(GRID_X1, GRID_Y0, FLOOR_WIDTH, GRID_TOP_HEIGHT);
-    context.stroke_rect(GRID_X2, GRID_Y0, GRID_RIGHT_WIDTH, GRID_TOP_HEIGHT + GRID_SPACING + FLOOR_HEIGHT + GRID_SPACING + GRID_BOTTOM_HEIGHT);
+    context.stroke_rect(GRID_X2, GRID_Y0, GRID_RIGHT_WIDTH, GRID_TOP_HEIGHT + GRID_PADDING + FLOOR_HEIGHT + GRID_PADDING + GRID_BOTTOM_HEIGHT);
     context.stroke_rect(GRID_X0, GRID_Y1, GRID_LEFT_WIDTH, FLOOR_HEIGHT);
     context.stroke_rect(GRID_X1, GRID_Y1, FLOOR_WIDTH, FLOOR_HEIGHT);
     context.stroke_rect(GRID_X0, GRID_Y2, GRID_LEFT_WIDTH, GRID_BOTTOM_HEIGHT);
     context.stroke_rect(GRID_X1, GRID_Y2, FLOOR_WIDTH, GRID_BOTTOM_HEIGHT);
-    context.stroke_rect(GRID_X0, GRID_Y3, GRID_LEFT_WIDTH + GRID_SPACING + FLOOR_WIDTH + GRID_SPACING + GRID_RIGHT_WIDTH, GRID_BOTTOM_DEBUG_HEIGHT);
+    context.stroke_rect(GRID_X0, GRID_Y3, GRID_LEFT_WIDTH + GRID_PADDING + FLOOR_WIDTH + GRID_PADDING + GRID_RIGHT_WIDTH, GRID_BOTTOM_DEBUG_HEIGHT);
   }
 }
 fn paint_manual(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>) {
@@ -4444,6 +4486,26 @@ fn paint_manual(options: &Options, state: &State, config: &Config, factory: &Fac
       100.0, 20.0, 740.0, 740.0
     );
   }
+}
+fn paint_border_hint(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>) {
+  if factory.edge_hint.3 + factory.edge_hint.4 < factory.ticks {
+    return;
+  }
+
+  let progress = 1.0 - (factory.ticks - factory.edge_hint.3) as f64 / factory.edge_hint.4 as f64;
+
+  let mx = factory.edge_hint.1.0 as f64;
+  let my = factory.edge_hint.1.1 as f64;
+
+  let x = mx + (factory.edge_hint.2.0 - mx) * progress;
+  let y = my + (factory.edge_hint.2.1 - my) * progress;
+
+  paint_dock_stripes(options, state, config, factory, context, CONFIG_NODE_DOCK_UP, x, y, UI_OFFER_WIDTH, UI_OFFER_HEIGHT);
+  let px = x + (UI_OFFER_WIDTH / 2.0) - (CELL_W / 2.0);
+  let py = y + (UI_OFFER_HEIGHT / 2.0) - (CELL_H / 2.0);
+  paint_segment_part_from_config(options, state, config, context, factory.edge_hint.0, px, py, CELL_W, CELL_H);
+  context.set_stroke_style(&"white".into());
+  context.stroke_rect(x, y, UI_OFFER_WIDTH, UI_OFFER_HEIGHT);
 }
 fn paint_bouncers(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory) {
   let f_one_second = ONE_SECOND as f64 ;
@@ -4483,23 +4545,25 @@ fn paint_zone_hovers(options: &Options, state: &State, context: &Rc<web_sys::Can
     context.set_fill_style(&"#99999970".into()); // 100% background
     match mouse_state.over_zone {
       Zone::None => {}
-      Zone::TopLeft =>            context.fill_rect(GRID_X0, GRID_Y0, GRID_X1 - GRID_X0, GRID_Y1 - GRID_Y0),
-      Zone::Top =>                context.fill_rect(GRID_X1, GRID_Y0, GRID_X2 - GRID_X1, GRID_Y1 - GRID_Y0),
-      Zone::TopRight =>           context.fill_rect(GRID_X2, GRID_Y0, GRID_X3 - GRID_X2, GRID_Y1 - GRID_Y0),
-      Zone::Left =>               context.fill_rect(GRID_X0, GRID_Y1, GRID_X1 - GRID_X0, GRID_Y2 - GRID_Y1),
-      Zone::Middle =>             context.fill_rect(GRID_X1, GRID_Y1, GRID_X2 - GRID_X1, GRID_Y2 - GRID_Y1),
-      Zone::Right =>              context.fill_rect(GRID_X2, GRID_Y1, GRID_X3 - GRID_X2, GRID_Y2 - GRID_Y1),
-      Zone::BottomLeft =>         context.fill_rect(GRID_X0, GRID_Y2, GRID_X1 - GRID_X0, GRID_Y3 - GRID_Y2),
-      Zone::Bottom =>             context.fill_rect(GRID_X1, GRID_Y2, GRID_X2 - GRID_X1, GRID_Y3 - GRID_Y2),
-      Zone::BottomRight =>        context.fill_rect(GRID_X2, GRID_Y2, GRID_X3 - GRID_X2, GRID_Y3 - GRID_Y2),
-      Zone::BottomBottomLeft =>   context.fill_rect(GRID_X0, GRID_Y3, GRID_X1 - GRID_X0, GRID_Y4 - GRID_Y3),
-      Zone::BottomBottom =>       context.fill_rect(GRID_X1, GRID_Y3, GRID_X2 - GRID_X1, GRID_Y4 - GRID_Y3),
-      Zone::BottomBottomRight =>  context.fill_rect(GRID_X2, GRID_Y3, GRID_X3 - GRID_X2, GRID_Y4 - GRID_Y3),
+      Zone::TopLeft =>            context.fill_rect(GRID_X0, GRID_Y0, GRID_LEFT_WIDTH, GRID_TOP_HEIGHT),
+      Zone::Top =>                context.fill_rect(GRID_X1, GRID_Y0, FLOOR_WIDTH, GRID_TOP_HEIGHT),
+      Zone::TopRight =>           context.fill_rect(GRID_X2, GRID_Y0, GRID_RIGHT_WIDTH, GRID_TOP_HEIGHT),
+      Zone::Left =>               context.fill_rect(GRID_X0, GRID_Y1, GRID_LEFT_WIDTH, FLOOR_HEIGHT),
+      Zone::Middle =>             context.fill_rect(GRID_X1, GRID_Y1, FLOOR_WIDTH, FLOOR_HEIGHT),
+      Zone::Right =>              context.fill_rect(GRID_X2, GRID_Y1, GRID_RIGHT_WIDTH, FLOOR_HEIGHT),
+      Zone::BottomLeft =>         context.fill_rect(GRID_X0, GRID_Y2, GRID_LEFT_WIDTH, GRID_BOTTOM_HEIGHT),
+      Zone::Bottom =>             context.fill_rect(GRID_X1, GRID_Y2, FLOOR_WIDTH, GRID_BOTTOM_HEIGHT),
+      Zone::BottomRight =>        context.fill_rect(GRID_X2, GRID_Y2, GRID_RIGHT_WIDTH, GRID_BOTTOM_HEIGHT),
+      Zone::BottomBottomLeft =>   context.fill_rect(GRID_X0, GRID_Y3, GRID_LEFT_WIDTH, GRID_BOTTOM_DEBUG_HEIGHT),
+      Zone::BottomBottom =>       context.fill_rect(GRID_X1, GRID_Y3, FLOOR_WIDTH, GRID_BOTTOM_DEBUG_HEIGHT),
+      Zone::BottomBottomRight =>  context.fill_rect(GRID_X2, GRID_Y3, GRID_RIGHT_WIDTH, GRID_BOTTOM_DEBUG_HEIGHT),
       Zone::Craft => {}
       Zone::Manual => {}
+      Zone::Margin => {}
     }
   }
 }
+
 fn paint_top_stats(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory) {
   context.set_fill_style(&"black".into());
   context.fill_text(format!("Ticks: {}, Supplied: {}, Produced: {}, Received: {}, Trashed: {}", factory.ticks, factory.supplied, factory.produced, factory.accepted, factory.trashed).as_str(), 20.0, 20.0).expect("to paint");

@@ -23,6 +23,7 @@ pub enum Zone {
   BottomBottomRight,
   Craft,
   Manual,
+  Margin,
 }
 
 // Size of the floor determines dimensions of all other grid items and depends on cell size and cell count.
@@ -32,7 +33,7 @@ pub const GRID_BOTTOM_HEIGHT: f64 = 150.0;
 pub const GRID_BOTTOM_DEBUG_HEIGHT: f64 = 400.0;
 pub const GRID_LEFT_WIDTH: f64 = 200.0;
 
-pub const GRID_SPACING: f64 = 5.0; // Spacing of grid blocks from edge and between grid blocks
+pub const GRID_PADDING: f64 = 5.0; // Spacing of grid blocks from edge and between grid blocks
 
 // The Floor is the main game area
 pub const UI_FLOOR_OFFSET_X: f64 = GRID_X1;
@@ -130,7 +131,7 @@ pub const UI_MENU_BOTTOM_MACHINE_HEIGHT: f64 = 70.0;
 
 pub const UI_DEBUG_OFFSET_X: f64 = GRID_X0 + 5.0;
 pub const UI_DEBUG_OFFSET_Y: f64 = GRID_Y3 + 10.0;
-pub const UI_DEBUG_WIDTH: f64 = GRID_LEFT_WIDTH + GRID_SPACING + FLOOR_WIDTH + GRID_SPACING + GRID_RIGHT_WIDTH;
+pub const UI_DEBUG_WIDTH: f64 = GRID_LEFT_WIDTH + GRID_PADDING + FLOOR_WIDTH + GRID_PADDING + GRID_RIGHT_WIDTH;
 pub const UI_DEBUG_HEIGHT: f64 = GRID_BOTTOM_DEBUG_HEIGHT;
 // The app stats
 pub const UI_DEBUG_APP_OFFSET_X: f64 = GRID_X2 + 5.0;
@@ -161,15 +162,15 @@ pub const UI_OFFER_TOOLTIP_HEIGHT: f64 = 3.0 + (0.75 * CELL_H) + 5.0 + (0.75 * C
 
 // The UI is a 3x3 grid of sections. The center section is the main part of the game, "the Floor"
 // Define the coordinates of each "tab" (whatever the terminology ought to be) that defines the grid
-pub const GRID_X0: f64 = GRID_SPACING;
-pub const GRID_X1: f64 = GRID_X0 + GRID_LEFT_WIDTH + GRID_SPACING; // floor starts here
-pub const GRID_X2: f64 = GRID_X1 + FLOOR_WIDTH + GRID_SPACING;
-pub const GRID_X3: f64 = GRID_X2 + GRID_RIGHT_WIDTH + GRID_SPACING;
-pub const GRID_Y0: f64 = GRID_SPACING;
-pub const GRID_Y1: f64 = GRID_X0 + GRID_TOP_HEIGHT + GRID_SPACING; // floor starts here
-pub const GRID_Y2: f64 = GRID_Y1 + FLOOR_HEIGHT + GRID_SPACING;
-pub const GRID_Y3: f64 = GRID_Y2 + GRID_BOTTOM_HEIGHT + GRID_SPACING; // debug offset
-pub const GRID_Y4: f64 = GRID_Y3 + GRID_BOTTOM_DEBUG_HEIGHT + GRID_SPACING;
+pub const GRID_X0: f64 = GRID_PADDING;
+pub const GRID_X1: f64 = GRID_X0 + GRID_LEFT_WIDTH + GRID_PADDING; // floor starts here
+pub const GRID_X2: f64 = GRID_X1 + FLOOR_WIDTH + GRID_PADDING;
+pub const GRID_X3: f64 = GRID_X2 + GRID_RIGHT_WIDTH + GRID_PADDING;
+pub const GRID_Y0: f64 = GRID_PADDING;
+pub const GRID_Y1: f64 = GRID_X0 + GRID_TOP_HEIGHT + GRID_PADDING; // floor starts here
+pub const GRID_Y2: f64 = GRID_Y1 + FLOOR_HEIGHT + GRID_PADDING;
+pub const GRID_Y3: f64 = GRID_Y2 + GRID_BOTTOM_HEIGHT + GRID_PADDING; // debug offset
+pub const GRID_Y4: f64 = GRID_Y3 + GRID_BOTTOM_DEBUG_HEIGHT + GRID_PADDING;
 
 pub const ZONE_HELP: Zone = Zone::TopLeft;
 pub const ZONE_QUOTES: Zone = Zone::Left;
@@ -185,6 +186,7 @@ pub const ZONE_RIGHT_BOTTOM: Zone = Zone::BottomRight;
 pub const ZONE_BOTTOM_BOTTOM_RIGHT: Zone = Zone::BottomBottomRight;
 pub const ZONE_CRAFT: Zone = Zone::Craft;
 pub const ZONE_MANUAL: Zone = Zone::Manual;
+pub const ZONE_MARGIN: Zone = Zone::Margin; // Between the cracks of each zone
 
 pub fn coord_to_zone(options: &Options, state: &State, config: &Config, x: f64, y: f64, is_machine_selected: bool, factory: &Factory, selected_coord: usize) -> Zone {
   if state.manual_open {
@@ -195,53 +197,59 @@ pub fn coord_to_zone(options: &Options, state: &State, config: &Config, x: f64, 
     return ZONE_CRAFT
   }
 
-  if x < GRID_X1 {
-    return if y < GRID_Y1 {
+  if x >= GRID_X0 && x < GRID_X0 + GRID_LEFT_WIDTH {
+    return if y >= GRID_Y0 && y < GRID_Y0 + GRID_TOP_HEIGHT {
       // top-left, help section
       ZONE_HELP
-    } else if y < GRID_Y2 {
+    } else if y >= GRID_Y1 && y < GRID_Y1 + FLOOR_HEIGHT {
       // left, quotes
       ZONE_QUOTES
-    } else if y < GRID_Y3 {
+    } else if y >= GRID_Y2 && y < GRID_Y2 + GRID_BOTTOM_HEIGHT {
       // bottom-left, unused
       ZONE_SAVE_MAP
-    } else {
+    } else if y >= GRID_Y3 && y < GRID_Y3 + GRID_BOTTOM_DEBUG_HEIGHT {
       // bottom-bottom-left, debug
       ZONE_BOTTOM_BOTTOM_LEFT
+    } else {
+      ZONE_MARGIN
     };
   }
-  else if x < GRID_X2 {
-    return if y < GRID_Y1 {
+  else if x >= GRID_X1 && x < GRID_X1 + FLOOR_WIDTH {
+    return if y >= GRID_Y0 && y < GRID_Y0 + GRID_TOP_HEIGHT {
       // top, day bar
       ZONE_DAY_BAR
-    } else if y < GRID_Y2 {
+    } else if y >= GRID_Y1 && y < GRID_Y1 + FLOOR_HEIGHT {
       // middle, the floor
       ZONE_FLOOR
-    } else if y < GRID_Y3 {
+    } else if y >= GRID_Y2 && y < GRID_Y2 + GRID_BOTTOM_HEIGHT {
       // bottom, menu
       ZONE_MENU
-    } else {
+    } else if y >= GRID_Y3 && y < GRID_Y3 + GRID_BOTTOM_DEBUG_HEIGHT {
       // bottom-bottom, debug
       ZONE_BOTTOM_BOTTOM
+    } else {
+      ZONE_MARGIN
     };
   }
-  else if x < GRID_X3 {
-    return if y < GRID_Y1 {
+  else if x >= GRID_X2 && x < GRID_X2 + GRID_RIGHT_WIDTH {
+    return if y >= GRID_Y0 && y < GRID_Y0 + GRID_TOP_HEIGHT {
       // top-right, unused
       ZONE_TOP_RIGHT
-    } else if y < GRID_Y2 {
+    } else if y >= GRID_Y1 && y < GRID_Y1 + FLOOR_HEIGHT {
       // right, offers
       ZONE_OFFERS
-    } else if y < GRID_Y3 {
+    } else if y >= GRID_Y2 && y < GRID_Y2 + GRID_BOTTOM_HEIGHT {
       // right-bottom, not really used but trucks turn here
       ZONE_RIGHT_BOTTOM
-    } else {
+    } else if y >= GRID_Y3 && y < GRID_Y3 + GRID_BOTTOM_DEBUG_HEIGHT {
       // bottom-bottom, debug
       ZONE_BOTTOM_BOTTOM_RIGHT
+    } else {
+      ZONE_MARGIN
     };
   }
 
-  panic!("coord should be inside one of twelve zones so um, wat dis? {} {}", x, y);
+  return ZONE_MARGIN;
 }
 
 pub fn hit_test_machine_craft_menu(options: &Options, factory: &Factory, any_machine_coord: usize, mwx: f64, mwy: f64) -> bool {
