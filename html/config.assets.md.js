@@ -390,4 +390,18 @@ Indicator that a machine has no target part to create
 - w: 70
 - h: 55
 
+# Asset_Pickaxe
+- file: ./img/roguelikeitems.png
+- x: 80
+- y: 96
+- w: 16
+- h: 16
+
+# Asset_Treasure
+- file: ./img/roguelikeitems.png
+- x: 16
+- y: 96
+- w: 16
+- h: 16
+
 `;

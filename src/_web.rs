@@ -67,6 +67,7 @@ use super::floor::*;
 use super::init::*;
 use super::options::*;
 use super::machine::*;
+use super::maze::*;
 use super::part::*;
 use super::paste::*;
 use super::port::*;
@@ -961,7 +962,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_corner_help_icon(&options, &state, &config, &factory, &context, mouse_state.help_hover);
         paint_top_bars(&options, &state, &mut factory, &context, &mouse_state);
         paint_quests(&options, &state, &config, &context, &factory, &mouse_state);
-        let highlight_index = paint_ui_offers(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
+        let highlight_index = paint_offers(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
         paint_lasers(&options, &mut state, &config, &context);
         paint_trucks(&options, &state, &config, &context, &mut factory);
         paint_bottom_menu(&options, &state, &config, &factory, &context, &button_canvii, &mouse_state);
@@ -980,6 +981,8 @@ pub fn start() -> Result<(), JsValue> {
         paint_debug_selected_demand_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_map_state_buttons(&options, &state, &config, &context, &button_canvii, &mouse_state);
         paint_load_thumbs(&options, &state, &config, &factory, &context, &button_canvii, &mouse_state, &mut quick_saves);
+
+        paint_maze(&options, &state, &config, &factory, &context, &mouse_state);
 
         // Probably after all backround/floor stuff is finished
         paint_zone_borders(&options, &state, &context);
@@ -4711,7 +4714,7 @@ fn paint_quests(options: &Options, state: &State, config: &Config, context: &Rc<
     }
   }
 }
-fn paint_ui_offers(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) -> usize {
+fn paint_offers(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) -> usize {
   let ( is_mouse_over_offer, offer_hover_index ) =
     if mouse_state.is_dragging || mouse_state.was_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight offers
     else { ( mouse_state.offer_hover, mouse_state.offer_hover_offer_index ) };
@@ -4726,14 +4729,14 @@ fn paint_ui_offers(options: &Options, state: &State, config: &Config, context: &
       if highlight {
         highlight_index = offer_index + 1;
       }
-      paint_ui_offer(options, state, config, context, factory, mouse_state, cell_selection, offer_index, part_index, inc, highlight, config.nodes[part_index].pattern_unique_kinds.len() > 0);
+      paint_offer(options, state, config, context, factory, mouse_state, cell_selection, offer_index, part_index, inc, highlight, config.nodes[part_index].pattern_unique_kinds.len() > 0);
       inc += 1;
     }
   }
 
   return highlight_index;
 }
-fn paint_ui_offer(
+fn paint_offer(
   options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection,
   offer_index: usize, part_index: usize, inc: usize, highlight: bool, is_machine_part: bool
 ) {
@@ -5442,6 +5445,182 @@ fn paint_map_state_buttons(options: &Options, state: &State, config: &Config, co
   context.fill_text("↷", UI_UNREDO_REDO_OFFSET_X + UI_UNREDO_REDO_WIDTH / 2.0 - 16.0, UI_UNREDO_REDO_OFFSET_Y + UI_UNREDO_REDO_HEIGHTH / 2.0 + 16.0).expect("canvas api call to work");
 
   context.restore();
+}
+fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  let x = (GRID_X2 + GRID_RIGHT_WIDTH / 2.0 - MAZE_WIDTH / 2.0).floor() + 0.5;
+  let y = (GRID_Y1 + FLOOR_HEIGHT - MAZE_HEIGHT).floor() + 0.5;
+
+  let maze = &factory.maze;
+
+  // Paint four "current" runner bars
+
+  // Energy remaining
+  context.set_fill_style(&"white".into());
+  context.fill_rect(x + 10.0, y - 30.0, 80.0, 25.0);
+  context.set_fill_style(&"yellow".into());
+  context.fill_rect(x + 10.0, y - 30.0, (factory.maze_runner.energy_now as f64 / factory.maze_runner.energy_max as f64) * 80.0, 25.0);
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(x + 10.0, y - 30.0, 80.0, 25.0);
+
+  // Speed indicator
+  context.set_fill_style(&"white".into());
+  context.fill_rect(x + 100.0, y - 30.0, 30.0, 25.0);
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(x + 100.0, y - 30.0, 30.0, 25.0);
+  context.set_fill_style(&"black".into());
+  context.fill_text(&format!("{}", factory.maze_runner.speed), x + 111.0, y - 14.0);
+
+  // Power indicator, paint one hammer per rock that can be broken
+  context.set_fill_style(&"white".into());
+  context.fill_rect(x + 140.0, y - 30.0, 60.0, 25.0);
+  // paint one hammer evenly divided across the space. maintain location (dont "jump" when removing a hammer). max width to divide is field_width-margin-img_width-margin. max spacing is img_width+margin
+  let max_power_space = 60.0 - 5.0 - 5.0;
+  let power_offset_step = (max_power_space / (factory.maze_runner.power_max as f64)).min(20.0);
+  for i in 0..factory.maze_runner.power_now {
+    // will overlap. by design
+    paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_PICKAXE, factory.ticks, x + 140.0 + 5.0 + (i as f64) * power_offset_step, y - 25.0, 15.0, 15.0);
+  }
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(x + 140.0, y - 30.0, 60.0, 25.0);
+
+  // Collection / Volume indicator
+  context.set_fill_style(&"white".into());
+  context.fill_rect(x + 210.0, y - 30.0, 80.0, 25.0);
+  // Unlike power, here we may actually want to update the spacing as the volume goes up. Try to make it a "pile" or whatever. We can probably fake that to some degree with some kind of pre-defined positioning table etc.
+  let max_volume_space = 60.0 - 5.0 - 10.0 - 5.0;
+  let volume_offset_step = (max_volume_space / (factory.maze_runner.volume_max as f64)).min(20.0);
+  for i in 0..factory.maze_runner.volume_now {
+    // will overlap. by design
+    paint_asset(&options, &state, &config, &context, CONFIG_NDOE_ASSET_TREASURE, factory.ticks, x + 210.0 + 5.0 + (i as f64) * volume_offset_step, y - 25.0, 15.0, 15.0);
+
+  }
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(x + 210.0, y - 30.0, 80.0, 25.0);
+
+  // Actual maze next...
+
+  context.set_fill_style(&"white".into());
+  context.fill_rect(x, y, MAZE_WIDTH, MAZE_HEIGHT);
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(x, y, MAZE_WIDTH, MAZE_HEIGHT);
+
+  for i in 0..MAZE_CELLS_W as usize {
+    for j in 0..MAZE_CELLS_H as usize {
+      let v = &maze[j* MAZE_CELLS_W +i];
+      if v.state > 0 {
+        context.set_fill_style(&format!("#ff{:02x}{:02x}", 255-v.state, 255-v.state).into());
+        // context.set_fill_style(&format!("#ff0000").into());
+        context.fill_rect(x + (i as f64) * MAZE_CELL_SIZE, y + (j as f64) * MAZE_CELL_SIZE, MAZE_CELL_SIZE, MAZE_CELL_SIZE);
+      }
+    }
+  }
+
+  for i in 0..MAZE_CELLS_W as usize {
+    for j in 0..MAZE_CELLS_H as usize {
+      let v = &maze[j* MAZE_CELLS_W +i];
+      if !v.up {
+        // can not go up, draw top-border
+        context.begin_path();
+        context.move_to(x + ((i) as f64) * MAZE_CELL_SIZE, y + ((j) as f64) * MAZE_CELL_SIZE);
+        context.line_to(x + ((i+1) as f64) * MAZE_CELL_SIZE, y + ((j) as f64) * MAZE_CELL_SIZE);
+        context.stroke();
+      }
+      if !v.left {
+        // can not go left, draw left-border
+        context.begin_path();
+        context.move_to(x + ((i) as f64) * MAZE_CELL_SIZE, y + ((j) as f64) * MAZE_CELL_SIZE);
+        context.line_to(x + ((i) as f64) * MAZE_CELL_SIZE, y + ((j+1) as f64) * MAZE_CELL_SIZE);
+        context.stroke();
+      }
+
+      match v.special {
+        // MAZE_TREASURE
+        2 => {
+          context.set_fill_style(&"orange".into());
+          context.fill_rect(x + i as f64 * MAZE_CELL_SIZE + 2.0, y + j as f64 * MAZE_CELL_SIZE + 2.0, MAZE_CELL_SIZE - 4.0, 6.0);
+        }
+        // MAZE_ROCK
+        1 => {
+          context.set_fill_style(&"black".into());
+          context.fill_rect(x + i as f64 * MAZE_CELL_SIZE + 2.0, y + j as f64 * MAZE_CELL_SIZE + 2.0, MAZE_CELL_SIZE - 4.0, 6.0);
+        }
+        _ => {}
+      }
+    }
+  }
+
+  context.set_fill_style(&"blue".into());
+  context.fill_rect(x + (factory.maze_runner.x as f64) * MAZE_CELL_SIZE + 2.0, y + (factory.maze_runner.y as f64) * MAZE_CELL_SIZE + 2.0, MAZE_CELL_SIZE - 4.0, 6.0);
+
+  // stats bars
+
+  let bars = 15.0;
+  let bar_width = MAZE_WIDTH / (bars + 1.0); // one extra for the label
+
+  let e = 4;
+  let s = 2;
+  let p = 5;
+  let w = 1;
+
+  context.set_fill_style(&"white".into());
+  context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 5.0, MAZE_WIDTH, 25.0);
+  context.set_fill_style(&"yellow".into());
+  context.fill_rect(0.5 + x + bar_width, 0.5 + GRID_Y2 + 5.0, bar_width * (e as f64), 25.0);
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + 5.0, MAZE_WIDTH, 25.0);
+  context.set_fill_style(&"black".into());
+  context.fill_text("E", 0.5 + x + 5.0, 0.5 + GRID_Y2 + 22.0).expect("canvas api call to work");
+  for i in 0..((bars+1.0) as usize) {
+    context.begin_path();
+    context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + 5.0);
+    context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + 5.0 + 25.0);
+    context.stroke();
+  }
+
+  context.set_fill_style(&"white".into());
+  context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 30.0 + 5.0, MAZE_WIDTH, 25.0);
+  context.set_fill_style(&"yellow".into());
+  context.fill_rect(0.5 + x + bar_width, 0.5 + GRID_Y2 + 30.0 + 5.0, bar_width * (s as f64), 25.0);
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + 30.0 + 5.0, MAZE_WIDTH, 25.0);
+  context.set_fill_style(&"black".into());
+  context.fill_text("S", 0.5 + x + 5.0, 0.5 + GRID_Y2 + 30.0 + 22.0).expect("canvas api call to work");
+  for i in 0..((bars+1.0) as usize) {
+    context.begin_path();
+    context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + 35.0);
+    context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + 35.0 + 25.0);
+    context.stroke();
+  }
+
+  context.set_fill_style(&"white".into());
+  context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 60.0 + 5.0, MAZE_WIDTH, 25.0);
+  context.set_fill_style(&"yellow".into());
+  context.fill_rect(0.5 + x + bar_width, 0.5 + GRID_Y2 + 60.0 + 5.0, bar_width * (p as f64), 25.0);
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + 60.0 + 5.0, MAZE_WIDTH, 25.0);
+  context.set_fill_style(&"black".into());
+  context.fill_text("P", 0.5 + x + 5.0, 0.5 + GRID_Y2 + 60.0 + 22.0).expect("canvas api call to work");
+  for i in 0..((bars+1.0) as usize) {
+    context.begin_path();
+    context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + 65.0);
+    context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + 65.0 + 25.0);
+    context.stroke();
+  }
+
+  context.set_fill_style(&"white".into());
+  context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 90.0 + 5.0, MAZE_WIDTH, 25.0);
+  context.set_fill_style(&"yellow".into());
+  context.fill_rect(0.5 + x + bar_width, 0.5 + GRID_Y2 + 90.0 + 5.0, bar_width * (w as f64), 25.0);
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + 90.0 + 5.0, MAZE_WIDTH, 25.0);
+  context.set_fill_style(&"black".into());
+  context.fill_text("V", 0.5 + x + 5.0, 0.5 + GRID_Y2 + 90.0 + 22.0).expect("canvas api call to work");
+  for i in 0..(bars as usize) {
+    context.begin_path();
+    context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + 95.0);
+    context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + 95.0 + 25.0);
+    context.stroke();
+  }
 }
 
 fn paint_factory_belt(options: &Options, state: &State, config: &Config, factory: &Factory, coord: usize, context: &Rc<web_sys::CanvasRenderingContext2d>, dx: f64, dy: f64, dw: f64, dh: f64) {

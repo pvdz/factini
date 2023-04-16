@@ -343,6 +343,8 @@ pub const CONFIG_NODE_ASSET_TRASH_GREY: usize = 320;
 pub const CONFIG_NODE_ASSET_TRASH_RED: usize = 321;
 pub const CONFIG_NODE_ASSET_TRASH_GREEN: usize = 322;
 pub const CONFIG_NODE_STORY_DEFAULT: usize = 323;
+pub const CONFIG_NDOE_ASSET_TREASURE: usize = 324;
+pub const CONFIG_NODE_ASSET_PICKAXE: usize = 325;
 
 #[derive(Debug)]
 pub struct Config {
@@ -1204,6 +1206,8 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Asset_ButtonDown9" => CONFIG_NODE_ASSET_BUTTON_DOWN_9,
     "Asset_SingleArrowDown" => CONFIG_NODE_ASSET_SINGLE_ARROW_DOWN,
     "Asset_SingleArrowRight" => CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT,
+    "Asset_Treasure" => CONFIG_NDOE_ASSET_TREASURE,
+    "Asset_Pickaxe" => CONFIG_NODE_ASSET_PICKAXE,
     "Part_None" => PARTKIND_NONE,
     "Part_Trash" => PARTKIND_TRASH,
     "Supply_Up" => CONFIG_NODE_SUPPLY_UP,
@@ -1817,7 +1821,9 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_asset(CONFIG_NODE_ASSET_TRASH_GREY, "TRASH_GREY"),
     config_node_asset(CONFIG_NODE_ASSET_TRASH_RED, "TRASH_RED"),
     config_node_asset(CONFIG_NODE_ASSET_TRASH_GREEN, "TRASH_GREEN"),
-    config_node_story(CONFIG_NODE_STORY_DEFAULT, "DEFAULT")
+    config_node_story(CONFIG_NODE_STORY_DEFAULT, "DEFAULT"),
+    config_node_asset(CONFIG_NDOE_ASSET_TREASURE, "TREASURE"),
+    config_node_asset(CONFIG_NODE_ASSET_PICKAXE, "PICKAXE"),
   );
 
   v.iter().enumerate().for_each(|(i, node)| assert!(node.index == i, "system node indexes must match their global constant value; mismatch for index {}", i));

@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-use crate::port::Port;
 
 use super::belt::*;
 use super::bouncer::*;
@@ -9,8 +8,9 @@ use super::cli_deserialize::*;
 use super::config::*;
 use super::demand::*;
 use super::floor::*;
-use super::options::*;
 use super::machine::*;
+use super::maze::*;
+use super::options::*;
 use super::part::*;
 use super::port::*;
 use super::port_auto::*;
@@ -56,6 +56,11 @@ pub struct Factory {
 
   // mouse xy, offer xy, tick start, tick duration
   pub edge_hint: (PartKind, (f64, f64), (f64, f64), u64, u64),
+
+  // Maze. Each index tells us whether that cell is connected to the up and left, then a visited count, where 255 means dead end. then a "last direction" flag.
+  pub maze: Vec<MazeCell>,
+  // Position of the runner currently inside the maze
+  pub maze_runner: MazeRunner,
 }
 
 pub fn create_factory(options: &Options, state: &mut State, config: &Config, floor_str: String) -> Factory {
@@ -100,7 +105,11 @@ pub fn create_factory(options: &Options, state: &mut State, config: &Config, flo
     day_corrupted: false,
     edge_hint: (PARTKIND_NONE, (0.0, 0.0), (0.0, 0.0), 0, 0),
     quests,
+    maze: create_maze(),
+    maze_runner: create_maze_runner(0, 0),
   };
+
+  // log!("The maze: {:?}", factory.maze);
 
   auto_layout(options, state, config, &mut factory);
   auto_ins_outs(options, state, config, &mut factory);
@@ -127,6 +136,8 @@ pub fn tick_factory(options: &mut Options, state: &mut State, config: &Config, f
       CellKind::Demand => tick_demand(options, state, factory, coord),
     }
   }
+
+  tick_maze(options, state, config, factory);
 
   if factory.finished_at == 0 {
     let day_ticks = ONE_MS * 1000 * 60; // one day a minute (arbitrary)

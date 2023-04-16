@@ -46,3 +46,11 @@ pub fn rect_check(x0: f64, y0: f64, x: f64, y: f64, w: f64, h: f64) -> bool {
 pub fn line_check(n: f64, a: f64, b: f64) -> bool {
   return n >= a && n < b;
 }
+
+pub fn xorshift(z: usize) -> usize {
+  // "xorshift" "prng" => https://en.wikipedia.org/wiki/Xorshift
+  let z = z ^ z << 13;
+  let z = z ^ z >> 17;
+  let z = z ^ z << 5;
+  return z;
+}

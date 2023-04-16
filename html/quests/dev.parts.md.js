@@ -507,4 +507,11 @@ Temporarily 7 input parts for debugging
 - w: 512
 - h: 512
 
+# Part_Hammer
+- file: ./img/roguelikeitems.png
+- x: 80
+- y: 96
+- w: 16
+- h: 16
+
 `;
