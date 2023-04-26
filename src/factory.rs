@@ -51,6 +51,7 @@ pub struct Factory {
 
   pub trucks: Vec<Truck>,
   pub quests: Vec<QuestState>,
+  pub parts_in_transit: Vec<(PartKind, f64, f64, u8)>,
 
   pub day_corrupted: bool, // Used trash as jokers to create parts in machines?
 
@@ -59,8 +60,17 @@ pub struct Factory {
 
   // Maze. Each index tells us whether that cell is connected to the up and left, then a visited count, where 255 means dead end. then a "last direction" flag.
   pub maze: Vec<MazeCell>,
+  // xorshift (poor man's "prng") seed for initial maze
+  pub maze_seed: u64,
   // Position of the runner currently inside the maze
   pub maze_runner: MazeRunner,
+  // Prepared stats for the next maze runner
+  // TODO: maybe this should be a vec of parts that contribute to the total current value? So we can paint them in order received etc
+  pub maze_prep: ( u16, u16, u16, u16 ),
+}
+
+fn dnow() -> u64 {
+  js_sys::Date::now() as u64
 }
 
 pub fn create_factory(options: &Options, state: &mut State, config: &Config, floor_str: String) -> Factory {
@@ -85,6 +95,8 @@ pub fn create_factory(options: &Options, state: &mut State, config: &Config, flo
   log!("available quests: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| quest.name.clone()).collect::<Vec<_>>());
   log!("target quest parts: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| config.nodes[quest.production_part_index].name.clone()).collect::<Vec<_>>());
 
+  let maze_seed = dnow();
+
   let mut factory = Factory {
     ticks: 0,
     floor,
@@ -102,11 +114,14 @@ pub fn create_factory(options: &Options, state: &mut State, config: &Config, flo
     accepted: 0,
     trashed: 0,
     trucks: vec!(),
+    parts_in_transit: vec!(),
     day_corrupted: false,
     edge_hint: (PARTKIND_NONE, (0.0, 0.0), (0.0, 0.0), 0, 0),
     quests,
-    maze: create_maze(),
+    maze: create_maze(maze_seed),
+    maze_seed,
     maze_runner: create_maze_runner(0, 0),
+    maze_prep: (0, 0, 0, 0),
   };
 
   // log!("The maze: {:?}", factory.maze);
@@ -138,6 +153,200 @@ pub fn tick_factory(options: &mut Options, state: &mut State, config: &Config, f
   }
 
   tick_maze(options, state, config, factory);
+
+  if factory.ticks % 100 == 0 {
+    // Step the round-way, where parts from demanders are put and moved to the maze/furnace
+    // This is not the actual painting, just updating the location in a very manual way.
+
+    const INIT: u8 = 0;
+    const WAY: u8 = 1;
+    const BURN1: u8 = 2; // down
+    const BURN2: u8 = 3; // left
+    const BURN3: u8 = 4; // down2
+    const SPECIAL: u8 = 5; // right
+    const SORTING: u8 = 6; // down
+    const SORTED: u8 = 7; // right
+    const END: u8 = 8;
+
+    // The way-belt size is deliberately half of the floor-cell. This way we can predictably stack
+    // the way-belt around the floor and start at arbitrary offsets with little computational overhead.
+    let tsize = (CELL_H/2.0).floor();
+
+    // We need the track to be a little wider than the floor
+    let roundway_min_len = FLOOR_WIDTH + 4.0;
+    let roundway_track_pieces = (roundway_min_len / tsize).ceil();
+    let roundway_len = roundway_track_pieces * tsize;
+    // At each end of this line there will be a corner piece
+    let roundway_len_full = roundway_len + 2.0 * tsize;
+    // Center it and we will find our x offset
+    let x = (UI_FLOOR_OFFSET_X + FLOOR_WIDTH / 2.0 - roundway_len_full / 2.0 + 3.0).floor() + 0.5;
+    let y = (UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT / 2.0 - roundway_len_full / 2.0 + 2.0).floor() + 0.5;
+    let x2 = x + roundway_len + tsize;
+    let y2 = y + roundway_len + tsize;
+    let x3 = x2 + 3.0 * tsize;
+
+
+    let midx = x + roundway_len_full / 2.0;
+    let midy = y + roundway_len_full / 2.0;
+
+    for t in factory.parts_in_transit.iter_mut() {
+      // if t.3 == 3 {
+      //   log!("phase {}, xy <{},{}>, <{}, >{}, ^{}, v{}", t.3, t.1, t.2, UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_X + FLOOR_WIDTH - CELL_W, UI_FLOOR_OFFSET_Y + CELL_H, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT - CELL_H);
+      // }
+
+      if t.3 == INIT {
+        // First phase: move to the roundway
+
+        if t.1 <= UI_FLOOR_OFFSET_X + CELL_W {
+          t.1 -= 1.0;
+          if t.1 <= x {
+            t.1 = x;
+            t.3 = WAY;
+          }
+        }
+        else if t.1 >= UI_FLOOR_OFFSET_X + FLOOR_WIDTH - CELL_W {
+          t.1 += 1.0;
+          if t.1 >= x2 {
+            t.1 = x2;
+            t.3 = WAY;
+          }
+        }
+        else if t.2 <= UI_FLOOR_OFFSET_Y + CELL_H {
+          t.2 -= 1.0;
+          if t.2 <= y {
+            t.2 = y;
+            t.3 = WAY;
+          }
+        }
+        else if t.2 >= UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT - CELL_H {
+          t.2 += 1.0;
+          if t.2 >= y2 {
+            t.2 = y2;
+            t.3 = WAY;
+          }
+        }
+        else {
+          panic!("which side?");
+        }
+      }
+      else if t.3 == WAY {
+        // Move from left side downward
+        if t.1 == x && t.2 < y2 {
+          t.2 += 1.0;
+          if t.2 > y2 {
+            t.2 = y2;
+          }
+        }
+        // Move from right side downward
+        else if t.1 == x2 && t.2 < y2 {
+          t.2 += 1.0;
+          if t.2 > y2 {
+            t.2 = y2;
+          }
+        }
+        // Move from top side rightward
+        else if t.2 == y && t.1 < x2 {
+          t.1 += 1.0;
+          if t.1 > x2 {
+            t.1 = x2;
+          }
+        }
+        // Move from bottom side rightward
+        else if t.2 == y2 && t.1 < x2 {
+          t.1 += 1.0;
+          if t.1 > x2 {
+            t.1 = x2;
+          }
+        }
+        else if t.1 >= x2 && t.2 >= y2 {
+          // Determine where to go
+          if config.nodes[t.0].special.1 > 0 {
+            // This is a special part, move to the right and sort into the right box
+            t.1 += 1.0;
+            t.3 = SPECIAL;
+          } else {
+            // This is a useless trash item. Move down to burn it.
+            t.2 += 1.0;
+            t.3 = BURN1;
+          }
+        }
+        else {
+          panic!("is this the end? <{}, {}>, x={}, x2={}, y={}, y2={}", t.1, t.2, x, x2, y, y2);
+        }
+      } else if t.3 == BURN1 {
+        t.2 += 1.0;
+        if t.2 >= y2 + 1.0 * tsize {
+          t.2 = y2 + 1.0 * tsize;
+          t.3 = BURN2;
+        }
+      } else if t.3 == BURN2 {
+        t.1 -= 1.0;
+        if t.1 <= x2 - 1.0 * tsize {
+          t.1 = x2 - 1.0 * tsize;
+          t.3 = BURN3;
+        }
+      } else if t.3 == BURN3 {
+        t.2 += 1.0;
+        if t.2 >= y2 + 2.0 * tsize {
+          t.3 = END;
+        }
+      } else if t.3 == SPECIAL {
+        t.1 += 1.0;
+        if t.1 >= x3 {
+          t.1 = x3;
+          t.3 = SORTING;
+        }
+      } else if t.3 == SORTING {
+        t.2 += 1.0;
+
+        if config.nodes[t.0].special.0 == 'e' {
+          if t.2 > y2 + 1.0 * tsize {
+            t.2 = y2 + 1.0 * tsize;
+            t.3 = SORTED;
+          }
+        }
+        else if config.nodes[t.0].special.0 == 's' {
+          if t.2 > y2 + 3.0 * tsize {
+            t.2 = y2 + 3.0 * tsize;
+            t.3 = SORTED;
+          }
+        }
+        else if config.nodes[t.0].special.0 == 'p' {
+          if t.2 > y2 + 5.0 * tsize {
+            t.2 = y2 + 5.0 * tsize;
+            t.3 = SORTED;
+          }
+        }
+        else if config.nodes[t.0].special.0 == 'v' {
+          if t.2 > y2 + 7.0 * tsize {
+            t.2 = y2 + 7.0 * tsize;
+            t.3 = SORTED;
+          }
+        }
+        else {
+          t.3 = END;
+        }
+      } else if t.3 == SORTED {
+        t.1 += 1.0;
+        if t.1 > x3 + 2.0 * tsize {
+          match config.nodes[t.0].special.0 {
+            'n' => panic!("Special kind 0 should not end up here"),
+            'e' => factory.maze_prep.0 += config.nodes[t.0].special.1 as u16,
+            's' => factory.maze_prep.1 += config.nodes[t.0].special.1 as u16,
+            'p' => factory.maze_prep.2 += config.nodes[t.0].special.1 as u16,
+            'v' => factory.maze_prep.3 += config.nodes[t.0].special.1 as u16,
+            x => panic!("What is special kind {}?", x),
+          }
+          t.3 = END;
+        }
+      }
+      else {
+        panic!("what phase? {}", t.3);
+      }
+    }
+
+    factory.parts_in_transit = factory.parts_in_transit.iter().filter(|t| t.3 != END).map(|t| *t).collect::<Vec<(PartKind, f64, f64, u8)>>();
+  }
 
   if factory.finished_at == 0 {
     let day_ticks = ONE_MS * 1000 * 60; // one day a minute (arbitrary)
@@ -287,6 +496,7 @@ pub fn factory_load_map(options: &mut Options, state: &mut State, config: &Confi
   factory.changed = true;
   state.reset_next_frame = false;
   state.load_example_next_frame = false;
+  factory.parts_in_transit.clear();
   // Clear trucks to prevent indexing problems
   factory.trucks = vec!();
 }

@@ -181,9 +181,9 @@ pub struct MouseState {
   pub over_undo: bool,
   pub down_undo: bool,
   pub up_undo: bool,
-  pub over_clear: bool,
-  pub down_clear: bool,
-  pub up_clear: bool,
+  pub over_trash: bool,
+  pub down_trash: bool,
+  pub up_trash: bool,
   pub over_redo: bool,
   pub down_redo: bool,
   pub up_redo: bool,
@@ -244,11 +244,11 @@ pub struct Laser {
   pub color: String,
 }
 
-pub fn state_create(options: &Options) -> State {
+pub fn state_create(options: &Options, active_story_index: usize) -> State {
   return State {
     pregame: true,
     paused: false,
-    active_story_index: 1, // 0=system. dont default to 0.
+    active_story_index, // 0=system. dont default to 0.
     reset_next_frame: false,
     mouse_mode_mirrored: false,
     event_type_swapped: options.initial_event_type_swapped,

@@ -2,12 +2,14 @@ use super::belt::*;
 use super::cell::*;
 use super::config::*;
 use super::direction::*;
+use crate::floor::*;
 use super::machine::*;
 use super::factory::*;
 use super::options::*;
 use super::part::*;
 use super::state::*;
 use super::utils::*;
+use super::zone::*;
 use super::log;
 
 // Clone but not Copy... I don't want to accidentally clone cells when I want to move them
@@ -76,4 +78,13 @@ pub fn demand_receive_part(options: &mut Options, state: &mut State, config: &Co
   }
 
   factory.floor[demand_coord].demand.received.push( ( kind, 1 ) );
+
+  let (x, y) = to_xy(demand_coord);
+  factory.parts_in_transit.push((
+    kind,
+    // Compensate a bit to align with roundway track. Visually inspect to align. Good luck.
+    UI_FLOOR_OFFSET_X + x as f64 * CELL_W + if y == 0 || y == FLOOR_CELLS_H - 1 { 11.0 } else { 0.0 },
+    UI_FLOOR_OFFSET_Y + y as f64 * CELL_H + if x == 0 || x == FLOOR_CELLS_W - 1 { 10.0 } else { 0.0 },
+    0 // phase
+  ));
 }

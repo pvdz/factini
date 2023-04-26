@@ -35,17 +35,21 @@ pub const GRID_LEFT_WIDTH: f64 = 200.0;
 
 pub const GRID_PADDING: f64 = 5.0; // Spacing of grid blocks from edge and between grid blocks
 
+pub const FLOOR_PATH_SPACING: f64 = 20.0;
+
 // The Floor is the main game area
-pub const UI_FLOOR_OFFSET_X: f64 = GRID_X1;
-pub const UI_FLOOR_OFFSET_Y: f64 = GRID_Y1;
-pub const UI_FLOOR_WIDTH: f64 = FLOOR_WIDTH;
-pub const UI_FLOOR_HEIGHT: f64 = FLOOR_HEIGHT;
+// The floor_offset is where the actual floor starts (opposed to the floor zone)
+pub const UI_FLOOR_OFFSET_X: f64 = GRID_X1 + FLOOR_PATH_SPACING;
+pub const UI_FLOOR_OFFSET_Y: f64 = GRID_Y1 + FLOOR_PATH_SPACING;
+// This is the size of the whole zone, including the encircling track
+pub const UI_FLOOR_WIDTH: f64 = FLOOR_PATH_SPACING + FLOOR_WIDTH + FLOOR_PATH_SPACING;
+pub const UI_FLOOR_HEIGHT: f64 = FLOOR_PATH_SPACING + FLOOR_HEIGHT + FLOOR_PATH_SPACING;
 
 // Achievements on the left
 pub const UI_QUOTES_OFFSET_X: f64 = GRID_X0;
 pub const UI_QUOTES_OFFSET_Y: f64 = GRID_Y1;
 pub const UI_QUOTES_WIDTH: f64 = GRID_LEFT_WIDTH;
-pub const UI_QUOTES_HEIGHT: f64 = FLOOR_HEIGHT;
+pub const UI_QUOTES_HEIGHT: f64 = UI_FLOOR_HEIGHT;
 pub const UI_QUOTE_X: f64 = 15.0;
 pub const UI_QUOTE_Y: f64 = 0.0;
 pub const UI_QUEST_WIDTH: f64 = GRID_LEFT_WIDTH - (2.0 * UI_QUOTE_X);
@@ -61,20 +65,20 @@ pub const UI_UNREDO_OFFSET_Y: f64 = GRID_Y2 - 80.0;
 pub const UI_UNREDO_UNDO_OFFSET_X: f64 = UI_UNREDO_OFFSET_X;
 pub const UI_UNREDO_UNDO_OFFSET_Y: f64 = UI_UNREDO_OFFSET_Y;
 pub const UI_UNREDO_UNDO_WIDTH: f64 = 60.0;
-pub const UI_UNREDO_UNDO_HEIGHTH: f64 = 60.0;
+pub const UI_UNREDO_UNDO_HEIGHT: f64 = 60.0;
 pub const UI_UNREDO_CLEAR_OFFSET_X: f64 = UI_UNREDO_OFFSET_X + UI_UNREDO_UNDO_WIDTH + 5.0;
 pub const UI_UNREDO_CLEAR_OFFSET_Y: f64 = UI_UNREDO_OFFSET_Y;
 pub const UI_UNREDO_CLEAR_WIDTH: f64 = 60.0;
-pub const UI_UNREDO_CLEAR_HEIGHTH: f64 = 60.0;
+pub const UI_UNREDO_CLEAR_HEIGHT: f64 = 60.0;
 pub const UI_UNREDO_REDO_OFFSET_X: f64 = UI_UNREDO_CLEAR_OFFSET_X + UI_UNREDO_CLEAR_WIDTH + 5.0;
 pub const UI_UNREDO_REDO_OFFSET_Y: f64 = UI_UNREDO_OFFSET_Y;
 pub const UI_UNREDO_REDO_WIDTH: f64 = 60.0;
-pub const UI_UNREDO_REDO_HEIGHTH: f64 = 60.0;
+pub const UI_UNREDO_REDO_HEIGHT: f64 = 60.0;
 
 // Top menu has the Day progress bar (and whatever). Starts next to achievement menu and goes above the Floor.
 pub const UI_TOP_OFFSET_X: f64 = GRID_X1;
 pub const UI_TOP_OFFSET_Y: f64 = GRID_Y0;
-pub const UI_TOP_WIDTH: f64 = FLOOR_WIDTH;
+pub const UI_TOP_WIDTH: f64 = UI_FLOOR_WIDTH;
 pub const UI_TOP_HEIGHT: f64 = GRID_TOP_HEIGHT;
 
 pub const UI_HELP_X: f64 = GRID_X0 + 40.0;
@@ -131,7 +135,7 @@ pub const UI_MENU_BOTTOM_MACHINE_HEIGHT: f64 = 70.0;
 
 pub const UI_DEBUG_OFFSET_X: f64 = GRID_X0 + 5.0;
 pub const UI_DEBUG_OFFSET_Y: f64 = GRID_Y3 + 10.0;
-pub const UI_DEBUG_WIDTH: f64 = GRID_LEFT_WIDTH + GRID_PADDING + FLOOR_WIDTH + GRID_PADDING + GRID_RIGHT_WIDTH;
+pub const UI_DEBUG_WIDTH: f64 = GRID_LEFT_WIDTH + GRID_PADDING + UI_FLOOR_WIDTH + GRID_PADDING + GRID_RIGHT_WIDTH;
 pub const UI_DEBUG_HEIGHT: f64 = GRID_BOTTOM_DEBUG_HEIGHT;
 // The app stats
 pub const UI_DEBUG_APP_OFFSET_X: f64 = GRID_X2 + 5.0;
@@ -164,11 +168,11 @@ pub const UI_OFFER_TOOLTIP_HEIGHT: f64 = 3.0 + (0.75 * CELL_H) + 5.0 + (0.75 * C
 // Define the coordinates of each "tab" (whatever the terminology ought to be) that defines the grid
 pub const GRID_X0: f64 = GRID_PADDING;
 pub const GRID_X1: f64 = GRID_X0 + GRID_LEFT_WIDTH + GRID_PADDING; // floor starts here
-pub const GRID_X2: f64 = GRID_X1 + FLOOR_WIDTH + GRID_PADDING;
+pub const GRID_X2: f64 = GRID_X1 + UI_FLOOR_WIDTH + GRID_PADDING;
 pub const GRID_X3: f64 = GRID_X2 + GRID_RIGHT_WIDTH + GRID_PADDING;
 pub const GRID_Y0: f64 = GRID_PADDING;
-pub const GRID_Y1: f64 = GRID_X0 + GRID_TOP_HEIGHT + GRID_PADDING; // floor starts here
-pub const GRID_Y2: f64 = GRID_Y1 + FLOOR_HEIGHT + GRID_PADDING;
+pub const GRID_Y1: f64 = GRID_Y0 + GRID_TOP_HEIGHT + GRID_PADDING; // floor starts here
+pub const GRID_Y2: f64 = GRID_Y1 + UI_FLOOR_HEIGHT + GRID_PADDING;
 pub const GRID_Y3: f64 = GRID_Y2 + GRID_BOTTOM_HEIGHT + GRID_PADDING; // debug offset
 pub const GRID_Y4: f64 = GRID_Y3 + GRID_BOTTOM_DEBUG_HEIGHT + GRID_PADDING;
 
@@ -201,7 +205,7 @@ pub fn coord_to_zone(options: &Options, state: &State, config: &Config, x: f64, 
     return if y >= GRID_Y0 && y < GRID_Y0 + GRID_TOP_HEIGHT {
       // top-left, help section
       ZONE_HELP
-    } else if y >= GRID_Y1 && y < GRID_Y1 + FLOOR_HEIGHT {
+    } else if y >= GRID_Y1 && y < GRID_Y1 + UI_FLOOR_HEIGHT {
       // left, quotes
       ZONE_QUOTES
     } else if y >= GRID_Y2 && y < GRID_Y2 + GRID_BOTTOM_HEIGHT {
@@ -214,11 +218,11 @@ pub fn coord_to_zone(options: &Options, state: &State, config: &Config, x: f64, 
       ZONE_MARGIN
     };
   }
-  else if x >= GRID_X1 && x < GRID_X1 + FLOOR_WIDTH {
+  else if x >= GRID_X1 && x < GRID_X1 + UI_FLOOR_WIDTH {
     return if y >= GRID_Y0 && y < GRID_Y0 + GRID_TOP_HEIGHT {
       // top, day bar
       ZONE_DAY_BAR
-    } else if y >= GRID_Y1 && y < GRID_Y1 + FLOOR_HEIGHT {
+    } else if y >= GRID_Y1 && y < GRID_Y1 + UI_FLOOR_HEIGHT {
       // middle, the floor
       ZONE_FLOOR
     } else if y >= GRID_Y2 && y < GRID_Y2 + GRID_BOTTOM_HEIGHT {
@@ -235,7 +239,7 @@ pub fn coord_to_zone(options: &Options, state: &State, config: &Config, x: f64, 
     return if y >= GRID_Y0 && y < GRID_Y0 + GRID_TOP_HEIGHT {
       // top-right, unused
       ZONE_TOP_RIGHT
-    } else if y >= GRID_Y1 && y < GRID_Y1 + FLOOR_HEIGHT {
+    } else if y >= GRID_Y1 && y < GRID_Y1 + UI_FLOOR_HEIGHT {
       // right, offers
       ZONE_OFFERS
     } else if y >= GRID_Y2 && y < GRID_Y2 + GRID_BOTTOM_HEIGHT {

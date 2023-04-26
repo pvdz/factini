@@ -350,6 +350,7 @@ pub const CONFIG_NODE_ASSET_PICKAXE: usize = 325;
 pub struct Config {
   pub nodes: Vec<ConfigNode>,
   pub stories: Vec<Story>,
+  pub active_story_index: usize, // Defaults to 0. Use `- active` in any one story to activate it. Rejects for multiple occurrences (to prevent accidental issues)
   pub part_nodes: Vec<PartKind>, // maps to nodes vec
   pub node_name_to_index: HashMap<String, PartKind>,
   pub node_pattern_to_index: HashMap<String, PartKind>,
@@ -387,6 +388,7 @@ pub struct ConfigNode {
   pub pattern: String, // pattern_by_icon as a string cached (or "prerendered")
   pub pattern_unique_kinds: Vec<PartKind>, // Unique non-empty part kinds. We can use this to quickly find machines that have received these parts.
   pub icon: char, // Single (unique) character that also represents this part internally
+  pub special: (char, u8), // (special kind, special level). for the maze runner.
 
   pub sprite_config: SpriteConfig,
 
@@ -492,6 +494,9 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
     full_name_to_node_index.insert(node.raw_name.clone(), node.index);
   });
 
+  let mut active_story_index = 0;
+  let mut story_activated = false;
+
   config.lines().for_each(
     |line| {
       let trimmed = line.trim();
@@ -570,6 +575,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
               pattern: "".to_string(),
               pattern_unique_kinds: vec!(),
               icon,
+              special: ('n', 0),
               sprite_config: SpriteConfig {
                 frame_offset: 0,
                 frame_count: 1,
@@ -660,6 +666,16 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
           let value_raw = split.next_back().or(Some("")).unwrap().trim(); // last
 
           match label {
+            "active" => {
+              // This means the current story should be considered the active story
+              // Reject if there was already a story that was marked active.
+              if story_activated {
+                panic!("Should not activate more than one story. Find \"- active\" and make sure there is only one");
+              }
+              active_story_index = current_story_index;
+              story_activated = true;
+              log!("Marked {} as the active_story_index", current_story_index);
+            }
             "after" => {
               // This should be a list of zero or more quests that are required to unlock this quest
               let pairs = value_raw.split(',');
@@ -741,6 +757,48 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
               // The sprite file
               let last = nodes[current_node_index].sprite_config.frames.len() - 1;
               nodes[current_node_index].sprite_config.frames[last].file = value_raw.trim().to_string();
+            }
+            "special" => {
+              // This part is one of the four special kinds. The "special" should be followed by
+              // a colon, one of the four special types (espv) and a digit indicating the power level
+              // By default parts have a power level of zero, which means they are not special.
+              // Their symbol will be n (none). We don't need to validate the character here :shrug:
+
+              let pair = value_raw.trim();
+              if pair != "" {
+                let split = pair.trim().split(' ').collect::<Vec<&str>>();
+
+                let kind = split[0]; // Ignore multiple spaces between, :shrug:
+                let mut kind =
+                  if kind == "" { 'n' }
+                  else if kind == "n" { 'n' }
+                  else if kind == "N" { 'n' }
+                  else if kind == "e" { 'e' }
+                  else if kind == "E" { 'e' }
+                  else if kind == "s" { 's' }
+                  else if kind == "S" { 's' }
+                  else if kind == "p" { 'p' }
+                  else if kind == "P" { 'p' }
+                  else if kind == "v" { 'v' }
+                  else if kind == "V" { 'v' }
+                  else { 'n' };
+                if kind == 'n' {
+                  log!("Parsed a special kind `n`, which means none. Might be intentional, might be a parse error... Current node: {}, input value: `{}`", nodes[current_node_index].raw_name, value_raw);
+                } else if kind != 'e' && kind != 's' && kind != 'p' && kind != 'v' {
+                  log!("Parsed an unknown special kind, which defaults to none. Might be intentional, might be a parse error... Current node: {}, input value: `{}`", nodes[current_node_index].raw_name, value_raw);
+                  kind = 'n';
+                }
+
+                let power_level_str = split[split.len() - 1].trim();
+                let power_level = power_level_str.parse::<u8>().or::<Result<u8, &str>>(Ok(0u8)).unwrap();
+                if power_level == 0 {
+                  log!("Parsed a special level of zero. Maybe this was a bug or a parse error... Current node: {}, input value: `{}`", nodes[current_node_index].raw_name, value_raw);
+                }
+
+                if print_fmd_trace { log!("Parsing special: `{}` into `{:?}` -> `{}` and `{}`", pair, split, kind, power_level); }
+
+                nodes[current_node_index].special = ( kind, power_level );
+              }
             }
             | "part_x"
             | "x"
@@ -1146,6 +1204,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   return Config {
     nodes,
     stories,
+    active_story_index,
     part_nodes,
     node_name_to_index,
     node_pattern_to_index,
@@ -1870,6 +1929,7 @@ fn config_node_part(index: PartKind, name: String, icon: char) -> ConfigNode {
     pattern: "".to_string(),
     pattern_unique_kinds: vec!(),
     icon,
+    special: ('n', 0),
 
     sprite_config: SpriteConfig {
       frame_offset: 0,
@@ -1918,6 +1978,7 @@ fn config_node_supply(index: PartKind, name: String) -> ConfigNode {
     pattern_by_icon: vec!(),
     pattern: "".to_string(),
     icon: '?',
+    special: ('n', 0),
 
     sprite_config: SpriteConfig {
       frame_offset: 0,
@@ -1966,6 +2027,7 @@ fn config_node_demand(index: PartKind, name: String) -> ConfigNode {
     pattern_by_icon: vec!(),
     pattern: "".to_string(),
     icon: '?',
+    special: ('n', 0),
 
     sprite_config: SpriteConfig {
       frame_offset: 0,
@@ -2014,6 +2076,7 @@ fn config_node_dock(index: PartKind, name: String) -> ConfigNode {
     pattern_by_icon: vec!(),
     pattern: "".to_string(),
     icon: '?',
+    special: ('n', 0),
 
     sprite_config: SpriteConfig {
       frame_offset: 0,
@@ -2062,6 +2125,7 @@ fn config_node_machine(index: PartKind, name: &str, file: &str) -> ConfigNode {
     pattern_by_icon: vec!(),
     pattern: "".to_string(),
     icon: '?',
+    special: ('n', 0),
 
     sprite_config: SpriteConfig {
       frame_offset: 0,
@@ -2113,6 +2177,7 @@ fn config_node_belt(index: PartKind, name: &str) -> ConfigNode {
     pattern_by_icon: vec!(),
     pattern: "".to_string(),
     icon: '?',
+    special: ('n', 0),
 
     sprite_config: SpriteConfig {
       frame_offset: 0,
@@ -2161,6 +2226,7 @@ fn config_node_asset(index: PartKind, name: &str) -> ConfigNode {
     pattern_by_icon: vec!(),
     pattern: "".to_string(),
     icon: '?',
+    special: ('n', 0),
 
     sprite_config: SpriteConfig {
       frame_offset: 0,
@@ -2209,6 +2275,7 @@ fn config_node_story(index: PartKind, name: &str) -> ConfigNode {
     pattern_by_icon: vec!(),
     pattern: "".to_string(),
     icon: '?',
+    special: ('n', 0),
 
     sprite_config: SpriteConfig {
       frame_offset: 0,

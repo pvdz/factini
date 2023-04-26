@@ -53,11 +53,13 @@ These are the known node kinds:
 * "parts": A list of zero or more parts that unlock when this quest unlocks
 * "targets": One or more pairs of counts and parts, the requirements to finish this quest
 * "state": Only valid stats are "active", "finished", and "waiting". Generally you omit this.
+* "active": No value. Mark the current story (whatever it is) as the active one. Will crash hard if more than one story is active.
 
 ## Part properties
 
-* "pattern": for Parts: If set then this part must be constructed in a machine with these input parts. If empty or omitted then it is a raw supplier part and cannot be created by a machine.
-* "char": for Parts. Ascii character that represents this part in the serialized map. Note that this is ascii bound. The parser does not do unicode. When omitted an available character is auto-assigned. Not all characters are available.
+* "pattern": If set then this part must be constructed in a machine with these input parts. If empty or omitted then it is a raw supplier part and cannot be created by a machine.
+* "char": Ascii character that represents this part in the serialized map. Note that this is ascii bound. The parser does not do unicode. When omitted an available character is auto-assigned. Not all characters are available.
+* "special": Marker that identifies this part as a special part for the maze. The property is to be followed by 'n', 'e', 's', 'p', or 'v' (special kind) and a digit (special level), like "- special: e 3". By default parts are "n 0"
 
 ## Animation definitions
 

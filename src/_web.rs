@@ -28,7 +28,10 @@
 //   - certain things should be painted as a background layer once
 // - help the player
 //   - create tutorial
-// - back to the training thing idea?
+// - store xorshift seed in map save
+// - show produced parts in the prepared area?
+// - actually animate the start of the next maze runner
+
 
 // Letters!
 
@@ -652,17 +655,17 @@ pub fn start() -> Result<(), JsValue> {
       over_save_map: false,
       over_save_map_index: 0,
       over_undo: false,
-      over_clear: false,
+      over_trash: false,
       over_redo: false,
       down_save_map: false,
       down_save_map_index: 0,
       down_undo: false,
-      down_clear: false,
+      down_trash: false,
       down_redo: false,
       up_save_map: false,
       up_save_map_index: 0,
       up_undo: false,
-      up_clear: false,
+      up_trash: false,
       up_redo: false,
     };
     let mut last_time: f64 = 0.0;
@@ -670,8 +673,8 @@ pub fn start() -> Result<(), JsValue> {
 
     let button_canvii: Vec<web_sys::HtmlCanvasElement> = vec!(
       // Buttons on the left (undo, trash, redo)
-      prerender_button(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHTH, true),
-      prerender_button(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHTH, false),
+      prerender_button(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHT, true),
+      prerender_button(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHT, false),
 
       // paint toggle button (left of big machine button)
       prerender_button(&options, &state, &config, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT, true),
@@ -833,8 +836,8 @@ pub fn start() -> Result<(), JsValue> {
       if !config.sprite_cache_loading && todo_create_buttons {
         log!("Filling in button styles now...");
         todo_create_buttons = false;
-        prerender_button_stage2(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHTH, &(button_canvii[BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), true);
-        prerender_button_stage2(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHTH, &(button_canvii[BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), false);
+        prerender_button_stage2(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), true);
+        prerender_button_stage2(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), false);
         prerender_button_stage2(&options, &state, &config, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_UP].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), true);
         prerender_button_stage2(&options, &state, &config, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_DOWN].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), false);
         prerender_button_stage2(&options, &state, &config, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_SAVE_BIG_UP].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), true);
@@ -966,9 +969,10 @@ pub fn start() -> Result<(), JsValue> {
         paint_lasers(&options, &mut state, &config, &context);
         paint_trucks(&options, &state, &config, &context, &mut factory);
         paint_bottom_menu(&options, &state, &config, &factory, &context, &button_canvii, &mouse_state);
-        paint_background_tiles1(&options, &state, &config, &context, &factory);
-        paint_background_tiles2(&options, &state, &config, &context, &factory);
-        paint_background_tiles3(&options, &state, &config, &context, &factory);
+        paint_floor_round_way(&options, &state, &config, &factory, &context);
+        paint_background_tiles1(&options, &state, &config, &factory, &context);
+        paint_background_tiles2(&options, &state, &config, &factory, &context);
+        paint_background_tiles3(&options, &state, &config, &factory, &context);
         paint_port_arrows(&options, &state, &config, &context, &factory);
         paint_belt_dbg_id(&options, &state, &config, &context, &factory);
         // paint_belt_items(&options, &state, &config, &context, &factory);
@@ -1068,10 +1072,10 @@ fn update_mouse_state(
     mouse_state.down_save_map = false;
     mouse_state.up_save_map = false;
     mouse_state.down_undo = false;
-    mouse_state.down_clear = false;
+    mouse_state.down_trash = false;
     mouse_state.down_redo = false;
     mouse_state.up_undo = false;
-    mouse_state.up_clear = false;
+    mouse_state.up_trash = false;
     mouse_state.up_redo = false;
   }
   mouse_state.was_down = false;
@@ -1085,7 +1089,7 @@ fn update_mouse_state(
   mouse_state.over_day_bar = false;
   mouse_state.over_save_map = false;
   mouse_state.over_undo = false;
-  mouse_state.over_clear = false;
+  mouse_state.over_trash = false;
   mouse_state.over_redo = false;
 
   mouse_state.up_zone = Zone::None;
@@ -1139,7 +1143,7 @@ fn update_mouse_state(
         mouse_state.over_undo = true;
       }
       else if hit_test_clear(mouse_state.world_x, mouse_state.world_y) {
-        mouse_state.over_clear = true;
+        mouse_state.over_trash = true;
       }
       else if hit_test_redo(mouse_state.world_x, mouse_state.world_y) {
         mouse_state.over_redo = true;
@@ -1263,7 +1267,7 @@ fn update_mouse_state(
           mouse_state.down_undo = true;
         }
         else if hit_test_clear(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
-          mouse_state.down_clear = true;
+          mouse_state.down_trash = true;
         }
         else if hit_test_redo(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
           mouse_state.down_redo = true;
@@ -1414,7 +1418,7 @@ fn update_mouse_state(
           mouse_state.up_undo = true;
         }
         else if hit_test_clear(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
-          mouse_state.up_clear = true;
+          mouse_state.up_trash = true;
         }
         else if hit_test_redo(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
           mouse_state.up_redo = true;
@@ -1505,8 +1509,8 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         if mouse_state.down_undo {
           on_down_undo(options, state, config, factory, mouse_state);
         }
-        else if mouse_state.down_clear {
-          on_down_clear(options, state, config, factory, mouse_state);
+        else if mouse_state.down_trash {
+          on_down_trash(options, state, config, factory, mouse_state);
         }
         else if mouse_state.down_redo {
           on_down_redo(options, state, config, factory, mouse_state);
@@ -1581,8 +1585,8 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
           if mouse_state.up_undo {
             on_up_undo(options, state, config, factory, mouse_state);
           }
-          else if mouse_state.up_clear {
-            on_up_clear(options, state, config, factory, mouse_state);
+          else if mouse_state.up_trash {
+            on_up_trash(options, state, config, factory, mouse_state);
           }
           else if mouse_state.up_redo {
             on_up_redo(options, state, config, factory, mouse_state);
@@ -1833,16 +1837,17 @@ fn on_up_undo(options: &Options, state: &mut State, config: &Config, factory: &F
     state.load_snapshot_next_frame = true;
   }
 }
-fn on_down_clear(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
-  log!("on_down_clear()");
+fn on_down_trash(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
+  log!("on_down_trash()");
 }
-fn on_up_clear(options: &Options, state: &State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState) {
-  log!("on_up_clear()");
+fn on_up_trash(options: &Options, state: &State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState) {
+  log!("on_up_trash()");
   log!("Removing all cells from the factory...");
   for coord in 0..factory.floor.len() {
     let (x, y) = to_xy(coord);
     factory.floor[coord] = empty_cell(config, x, y);
   }
+  factory.parts_in_transit.clear();
   factory.changed = true;
 }
 fn on_down_redo(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
@@ -1938,7 +1943,7 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
     floor_context.set_image_smoothing_enabled(false);
     floor_context.draw_image_with_html_canvas_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
       &game_map,
-      UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_WIDTH, UI_FLOOR_HEIGHT,
+      UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, FLOOR_WIDTH, FLOOR_HEIGHT,
       0.0, 0.0, (UI_SAVE_THUMB_WIDTH * 0.66).floor(), UI_SAVE_THUMB_HEIGHT
     ).expect("canvas api call to work");
 
@@ -3349,12 +3354,200 @@ fn paint_dock_stripes(
   paint_asset(&options, &state, &config, &context, dock_target, factory.ticks, ox, oy, w, h);
   context.set_global_alpha(1.0);
 }
+fn paint_floor_round_way(
+  options: &Options,
+  state: &State,
+  config: &Config,
+  factory: &Factory,
+  context: &Rc<web_sys::CanvasRenderingContext2d>,
+) {
+  // Paint a track around the floor. It will be smaller than the track on the floor.
+
+  // The way-belt size is deliberately half of the floor-cell. This way we can predictably stack
+  // the way-belt around the floor and start at arbitrary offsets with little computational overhead.
+  let tsize = (CELL_H/2.0).floor();
+
+  // We need the track to be a little wider than the floor
+  let roundway_min_len = FLOOR_WIDTH + 4.0;
+  let roundway_track_pieces = (roundway_min_len / tsize).ceil();
+  let roundway_len = roundway_track_pieces * tsize;
+  // At each end of this line there will be a corner piece
+  let roundway_len_full = roundway_len + 2.0 * tsize;
+  // Center it and we will find our x offset
+  let x = (UI_FLOOR_OFFSET_X + FLOOR_WIDTH / 2.0 - roundway_len_full / 2.0).floor() + 0.5;
+  let y = (UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT / 2.0 - roundway_len_full / 2.0).floor() + 0.5;
+
+  // Are there any demanders on the top row? We will paint the way above from right to left until the
+  // first demander, and put a corner into it. If there is no demander at the top then we don't paint.
+
+  let mut offset = 0.0;
+  for i in 1..FLOOR_CELLS_W-1 {
+    if factory.floor[i].kind == CellKind::Demand {
+      offset = i as f64;
+      break;
+    }
+  }
+  // Each way-belt is half the size of a floor-belt. We want corners to cut exactly into the middle
+  // of a cell. So we paint one way-belt centered next to the floor-edge-cell, meaning that the
+  // other two way-belts 50/50 overlap the floor cell edge.
+  // Provided offset is not zero, we start painting a corner belt at the offset at 25% of the cell.
+  if offset > 0.0 {
+    // Track above floor
+    // Start painting at the offset'th floor-cell. Paint a corner at 25% and then a path to the
+    // right side corner.
+    paint_belt(options, state, config, context, x + 2.0 * tsize + offset * 2.0 * tsize, y, tsize, tsize, BeltType::D_R, 0, factory.ticks);
+    paint_belt(options, state, config, context, x + 2.0 * tsize + offset * 2.0 * tsize, y + tsize, tsize, tsize, BeltType::D_U, 0, factory.ticks);
+
+    for n in (2.0 + offset * 2.0) as usize..=(2 * FLOOR_CELLS_W) {
+      if n % 2 == 1 && factory.floor[n/2].kind == CellKind::Demand {
+        paint_belt(options, state, config, context, x + tsize + (n as f64) * tsize, y, tsize, tsize, BeltType::DL_R, 0, factory.ticks);
+        paint_belt(options, state, config, context, x + tsize + (n as f64) * tsize, y + tsize, tsize, tsize, BeltType::D_U, 0, factory.ticks);
+      } else {
+        paint_belt(options, state, config, context, x + tsize + (n as f64) * tsize, y, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+      }
+    }
+  }
+
+  // Continue to the right-side down. If there was an offset then assume to start painting from
+  // the top. Otherwise start painting at the first right-side demander.
+  if offset == 0.0 {
+    offset = FLOOR_CELLS_H as f64;
+    for i in 1..FLOOR_CELLS_H {
+      if factory.floor[i * FLOOR_CELLS_H - 1].kind == CellKind::Demand {
+        offset = i as f64;
+        break;
+      }
+    }
+  } else {
+    offset = 0.0;
+  }
+  if offset as usize != FLOOR_CELLS_H {
+    // Track right of floor
+    // Start painting at the offset'th floor-cell. Paint a corner at 25% and then a path to the
+    // bottom corner.
+    if offset == 0.0 {
+      // Top-right corner piece
+      paint_belt(options, state, config, context, x + 2.0 * tsize + (FLOOR_CELLS_W as f64 * 2.0 * tsize), y, tsize, tsize, BeltType::L_D, 0, factory.ticks);
+    } else {
+      paint_belt(options, state, config, context, x + 2.0 * tsize + (FLOOR_CELLS_W as f64 * 2.0 * tsize), y + offset * 2.0 * tsize, tsize, tsize, BeltType::L_D, 0, factory.ticks);
+      paint_belt(options, state, config, context, x + 2.0 * tsize + (FLOOR_CELLS_W as f64 * 2.0 * tsize) - tsize, y + offset * 2.0 * tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+    }
+
+    for n in (1.0 + offset * 2.0) as usize..=(2 * FLOOR_CELLS_H) + 1 {
+      if n % 2 == 0 && factory.floor[(n/2) * FLOOR_CELLS_W - 1].kind == CellKind::Demand {
+        paint_belt(options, state, config, context, x + 2.0 * tsize + (FLOOR_CELLS_W as f64 * 2.0 * tsize), y + (n as f64) * tsize, tsize, tsize, BeltType::LU_D, 0, factory.ticks);
+        paint_belt(options, state, config, context, x + 2.0 * tsize + (FLOOR_CELLS_W as f64 * 2.0 * tsize) - tsize, y + (n as f64) * tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+      } else {
+        paint_belt(options, state, config, context, x + 2.0 * tsize + (FLOOR_CELLS_W as f64 * 2.0 * tsize), y + (n as f64) * tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
+      }
+    }
+  }
+
+  // Now we repeat the same starting on the left side
+
+  let mut offset2 = FLOOR_CELLS_W as f64;
+  for i in 1..FLOOR_CELLS_H-1 {
+    if factory.floor[i * FLOOR_CELLS_H].kind == CellKind::Demand {
+      offset2 = i as f64;
+      break;
+    }
+  }
+  if offset2 as usize != FLOOR_CELLS_W {
+    // Track left of floor
+    // Start painting at the offset'th floor-cell. Paint a corner at 25% and then a path to the
+    // bottom corner.
+    paint_belt(options, state, config, context, x, y + 2.0 * tsize + offset2 * 2.0 * tsize, tsize, tsize, BeltType::R_D, 0, factory.ticks);
+    paint_belt(options, state, config, context, x + tsize, y + 2.0 * tsize + offset2 * 2.0 * tsize, tsize, tsize, BeltType::R_L, 0, factory.ticks);
+
+    for n in (1.0 + offset2 * 2.0) as usize..(2 * FLOOR_CELLS_H) {
+      if n % 2 == 0 && factory.floor[(n/2) * FLOOR_CELLS_W].kind == CellKind::Demand {
+        paint_belt(options, state, config, context, x, y + 2.0 * tsize + (n as f64) * tsize, tsize, tsize, BeltType::RU_D, 0, factory.ticks);
+        paint_belt(options, state, config, context, x + tsize, y + 2.0 * tsize + (n as f64) * tsize, tsize, tsize, BeltType::R_L, 0, factory.ticks);
+      } else {
+        paint_belt(options, state, config, context, x, y + 2.0 * tsize + (n as f64) * tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
+      }
+    }
+  }
+
+  // And the corner and bottom way
+
+  if offset2 as usize == FLOOR_CELLS_W {
+    for i in 1..FLOOR_CELLS_W-1 {
+      if factory.floor[(FLOOR_CELLS_W * FLOOR_CELLS_H - FLOOR_CELLS_W) + i].kind == CellKind::Demand {
+        offset2 = i as f64;
+        break;
+      }
+    }
+  } else {
+    offset2 = 0.0;
+  }
+  if offset2 as usize != FLOOR_CELLS_W {
+    // Track above floor
+    if offset2 == 0.0 {
+      // Bottom-left corner piece
+      paint_belt(options, state, config, context, x, y + 2.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize, tsize, tsize, BeltType::U_R, 0, factory.ticks);
+      paint_belt(options, state, config, context, x + 1.0 * tsize, y + 2.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+      paint_belt(options, state, config, context, x + 2.0 * tsize, y + 2.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+    } else {
+      // Start painting at the offset'th floor-cell. Paint a corner at 25% and then a path to the
+      // right side corner.
+      paint_belt(options, state, config, context, x + 2.0 * tsize + offset2 * 2.0 * tsize, y + 2.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize, tsize, tsize, BeltType::U_R, 0, factory.ticks);
+      paint_belt(options, state, config, context, x + 2.0 * tsize + offset2 * 2.0 * tsize, y + 2.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize - tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
+    }
+
+    for n in (2.0 + offset2 * 2.0) as usize..=(2 * FLOOR_CELLS_W) {
+      if n % 2 == 1 && factory.floor[(FLOOR_CELLS_W * FLOOR_CELLS_H - FLOOR_CELLS_W) + n/2].kind == CellKind::Demand {
+        paint_belt(options, state, config, context, x + tsize + (n as f64) * tsize, y + 3.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize - tsize, tsize, tsize, BeltType::LU_R, 0, factory.ticks);
+        paint_belt(options, state, config, context, x + tsize + (n as f64) * tsize, y + 3.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize - tsize - tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
+      } else {
+        paint_belt(options, state, config, context, x + tsize + (n as f64) * tsize, y + 3.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize - tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+      }
+    }
+  }
+
+  if offset as usize != FLOOR_CELLS_H || offset2 as usize != FLOOR_CELLS_W {
+    // Bottom-right piece
+    let bt =
+      if offset as usize != FLOOR_CELLS_H && offset2 as usize != FLOOR_CELLS_W { BeltType::LU_DR }
+      else if offset as usize != FLOOR_CELLS_H { BeltType::U_DR }
+      else { BeltType::L_DR };
+
+    paint_belt(options, state, config, context, x + roundway_len_full - tsize, y + roundway_len_full - tsize, tsize, tsize, bt, 0, factory.ticks);
+
+    // Down path into the machine
+    paint_belt(options, state, config, context, x + roundway_len_full - tsize, y + roundway_len_full, tsize, tsize, BeltType::U_L, 0, factory.ticks);
+    paint_belt(options, state, config, context, x + roundway_len_full - 2.0 * tsize, y + roundway_len_full, tsize, tsize, BeltType::R_D, 0, factory.ticks);
+    paint_belt(options, state, config, context, x + roundway_len_full - 2.0 * tsize, y + roundway_len_full + tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
+
+    // Right into the stats
+    paint_belt(options, state, config, context, x + roundway_len_full, y + roundway_len_full - tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+    paint_belt(options, state, config, context, x + roundway_len_full + tsize, y + roundway_len_full - tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+    paint_belt(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full - tsize, tsize, tsize, BeltType::L_D, 0, factory.ticks);
+    paint_belt(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full, tsize, tsize, BeltType::U_DR, 0, factory.ticks);
+    paint_belt(options, state, config, context, x + roundway_len_full + 3.0 * tsize, y + roundway_len_full, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+    paint_belt(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full + tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
+    paint_belt(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full + 2.0 * tsize, tsize, tsize, BeltType::U_DR, 0, factory.ticks);
+    paint_belt(options, state, config, context, x + roundway_len_full + 3.0 * tsize, y + roundway_len_full + 2.0 * tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+    paint_belt(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full + 3.0 * tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
+    paint_belt(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full + 4.0 * tsize, tsize, tsize, BeltType::U_DR, 0, factory.ticks);
+    paint_belt(options, state, config, context, x + roundway_len_full + 3.0 * tsize, y + roundway_len_full + 4.0 * tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+    paint_belt(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full + 5.0 * tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
+    paint_belt(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full + 6.0 * tsize, tsize, tsize, BeltType::U_R, 0, factory.ticks);
+    paint_belt(options, state, config, context, x + roundway_len_full + 3.0 * tsize, y + roundway_len_full + 6.0 * tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+  }
+
+  // log!("painign factory.parts_in_transit: {:?}", factory.parts_in_transit);
+  for ( p, px, py, phase ) in factory.parts_in_transit.iter() {
+    paint_segment_part_from_config(options, state, config, context, *p as usize, *px, *py, 10.0, 10.0);
+  }
+
+}
 fn paint_background_tiles1(
   options: &Options,
   state: &State,
   config: &Config,
-  context: &Rc<web_sys::CanvasRenderingContext2d>,
   factory: &Factory,
+  context: &Rc<web_sys::CanvasRenderingContext2d>,
 ) {
   // Paint background cell tiles
   for coord in 0..FLOOR_CELLS_WH {
@@ -3451,8 +3644,8 @@ fn paint_background_tiles2(
   options: &Options,
   state: &State,
   config: &Config,
-  context: &Rc<web_sys::CanvasRenderingContext2d>,
   factory: &Factory,
+  context: &Rc<web_sys::CanvasRenderingContext2d>,
 ) {
   // Paint background cell tiles
   for coord in 0..FLOOR_CELLS_WH {
@@ -3577,8 +3770,8 @@ fn paint_background_tiles3(
   options: &Options,
   state: &State,
   config: &Config,
-  context: &Rc<web_sys::CanvasRenderingContext2d>,
   factory: &Factory,
+  context: &Rc<web_sys::CanvasRenderingContext2d>,
 ) {
   // Paint background cell tiles
   for coord in 0..FLOOR_CELLS_WH {
@@ -5329,13 +5522,13 @@ fn paint_asset_raw(options: &Options, state: &State, config: &Config, context: &
   return true;
 }
 fn hit_test_undo(x: f64, y: f64) -> bool {
-  return bounds_check(x, y, UI_UNREDO_UNDO_OFFSET_X, UI_UNREDO_UNDO_OFFSET_Y, UI_UNREDO_UNDO_OFFSET_X + UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_OFFSET_Y + UI_UNREDO_UNDO_HEIGHTH);
+  return bounds_check(x, y, UI_UNREDO_UNDO_OFFSET_X, UI_UNREDO_UNDO_OFFSET_Y, UI_UNREDO_UNDO_OFFSET_X + UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_OFFSET_Y + UI_UNREDO_UNDO_HEIGHT);
 }
 fn hit_test_clear(x: f64, y: f64) -> bool {
-  return bounds_check(x, y, UI_UNREDO_CLEAR_OFFSET_X, UI_UNREDO_CLEAR_OFFSET_Y, UI_UNREDO_CLEAR_OFFSET_X + UI_UNREDO_CLEAR_WIDTH, UI_UNREDO_CLEAR_OFFSET_Y + UI_UNREDO_CLEAR_HEIGHTH);
+  return bounds_check(x, y, UI_UNREDO_CLEAR_OFFSET_X, UI_UNREDO_CLEAR_OFFSET_Y, UI_UNREDO_CLEAR_OFFSET_X + UI_UNREDO_CLEAR_WIDTH, UI_UNREDO_CLEAR_OFFSET_Y + UI_UNREDO_CLEAR_HEIGHT);
 }
 fn hit_test_redo(x: f64, y: f64) -> bool {
-  return bounds_check(x, y, UI_UNREDO_REDO_OFFSET_X, UI_UNREDO_REDO_OFFSET_Y, UI_UNREDO_REDO_OFFSET_X + UI_UNREDO_REDO_WIDTH, UI_UNREDO_REDO_OFFSET_Y + UI_UNREDO_REDO_HEIGHTH);
+  return bounds_check(x, y, UI_UNREDO_REDO_OFFSET_X, UI_UNREDO_REDO_OFFSET_Y, UI_UNREDO_REDO_OFFSET_X + UI_UNREDO_REDO_WIDTH, UI_UNREDO_REDO_OFFSET_Y + UI_UNREDO_REDO_HEIGHT);
 }
 fn hit_test_save_map(x: f64, y: f64) -> usize {
   return
@@ -5429,20 +5622,20 @@ fn paint_map_state_buttons(options: &Options, state: &State, config: &Config, co
   paint_button(options, state, config, context, button_canvii, if state.snapshot_undo_pointer > 0 && mouse_state.down_undo { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_UNREDO_UNDO_OFFSET_X, UI_UNREDO_UNDO_OFFSET_Y);
   let text_color = if state.snapshot_undo_pointer <= 0 { "#777" } else if mouse_state.over_undo { "#aaa" } else { "#ddd" };
   context.set_fill_style(&text_color.into());
-  context.fill_text("↶", UI_UNREDO_UNDO_OFFSET_X + UI_UNREDO_UNDO_WIDTH / 2.0 - 16.0, UI_UNREDO_UNDO_OFFSET_Y + UI_UNREDO_UNDO_HEIGHTH / 2.0 + 16.0).expect("canvas api call to work");
+  context.fill_text("↶", UI_UNREDO_UNDO_OFFSET_X + UI_UNREDO_UNDO_WIDTH / 2.0 - 16.0, UI_UNREDO_UNDO_OFFSET_Y + UI_UNREDO_UNDO_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
 
-  paint_button(options, state, config, context, button_canvii, if mouse_state.down_clear { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_UNREDO_CLEAR_OFFSET_X, UI_UNREDO_CLEAR_OFFSET_Y);
+  paint_button(options, state, config, context, button_canvii, if mouse_state.down_trash { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_UNREDO_CLEAR_OFFSET_X, UI_UNREDO_CLEAR_OFFSET_Y);
 
   paint_asset_raw(
-    options, state, config, &context, if mouse_state.over_clear { CONFIG_NODE_ASSET_TRASH_RED } else { CONFIG_NODE_ASSET_TRASH_LIGHT }, 0,
-    UI_UNREDO_CLEAR_OFFSET_X + UI_UNREDO_UNDO_WIDTH / 2.0 - 16.0, UI_UNREDO_CLEAR_OFFSET_Y + UI_UNREDO_CLEAR_HEIGHTH / 2.0 - 16.0, 32.0, 32.0
+    options, state, config, &context, if mouse_state.over_trash { CONFIG_NODE_ASSET_TRASH_RED } else { CONFIG_NODE_ASSET_TRASH_LIGHT }, 0,
+    UI_UNREDO_CLEAR_OFFSET_X + UI_UNREDO_UNDO_WIDTH / 2.0 - 16.0, UI_UNREDO_CLEAR_OFFSET_Y + UI_UNREDO_CLEAR_HEIGHT / 2.0 - 16.0, 32.0, 32.0
   );
 
   // 🗑 🚮
   paint_button(options, state, config, context, button_canvii, if state.snapshot_undo_pointer != state.snapshot_pointer && mouse_state.down_redo { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_UNREDO_REDO_OFFSET_X, UI_UNREDO_REDO_OFFSET_Y);
   let text_color = if state.snapshot_undo_pointer == state.snapshot_pointer { "#777" } else if mouse_state.over_redo { "#aaa" } else { "#ddd" };
   context.set_fill_style(&text_color.into());
-  context.fill_text("↷", UI_UNREDO_REDO_OFFSET_X + UI_UNREDO_REDO_WIDTH / 2.0 - 16.0, UI_UNREDO_REDO_OFFSET_Y + UI_UNREDO_REDO_HEIGHTH / 2.0 + 16.0).expect("canvas api call to work");
+  context.fill_text("↷", UI_UNREDO_REDO_OFFSET_X + UI_UNREDO_REDO_WIDTH / 2.0 - 16.0, UI_UNREDO_REDO_OFFSET_Y + UI_UNREDO_REDO_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
 
   context.restore();
 }
@@ -5455,6 +5648,8 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
   // Paint four "current" runner bars
 
   // Energy remaining
+  context.set_fill_style(&"black".into());
+  context.fill_text(format!("{} / {}", factory.maze_runner.energy_now, factory.maze_runner.energy_max).as_str(), x + 10.0, y - 35.0).expect("it to work");
   context.set_fill_style(&"white".into());
   context.fill_rect(x + 10.0, y - 30.0, 80.0, 25.0);
   context.set_fill_style(&"yellow".into());
@@ -5463,14 +5658,18 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
   context.stroke_rect(x + 10.0, y - 30.0, 80.0, 25.0);
 
   // Speed indicator
+  context.set_fill_style(&"black".into());
+  context.fill_text(format!("{}", factory.maze_runner.speed).as_str(), x + 100.0, y - 35.0).expect("it to work");
   context.set_fill_style(&"white".into());
   context.fill_rect(x + 100.0, y - 30.0, 30.0, 25.0);
   context.set_stroke_style(&"black".into());
   context.stroke_rect(x + 100.0, y - 30.0, 30.0, 25.0);
   context.set_fill_style(&"black".into());
-  context.fill_text(&format!("{}", factory.maze_runner.speed), x + 111.0, y - 14.0);
+  context.fill_text(&format!("{}", factory.maze_runner.speed), x + 111.0, y - 14.0).expect("it to work");
 
   // Power indicator, paint one hammer per rock that can be broken
+  context.set_fill_style(&"black".into());
+  context.fill_text(format!("{} / {}", factory.maze_runner.power_now, factory.maze_runner.power_max).as_str(), x + 140.0, y - 35.0).expect("it to work");
   context.set_fill_style(&"white".into());
   context.fill_rect(x + 140.0, y - 30.0, 60.0, 25.0);
   // paint one hammer evenly divided across the space. maintain location (dont "jump" when removing a hammer). max width to divide is field_width-margin-img_width-margin. max spacing is img_width+margin
@@ -5484,6 +5683,8 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
   context.stroke_rect(x + 140.0, y - 30.0, 60.0, 25.0);
 
   // Collection / Volume indicator
+  context.set_fill_style(&"black".into());
+  context.fill_text(format!("{} / {}", factory.maze_runner.volume_now, factory.maze_runner.volume_max).as_str(), x + 210.0, y - 35.0).expect("it to work");
   context.set_fill_style(&"white".into());
   context.fill_rect(x + 210.0, y - 30.0, 80.0, 25.0);
   // Unlike power, here we may actually want to update the spacing as the volume goes up. Try to make it a "pile" or whatever. We can probably fake that to some degree with some kind of pre-defined positioning table etc.
@@ -5557,68 +5758,75 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
   let bars = 15.0;
   let bar_width = MAZE_WIDTH / (bars + 1.0); // one extra for the label
 
-  let e = 4;
-  let s = 2;
-  let p = 5;
-  let w = 1;
+  let ( e, s, p, w ) = factory.maze_prep;
+
+  let delta = -6.0;
+
+  context.set_fill_style(&"black".into());
+  context.fill_text(format!(
+    "{}  {}  {}  {} :: fin {} ref {}",
+    e, s, p ,w,
+    if factory.maze_runner.maze_finish_at > 0 { ((5.0 * ONE_SECOND as f64 * options.speed_modifier_floor) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_finish_at as i64)).max(0) } else { -1 },
+    if factory.maze_runner.maze_restart_at > 0 { ((5.0 * ONE_SECOND as f64 * options.speed_modifier_floor) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_restart_at as i64)).max(0) } else { -1 },
+  ).as_str(), 0.5 + x + 40.0, 0.5 + GRID_Y2 + delta - 10.0).expect("canvas api call to work");
 
   context.set_fill_style(&"white".into());
-  context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 5.0, MAZE_WIDTH, 25.0);
+  context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + delta, MAZE_WIDTH, 25.0);
   context.set_fill_style(&"yellow".into());
-  context.fill_rect(0.5 + x + bar_width, 0.5 + GRID_Y2 + 5.0, bar_width * (e as f64), 25.0);
+  context.fill_rect(0.5 + x + bar_width, 0.5 + GRID_Y2 + delta, bar_width * ((e/10).min(15) as f64), 25.0);
   context.set_stroke_style(&"black".into());
-  context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + 5.0, MAZE_WIDTH, 25.0);
+  context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + delta, MAZE_WIDTH, 25.0);
   context.set_fill_style(&"black".into());
-  context.fill_text("E", 0.5 + x + 5.0, 0.5 + GRID_Y2 + 22.0).expect("canvas api call to work");
-  for i in 0..((bars+1.0) as usize) {
+  context.fill_text("E", 0.5 + x + 5.0, 0.5 + GRID_Y2 + delta + 17.0).expect("canvas api call to work");
+  for i in 0..((bars as usize) + 1) {
     context.begin_path();
-    context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + 5.0);
-    context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + 5.0 + 25.0);
+    context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta);
+    context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 25.0);
     context.stroke();
   }
 
   context.set_fill_style(&"white".into());
-  context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 30.0 + 5.0, MAZE_WIDTH, 25.0);
+  context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 32.0 + delta, MAZE_WIDTH, 25.0);
   context.set_fill_style(&"yellow".into());
-  context.fill_rect(0.5 + x + bar_width, 0.5 + GRID_Y2 + 30.0 + 5.0, bar_width * (s as f64), 25.0);
+  context.fill_rect(0.5 + x + bar_width, 0.5 + GRID_Y2 + 32.0 + delta, bar_width * ((s/10).min(15) as f64), 25.0);
   context.set_stroke_style(&"black".into());
-  context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + 30.0 + 5.0, MAZE_WIDTH, 25.0);
+  context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + 32.0 + delta, MAZE_WIDTH, 25.0);
   context.set_fill_style(&"black".into());
-  context.fill_text("S", 0.5 + x + 5.0, 0.5 + GRID_Y2 + 30.0 + 22.0).expect("canvas api call to work");
-  for i in 0..((bars+1.0) as usize) {
+  context.fill_text("S", 0.5 + x + 5.0, 0.5 + GRID_Y2 + 32.0 + delta + 17.0).expect("canvas api call to work");
+  for i in 0..((bars as usize) + 1) {
     context.begin_path();
-    context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + 35.0);
-    context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + 35.0 + 25.0);
+    context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 32.0);
+    context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 32.0 + 25.0);
     context.stroke();
   }
 
   context.set_fill_style(&"white".into());
-  context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 60.0 + 5.0, MAZE_WIDTH, 25.0);
+  context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 64.0 + delta, MAZE_WIDTH, 25.0);
   context.set_fill_style(&"yellow".into());
-  context.fill_rect(0.5 + x + bar_width, 0.5 + GRID_Y2 + 60.0 + 5.0, bar_width * (p as f64), 25.0);
+  context.fill_rect(0.5 + x + bar_width, 0.5 + GRID_Y2 + 64.0 + delta, bar_width * ((p/10).min(15) as f64), 25.0);
   context.set_stroke_style(&"black".into());
-  context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + 60.0 + 5.0, MAZE_WIDTH, 25.0);
+  context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + 64.0 + delta, MAZE_WIDTH, 25.0);
   context.set_fill_style(&"black".into());
-  context.fill_text("P", 0.5 + x + 5.0, 0.5 + GRID_Y2 + 60.0 + 22.0).expect("canvas api call to work");
-  for i in 0..((bars+1.0) as usize) {
+  context.fill_text("P", 0.5 + x + 5.0, 0.5 + GRID_Y2 + 64.0 + delta + 17.0).expect("canvas api call to work");
+  for i in 0..((bars as usize) + 1) {
     context.begin_path();
-    context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + 65.0);
-    context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + 65.0 + 25.0);
+    context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 64.0);
+    context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 64.0 + 25.0);
     context.stroke();
   }
 
   context.set_fill_style(&"white".into());
-  context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 90.0 + 5.0, MAZE_WIDTH, 25.0);
+  context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 96.0 + delta, MAZE_WIDTH, 25.0);
   context.set_fill_style(&"yellow".into());
-  context.fill_rect(0.5 + x + bar_width, 0.5 + GRID_Y2 + 90.0 + 5.0, bar_width * (w as f64), 25.0);
+  context.fill_rect(0.5 + x + bar_width, 0.5 + GRID_Y2 + 96.0 + delta, bar_width * ((w/10).min(15) as f64), 25.0);
   context.set_stroke_style(&"black".into());
-  context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + 90.0 + 5.0, MAZE_WIDTH, 25.0);
+  context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + 96.0 + delta, MAZE_WIDTH, 25.0);
   context.set_fill_style(&"black".into());
-  context.fill_text("V", 0.5 + x + 5.0, 0.5 + GRID_Y2 + 90.0 + 22.0).expect("canvas api call to work");
-  for i in 0..(bars as usize) {
+  context.fill_text("V", 0.5 + x + 5.0, 0.5 + GRID_Y2 + 96.0 + delta + 17.0).expect("canvas api call to work");
+  for i in 0..((bars as usize) + 1) {
     context.begin_path();
-    context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + 95.0);
-    context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + 95.0 + 25.0);
+    context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 96.0);
+    context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 96.0 + 25.0);
     context.stroke();
   }
 }
