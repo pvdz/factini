@@ -1,4 +1,3 @@
-use super::asset::*;
 use super::belt::*;
 use super::belt_type::*;
 use super::bouncer::*;

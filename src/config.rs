@@ -345,6 +345,7 @@ pub const CONFIG_NODE_ASSET_TRASH_GREEN: usize = 322;
 pub const CONFIG_NODE_STORY_DEFAULT: usize = 323;
 pub const CONFIG_NDOE_ASSET_TREASURE: usize = 324;
 pub const CONFIG_NODE_ASSET_PICKAXE: usize = 325;
+pub const CONFIG_NODE_ASSET_DRM_PLACEHOLDER: usize = 326;
 
 #[derive(Debug)]
 pub struct Config {
@@ -390,6 +391,7 @@ pub struct ConfigNode {
   pub icon: char, // Single (unique) character that also represents this part internally
   pub special: (char, u8), // (special kind, special level). for the maze runner.
 
+  pub drm: bool, // When true, the art for this node is not owned. Use with options.show_drm=false to create safe public media with placeholders
   pub sprite_config: SpriteConfig,
 
   // Mostly for debugging
@@ -576,6 +578,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
               pattern_unique_kinds: vec!(),
               icon,
               special: ('n', 0),
+              drm: false,
               sprite_config: SpriteConfig {
                 frame_offset: 0,
                 frame_count: 1,
@@ -757,6 +760,10 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
               // The sprite file
               let last = nodes[current_node_index].sprite_config.frames.len() - 1;
               nodes[current_node_index].sprite_config.frames[last].file = value_raw.trim().to_string();
+            }
+            "drm" => {
+              // Mark the art for this node as "not owned", use with options.show_drm=false to create public media
+              nodes[current_node_index].drm = true;
             }
             "special" => {
               // This part is one of the four special kinds. The "special" should be followed by
@@ -1267,6 +1274,7 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Asset_SingleArrowRight" => CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT,
     "Asset_Treasure" => CONFIG_NDOE_ASSET_TREASURE,
     "Asset_Pickaxe" => CONFIG_NODE_ASSET_PICKAXE,
+    "Asset_DrmPlaceholder" => CONFIG_NODE_ASSET_DRM_PLACEHOLDER,
     "Part_None" => PARTKIND_NONE,
     "Part_Trash" => PARTKIND_TRASH,
     "Supply_Up" => CONFIG_NODE_SUPPLY_UP,
@@ -1883,6 +1891,7 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_story(CONFIG_NODE_STORY_DEFAULT, "DEFAULT"),
     config_node_asset(CONFIG_NDOE_ASSET_TREASURE, "TREASURE"),
     config_node_asset(CONFIG_NODE_ASSET_PICKAXE, "PICKAXE"),
+    config_node_asset(CONFIG_NODE_ASSET_DRM_PLACEHOLDER, "DRM_PLACEHOLDER"),
   );
 
   v.iter().enumerate().for_each(|(i, node)| assert!(node.index == i, "system node indexes must match their global constant value; mismatch for index {}", i));
@@ -1931,6 +1940,7 @@ fn config_node_part(index: PartKind, name: String, icon: char) -> ConfigNode {
     icon,
     special: ('n', 0),
 
+    drm: false,
     sprite_config: SpriteConfig {
       frame_offset: 0,
       frame_count: 1,
@@ -1980,6 +1990,7 @@ fn config_node_supply(index: PartKind, name: String) -> ConfigNode {
     icon: '?',
     special: ('n', 0),
 
+    drm: false,
     sprite_config: SpriteConfig {
       frame_offset: 0,
       frame_count: 1,
@@ -2029,6 +2040,7 @@ fn config_node_demand(index: PartKind, name: String) -> ConfigNode {
     icon: '?',
     special: ('n', 0),
 
+    drm: false,
     sprite_config: SpriteConfig {
       frame_offset: 0,
       frame_count: 1,
@@ -2078,6 +2090,7 @@ fn config_node_dock(index: PartKind, name: String) -> ConfigNode {
     icon: '?',
     special: ('n', 0),
 
+    drm: false,
     sprite_config: SpriteConfig {
       frame_offset: 0,
       frame_count: 1,
@@ -2127,6 +2140,7 @@ fn config_node_machine(index: PartKind, name: &str, file: &str) -> ConfigNode {
     icon: '?',
     special: ('n', 0),
 
+    drm: false,
     sprite_config: SpriteConfig {
       frame_offset: 0,
       frame_count: 1,
@@ -2179,6 +2193,7 @@ fn config_node_belt(index: PartKind, name: &str) -> ConfigNode {
     icon: '?',
     special: ('n', 0),
 
+    drm: false,
     sprite_config: SpriteConfig {
       frame_offset: 0,
       frame_count: 1,
@@ -2228,6 +2243,7 @@ fn config_node_asset(index: PartKind, name: &str) -> ConfigNode {
     icon: '?',
     special: ('n', 0),
 
+    drm: false,
     sprite_config: SpriteConfig {
       frame_offset: 0,
       frame_count: 1,
@@ -2277,6 +2293,7 @@ fn config_node_story(index: PartKind, name: &str) -> ConfigNode {
     icon: '?',
     special: ('n', 0),
 
+    drm: false,
     sprite_config: SpriteConfig {
       frame_offset: 0,
       frame_count: 1,
@@ -2303,9 +2320,12 @@ fn config_node_story(index: PartKind, name: &str) -> ConfigNode {
   };
 }
 
-pub fn config_get_sprite_details(config: &Config, config_index: usize, sprite_start_at: u64, ticks: u64) -> (f64, f64, f64, f64, &web_sys::HtmlImageElement) {
+pub fn config_get_sprite_details<'x>(config: &'x Config, options: &Options, config_index: usize, sprite_start_at: u64, ticks: u64) -> (f64, f64, f64, f64, &'x web_sys::HtmlImageElement) {
   assert!(config_index < config.nodes.len(), "config_index should be a node index: {} < {}", config_index, config.nodes.len());
-  let node = &config.nodes[config_index];
+  let mut node = &config.nodes[config_index];
+  if node.drm && !options.show_drm {
+    node = &config.nodes[CONFIG_NODE_ASSET_DRM_PLACEHOLDER];
+  }
   let sprite_config = &node.sprite_config;
 
   let frame_offset = sprite_config.frame_offset;
@@ -2408,8 +2428,8 @@ pub fn config_to_jsvalue(config: &Config) -> JsValue {
   }).collect::<js_sys::Array>().into();
 }
 
-pub fn config_get_sprite_for_belt_type(config: &Config, belt_type: BeltType, sprite_start_at: u64, ticks: u64) -> (f64, f64, f64, f64, &web_sys::HtmlImageElement) {
-  return config_get_sprite_details(config, belt_type as usize, sprite_start_at, ticks);
+pub fn config_get_sprite_for_belt_type<'x>(config: &'x Config, options: &Options, belt_type: BeltType, sprite_start_at: u64, ticks: u64) -> (f64, f64, f64, f64, &'x web_sys::HtmlImageElement) {
+  return config_get_sprite_details(config, options, belt_type as usize, sprite_start_at, ticks);
 }
 
 pub const EXAMPLE_CONFIG: &str = "

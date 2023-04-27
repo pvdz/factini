@@ -25,6 +25,7 @@ const GAME_OPTIONS = `
 - print_priority_tile_order: false
 - print_initial_table: false
 - draw_part_borders: false
+- show_drm: true
 - draw_part_char_icon: false
 - draw_part_kind: false
 - draw_port_arrows: false

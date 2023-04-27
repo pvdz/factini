@@ -1,4 +1,5 @@
 use super::config::*;
+use super::options::*;
 use super::utils::*;
 use super::log;
 
@@ -75,8 +76,8 @@ pub fn part_icon_to_kind(config: &Config, c: char) -> PartKind {
 pub fn part_kind_to_icon(config: &Config, kind: PartKind) -> char {
   return config.nodes[kind].icon;
 }
-pub fn part_to_sprite_coord_from_config(config: &Config, belt_type: PartKind) -> (f64, f64, f64, f64, &web_sys::HtmlImageElement ) {
+pub fn part_to_sprite_coord_from_config<'x>(config: &'x Config, options: &Options, belt_type: PartKind) -> (f64, f64, f64, f64, &'x web_sys::HtmlImageElement ) {
   assert!((belt_type as usize) < config.nodes.len(), "part kind should be a node index: {} < {}", belt_type, config.nodes.len());
 
-  return config_get_sprite_details(config, belt_type as usize, 0, 0);
+  return config_get_sprite_details(config, options, belt_type as usize, 0, 0);
 }

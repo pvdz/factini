@@ -22,6 +22,7 @@ Hardcoded node. Can appear anywhere. This is the trash/crap/whatever part.
 This is something that looks like a grey rock.
 - char: t
 - file: ./img/roguelikeitems.png
+- drm
 - x: 176
 - y: 160
 - w: 16
@@ -31,6 +32,7 @@ This is something that looks like a grey rock.
 This is the slightly bigger blue wand
 - char: b
 - file: ./img/roguelikeitems.png
+- drm
 - x: 32
 - y: 176
 - w: 16
@@ -40,6 +42,7 @@ This is the slightly bigger blue wand
 Kinda like gold dust?
 - char: d
 - file: ./img/roguelikeitems.png
+- drm
 - x: 128
 - y: 48
 - w: 16
@@ -49,6 +52,7 @@ Kinda like gold dust?
 This is the golden blue wand
 - char: g
 - file: ./img/roguelikeitems.png
+- drm
 - x: 64
 - y: 176
 - w: 16
@@ -58,6 +62,7 @@ This is the golden blue wand
 This is a sapphire
 - char: s
 - file: ./img/roguelikeitems.png
+- drm
 - x: 16
 - y: 48
 - w: 16
@@ -67,6 +72,7 @@ This is a sapphire
 This is a club? Piece of wood I guess? From which wands are formed.
 - char: w
 - file: ./img/roguelikeitems.png
+- drm
 - x: 0
 - y: 176
 - w: 16
@@ -76,6 +82,7 @@ This is a club? Piece of wood I guess? From which wands are formed.
 The clean paper
 - char: p
 - file: ./img/roguelikeitems.png
+- drm
 - x: 192
 - y: 160
 - w: 16
@@ -85,6 +92,7 @@ The clean paper
 The old paper
 - char: q
 - file: ./img/roguelikeitems.png
+- drm
 - x: 144
 - y: 64
 - w: 16
@@ -93,6 +101,7 @@ The old paper
 # Part_DirtWhite
 - char: n
 - file: ./img/roguelikeitems.png
+- drm
 - x: 32
 - y: 64
 - w: 16
@@ -101,6 +110,7 @@ The old paper
 # Part_DirtTurquoise
 - char: h
 - file: ./img/roguelikeitems.png
+- drm
 - x: 80
 - y: 64
 - w: 16
@@ -109,6 +119,7 @@ The old paper
 # Part_DirtBlue
 - char: r
 - file: ./img/roguelikeitems.png
+- drm
 - x: 64
 - y: 64
 - w: 16
@@ -117,6 +128,7 @@ The old paper
 # Part_Rope
 - char: i
 - file: ./img/roguelikeitems.png
+- drm
 - x: 48
 - y: 96
 - w: 16
@@ -125,6 +137,7 @@ The old paper
 # Part_Ruby
 - char: j
 - file: ./img/roguelikeitems.png
+- drm
 - x: 48
 - y: 48
 - w: 16
@@ -133,6 +146,7 @@ The old paper
 # Part_Wood
 - char: k
 - file: ./img/roguelikeitems.png
+- drm
 - x: 32
 - y: 96
 - w: 16
@@ -142,6 +156,7 @@ The old paper
 - char: l
 - pattern: _   Q   _   k   k   k   k   k   k
 - file: ./img/roguelikeitems.png
+- drm
 - x: 80 
 - y: 176
 - w: 16 
@@ -151,6 +166,7 @@ The old paper
 - char: o
 - pattern: _   _   _   W   l   W   _  _  _
 - file: ./img/roguelikeitems.png
+- drm
 - x: 144
 - y: 176
 - w: 16
@@ -159,6 +175,7 @@ The old paper
 # Part_BookGreen
 - char: A
 - file: ./img/roguelikeitems.png
+- drm
 - x: 112
 - y: 192
 - w: 16
@@ -176,6 +193,7 @@ The old paper
 - char: C
 - pattern: .   W   .   W   D   W   .   W   .
 - file: ./img/roguelikeitems.png
+- drm
 - x: 144
 - y: 192
 - w: 16
@@ -185,6 +203,7 @@ The old paper
 - char: D
 - pattern: i   p   p   i   p   p   i   p   p
 - file: ./img/roguelikeitems.png
+- drm
 - x: 160
 - y: 192
 - w: 16
@@ -193,6 +212,7 @@ The old paper
 # Part_BookBrown
 - char: E
 - file: ./img/roguelikeitems.png
+- drm
 - x: 176
 - y: 192
 - w: 16
@@ -201,6 +221,7 @@ The old paper
 # Part_BookHeart
 - char: F
 - file: ./img/roguelikeitems.png
+- drm
 - x: 192
 - y: 192
 - w: 16
@@ -209,6 +230,7 @@ The old paper
 # Part_BookPurple
 - char: G
 - file: ./img/roguelikeitems.png
+- drm
 - x: 112
 - y: 208
 - w: 16
@@ -217,6 +239,7 @@ The old paper
 # Part_BookYellow
 - char: H
 - file: ./img/roguelikeitems.png
+- drm
 - x: 128
 - y: 208
 - w: 16
@@ -225,6 +248,7 @@ The old paper
 # Part_BookBlack
 - char: I
 - file: ./img/roguelikeitems.png
+- drm
 - x: 160
 - y: 208
 - w: 16
@@ -233,6 +257,7 @@ The old paper
 # Part_BookSkull
 - char: J
 - file: ./img/roguelikeitems.png
+- drm
 - x: 176
 - y: 208
 - w: 16
@@ -242,6 +267,7 @@ The old paper
 - char: K
 - pattern: .   .   .   C   o   .   .   .   .
 - file: ./img/roguelikeitems.png
+- drm
 - x: 192
 - y: 208
 - w: 16
@@ -250,6 +276,7 @@ The old paper
 # Part_MaterialTurquoise
 - char: m
 - file: ./img/roguelikeitems.png
+- drm
 - x: 80
 - y: 64
 - w: 16
@@ -258,6 +285,7 @@ The old paper
 # Part_IngotBabyBlue
 - char: L
 - file: ./img/roguelikeitems.png
+- drm
 - x: 80
 - y: 80
 - w: 16
@@ -274,6 +302,7 @@ The old paper
 # Part_IngotLawnGreen
 - char: N
 - file: ./img/roguelikeitems.png
+- drm
 - x: 48
 - y: 80
 - w: 16
@@ -282,6 +311,7 @@ The old paper
 # Part_IngotOrange
 - char: O
 - file: ./img/roguelikeitems.png
+- drm
 - x: 16
 - y: 80
 - w: 16
@@ -290,6 +320,7 @@ The old paper
 # Part_IngotTurquoise
 - char: P
 - file: ./img/roguelikeitems.png
+- drm
 - x: 80
 - y: 80
 - w: 16
@@ -307,6 +338,7 @@ The old paper
 # Part_PotionWhite
 - char: R
 - file: ./img/roguelikeitems.png
+- drm
 - x: 112
 - y: 64
 - w: 16
@@ -315,6 +347,7 @@ The old paper
 # Part_PotionBlack
 - char: S
 - file: ./img/roguelikeitems.png
+- drm
 - x: 128
 - y: 64
 - w: 16
@@ -323,6 +356,7 @@ The old paper
 # Part_PotionPurple
 - char: T
 - file: ./img/roguelikeitems.png
+- drm
 - x: 144
 - y: 64
 - w: 16
@@ -331,6 +365,7 @@ The old paper
 # Part_PotionGreen
 - char: U
 - file: ./img/roguelikeitems.png
+- drm
 - x: 160
 - y: 64
 - w: 16
@@ -349,6 +384,7 @@ The old paper
 - char: W
 - pattern: .   r   .   .   e   .   .   r   .
 - file: ./img/roguelikeitems.png
+- drm
 - x: 192
 - y: 64
 - w: 16
@@ -357,6 +393,7 @@ The old paper
 # Part_PotionBrown
 - char: X
 - file: ./img/roguelikeitems.png
+- drm
 - x: 112
 - y: 80
 - w: 16
@@ -365,6 +402,7 @@ The old paper
 # Part_PotionTurquoise
 - char: Y
 - file: ./img/roguelikeitems.png
+- drm
 - x: 128
 - y: 80
 - w: 16
@@ -373,6 +411,7 @@ The old paper
 # Part_PotionYellow
 - char: Z
 - file: ./img/roguelikeitems.png
+- drm
 - x: 144
 - y: 80
 - w: 16
@@ -381,6 +420,7 @@ The old paper
 # Part_PotionOrange
 - char: x
 - file: ./img/roguelikeitems.png
+- drm
 - x: 160
 - y: 80
 - w: 16
@@ -397,6 +437,7 @@ The old paper
 # Part_Gift
 - pattern: Part_Thread Part_Paper Part_GoldCoins Part_BookShield
 - file: ./img/bigset.png
+- drm
 - x: 168
 - y: 216
 - w: 24
@@ -413,6 +454,7 @@ The old paper
 # Part_SilverCoins
 - pattern: Part_SilverCoin Part_SilverCoin Part_SilverCoin
 - file: ./img/bigset.png
+- drm
 - x: 144
 - y: 2232
 - w: 24
@@ -421,6 +463,7 @@ The old paper
 # Part_GoldCoin
 - pattern: Part_SilverCoins Part_GoldDust Part_DirtWhite
 - file: ./img/bigset.png
+- drm
 - x: 0
 - y: 2232
 - w: 24
@@ -429,6 +472,7 @@ The old paper
 # Part_GoldCoins
 - pattern: Part_GoldCoin Part_GoldCoin Part_GoldCoin
 - file: ./img/bigset.png
+- drm
 - x: 48
 - y: 2232
 - w: 24
@@ -436,6 +480,7 @@ The old paper
 
 # Part_Cloth
 - file: ./img/bigset.png
+- drm
 - x: 360
 - y: 2376
 - w: 24
@@ -451,9 +496,8 @@ The old paper
 
 # Part_SantaHat
 - pattern: Part_PotionRed Part_Rope Part_WizardHat
-Testing:
-- pattern: Part_Wood Part_Thread Part_SilverCoin Part_SilverCoins Part_GoldCoin Part_Sapphire Part_ShieldWood Part_IngotWhite Part_BookWhite
 - file: ./img/bigset.png
+- drm
 - x: 169
 - y: 5688
 - w: 24
@@ -462,6 +506,7 @@ Testing:
 # Part_RedGift
 - pattern: Part_Gift Part_SantaHat Part_PotionRed Part_PotionGreen Part_Sled
 - file: ./img/bigset.png
+- drm
 - x: 193
 - y: 5688
 - w: 24
@@ -469,6 +514,7 @@ Testing:
 
 # Part_Wool
 - file: ./img/bigset.png
+- drm
 - x: 120
 - y: 15072
 - w: 24
@@ -484,9 +530,8 @@ Testing:
 
 # Part_FishingRod
 - pattern: Part_Wood Part_Thread
-Temporarily 7 input parts for debugging
-- pattern: Part_Wood Part_Thread Part_SilverCoin Part_SilverCoins Part_GoldCoin Part_Sapphire Part_ShieldWood Part_IngotWhite Part_BookWhite
 - file: ./img/bigset.png
+- drm
 - x: 144
 - y: 2448
 - w: 24
@@ -494,6 +539,7 @@ Temporarily 7 input parts for debugging
 
 # Part_Worm
 - file: ./img/roguelikeitems.png
+- drm
 - x: 176
 - y: 176
 - w: 16
@@ -502,6 +548,7 @@ Temporarily 7 input parts for debugging
 # Part_Sled
 - pattern: Part_Wood
 - file: ./img/sled.png
+- drm
 - x: 0
 - y: 0
 - w: 512
@@ -509,6 +556,7 @@ Temporarily 7 input parts for debugging
 
 # Part_Hammer
 - file: ./img/roguelikeitems.png
+- drm
 - x: 80
 - y: 96
 - w: 16

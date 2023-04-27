@@ -47,6 +47,10 @@ These are the known node kinds:
   * The directions are ordered alphabetically in the belt name for the sake of consistency
   * Example: Belt_D_RU -> this is a T-shaped belt, incoming from down, outgoing to the right and upward. Left has no connection. 
 
+## Generic properties
+
+* "drm": For anything where the animation is not owned. Can be used in conjunction with options.show_drm=false to create public share-able media with placeholders
+
 ## Quest properties
 
 * "after": A list of zero or more quests that are required to unlock this quest

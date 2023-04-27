@@ -31,6 +31,7 @@
 // - store xorshift seed in map save
 // - show produced parts in the prepared area?
 // - actually animate the start of the next maze runner
+// - cant save adjacent machines properly? or load
 
 
 // Letters!
@@ -55,7 +56,6 @@ use wasm_bindgen::JsCast;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 
-use super::asset::*;
 use super::belt::*;
 use super::belt_type::*;
 use super::bouncer::*;
@@ -5437,7 +5437,7 @@ fn paint_segment_part_from_config_bug(options: &Options, state: &State, config: 
 
   assert!(config.nodes[segment_part_index].kind == ConfigNodeKind::Part, "segment parts should refer to part nodes but received index: {}, kind: {:?}, node: {:?}", segment_part_index, config.nodes[segment_part_index].kind, config.nodes[segment_part_index]);
 
-  let (spx, spy, spw, sph, canvas) = part_to_sprite_coord_from_config(config, segment_part_index);
+  let (spx, spy, spw, sph, canvas) = part_to_sprite_coord_from_config(config, options, segment_part_index);
   if bug { log!("meh? {} {} {} {}: {:?} --> {:?}", spx, spy, spw, sph, segment_part_index, config.nodes[segment_part_index]); }
 
   // log!("wat: {} {} {} {}     {} {} {} {}", spx, spy, spw, sph , dx, dy, dw, dh,);
@@ -5486,13 +5486,7 @@ fn paint_asset_raw(options: &Options, state: &State, config: &Config, context: &
       config.nodes[config_node_index].kind == ConfigNodeKind::Demand
     , "assets should refer to Asset, Dock, Supply, or Demand nodes but received index: {}, kind: {:?}, node: {:?}", config_node_index, config.nodes[config_node_index].kind, config.nodes[config_node_index]);
 
-  let (spx, spy, spw, sph, canvas) = config_get_sprite_details(config, config_node_index, 0, ticks);
-
-  // let (spx, spy, spw, sph, canvas) = asset_to_sprite_coord_from_config(config, config_node_index);
-  // if bug { log!("meh? {} {} {} {}: {:?} --> {:?}", spx, spy, spw, sph, segment_part_index, config.nodes[segment_part_index]); }
-
-  // log!("wat: {} {} {} {}     {} {} {} {}", spx, spy, spw, sph , dx, dy, dw, dh,);
-  // document().get_element_by_id("$tdb").unwrap().dyn_into::<web_sys::HtmlElement>().unwrap().append_child(&canvas).expect("to work");
+  let (spx, spy, spw, sph, canvas) = config_get_sprite_details(config, options, config_node_index, 0, ticks);
 
   context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
     &canvas,
@@ -5649,7 +5643,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
 
   // Energy remaining
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("{} / {}", factory.maze_runner.energy_now, factory.maze_runner.energy_max).as_str(), x + 10.0, y - 35.0).expect("it to work");
+  // context.fill_text(format!("{} / {}", factory.maze_runner.energy_now, factory.maze_runner.energy_max).as_str(), x + 10.0, y - 35.0).expect("it to work");
   context.set_fill_style(&"white".into());
   context.fill_rect(x + 10.0, y - 30.0, 80.0, 25.0);
   context.set_fill_style(&"yellow".into());
@@ -5659,7 +5653,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
 
   // Speed indicator
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("{}", factory.maze_runner.speed).as_str(), x + 100.0, y - 35.0).expect("it to work");
+  // context.fill_text(format!("{}", factory.maze_runner.speed).as_str(), x + 100.0, y - 35.0).expect("it to work");
   context.set_fill_style(&"white".into());
   context.fill_rect(x + 100.0, y - 30.0, 30.0, 25.0);
   context.set_stroke_style(&"black".into());
@@ -5669,7 +5663,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
 
   // Power indicator, paint one hammer per rock that can be broken
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("{} / {}", factory.maze_runner.power_now, factory.maze_runner.power_max).as_str(), x + 140.0, y - 35.0).expect("it to work");
+  // context.fill_text(format!("{} / {}", factory.maze_runner.power_now, factory.maze_runner.power_max).as_str(), x + 140.0, y - 35.0).expect("it to work");
   context.set_fill_style(&"white".into());
   context.fill_rect(x + 140.0, y - 30.0, 60.0, 25.0);
   // paint one hammer evenly divided across the space. maintain location (dont "jump" when removing a hammer). max width to divide is field_width-margin-img_width-margin. max spacing is img_width+margin
@@ -5684,7 +5678,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
 
   // Collection / Volume indicator
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("{} / {}", factory.maze_runner.volume_now, factory.maze_runner.volume_max).as_str(), x + 210.0, y - 35.0).expect("it to work");
+  // context.fill_text(format!("{} / {}", factory.maze_runner.volume_now, factory.maze_runner.volume_max).as_str(), x + 210.0, y - 35.0).expect("it to work");
   context.set_fill_style(&"white".into());
   context.fill_rect(x + 210.0, y - 30.0, 80.0, 25.0);
   // Unlike power, here we may actually want to update the spacing as the volume goes up. Try to make it a "pile" or whatever. We can probably fake that to some degree with some kind of pre-defined positioning table etc.
@@ -5763,12 +5757,12 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
   let delta = -6.0;
 
   context.set_fill_style(&"black".into());
-  context.fill_text(format!(
-    "{}  {}  {}  {} :: fin {} ref {}",
-    e, s, p ,w,
-    if factory.maze_runner.maze_finish_at > 0 { ((5.0 * ONE_SECOND as f64 * options.speed_modifier_floor) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_finish_at as i64)).max(0) } else { -1 },
-    if factory.maze_runner.maze_restart_at > 0 { ((5.0 * ONE_SECOND as f64 * options.speed_modifier_floor) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_restart_at as i64)).max(0) } else { -1 },
-  ).as_str(), 0.5 + x + 40.0, 0.5 + GRID_Y2 + delta - 10.0).expect("canvas api call to work");
+  // context.fill_text(format!(
+  //   "{}  {}  {}  {} :: fin {} ref {}",
+  //   e, s, p ,w,
+  //   if factory.maze_runner.maze_finish_at > 0 { ((5.0 * ONE_SECOND as f64 * options.speed_modifier_floor) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_finish_at as i64)).max(0) } else { -1 },
+  //   if factory.maze_runner.maze_restart_at > 0 { ((5.0 * ONE_SECOND as f64 * options.speed_modifier_floor) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_restart_at as i64)).max(0) } else { -1 },
+  // ).as_str(), 0.5 + x + 40.0, 0.5 + GRID_Y2 + delta - 10.0).expect("canvas api call to work");
 
   context.set_fill_style(&"white".into());
   context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + delta, MAZE_WIDTH, 25.0);
@@ -5854,7 +5848,7 @@ fn paint_belt(options: &Options, state: &State, config: &Config, context: &Rc<we
   let dw = dw.floor();
   let dh = dh.floor();
 
-  let (spx, spy, spw, sph, canvas) = config_get_sprite_for_belt_type(config, belt_type, sprite_start_at, ticks);
+  let (spx, spy, spw, sph, canvas) = config_get_sprite_for_belt_type(config, options, belt_type, sprite_start_at, ticks);
 
   context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
     &canvas,

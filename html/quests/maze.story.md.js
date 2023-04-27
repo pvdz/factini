@@ -5,8 +5,6 @@ const MAZE_STORY = `
 Author: Peter van der Zee
 Desc: Real game nao?
 
-- active
-
 ===
 Raw materials
 ===
@@ -18,6 +16,7 @@ Raw materials
 
 # Part_BatteryOrange
 - file: ./img/roguelikeitems.png
+- drm
 - x: 160
 - y: 80
 - w: 16
@@ -27,6 +26,7 @@ Raw materials
 - special: e 1
 - pattern: Part_BatteryBlack Part_BatteryOrange
 - file: ./img/battery.png
+- drm
 - w: 16
 - h: 16
 
@@ -35,6 +35,7 @@ Raw materials
 - special: s 1
 - pattern: Part_WheelAxeWood Part_Rims
 - file: ./img/roguelikeitems.png
+- drm
 - x: 112
 - y: 176
 - w: 16
@@ -42,6 +43,7 @@ Raw materials
 
 # Part_WheelAxeWood
 - file: ./img/roguelikeitems.png
+- drm
 - x: 32
 - y: 96
 - w: 16
@@ -59,6 +61,7 @@ Raw materials
 - special: p 1
 - pattern: Part_VolumeWool Part_VolumeGreen
 - file: ./img/backpack.png
+- drm
 - w: 59
 - h: 64
 
@@ -71,6 +74,7 @@ Raw materials
 
 # Part_VolumeGreen
 - file: ./img/roguelikeitems.png
+- drm
 - x: 160
 - y: 64
 - w: 16
@@ -81,6 +85,7 @@ Raw materials
 - special: v 1
 - pattern: Part_WheelAxeWood Part_WheelAxeIron
 - file: ./img/roguelikeitems.png
+- drm
 - x: 80
 - y: 96
 - w: 16

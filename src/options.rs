@@ -52,6 +52,7 @@ pub struct Options {
   pub print_priority_tile_order: bool, // Print the prio index of a tile in the game (debug, web)
   pub print_initial_table: bool, // Print the CLI version of the floor after generating it initially?
 
+  pub show_drm: bool, // Draw media where configNode.drm == true ?
   pub draw_part_borders: bool, // Draw a border around Parts? Helps debugging invisible parts due to sprite problems
   pub draw_part_char_icon: bool, // Draw the char icon representation for a part on top of it
   pub draw_part_kind: bool, // Draw the part kind id representation for a part on top of it
@@ -145,6 +146,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     trace_map_parsing: false,
     print_priority_tile_order: false,
     print_initial_table: false,
+    show_drm: true,
     draw_part_borders: false,
     draw_part_char_icon: false,
     draw_part_kind: false,
@@ -324,6 +326,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "trace_map_parsing" => options.trace_map_parsing = parse_bool(value, name, strict, options.trace_map_parsing, verbose),
             "print_priority_tile_order" => options.print_priority_tile_order = parse_bool(value, name, strict, options.print_priority_tile_order, verbose),
             "print_initial_table" => options.print_initial_table = parse_bool(value, name, strict, options.print_initial_table, verbose),
+            "show_drm" => options.show_drm = parse_bool(value, name, strict, options.show_drm, verbose),
             "draw_part_borders" => options.draw_part_borders = parse_bool(value, name, strict, options.draw_part_borders, verbose),
             "draw_part_char_icon" => options.draw_part_char_icon = parse_bool(value, name, strict, options.draw_part_char_icon, verbose),
             "draw_part_kind" => options.draw_part_kind = parse_bool(value, name, strict, options.draw_part_kind, verbose),
@@ -411,6 +414,7 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- trace_map_parsing: {}", options.trace_map_parsing));
   arr.push(format!("- print_priority_tile_order: {}", options.print_priority_tile_order));
   arr.push(format!("- print_initial_table: {}", options.print_initial_table));
+  arr.push(format!("- show_drm: {}", options.show_drm));
   arr.push(format!("- draw_part_borders: {}", options.draw_part_borders));
   arr.push(format!("- draw_part_char_icon: {}", options.draw_part_char_icon));
   arr.push(format!("- draw_part_kind: {}", options.draw_part_kind));

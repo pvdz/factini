@@ -29,6 +29,7 @@ This is an animated alarm (like the rotating light on a police car or ambulance)
 - looping: true
 - frame: 1
 - file: ./img/weewoo.png
+- drm
 - x: 0
 - y: 0
 - w: 92
@@ -71,142 +72,96 @@ Indicator that a machine has no target part to create
 - looping: true
 - frame: 1
 - file: ./img/missing_purpose.png
+- drm
 - x: 0
 - y: 0
 - w: 50
 - h: 50
 
 # Asset_Machine1
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/machine1.png
-- x: 0
-- y: 0
 - w: 64
 - h: 64
 
 # Asset_Machine2
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/machine2.png
-- x: 0
-- y: 0
 - w: 64
 - h: 64
 
 # Asset_Machine3
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/machine3.png
-- x: 0
-- y: 0
 - w: 64
 - h: 64
 
 # Asset_Machine4
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/machine4.png
-- x: 0
-- y: 0
 - w: 64
 - h: 64
 
 # Asset_Machine_1_1
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/machine_1_1.png
-- x: 0
-- y: 0
 - w: 320
 - h: 320
 
 # Asset_Machine_2_1
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/machine_2_2.png
-- x: 0
-- y: 0
 - w: 128
 - h: 64
 
 # Asset_Machine_3_2
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/machine_3_2.png
-- x: 0
-- y: 0
 - w: 192
 - h: 128
 
 # Asset_DumpTruck
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/dumptruck.png
+- drm
 - x: 0
 - y: 0
 - w: 64
 - h: 64
 
 # Asset_Sand
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/sand.png
-- x: 0
-- y: 0
 - w: 128
 - h: 128
 
 # Asset_HelpBlack
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/help.png
+- drm
 - x: 0
 - y: 0
 - w: 50
 - h: 41
 
 # Asset_HelpRed
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/help_red.png
+- drm
 - x: 0
 - y: 0
 - w: 50
 - h: 41
 
 # Asset_Manual
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/manual.png
-- x: 0
-- y: 0
 - w: 740
 - h: 740
 
 # Asset_Lmb
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/lmb.png
-- x: 0
-- y: 0
+- drm
 - w: 50
 - h: 50
 
 # Asset_Rmb
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/rmb.png
-- x: 0
-- y: 0
+- drm
 - w: 50
 - h: 50
 
 # Asset_SaveDark
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/save_dark.png
-- x: 0
+- drm
 - y: 0
 - w: 48
 - h: 48
@@ -215,6 +170,7 @@ Indicator that a machine has no target part to create
 - frame_offset: 0
 - frame_count: 1
 - file: ./img/save_light.png
+- drm
 - x: 0
 - y: 0
 - w: 48
@@ -224,6 +180,7 @@ Indicator that a machine has no target part to create
 - frame_offset: 0
 - frame_count: 1
 - file: ./img/save_grey.png
+- drm
 - x: 0
 - y: 0
 - w: 48
@@ -233,6 +190,7 @@ Indicator that a machine has no target part to create
 - frame_offset: 0
 - frame_count: 1
 - file: ./img/trash_dark.png
+- drm
 - x: 0
 - y: 0
 - w: 43
@@ -242,6 +200,7 @@ Indicator that a machine has no target part to create
 - frame_offset: 0
 - frame_count: 1
 - file: ./img/trash_light.png
+- drm
 - x: 0
 - y: 0
 - w: 43
@@ -251,6 +210,7 @@ Indicator that a machine has no target part to create
 - frame_offset: 0
 - frame_count: 1
 - file: ./img/trash_grey.png
+- drm
 - x: 0
 - y: 0
 - w: 43
@@ -260,6 +220,7 @@ Indicator that a machine has no target part to create
 - frame_offset: 0
 - frame_count: 1
 - file: ./img/trash_red.png
+- drm
 - x: 0
 - y: 0
 - w: 43
@@ -269,6 +230,7 @@ Indicator that a machine has no target part to create
 - frame_offset: 0
 - frame_count: 1
 - file: ./img/trash_green.png
+- drm
 - x: 0
 - y: 0
 - w: 43
@@ -392,6 +354,7 @@ Indicator that a machine has no target part to create
 
 # Asset_Pickaxe
 - file: ./img/roguelikeitems.png
+- drm
 - x: 80
 - y: 96
 - w: 16
@@ -399,8 +362,15 @@ Indicator that a machine has no target part to create
 
 # Asset_Treasure
 - file: ./img/roguelikeitems.png
+- drm
 - x: 16
 - y: 96
+- w: 16
+- h: 16
+
+# Asset_DrmPlaceholder
+See options.show_drm=false
+- file: ./img/drm.png
 - w: 16
 - h: 16
 
