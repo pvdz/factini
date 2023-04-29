@@ -38,7 +38,6 @@
 // - should it be able to move a machine?
 // - add auto keyword to "parts" of quests which would auto-include all required parts for the targets
 // - if a machine received a part that is used in the current pattern then fade green to indicate that? and/or like a green icon to indicate that a machine has the item stored?
-// - add indicator that you cannot set a part to a factory if factory does not have enough slots for its required parts
 // - bouncers disappearing behind small machine button
 
 // Letters!
@@ -2198,12 +2197,20 @@ fn on_drag_end_offer_over_craft(options: &mut Options, state: &mut State, config
   // Figure out whether it was dropped on the machine itself and if it was the selected machine
   if factory.floor[coord].kind == CellKind::Machine && factory.floor[cell_selection.coord].machine.main_coord == main_coord {
     if config.nodes[dragged_part_index].pattern_unique_kinds.len() > 0 {
-      log!("Dropped an offer with pattern in the middle on a craft menu. Update the machine!");
-      for i in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
-        let part_index = config.nodes[dragged_part_index].pattern_by_index.get(i).unwrap_or(&PARTKIND_NONE);
-        machine_change_want_kind(options, state, config, factory, main_coord, i, *part_index);
-        // Make sure the haves are cleared as well
-        factory.floor[main_coord].machine.haves[i] = part_none(config);
+      log!("Dropped an offer _with_ pattern on a machine");
+      if factory.floor[factory.floor[coord].machine.main_coord].machine.wants.len() < config.nodes[dragged_part_index].pattern_unique_kinds.len() {
+        log!("- Machine can hold {} but pattern requires {} parts, not updating machine.", factory.floor[factory.floor[coord].machine.main_coord].machine.wants.len(), config.nodes[dragged_part_index].pattern_unique_kinds.len());
+      }
+      else {
+        log!("- Update the machine!");
+
+        log!("Dropped an offer with pattern in the middle on a craft menu. Update the machine!");
+        for i in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
+          let part_index = config.nodes[dragged_part_index].pattern_by_index.get(i).unwrap_or(&PARTKIND_NONE);
+          machine_change_want_kind(options, state, config, factory, main_coord, i, *part_index);
+          // Make sure the haves are cleared as well
+          factory.floor[main_coord].machine.haves[i] = part_none(config);
+        }
       }
     }
     else if options.enable_craft_menu_circle {
@@ -2306,19 +2313,25 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
     if factory.floor[coord].kind == CellKind::Machine {
       let main_coord = factory.floor[coord].machine.main_coord;
       if config.nodes[dragged_part_index].pattern_unique_kinds.len() > 0 {
-        log!("Dropped an offer _with_ pattern on a machine. Update the machine!");
-        // Update machine to the pattern of the dragged part
-        for want_index in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
-          let part_index = config.nodes[dragged_part_index].pattern_by_index.get(want_index).unwrap_or(&PARTKIND_NONE);
-          machine_change_want_kind(options, state, config, factory, main_coord, want_index, *part_index);
-          // Make sure the haves are cleared as well
-          factory.floor[main_coord].machine.haves[want_index] = part_none(config);
+        log!("Dropped an offer _with_ pattern on a machine");
+        if factory.floor[factory.floor[coord].machine.main_coord].machine.wants.len() < config.nodes[dragged_part_index].pattern_unique_kinds.len() {
+          log!("- Machine can hold {} but pattern requires {} parts, not updating machine.", factory.floor[factory.floor[coord].machine.main_coord].machine.wants.len(), config.nodes[dragged_part_index].pattern_unique_kinds.len());
         }
-        cell_selection.on = true;
-        cell_selection.area = false;
-        cell_selection.x = last_mouse_up_cell_x;
-        cell_selection.y = last_mouse_up_cell_y;
-        cell_selection.coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
+        else {
+          log!("- Update the machine!");
+          // Update machine to the pattern of the dragged part
+          for want_index in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
+            let part_index = config.nodes[dragged_part_index].pattern_by_index.get(want_index).unwrap_or(&PARTKIND_NONE);
+            machine_change_want_kind(options, state, config, factory, main_coord, want_index, *part_index);
+            // Make sure the haves are cleared as well
+            factory.floor[main_coord].machine.haves[want_index] = part_none(config);
+          }
+          cell_selection.on = true;
+          cell_selection.area = false;
+          cell_selection.x = last_mouse_up_cell_x;
+          cell_selection.y = last_mouse_up_cell_y;
+          cell_selection.coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
+        }
       }
       else {
         log!("Dropped an offer without pattern on a machine. Ignoring.");
@@ -5347,15 +5360,20 @@ fn paint_ui_offer_hover_droptarget_hint(options: &Options, state: &State, config
   // Parts with patterns go to machines. Parts without patterns (or empty patterns) are suppliers.
   // Machines will accept in both cases (one case adds the part, the other sets the pattern)
 
-  paint_machines_droptarget_green(options, state, config, context, factory, config.nodes[part_index].pattern_by_index.len() > 0);
+  paint_machines_droptarget_green(options, state, config, context, factory, config.nodes[part_index].pattern_by_index.len());
 }
-fn paint_machines_droptarget_green(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, for_pattern: bool) {
+fn paint_machines_droptarget_green(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, pattern_len: usize) {
+  let for_pattern = pattern_len > 0;
   // TODO: did I not have a shortcut to iterate over just machine cells?
   for coord in 0..factory.floor.len() {
     let (x, y) = to_xy(coord);
     if (!for_pattern && is_edge_not_corner(x as f64, y as f64)) || (for_pattern && factory.floor[coord].kind == CellKind::Machine) {
-      let yo = get_drop_color(options, factory.ticks).to_string();
-      context.set_fill_style(&yo.into());
+      let mut drop_color = get_drop_color(options, factory.ticks).to_string();
+      if factory.floor[factory.floor[coord].machine.main_coord].machine.wants.len() < pattern_len {
+        // Offer won't fit in this machine so omit it
+        drop_color = "#ff000055".into();
+      }
+      context.set_fill_style(&drop_color.into());
       // context.set_fill_style(&"#00ff0077".into());
     } else {
       context.set_fill_style(&"#6b6b6b90".into());
