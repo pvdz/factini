@@ -38,6 +38,7 @@
 // - should it be able to move a machine?
 // - add auto keyword to "parts" of quests which would auto-include all required parts for the targets
 // - if a machine received a part that is used in the current pattern then fade green to indicate that? and/or like a green icon to indicate that a machine has the item stored?
+// - allow to create smaller machines
 
 
 // Letters!
@@ -1196,13 +1197,8 @@ fn update_mouse_state(
         !((mouse_state.cell_x_floored == 0.0 || mouse_state.cell_x_floored == (FLOOR_CELLS_W - 1) as f64) && (mouse_state.cell_y_floored == 0.0 || mouse_state.cell_y_floored == (FLOOR_CELLS_H - 1) as f64));
     }
     ZONE_MENU => {
-      let ( menu_button, button_row ) = hit_test_menu_button(mouse_state.world_x, mouse_state.world_y);
-      if menu_button != MenuButton::None {
-        // time controls, first, second row of menu buttons
-        mouse_state.over_menu_row = button_row;
-        mouse_state.over_menu_button = menu_button;
-      }
-      else if hit_test_paint_toggle(mouse_state.world_x, mouse_state.world_y) {
+      // Start with special buttons and then the generic menu button layout
+      if hit_test_paint_toggle(mouse_state.world_x, mouse_state.world_y) {
         // the paint toggle left of the machine
         mouse_state.over_menu_row = MenuRow::None;
         mouse_state.over_menu_button = MenuButton::PaintToggleButton;
@@ -1211,6 +1207,14 @@ fn update_mouse_state(
         // the big machine button
         mouse_state.over_menu_row = MenuRow::None;
         mouse_state.over_menu_button = MenuButton::FactoryButton;
+      }
+      else {
+        let ( menu_button, button_row ) = hit_test_menu_button(mouse_state.world_x, mouse_state.world_y);
+        if menu_button != MenuButton::None {
+          // time controls, first, second row of menu buttons
+          mouse_state.over_menu_row = button_row;
+          mouse_state.over_menu_button = menu_button;
+        }
       }
     }
     Zone::BottomBottom => {}
@@ -1318,13 +1322,8 @@ fn update_mouse_state(
           !((mouse_state.last_down_cell_x_floored == 0.0 || mouse_state.last_down_cell_x_floored == (FLOOR_CELLS_W - 1) as f64) && (mouse_state.last_down_cell_y_floored == 0.0 || mouse_state.last_down_cell_y_floored == (FLOOR_CELLS_H - 1) as f64));
       }
       ZONE_MENU => {
-        let ( menu_button, button_row ) = hit_test_menu_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
-        if menu_button != MenuButton::None {
-          // time controls, first, second row of menu buttons
-          mouse_state.down_menu_row = button_row;
-          mouse_state.down_menu_button = menu_button;
-        }
-        else if hit_test_paint_toggle(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
+        // Start with special buttons and then the generic menu button layout
+        if hit_test_paint_toggle(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
           // the paint toggle left of the machine
           mouse_state.down_menu_row = MenuRow::None;
           mouse_state.down_menu_button = MenuButton::PaintToggleButton;
@@ -1333,6 +1332,14 @@ fn update_mouse_state(
           // the big machine button
           mouse_state.down_menu_row = MenuRow::None;
           mouse_state.down_menu_button = MenuButton::FactoryButton;
+        }
+        else {
+          let ( menu_button, button_row ) = hit_test_menu_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
+          if menu_button != MenuButton::None {
+            // time controls, first, second row of menu buttons
+            mouse_state.down_menu_row = button_row;
+            mouse_state.down_menu_button = menu_button;
+          }
         }
       }
       Zone::BottomBottom => {}
@@ -1464,12 +1471,8 @@ fn update_mouse_state(
       ZONE_FLOOR => {
       }
       ZONE_MENU => {
-        let ( menu_button, button_row ) = hit_test_menu_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
-        if menu_button != MenuButton::None {
-          // time controls, first, second row of menu buttons
-          mouse_state.up_menu_button = menu_button;
-          mouse_state.up_menu_row = button_row;
-        } else if hit_test_paint_toggle(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
+        // Start with special buttons and then the generic menu button layout
+        if hit_test_paint_toggle(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
           // the paint toggle left of the machine
           mouse_state.up_menu_row = MenuRow::None;
           mouse_state.up_menu_button = MenuButton::PaintToggleButton;
@@ -1478,6 +1481,14 @@ fn update_mouse_state(
           // the big machine button
           mouse_state.up_menu_row = MenuRow::None;
           mouse_state.up_menu_button = MenuButton::FactoryButton;
+        }
+        else {
+          let ( menu_button, button_row ) = hit_test_menu_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
+          if menu_button != MenuButton::None {
+            // time controls, first, second row of menu buttons
+            mouse_state.up_menu_button = menu_button;
+            mouse_state.up_menu_row = button_row;
+          }
         }
       }
       Zone::BottomBottom => {}
