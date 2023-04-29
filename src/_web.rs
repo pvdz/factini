@@ -1836,7 +1836,8 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
 
     if cell_selection.on && cell_selection.x == last_mouse_up_cell_x && cell_selection.y == last_mouse_up_cell_y {
       cell_selection.on = false;
-    } else if factory.floor[coord].kind == CellKind::Empty {
+    }
+    else if factory.floor[coord].kind == CellKind::Empty {
       if is_edge_not_corner(last_mouse_up_cell_x, last_mouse_up_cell_y) {
         log!("Clicked on empty edge. Not selecting it. Removing current selection. Showing user edge drag hint.");
         cell_selection.on = false;
@@ -1871,7 +1872,8 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
         log!("Clicked on empty cell. Not selecting it. Removing current selection.");
         cell_selection.on = false;
       }
-    } else {
+    }
+    else {
       cell_selection.on = true;
       cell_selection.x = last_mouse_up_cell_x;
       cell_selection.y = last_mouse_up_cell_y;
@@ -4839,7 +4841,6 @@ fn paint_zone_hovers(options: &Options, state: &State, context: &Rc<web_sys::Can
     }
   }
 }
-
 fn paint_top_stats(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory) {
   context.set_fill_style(&"black".into());
   context.fill_text(format!("Ticks: {}, Supplied: {}, Produced: {}, Received: {}, Trashed: {}", factory.ticks, factory.supplied, factory.produced, factory.accepted, factory.trashed).as_str(), 20.0, 20.0).expect("to paint");
@@ -5039,18 +5040,46 @@ fn paint_offer(
 
   let div = 50;
 
-  // If current selected machine can paint this offer, paint some green rotating pixel around it
-  // TODO: make this more performant. Maybe by pregenerated image or by pregenerating them onstart?
+  // If current selected machine can create this offer, paint some green rotating pixel around it
   let selected_coord = cell_selection.coord;
   let selected_main_coord = factory.floor[selected_coord].machine.main_coord;
-  if
+  let craftable = config.nodes[part_index].pattern_unique_kinds.len() > 0;
+  let mut highlight_offer =
     cell_selection.on &&
+    craftable &&
     factory.floor[selected_coord].kind == CellKind::Machine &&
-    config.nodes[part_index].pattern_unique_kinds.len() > 0 &&
     config.nodes[part_index].pattern_unique_kinds.iter().all(|part_index| {
       return factory.floor[selected_main_coord].machine.last_received_parts.contains(part_index);
-    })
+    });
+  // Check against current machine that you're hovering over (but not dragging)
+  if
+    !highlight_offer &&
+    !cell_selection.on &&
+    craftable &&
+    mouse_state.over_zone == ZONE_FLOOR &&
+    !mouse_state.is_down &&
+    !mouse_state.is_up &&
+    !mouse_state.is_dragging &&
+    is_floor(mouse_state.cell_x_floored, mouse_state.cell_y_floored)
   {
+    let hover_coord = to_coord(mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize);
+    let hover_main_coord = factory.floor[hover_coord].machine.main_coord;
+    if
+      factory.floor[hover_main_coord].kind == CellKind::Machine &&
+      config.nodes[part_index].pattern_unique_kinds.iter().all(|part_index| {
+        return factory.floor[hover_main_coord].machine.last_received_parts.contains(part_index);
+      })
+    {
+      highlight_offer = true;
+    }
+  }
+
+  if highlight_offer {
+    context.set_stroke_style(&"#008800ff".into());
+    context.save();
+    context.set_line_width(5.0);
+    context.stroke_rect(px, py, CELL_W, CELL_H);
+    context.restore();
     // paint some pixels green? (https://colordesigner.io/gradient-generator)
     paint_green_pixel(context, factory.ticks + 0 * div, x, y, div, "#9ac48b");
     paint_green_pixel(context, factory.ticks + 1 * div, x, y, div, "#8ebd7f");
