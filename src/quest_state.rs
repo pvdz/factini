@@ -43,8 +43,13 @@ pub enum QuestStatus {
   Finished
 }
 
-pub fn quest_update_status(quest: &mut QuestState, status: QuestStatus, ticks: u64) {
-  log!("[{}] Quest {} is now {:?}", ticks, quest.quest_index, status);
+pub fn quest_update_status(factory: &mut Factory, quest_index: usize, status: QuestStatus, ticks: u64) {
+  log!("[{}] Quest {} ({}) is now {:?}", ticks, factory.quests[quest_index].name, quest_index, status);
+  factory.quest_updated = true;
+  quest_update_status_sans_factory(&mut factory.quests[quest_index], status, ticks);
+}
+
+pub fn quest_update_status_sans_factory(quest: &mut QuestState, status: QuestStatus, ticks: u64) {
   quest.status = status;
   quest.status_at = ticks;
 }

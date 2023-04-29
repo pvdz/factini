@@ -447,13 +447,13 @@
         });
 
         arr.push(`
-            ${node.raw_name}[
-              ${node.name}<br/>
+            ${node.raw_name}[<span id=&quot;$q_${node.raw_name}&quot;>
+              <b>${node.raw_name}</b><br/>
               <small><b>Enables:</b></small><br/>
               ${node.starting_part_by_name.map((qname) => `<span style=&quot;cursor:help&quot; title=&quot;Components:${nodes.get(qname).pattern_by_name.join(',')||'resource'}&quot;>${qname.split('_')[1]}</span>`).join(' <br/> ')}<br/>
               <small><b>Targets:</b></small><br/>
               ${node.production_target_by_name.map(([count, qname]) => `${count}x ${qname.split('_')[1]}`).join(' <br/> ')}
-            ]
+            </span>]
           `.replace(/\n/g, ''));
       }
     });
@@ -462,6 +462,17 @@
     $mermaid.removeAttribute('data-processed'); // :facepalm: not obvious but ok. ht https://stackoverflow.com/questions/73056709/mermaid-in-react-turns-into-plaintext-when-re-rendered
     $mermaid.innerHTML = arr.join('\n');
     mermaid.init();
+  }
+  function onQuestUpdate(pairs) {
+    //console.log('(JS) onQuestUpdate():', pairs);
+    pairs.forEach(([name, value]) => {
+      const e = document.getElementById(`$q_${name}`);
+      if (e) {
+        e.style.backgroundColor = value === 'Active' ? 'yellow' : value === 'Waiting' ? '' : 'lightgreen';
+      } else {
+        console.log('Warning: onQuestUpdate():', name, '->', value, 'could not find mermaid node');
+      }
+    });
   }
 </script>
 <script type="module">

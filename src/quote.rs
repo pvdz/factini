@@ -8,12 +8,13 @@ use std::slice::Iter;
 
 use super::bouncer::*;
 use super::config::*;
-use super::log;
+use super::factory::*;
 use super::part::*;
 use super::options::*;
 use super::quest_state::*;
 use super::state::*;
 use super::utils::*;
+use super::log;
 
 // A Quote represents a single requirement for a quest.
 #[derive(Debug)]
@@ -138,7 +139,7 @@ pub fn get_fresh_quest_states(options: &Options, state: &mut State, config: &Con
         // only if there is at least one such sub quest (never finish the final quest(s))
         if has_any && all {
           log!("quest_update_status: all sub quests are finished so finishing {}", config.nodes[quests[quest_index].config_node_index].raw_name);
-          quest_update_status(&mut quests[quest_index], QuestStatus::FadingAndBouncing, 0);
+          quest_update_status_sans_factory(&mut quests[ quest_index], QuestStatus::FadingAndBouncing, 0);
           changed = true;
         }
       }

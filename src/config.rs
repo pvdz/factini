@@ -379,7 +379,7 @@ pub struct ConfigNode {
   pub starting_part_by_name: Vec<String>, // Fully qualified name. These parts are available when this quest becomes available
   pub starting_part_by_index: Vec<usize>, // These parts are available when this quest becomes available
   pub production_target_by_name: Vec<(u32, String)>, // Fully qualified name. count,name pairs, you need this to finish the quest
-  pub production_target_by_index: Vec<(u32, usize)>, // count,index pairs, you need this to finish the quest
+  pub production_target_by_index: Vec<(u32, PartKind)>, // count,index pairs, you need this to finish the quest
   pub required_by_quest_indexes: Vec<usize>, // List of quests that depend on this quest before becoming available. Computed after parsing config.
 
   // Part
@@ -1067,7 +1067,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
       });
       nodes[node_index].starting_part_by_index = indices;
 
-      let mut indices: Vec<(u32, usize)> = vec!();
+      let mut indices: Vec<(u32, PartKind)> = vec!();
       nodes[node_index].production_target_by_name.iter().for_each(|(count, name)| {
         let index = *node_name_to_index.get(name.as_str().clone()).unwrap_or_else(| | panic!("production_target_name to index: what happened here: unlock name=`{} of names=`{:?}`", name, node_name_to_index.keys()));
         indices.push((*count, index));
@@ -2389,11 +2389,11 @@ fn config_node_to_jsvalue(node: &ConfigNode) -> JsValue {
     convert_js_to_pair("starting_part_by_index", convert_vec_usize_to_jsvalue(&node.starting_part_by_index)),
     vec!(
       JsValue::from("production_target_by_name"),
-      node.production_target_by_name.iter().cloned().map(|(index, name)| vec!(JsValue::from(index), JsValue::from(name)).iter().collect::<js_sys::Array>()).collect::<js_sys::Array>().into()
+      node.production_target_by_name.iter().cloned().map(|(count, name)| vec!(JsValue::from(count), JsValue::from(name)).iter().collect::<js_sys::Array>()).collect::<js_sys::Array>().into()
     ).iter().collect::<js_sys::Array>(),
     vec!(
       JsValue::from("production_target_by_index"),
-      node.production_target_by_index.iter().cloned().map(|(index, name)| vec!(JsValue::from(index), JsValue::from(name)).iter().collect::<js_sys::Array>()).collect::<js_sys::Array>().into()
+      node.production_target_by_index.iter().cloned().map(|(count, part)| vec!(JsValue::from(count), JsValue::from(part)).iter().collect::<js_sys::Array>()).collect::<js_sys::Array>().into()
     ).iter().collect::<js_sys::Array>(),
 
     convert_js_to_pair("pattern_by_index", convert_vec_usize_to_jsvalue(&node.pattern_by_index)),

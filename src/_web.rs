@@ -32,6 +32,12 @@
 // - show produced parts in the prepared area?
 // - actually animate the start of the next maze runner
 // - cant save adjacent machines properly? or load
+// - changing game speed while truck is moving will teleport the truck...
+// - extending a UR two tiles to the left without connecting it, when there's a DL to the left of it and RL below it, results in wonky track
+// - undo button crashes (web 894, "len 100 index 137")
+// - should it be able to move a machine?
+// - add auto keyword to "parts" of quests which would auto-include all required parts for the targets
+// - if a machine received a part that is used in the current pattern then fade green to indicate that? and/or like a green icon to indicate that a machine has the item stored?
 
 
 // Letters!
@@ -124,6 +130,7 @@ extern {
   pub fn getExamples() -> js_sys::Array; // GAME_EXAMPLES, array of string
   pub fn getAction() -> String; // queuedAction, polled every frame
   pub fn receiveConfigNode(name: JsValue, node: JsValue);
+  pub fn onQuestUpdate(node: JsValue);
   // pub fn log(s: &str); // -> console.log(s)
   // pub fn print_world(s: &str);
   // pub fn print_options(options: &str);
@@ -856,6 +863,21 @@ pub fn start() -> Result<(), JsValue> {
         for _ in 0..ticks_todo.min(MAX_TICKS_PER_FRAME) {
           tick_factory(&mut options, &mut state, &config, &mut factory);
         }
+      }
+
+      if factory.quest_updated {
+        factory.quest_updated = false;
+
+        // log!("Calling onQuestUpdate()");
+        let pairs: Vec<js_sys::Array> = factory.quests.iter().map(|quest| {
+          let node = &config.nodes[quest.config_node_index];
+          let arr: Vec<_> = vec!(
+            JsValue::from(node.raw_name.clone()),
+            JsValue::from(format!("{:?}", quest.status))
+          );
+          return arr.iter().collect::<js_sys::Array>();
+        }).collect();
+        onQuestUpdate(pairs.iter().collect::<js_sys::Array>().into());
       }
 
       if options.web_output_cli {
@@ -1881,7 +1903,7 @@ fn on_up_quest(options: &Options, state: &State, config: &Config, factory: &mut 
       if visible_index == mouse_state.up_quest_visible_index {
         log!("  quest_update_status: satisfying quest {} to production target", quest_index);
         factory.quests[quest_index].production_progress = factory.quests[quest_index].production_target;
-        quest_update_status(&mut factory.quests[quest_index], QuestStatus::FadingAndBouncing, factory.ticks);
+        quest_update_status(factory, quest_index, QuestStatus::FadingAndBouncing, factory.ticks);
         factory.quests[quest_index].bouncer.bounce_from_index = visible_index;
         factory.quests[quest_index].bouncer.bouncing_at = factory.ticks;
         return;
@@ -2773,6 +2795,7 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
       }).collect();
       factory.trucks = vec!();
       factory.quests = get_fresh_quest_states(options, state, config, 0, &factory.available_parts_rhs_menu.iter().map(|(kind, _visible)| *kind).collect());
+      factory.quest_updated = true;
       factory.changed = true;
     }
     MenuButton::Row3Button5 => {

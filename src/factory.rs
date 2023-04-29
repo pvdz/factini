@@ -51,6 +51,7 @@ pub struct Factory {
 
   pub trucks: Vec<Truck>,
   pub quests: Vec<QuestState>,
+  pub quest_updated: bool,
   pub parts_in_transit: Vec<(PartKind, f64, f64, u8)>,
 
   pub day_corrupted: bool, // Used trash as jokers to create parts in machines?
@@ -118,6 +119,7 @@ pub fn create_factory(options: &Options, state: &mut State, config: &Config, flo
     day_corrupted: false,
     edge_hint: (PARTKIND_NONE, (0.0, 0.0), (0.0, 0.0), 0, 0),
     quests,
+    quest_updated: true,
     maze: create_maze(maze_seed),
     maze_seed,
     maze_runner: create_maze_runner(0, 0),
@@ -399,7 +401,7 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
                 factory.quests[quest_index].production_progress += received_count;
                 if factory.quests[quest_index].production_progress >= factory.quests[quest_index].production_target {
                   log!("quest_update_status: production progress exceeds target, we finished {}", config.nodes[factory.quests[quest_index].config_node_index].raw_name);
-                  quest_update_status(&mut factory.quests[quest_index], QuestStatus::FadingAndBouncing, factory.ticks);
+                  quest_update_status(factory, quest_index, QuestStatus::FadingAndBouncing, factory.ticks);
                   factory.quests[quest_index].bouncer.bounce_from_index = visible_index;
                   factory.quests[quest_index].bouncer.bouncing_at = factory.ticks;
                 }
@@ -420,7 +422,7 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
               let fade_progress = ((factory.ticks - factory.quests[quest_index].status_at) as f64 / QUEST_FADE_TIME as f64).min(1.0);
               if fade_progress >= 1.0 {
                 log!("quest_update_status: fade finished {}", config.nodes[factory.quests[quest_index].config_node_index].raw_name);
-                quest_update_status(&mut factory.quests[quest_index], QuestStatus::Finished, factory.ticks);
+                quest_update_status(factory, quest_index, QuestStatus::Finished, factory.ticks);
               }
             }
           }
@@ -486,6 +488,7 @@ pub fn factory_load_map(options: &mut Options, state: &mut State, config: &Confi
   factory.available_parts_rhs_menu = available_parts_rhs_menu;
   log!("available_parts_rhs_menu (2): {:?}", factory.available_parts_rhs_menu);
   factory.quests = get_fresh_quest_states(options, state, config, factory.ticks, &available_parts);
+  factory.quest_updated = true;
   log!("new current_active_quests: {:?}", factory.quests.iter().map(|quest| config.nodes[quest.config_node_index as usize].name.clone()).collect::<Vec<String>>().join(", "));
   auto_layout(options, state, config, factory);
   auto_ins_outs(options, state, config, factory);
@@ -513,7 +516,7 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
       let fade_progress = ((factory.ticks - factory.quests[quest_current_index].status_at) as f64 / (QUEST_FADE_TIME as f64 * options.speed_modifier_ui)).min(1.0);
       if fade_progress >= 1.0 {
         log!("quest_update_status: fade also finished {}", config.nodes[factory.quests[quest_current_index].config_node_index].raw_name);
-        quest_update_status(&mut factory.quests[quest_current_index], QuestStatus::Bouncing, factory.ticks);
+        quest_update_status(factory, quest_current_index, QuestStatus::Bouncing, factory.ticks);
       }
     }
 
@@ -532,7 +535,6 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
       // TODO: remove from tick loop and move to paint loop
       if factory.quests[quest_current_index].status == QuestStatus::Bouncing && factory.quests[quest_current_index].bouncer.frames.len() == 0 {
         log!("Marking quest {} as Finished", quest_current_index);
-        log!("Note: the trucks are not working yet... TOFIX");
         factory.quests[quest_current_index].status = QuestStatus::Finished;
         // - Find out which quests were unlocked by finishing this one
         // - Find out which parts are newly available by unlocking that quest
@@ -552,20 +554,44 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
               // When it doesn't, activate the quest and add all its parts to the unlocked pool.
               factory.quests[quest_unlock_search_index].unlocks_todo.remove(unlock_index);
               if factory.quests[quest_unlock_search_index].unlocks_todo.len() == 0 {
-
-                log!("quest_update_status: unlocks todo is zero so it goes brrr {}", config.nodes[factory.quests[quest_unlock_search_index].config_node_index].raw_name);
-                quest_update_status(&mut factory.quests[quest_unlock_search_index], QuestStatus::Active, factory.ticks);
-                for i in 0..config.nodes[factory.quests[quest_unlock_search_index].config_node_index].starting_part_by_index.len() {
-                  let part = config.nodes[factory.quests[quest_unlock_search_index].config_node_index].starting_part_by_index[i];
+                log!("quest_update_status: unlocks todo is zero so it goes brrr {}; targets {:?} unlocks {:?}",
+                  config.nodes[factory.quests[quest_unlock_search_index].config_node_index].raw_name,
+                  config.nodes[factory.quests[quest_unlock_search_index].config_node_index].production_target_by_index,
+                  config.nodes[factory.quests[quest_unlock_search_index].config_node_index].starting_part_by_index
+                );
+                quest_update_status(factory, quest_unlock_search_index, QuestStatus::Active, factory.ticks);
+                // Add target parts to the new list
+                for i in 0..config.nodes[factory.quests[quest_unlock_search_index].config_node_index].production_target_by_index.len() {
+                  let part = config.nodes[factory.quests[quest_unlock_search_index].config_node_index].production_target_by_index[i].1;
                   // Confirm the part isn't already unlocked before starting the process to unlock it
-                  if !factory.available_parts_rhs_menu.iter().any(|p| part == p.0 as usize) && !new_parts.iter().any(|&p| p != part) {
+                  if !factory.available_parts_rhs_menu.iter().any(|p| {
+                    return part == p.0
+                  }) && !new_parts.iter().any(|&p| {
+                    p as usize == part as usize
+                  }) {
                     new_parts.push(part);
                   }
                 }
+                // Add unlocked parts to the new list
+                for i in 0..config.nodes[factory.quests[quest_unlock_search_index].config_node_index].starting_part_by_index.len() {
+                  let part = config.nodes[factory.quests[quest_unlock_search_index].config_node_index].starting_part_by_index[i];
+                  // Confirm the part isn't already unlocked before starting the process to unlock it
+                  if !factory.available_parts_rhs_menu.iter().any(|p| {
+                    return part == p.0 as usize
+                  }) && !new_parts.iter().any(|&p| {
+                    return p as usize == part as usize
+                  }) {
+                    new_parts.push(part);
+                  }
+                }
+
+                factory.quest_updated = true;
               }
             }
           }
         }
+
+        log!("Creating trucks for these new parts: {:?}", new_parts);
 
         // We now have a set of available quests and any starting parts that they enabled.
         // Let's create quotes and trucks for them and add them to the lists.
