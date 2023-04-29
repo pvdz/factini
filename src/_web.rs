@@ -5331,7 +5331,7 @@ fn paint_ui_offer_hover_droptarget_hint_conditionally(options: &Options, state: 
   // eligible who have received parts b and c already. For now, red/green will have to do, even
   // though that's not very color blind friendly. TODO: work around that.
 
-  if !is_mouse_over_offer {
+  if !is_mouse_over_offer && (!mouse_state.offer_selected || mouse_state.is_dragging) {
     return;
   }
 
@@ -5340,7 +5340,7 @@ fn paint_ui_offer_hover_droptarget_hint_conditionally(options: &Options, state: 
     return;
   }
 
-  let hover_part_index: PartKind = factory.available_parts_rhs_menu[mouse_state.offer_hover_offer_index].0;
+  let hover_part_index: PartKind = if is_mouse_over_offer { factory.available_parts_rhs_menu[mouse_state.offer_hover_offer_index].0 } else { factory.available_parts_rhs_menu[mouse_state.offer_selected_index].0 };
   paint_ui_offer_hover_droptarget_hint(options, state, config, context, factory, hover_part_index);
 }
 fn paint_ui_offer_hover_droptarget_hint(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, part_index: usize) {
