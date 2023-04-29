@@ -38,8 +38,8 @@
 // - should it be able to move a machine?
 // - add auto keyword to "parts" of quests which would auto-include all required parts for the targets
 // - if a machine received a part that is used in the current pattern then fade green to indicate that? and/or like a green icon to indicate that a machine has the item stored?
-// - allow to create smaller machines
-
+// - add indicator that you cannot set a part to a factory if factory does not have enough slots for its required parts
+// - bouncers disappearing behind small machine button
 
 // Letters!
 
@@ -610,7 +610,8 @@ pub fn start() -> Result<(), JsValue> {
       offer_selected: false,
       offer_selected_index: 0, // Offer index, not part index
       dragging_offer: false,
-      dragging_machine: false,
+      dragging_machine2x2: false,
+      dragging_machine3x3: false,
 
       craft_over_ci: CraftInteractable::None,
       craft_over_ci_wx: 0.0,
@@ -1018,7 +1019,7 @@ pub fn start() -> Result<(), JsValue> {
         // In front of all game stuff
         paint_bouncers(&options, &state, &config, &context, &mut factory);
         // Paint big machine button now so bouncers go behind it
-        paint_machine_icon(&options, &state, &config, &factory, &context, &mouse_state);
+        paint_machine_icons(&options, &state, &config, &factory, &context, &mouse_state);
 
         // Paint offer tooltip above bouncers and trucks, but under mouse cursor
         if highlight_index > 0 {
@@ -1089,7 +1090,8 @@ fn update_mouse_state(
     mouse_state.down_menu_button = MenuButton::None;
     mouse_state.up_menu_button = MenuButton::None;
     mouse_state.dragging_offer = false;
-    mouse_state.dragging_machine = false;
+    mouse_state.dragging_machine2x2 = false;
+    mouse_state.dragging_machine3x3 = false;
     mouse_state.down_quest = false;
     mouse_state.up_quote = false;
     mouse_state.down_save_map = false;
@@ -1203,10 +1205,15 @@ fn update_mouse_state(
         mouse_state.over_menu_row = MenuRow::None;
         mouse_state.over_menu_button = MenuButton::PaintToggleButton;
       }
-      else if hit_test_machine_button(mouse_state.world_x, mouse_state.world_y) {
+      else if hit_test_machine2x2_button(mouse_state.world_x, mouse_state.world_y) {
+        // the small machine button
+        mouse_state.over_menu_row = MenuRow::None;
+        mouse_state.over_menu_button = MenuButton::Machine2x2Button;
+      }
+      else if hit_test_machine3x3_button(mouse_state.world_x, mouse_state.world_y) {
         // the big machine button
         mouse_state.over_menu_row = MenuRow::None;
-        mouse_state.over_menu_button = MenuButton::FactoryButton;
+        mouse_state.over_menu_button = MenuButton::Machine3x3Button;
       }
       else {
         let ( menu_button, button_row ) = hit_test_menu_button(mouse_state.world_x, mouse_state.world_y);
@@ -1328,10 +1335,15 @@ fn update_mouse_state(
           mouse_state.down_menu_row = MenuRow::None;
           mouse_state.down_menu_button = MenuButton::PaintToggleButton;
         }
-        else if hit_test_machine_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
+        else if hit_test_machine2x2_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
+          // the small machine button
+          mouse_state.down_menu_row = MenuRow::None;
+          mouse_state.down_menu_button = MenuButton::Machine2x2Button;
+        }
+        else if hit_test_machine3x3_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
           // the big machine button
           mouse_state.down_menu_row = MenuRow::None;
-          mouse_state.down_menu_button = MenuButton::FactoryButton;
+          mouse_state.down_menu_button = MenuButton::Machine3x3Button;
         }
         else {
           let ( menu_button, button_row ) = hit_test_menu_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
@@ -1477,10 +1489,15 @@ fn update_mouse_state(
           mouse_state.up_menu_row = MenuRow::None;
           mouse_state.up_menu_button = MenuButton::PaintToggleButton;
         }
-        else if hit_test_machine_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
+        else if hit_test_machine2x2_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
+          // the small machine button
+          mouse_state.up_menu_row = MenuRow::None;
+          mouse_state.up_menu_button = MenuButton::Machine2x2Button;
+        }
+        else if hit_test_machine3x3_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
           // the big machine button
           mouse_state.up_menu_row = MenuRow::None;
-          mouse_state.up_menu_button = MenuButton::FactoryButton;
+          mouse_state.up_menu_button = MenuButton::Machine3x3Button;
         }
         else {
           let ( menu_button, button_row ) = hit_test_menu_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
@@ -1526,8 +1543,11 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         }
       }
       ZONE_MENU => {
-        if mouse_state.down_menu_button == MenuButton::FactoryButton {
-          on_drag_start_machine_button(options, state, config, mouse_state);
+        if mouse_state.down_menu_button == MenuButton::Machine2x2Button {
+          on_drag_start_machine2x2_button(options, state, config, mouse_state);
+        }
+        else if mouse_state.down_menu_button == MenuButton::Machine3x3Button {
+          on_drag_start_machine3x3_button(options, state, config, mouse_state);
         }
       }
       _ => {}
@@ -1587,9 +1607,18 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
           if mouse_state.dragging_offer {
             on_drag_end_offer_over_floor(options, state, config, factory, mouse_state, cell_selection);
           }
-          else if mouse_state.down_menu_button == MenuButton::FactoryButton {
-            if mouse_state.dragging_machine {
-              on_drag_end_machine_over_floor(options, state, config, factory, mouse_state);
+          else if mouse_state.down_menu_button == MenuButton::Machine2x2Button {
+            if mouse_state.dragging_machine2x2 {
+              on_drag_end_machine2x2_over_floor(options, state, config, factory, mouse_state);
+            } else {
+              log!("drag end 2x2 on floor but was not dragging 2x2?");
+            }
+          }
+          else if mouse_state.down_menu_button == MenuButton::Machine3x3Button {
+            if mouse_state.dragging_machine3x3 {
+              on_drag_end_machine3x3_over_floor(options, state, config, factory, mouse_state);
+            } else {
+              log!("drag end 3x3 on floor but was not dragging 3x3?");
             }
           }
           else if mouse_state.down_zone == ZONE_CRAFT {
@@ -2046,19 +2075,24 @@ fn on_up_craft(options: &mut Options, state: &mut State, config: &Config, factor
 fn on_drag_end_craft_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
   log!("on_drag_end_craft_over_floor() dropping a craft icon on the floor does nothing, action ignored.");
 }
-fn on_drag_end_machine_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
-  log!("on_drag_offer_into_floor({}, {})", mouse_state.last_up_cell_x, mouse_state.last_up_cell_y);
+fn on_drag_end_machine2x2_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
+  on_drag_end_machine_over_floor(options, state, config, factory, mouse_state, 2, 2);
+}
+fn on_drag_end_machine3x3_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
+  on_drag_end_machine_over_floor(options, state, config, factory, mouse_state, 3, 3);
+}
+fn on_drag_end_machine_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState, machine_cell_width: usize, machine_cell_height: usize) {
+  log!("on_drag_end_machine_over_floor({}, {}, {}, {})", mouse_state.last_up_cell_x, mouse_state.last_up_cell_y, machine_cell_width, machine_cell_height);
   assert!(mouse_state.last_up_cell_x >= 0.0 && mouse_state.last_up_cell_y >= 0.0, "should not call this when mouse is oob. usize cant be negative");
 
   // Was dragging a machine and released it on the floor
 
   // First check eligibility: Would every part of the machine be on a middle cell, not edge?
-  let ocw = 3; // Fixing to 3x3 for now
-  let och = 3;
-  let cx = get_x_while_dragging_offer_machine(mouse_state.last_up_cell_x, ocw);
-  let cy = world_y_to_top_left_cell_y_while_dragging_offer_machine(mouse_state.last_up_cell_y, och);
+
+  let cx = get_x_while_dragging_offer_machine(mouse_state.last_up_cell_x, machine_cell_width);
+  let cy = world_y_to_top_left_cell_y_while_dragging_offer_machine(mouse_state.last_up_cell_y, machine_cell_height);
   // Make sure the entire machine fits, not just the center or topleft cell
-  if bounds_check(cx, cy, 1.0, 1.0, FLOOR_CELLS_W as f64 - (ocw as f64), FLOOR_CELLS_H as f64 - (och as f64)) {
+  if bounds_check(cx, cy, 1.0, 1.0, FLOOR_CELLS_W as f64 - (machine_cell_width as f64), FLOOR_CELLS_H as f64 - (machine_cell_height as f64)) {
     let ccoord = to_coord(cx as usize, cy as usize);
 
     // Get all machines and then get the first unused ID. First we round up all the existing
@@ -2095,8 +2129,8 @@ fn on_drag_end_machine_over_floor(options: &mut Options, state: &mut State, conf
     }
 
     // Fill the rest with sub machine cells
-    for i in 0..ocw {
-      for j in 0..och {
+    for i in 0..machine_cell_width {
+      for j in 0..machine_cell_height {
         let x = cx as usize + i;
         let y = cy as usize + j;
         let coord = to_coord(x, y);
@@ -2119,20 +2153,20 @@ fn on_drag_end_machine_over_floor(options: &mut Options, state: &mut State, conf
             config,
             found,
             x, y,
-            ocw, och,
+            machine_cell_width, machine_cell_height,
             vec!(), // Could fill with trash but no need I guess
             part_c(config, 't'),
             2000,
             1, 1
           );
         } else {
-          factory.floor[coord] = machine_sub_cell(options, state, config, found, x, y, ccoord, ocw, och);
+          factory.floor[coord] = machine_sub_cell(options, state, config, found, x, y, ccoord, machine_cell_width, machine_cell_height);
         }
         factory.floor[ccoord].machine.coords.push(coord);
 
         factory.floor[coord].port_u = if j == 0 { port_u } else { Port::None };
-        factory.floor[coord].port_r = if i == ocw - 1 { port_r } else { Port::None };
-        factory.floor[coord].port_d = if j == och - 1 { port_d } else { Port::None };
+        factory.floor[coord].port_r = if i == machine_cell_width - 1 { port_r } else { Port::None };
+        factory.floor[coord].port_d = if j == machine_cell_height - 1 { port_d } else { Port::None };
         factory.floor[coord].port_l = if i == 0 { port_l } else { Port::None };
       }
     }
@@ -2615,12 +2649,22 @@ fn on_up_paint_toggle(state: &mut State) {
   // state.selected_area_copy = vec!(); // Or retain this?
 }
 
-fn on_up_machine_button() {
-  log!("on_up_machine_button()");
+fn on_up_machine3x3_button() {
+  log!("on_up_machine3x3_button()");
 }
-fn on_drag_start_machine_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState) {
-  log!("is_drag_start from machine");
-  mouse_state.dragging_machine = true;
+fn on_up_machine2x2_button() {
+  log!("on_up_machine2x2_button()");
+}
+fn on_drag_start_machine2x2_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState) {
+  log!("is_drag_start from machine2x2");
+  mouse_state.dragging_machine2x2 = true;
+  mouse_state.dragging_machine3x3 = false;
+  state.mouse_mode_selecting = false;
+}
+fn on_drag_start_machine3x3_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState) {
+  log!("is_drag_start from machine3x3");
+  mouse_state.dragging_machine2x2 = false;
+  mouse_state.dragging_machine3x3 = true;
   state.mouse_mode_selecting = false;
 }
 fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
@@ -2638,8 +2682,11 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
   match mouse_state.up_menu_button {
     MenuButton::None => {}
 
-    MenuButton::FactoryButton => {
-      on_up_machine_button();
+    MenuButton::Machine2x2Button => {
+      on_up_machine2x2_button();
+    }
+    MenuButton::Machine3x3Button => {
+      on_up_machine3x3_button();
     }
     MenuButton::PaintToggleButton => {
       on_up_paint_toggle(state);
@@ -3087,8 +3134,11 @@ fn hit_test_offers(factory: &Factory, mx: f64, my: f64) -> (bool, usize ) {
 fn hit_test_paint_toggle(x: f64, y: f64) -> bool {
   return bounds_check(x, y, UI_MENU_BOTTOM_PAINT_TOGGLE_X, UI_MENU_BOTTOM_PAINT_TOGGLE_Y, UI_MENU_BOTTOM_PAINT_TOGGLE_X + UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_Y + UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT);
 }
-fn hit_test_machine_button(x: f64, y: f64) -> bool {
-  return bounds_check(x, y, UI_MENU_BOTTOM_MACHINE_X, UI_MENU_BOTTOM_MACHINE_Y, UI_MENU_BOTTOM_MACHINE_X + UI_MENU_BOTTOM_MACHINE_WIDTH, UI_MENU_BOTTOM_MACHINE_Y + UI_MENU_BOTTOM_MACHINE_HEIGHT);
+fn hit_test_machine3x3_button(x: f64, y: f64) -> bool {
+  return bounds_check(x, y, UI_MENU_BOTTOM_MACHINE3X3_X, UI_MENU_BOTTOM_MACHINE3X3_Y, UI_MENU_BOTTOM_MACHINE3X3_X + UI_MENU_BOTTOM_MACHINE3X3_WIDTH, UI_MENU_BOTTOM_MACHINE3X3_Y + UI_MENU_BOTTOM_MACHINE3X3_HEIGHT);
+}
+fn hit_test_machine2x2_button(x: f64, y: f64) -> bool {
+  return bounds_check(x, y, UI_MENU_BOTTOM_MACHINE2X2_X, UI_MENU_BOTTOM_MACHINE2X2_Y, UI_MENU_BOTTOM_MACHINE2X2_X + UI_MENU_BOTTOM_MACHINE2X2_WIDTH, UI_MENU_BOTTOM_MACHINE2X2_Y + UI_MENU_BOTTOM_MACHINE2X2_HEIGHT);
 }
 fn hit_test_help_button(mx: f64, my: f64) -> bool {
   return bounds_check(mx, my, UI_HELP_X, UI_HELP_Y, UI_HELP_X + UI_HELP_WIDTH, UI_HELP_Y + UI_HELP_HEIGHT);
@@ -3623,19 +3673,8 @@ fn paint_background_tiles1(
         // For machines, paint the top-left cell only but make the painted area cover the whole machine
         // TODO: each machine size should have a unique, customized, sprite
         if cell.machine.main_coord == coord {
-          let machine_img = match ( cell.machine.cell_width, cell.machine.cell_height ) {
-            ( 1, 1 ) => CONFIG_NODE_ASSET_MACHINE1, // &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_1X1].sprite_config.frames[0].file_canvas_cache_index],
-            ( 2, 2 ) => CONFIG_NODE_ASSET_MACHINE2, // &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_2X2].sprite_config.frames[0].file_canvas_cache_index],
-            ( 3, 3 ) => CONFIG_NODE_ASSET_MACHINE_1_1, // &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].file_canvas_cache_index],
-            ( 3, 4 ) => CONFIG_NODE_ASSET_MACHINE3,
-            ( 4, 4 ) => CONFIG_NODE_ASSET_MACHINE4,
-            ( 2, 1 ) => CONFIG_NODE_ASSET_MACHINE_2_1,
-            ( 4, 2 ) => CONFIG_NODE_ASSET_MACHINE_2_1,
-            ( 3, 2 ) => CONFIG_NODE_ASSET_MACHINE_3_2,
-            _ => CONFIG_NODE_ASSET_MACHINE_1_1, // &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].file_canvas_cache_index],
-          };
-
-          paint_asset(options, state, config, context, machine_img, factory.ticks,
+          let machine_asset_index = machine_size_to_asset_index(cell.machine.cell_width, cell.machine.cell_height);
+          paint_asset(options, state, config, context, machine_asset_index, factory.ticks,
             ox, oy,
             cell.machine.cell_width as f64 * CELL_W, cell.machine.cell_height as f64 * CELL_H
           );
@@ -3828,9 +3867,16 @@ fn paint_background_tiles3(
         if cell.machine.main_coord == coord {
           // Paint all overlays for this machien in this iteration, not just the one for this particular cell
 
-          // Paint tiny output part in top-left
-          paint_segment_part_from_config(options, state, config, context, cell.machine.output_want.kind, ox + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].x, oy + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].y, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].w, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].h);
+          let mconfig = get_machine_ui_config(cell.machine.cell_width, cell.machine.cell_height);
 
+          // Paint tiny output part in top-left
+          paint_segment_part_from_config(options, state, config, context,
+            cell.machine.output_want.kind,
+            ox + mconfig.part_x + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].x,
+            oy + mconfig.part_y + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].y,
+            config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].w,
+            config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].h
+          );
 
           // Note: the set of all incoming and outgoing ports are stored on .ins and .outs
           // - If none of the outward ports are connected, then there is a problem
@@ -3839,31 +3885,27 @@ fn paint_background_tiles3(
           // - If the inputs don't define an output, then there is a problem (but that can't legally happen in the current iteration)
 
           // Paint alarm in bottom-right corner if the machine has a problem
-          let (mainx, mainy) = to_xy(cell.machine.main_coord);
-          let maxx = mainx + cell.machine.cell_width - 1;
-          let maxy = mainy + cell.machine.cell_height - 1;
-          let max_coord = to_coord(maxx, maxy);
           let mut weewoo = false;
           if factory.floor[cell.machine.main_coord].ins.len() == 0 {
             paint_asset(options, state, config, context, CONFIG_NODE_ASSET_MISSING_INPUTS, factory.ticks,
-              ox, oy + CELL_H,
+              ox + mconfig.missing_input_x, oy + mconfig.missing_input_y,
               CELL_W, CELL_H
             );
             weewoo = true;
           } else if factory.floor[cell.machine.main_coord].outs.len() == 0 {
             paint_asset(options, state, config, context, CONFIG_NODE_ASSET_MISSING_OUTPUTS, factory.ticks,
-              ox + CELL_W + CELL_W, oy + CELL_H,
+              ox + mconfig.missing_output_x, oy + mconfig.missing_output_y,
               CELL_W, CELL_H
             );
             weewoo = true;
           } else if factory.floor[cell.machine.main_coord].machine.output_want.icon == ' ' {
             context.set_fill_style(&"#ffffff9f".into());
             context.begin_path();
-            context.arc(ox + CELL_W + (CELL_W / 2.0), oy + CELL_H + (CELL_H / 2.0), CELL_W * 0.75, 0.0, 2.0 * 3.14).expect("to paint");
+            context.arc(ox + mconfig.missing_purpose_x + (CELL_W / 2.0), oy + mconfig.missing_purpose_y+ (CELL_H / 2.0), CELL_W * 0.75, 0.0, 2.0 * 3.14).expect("to paint");
             context.fill();
 
             paint_asset(options, state, config, context, CONFIG_NODE_ASSET_MISSING_PURPOSE, factory.ticks,
-              ox + CELL_W, oy + CELL_H,
+              ox + mconfig.missing_purpose_x, oy + mconfig.missing_purpose_y,
               CELL_W, CELL_H
             );
             weewoo = true;
@@ -3871,7 +3913,7 @@ fn paint_background_tiles3(
 
           if weewoo {
             paint_asset(options, state, config, context, CONFIG_NODE_ASSET_WEE_WOO, factory.ticks,
-              ox + CELL_W + 5.0, oy + CELL_H + CELL_H + 5.0,
+              ox + mconfig.wee_woo_x, oy + mconfig.wee_woo_y,
               config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].w, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].h
             );
           }
@@ -4187,8 +4229,11 @@ fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory
   else if mouse_state.dragging_offer {
     paint_mouse_while_dragging_offer(options, state, config, factory, context, mouse_state, cell_selection);
   }
-  else if mouse_state.dragging_machine {
-    paint_mouse_while_dragging_machine(options, state, factory, context, mouse_state);
+  else if mouse_state.dragging_machine2x2 {
+    paint_mouse_while_dragging_machine2x2(options, state, factory, context, mouse_state);
+  }
+  else if mouse_state.dragging_machine3x3 {
+    paint_mouse_while_dragging_machine3x3(options, state, factory, context, mouse_state);
   }
   else if mouse_state.over_floor_not_corner {
     paint_mouse_cell_location_on_floor(&context, &factory, &cell_selection, &mouse_state);
@@ -4272,11 +4317,13 @@ fn paint_mouse_in_selection_mode(options: &Options, state: &State, config: &Conf
     }
   }
 }
-fn paint_mouse_while_dragging_machine(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  // For now, machines are fixed to 3x3
-  let machine_cells_width = 3;
-  let machine_cells_height = 3;
-
+fn paint_mouse_while_dragging_machine2x2(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  paint_mouse_while_dragging_machine(options, state, factory, context, mouse_state, 2, 2);
+}
+fn paint_mouse_while_dragging_machine3x3(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  paint_mouse_while_dragging_machine(options, state, factory, context, mouse_state, 3, 3);
+}
+fn paint_mouse_while_dragging_machine(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, machine_cells_width: usize, machine_cells_height: usize) {
   // Paint drop zone over the edge cells
   context.set_fill_style(&"#00004444".into());
 
@@ -5168,7 +5215,7 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
   let truck_dur_2 = 1.0 * options.speed_modifier_ui; // turning circle
   let truck_dur_3 = 5.0 * options.speed_modifier_ui; // time to get up
   let truck_size = 50.0;
-  let start_x = UI_MENU_BOTTOM_MACHINE_X + UI_MENU_BOTTOM_MACHINE_WIDTH - (truck_size + 5.0);
+  let start_x = UI_MENU_BOTTOM_MACHINE3X3_X + UI_MENU_BOTTOM_MACHINE3X3_WIDTH - (truck_size + 5.0);
   let end_x = GRID_X2 + 5.0;
   // paint dump truck so it starts under the factory
   for t in 0..factory.trucks.len() {
@@ -5183,7 +5230,7 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
     let time_since_truck = ticks_since_truck / (ONE_SECOND as f64);
     if time_since_truck < truck_dur_1 {
       let truck_x = start_x + (time_since_truck / truck_dur_1).min(1.0).max(0.0) * (end_x - start_x);
-      let truck_y = UI_MENU_BOTTOM_MACHINE_Y + (UI_MENU_BOTTOM_MACHINE_HEIGHT / 2.0) - (truck_size / 2.0); // Factory mid
+      let truck_y = UI_MENU_BOTTOM_MACHINE3X3_Y + (UI_MENU_BOTTOM_MACHINE3X3_HEIGHT / 2.0) - (truck_size / 2.0); // Factory mid
 
       context.save();
       // This is how canvas rotation works; you rotate around the center of what you're painting, paint it, then reset the translation matrix.
@@ -5203,7 +5250,7 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
     } else if time_since_truck < (truck_dur_1 + truck_dur_2) {
       let progress = ((time_since_truck - truck_dur_1) / truck_dur_2).min(1.0).max(0.0);
       let truck_x = end_x + progress * 20.0;
-      let truck_y = UI_MENU_BOTTOM_MACHINE_Y + (UI_MENU_BOTTOM_MACHINE_HEIGHT / 2.0) - (truck_size / 2.0) + (progress * -50.0); // Turn upward
+      let truck_y = UI_MENU_BOTTOM_MACHINE3X3_Y + (UI_MENU_BOTTOM_MACHINE3X3_HEIGHT / 2.0) - (truck_size / 2.0) + (progress * -50.0); // Turn upward
 
       context.save();
       // This is how canvas rotation works; you rotate around the center of what you're painting, paint it, then reset the translation matrix.
@@ -5226,7 +5273,7 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
 
       let progress = ((time_since_truck - (truck_dur_1 + truck_dur_2)) / truck_dur_3).min(1.0).max(0.0);
       let truck_x = end_x + 20.0;
-      let truck_y = UI_MENU_BOTTOM_MACHINE_Y + (UI_MENU_BOTTOM_MACHINE_HEIGHT / 2.0) - (truck_size / 2.0) + -50.0; // Turn upward
+      let truck_y = UI_MENU_BOTTOM_MACHINE3X3_Y + (UI_MENU_BOTTOM_MACHINE3X3_HEIGHT / 2.0) - (truck_size / 2.0) + -50.0; // Turn upward
 
       let x = truck_x + (target_x - truck_x) * progress;
       let y = truck_y + (target_y - truck_y) * progress;
@@ -5329,16 +5376,31 @@ fn paint_paint_toggle(options: &Options, state: &State, config: &Config, context
   context.fill_text("🖌", UI_MENU_BOTTOM_PAINT_TOGGLE_X + UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH / 2.0 - 24.0, UI_MENU_BOTTOM_PAINT_TOGGLE_Y + UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
   context.restore();
 }
-fn paint_machine_icon(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+fn paint_machine_icons(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  paint_machine2x2(options, state, config, factory, context, mouse_state);
+  paint_machine3x3(options, state, config, factory, context, mouse_state);
+}
+fn paint_machine2x2(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   context.set_fill_style(&"#aaa".into());
-  context.fill_rect(UI_MENU_BOTTOM_MACHINE_X, UI_MENU_BOTTOM_MACHINE_Y, UI_MENU_BOTTOM_MACHINE_WIDTH, UI_MENU_BOTTOM_MACHINE_HEIGHT);
+  context.fill_rect(UI_MENU_BOTTOM_MACHINE2X2_X, UI_MENU_BOTTOM_MACHINE2X2_Y, UI_MENU_BOTTOM_MACHINE2X2_WIDTH, UI_MENU_BOTTOM_MACHINE2X2_HEIGHT);
 
-  paint_asset(options, state, config, context, CONFIG_NODE_ASSET_MACHINE_1_1, factory.ticks,
-    UI_MENU_BOTTOM_MACHINE_X, UI_MENU_BOTTOM_MACHINE_Y, UI_MENU_BOTTOM_MACHINE_WIDTH, UI_MENU_BOTTOM_MACHINE_HEIGHT
+  paint_asset(options, state, config, context, machine_size_to_asset_index(2, 2), factory.ticks,
+    UI_MENU_BOTTOM_MACHINE2X2_X, UI_MENU_BOTTOM_MACHINE2X2_Y, UI_MENU_BOTTOM_MACHINE2X2_WIDTH, UI_MENU_BOTTOM_MACHINE2X2_HEIGHT
   );
 
   context.set_stroke_style(&"black".into());
-  context.stroke_rect(UI_MENU_BOTTOM_MACHINE_X, UI_MENU_BOTTOM_MACHINE_Y, UI_MENU_BOTTOM_MACHINE_WIDTH, UI_MENU_BOTTOM_MACHINE_HEIGHT);
+  context.stroke_rect(UI_MENU_BOTTOM_MACHINE2X2_X, UI_MENU_BOTTOM_MACHINE2X2_Y, UI_MENU_BOTTOM_MACHINE2X2_WIDTH, UI_MENU_BOTTOM_MACHINE2X2_HEIGHT);
+}
+fn paint_machine3x3(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  context.set_fill_style(&"#aaa".into());
+  context.fill_rect(UI_MENU_BOTTOM_MACHINE3X3_X, UI_MENU_BOTTOM_MACHINE3X3_Y, UI_MENU_BOTTOM_MACHINE3X3_WIDTH, UI_MENU_BOTTOM_MACHINE3X3_HEIGHT);
+
+  paint_asset(options, state, config, context, machine_size_to_asset_index(3, 3), factory.ticks,
+    UI_MENU_BOTTOM_MACHINE3X3_X, UI_MENU_BOTTOM_MACHINE3X3_Y, UI_MENU_BOTTOM_MACHINE3X3_WIDTH, UI_MENU_BOTTOM_MACHINE3X3_HEIGHT
+  );
+
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(UI_MENU_BOTTOM_MACHINE3X3_X, UI_MENU_BOTTOM_MACHINE3X3_Y, UI_MENU_BOTTOM_MACHINE3X3_WIDTH, UI_MENU_BOTTOM_MACHINE3X3_HEIGHT);
 }
 fn paint_ui_buttons(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   // See on_up_menu for events

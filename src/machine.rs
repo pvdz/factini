@@ -400,3 +400,99 @@ pub fn machine_discover_output_wants(options: &Options, state: &State, config: &
   assert!(config.nodes[target_kind].kind == ConfigNodeKind::Part, "the pattern should resolve to a part node...");
   return target_kind;
 }
+
+pub fn machine_size_to_asset_index(width: usize, height: usize) -> usize {
+  return match ( width, height ) {
+    ( 1, 1 ) => CONFIG_NODE_ASSET_MACHINE1,
+    ( 2, 2 ) => CONFIG_NODE_ASSET_MACHINE2,
+    ( 3, 3 ) => CONFIG_NODE_ASSET_MACHINE_1_1,
+    ( 3, 4 ) => CONFIG_NODE_ASSET_MACHINE3,
+    ( 4, 4 ) => CONFIG_NODE_ASSET_MACHINE4,
+    ( 2, 1 ) => CONFIG_NODE_ASSET_MACHINE_2_1,
+    ( 4, 2 ) => CONFIG_NODE_ASSET_MACHINE_2_1,
+    ( 3, 2 ) => CONFIG_NODE_ASSET_MACHINE_3_2,
+    _ => CONFIG_NODE_ASSET_MACHINE_1_1,
+  };
+}
+
+/**
+ * Put the coordinates of various machine indicators at various machine cell sizes.
+ * The coords are absolute and relative to the offset of the machine. Use CELL_W/CELL_H.
+ */
+pub struct MachineUIConfig {
+  // Coords are relative to offset of machine, units in cell size
+
+  pub missing_input_x: f64,
+  pub missing_input_y: f64,
+
+  pub missing_output_x: f64,
+  pub missing_output_y: f64,
+
+  pub missing_purpose_x: f64,
+  pub missing_purpose_y: f64,
+
+  pub wee_woo_x: f64,
+  pub wee_woo_y: f64,
+
+  pub part_x: f64,
+  pub part_y: f64,
+}
+pub const MACHINE_1X1_UI: MachineUIConfig = MachineUIConfig {
+  missing_input_x: 0.0,
+  missing_input_y: 0.0,
+
+  missing_output_x: 0.0,
+  missing_output_y: 0.0,
+
+  missing_purpose_x: 0.0,
+  missing_purpose_y: 0.0,
+
+  wee_woo_x: 0.0,
+  wee_woo_y: 0.0,
+
+  part_x: 0.0,
+  part_y: 0.0,
+};
+pub const MACHINE_2X2_UI: MachineUIConfig = MachineUIConfig {
+  missing_input_x: 0.0,
+  missing_input_y: 0.0 + CELL_H,
+
+  missing_output_x: 0.0 + CELL_W,
+  missing_output_y: 0.0 + CELL_H,
+
+  missing_purpose_x: 0.0 + CELL_W / 2.0,
+  missing_purpose_y: 0.0 + 0.75 * CELL_H,
+
+  wee_woo_x: 0.0 + CELL_W,
+  wee_woo_y: 5.0,
+
+  part_x: 0.0,
+  part_y: 0.0,
+};
+
+pub const MACHINE_3X3_UI: MachineUIConfig = MachineUIConfig {
+  missing_input_x: 0.0,
+  missing_input_y: 0.0 + CELL_H,
+
+  missing_output_x: 0.0 + CELL_W + CELL_W,
+  missing_output_y: 0.0 + CELL_H,
+
+  missing_purpose_x: 0.0 + CELL_W,
+  missing_purpose_y: 0.0 + CELL_H,
+
+  wee_woo_x: 0.0 + CELL_W + CELL_W,
+  wee_woo_y: 0.0 + CELL_W + CELL_W,
+
+  part_x: 0.0,
+  part_y: 0.0,
+};
+
+pub fn get_machine_ui_config(w: usize, h: usize) -> MachineUIConfig {
+  if w == 2 && h == 2 {
+    return MACHINE_2X2_UI;
+  }
+  if w == 3 && h == 3 {
+    return MACHINE_3X3_UI;
+  }
+  return MACHINE_1X1_UI;
+}

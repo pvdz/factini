@@ -121,7 +121,8 @@ pub struct MouseState {
   pub offer_selected: bool,
   pub offer_selected_index: usize, // Offer index, not part index
   pub dragging_offer: bool,
-  pub dragging_machine: bool,
+  pub dragging_machine2x2: bool,
+  pub dragging_machine3x3: bool,
 
   pub craft_over_ci: CraftInteractable,
   pub craft_over_ci_wx: f64,
@@ -212,7 +213,8 @@ pub enum MenuButton {
   Row3Button5,
   Row3Button6,
   PaintToggleButton, // Left of the big factory button
-  FactoryButton,
+  Machine2x2Button,
+  Machine3x3Button,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

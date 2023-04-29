@@ -79,14 +79,14 @@ Indicator that a machine has no target part to create
 - h: 50
 
 # Asset_Machine1
-- file: ./img/machine1.png
-- w: 64
+- file: ./img/machine_2_2.png
+- w: 128
 - h: 64
 
 # Asset_Machine2
-- file: ./img/machine2.png
-- w: 64
-- h: 64
+- file: ./img/machine_3_2.png
+- w: 192
+- h: 128
 
 # Asset_Machine3
 - file: ./img/machine3.png
