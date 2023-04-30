@@ -693,6 +693,12 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
               }
             }
             "parts" => {
+              // Note: this was an early way of unlocking parts for the next step. But later
+              //       that process automated and the game will automatically release any
+              //       part that is necessary to construct the target(s). Not recursively though.
+              //       I've left it in here so you can still release other parts, even if you
+              //       won't immediately use them. Maybe there's a use case so why not.
+
               // This is a list of zero or more parts that unlock when this quest unlocks
               // So it's not _after_ this quest completes, but parts that unlock when starting this quest
               let pairs = value_raw.split(',');
@@ -1910,6 +1916,12 @@ pub fn config_get_initial_unlocks(options: &Options, state: &mut State, config: 
     node.production_target_by_index.iter().for_each(|(_count, index)| {
       let icon = config.nodes[*index].icon;
       if !unlocked_part_icons.contains(&icon) { unlocked_part_icons.push(icon); }
+      // Automatically unlock all parts required to create this target part.
+      // Won't do this recursively. Other mechanism must prevent proper quest unlock order.
+      config.nodes[*index].pattern_unique_kinds.iter().for_each(|kind| {
+        let icon = part_kind_to_icon(config, *kind);
+        if !unlocked_part_icons.contains(&icon) { unlocked_part_icons.push(icon); }
+      });
     });
   });
 

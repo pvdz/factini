@@ -36,7 +36,7 @@
 // - extending a UR two tiles to the left without connecting it, when there's a DL to the left of it and RL below it, results in wonky track
 // - undo button crashes (web 894, "len 100 index 137")
 // - should it be able to move a machine?
-// - add auto keyword to "parts" of quests which would auto-include all required parts for the targets
+
 
 
 

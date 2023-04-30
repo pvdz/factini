@@ -111,22 +111,18 @@ Quests
 
 # Quest_Energy
 - after:
-- parts: Part_BatteryBlack Part_BatteryOrange
 - targets: 10x Part_Energy1
 
 # Quest_Speed
 - after:
-- parts: Part_WheelAxeWood Part_Rims
 - targets: 10x Part_Speed1
 
 # Quest_Volume
 - after:
-- parts: Part_VolumeWool Part_VolumeGreen
 - targets: 10x Part_Volume1
 
 # Quest_Power
 - after:
-- parts: Part_WheelAxeWood Part_WheelAxeIron
 - targets: 10x Part_Power1
 
 `;
