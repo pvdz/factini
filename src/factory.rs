@@ -7,6 +7,7 @@ use super::cli_serialize::*;
 use super::cli_deserialize::*;
 use super::config::*;
 use super::demand::*;
+use super::direction::*;
 use super::floor::*;
 use super::machine::*;
 use super::maze::*;
@@ -651,4 +652,19 @@ pub fn factory_collect_machines(floor: &[Cell; FLOOR_CELLS_WH]) -> Vec<usize> {
   log!("factory_collect_machines(): cells: {}, unique: {}", machines.len(), unique);
 
   return machines;
+}
+
+pub fn set_empty_edge_to_supplier(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, dragged_part_config_node_index: usize, coord: usize, dir: Direction) {
+  // Note: this does not deal with existing state and it does not (re)connect the demander to the neighbor belt. Caller must do this.
+  log!("set_empty_edge_to_supplier(@{}, {:?}, {})", coord, dir, dragged_part_config_node_index);
+  let (last_mouse_up_cell_x, last_mouse_up_cell_y) = to_xy(coord);
+  factory.floor[coord] = supply_cell(config, last_mouse_up_cell_x, last_mouse_up_cell_y, part_from_part_index(config, dragged_part_config_node_index), 2000, 500, 1);
+  connect_to_neighbor_dead_end_belts(options, state, config, factory, coord);
+  match dir {
+    Direction::Down => factory.floor[coord].port_d = Port::Outbound,
+    Direction::Left => factory.floor[coord].port_l = Port::Outbound,
+    Direction::Up => factory.floor[coord].port_u = Port::Outbound,
+    Direction::Right => factory.floor[coord].port_r = Port::Outbound,
+  }
+  factory.changed = true;
 }

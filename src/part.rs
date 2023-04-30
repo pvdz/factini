@@ -37,8 +37,8 @@ pub fn part_from_node(node: &ConfigNode) -> Part {
   }
 }
 
-pub fn part_from_part_index(config: &Config, part_index: usize) -> Part {
-  let node = &config.nodes[part_index];
+pub fn part_from_part_index(config: &Config, part_config_node_index: usize) -> Part {
+  let node = &config.nodes[part_config_node_index];
   return Part {
     kind: node.index,
     icon: node.icon,

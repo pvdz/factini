@@ -32,14 +32,9 @@
 // - show produced parts in the prepared area?
 // - actually animate the start of the next maze runner
 // - cant save adjacent machines properly? or load. not even undo/redo because same reason.
-// - changing game speed while truck is moving will teleport the truck...
 // - undo button crashes (web 894, "len 100 index 137")
-// - should it be able to move a machine?
-// - offer UI should use UI speed, not game speed for animations
-// - edge click hint animation should be ui speed bound, not game speed
-// - click on supplier would rotate between available base parts?
-// - click on edge creates supplier with first/random base part?
-
+// - click on supplier would rotate between available base parts? -> means you cannot select a supplier without rotating it. but that's only a debug thing, anyways so does that matter?
+// - is PartKind een achterhaald type? -> config node type etc?
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -1847,26 +1842,46 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
         // - record the start time and compute the time it should take to move to the current coordinate
         // - every frame while the animation is active, paint a shadow of the offer at the progress
 
-        let mut part = PARTKIND_NONE;
-        let mut index = 0;
+        // Find the first craftable part config node index
+        let mut part_index = PARTKIND_NONE;
+        let mut offer_index = 0;
         factory.available_parts_rhs_menu.iter().enumerate().any(|(i, (kind, visible))| {
           if !visible { return false; }
-          part = *kind;
-          index = i;
-          return true;
+
+          if config.nodes[*kind].pattern_unique_kinds.len() == 0 {
+            part_index = *kind;
+            offer_index = i;
+            return true;
+          }
+          return false;
         });
 
-        let xy = to_xy(coord);
-
         factory.edge_hint = (
-          part,
-          (UI_FLOOR_OFFSET_X + (xy.0 as f64) * CELL_W, UI_FLOOR_OFFSET_Y + (xy.1 as f64) * CELL_H),
-          get_offer_xy(index),
+          part_index,
+          (UI_FLOOR_OFFSET_X + last_mouse_up_cell_x * CELL_W, UI_FLOOR_OFFSET_Y + last_mouse_up_cell_y * CELL_H),
+          get_offer_xy(offer_index),
           factory.ticks,
           2 * (ONE_SECOND as f64 * options.speed_modifier_ui) as u64
         );
 
         log!("edge_hint is now: {:?}", factory.edge_hint);
+
+        let dir = match (
+          last_mouse_up_cell_x == 0.0, // left
+          last_mouse_up_cell_y == 0.0, // up
+          last_mouse_up_cell_x as usize == FLOOR_CELLS_W - 1, // right
+          last_mouse_up_cell_y as usize == FLOOR_CELLS_H - 1 // down
+        ) {
+          ( false, true, false, false ) => Direction::Left,
+          ( false, false, true, false ) => Direction::Up,
+          ( false, false, false, true ) => Direction::Right,
+          ( true, false, false, false ) => Direction::Down,
+          _ => panic!("Should always ever be one side"),
+        };
+
+        set_empty_edge_to_supplier(options, state, config, factory, part_index, coord, dir);
+
+
       } else {
         log!("Clicked on empty cell. Not selecting it. Removing current selection.");
         cell_selection.on = false;
@@ -2246,66 +2261,30 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
   if is_edge_not_corner(last_mouse_up_cell_x, last_mouse_up_cell_y) {
     log!("Dropped a supply on an edge cell that is not corner. Deploying... {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
     log!("Drag started from offer {} ({:?})", mouse_state.offer_down_offer_index, dragged_part_index);
-    let bools = ( last_mouse_up_cell_x == 0.0, last_mouse_up_cell_y == 0.0, last_mouse_up_cell_x as usize == FLOOR_CELLS_W - 1, last_mouse_up_cell_y as usize == FLOOR_CELLS_H - 1 );
-    let prev_port = match bools {
-      // On the top you need to look one cell down to the up port
-      ( false, true, false, false ) => factory.floor[to_coord_down(last_mouse_up_cell_coord)].port_u,
-      ( false, false, true, false ) => factory.floor[to_coord_left(last_mouse_up_cell_coord)].port_r,
-      ( false, false, false, true ) => factory.floor[to_coord_up(last_mouse_up_cell_coord)].port_d,
-      ( true, false, false, false ) => factory.floor[to_coord_right(last_mouse_up_cell_coord)].port_l,
-      _ => panic!("Should be one side"),
+
+    let dir = match (
+      last_mouse_up_cell_x == 0.0, // left
+      last_mouse_up_cell_y == 0.0, // up
+      last_mouse_up_cell_x as usize == FLOOR_CELLS_W - 1, // right
+      last_mouse_up_cell_y as usize == FLOOR_CELLS_H - 1 // down
+    ) {
+      ( false, true, false, false ) => Direction::Left,
+      ( false, false, true, false ) => Direction::Up,
+      ( false, false, false, true ) => Direction::Right,
+      ( true, false, false, false ) => Direction::Down,
+      _ => panic!("Should always ever be one side"),
     };
-    log!("- Was neighbor connected to this cell? {:?}", prev_port);
+
     // If there's already something on this cell then we need to remove it first
     if factory.floor[last_mouse_up_cell_coord].kind != CellKind::Empty {
       // Must be supply or demand
       // We should be able to replace this one with the new tile without having to update
       // the neighbors (if any). We do have to update the prio list (in case demand->supply).
-      log!("Remove old edge cell...");
+      log!(" - Removing old edge cell...");
       floor_delete_cell_at_partial(options, state, config, factory, last_mouse_up_cell_coord);
     }
-    log!("Add new supply cell...");
-    factory.floor[last_mouse_up_cell_coord] = supply_cell(config, last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, part_from_part_index(config, dragged_part_index), 2000, 500, 1);
-    connect_to_neighbor_dead_end_belts(options, state, config, factory, last_mouse_up_cell_coord);
-    match bools {
-      ( false, true, false, false ) => factory.floor[last_mouse_up_cell_coord].port_d = Port::Outbound,
-      ( false, false, true, false ) => factory.floor[last_mouse_up_cell_coord].port_l = Port::Outbound,
-      ( false, false, false, true ) => factory.floor[last_mouse_up_cell_coord].port_u = Port::Outbound,
-      ( true, false, false, false ) => factory.floor[last_mouse_up_cell_coord].port_r = Port::Outbound,
-      _ => panic!("Should be one side"),
-    }
-    if prev_port != Port::None {
-      log!("- Neighbor was connected so restoring that now...");
-      // Port was connected before so connect it now.
-      match bools {
-        ( false, true, false, false ) => {
-          let ocoord = to_coord_down(last_mouse_up_cell_coord);
-          factory.floor[ocoord].port_u = Port::Inbound;
-          fix_belt_meta(options, state, config, factory, ocoord);
-          belt_discover_ins_and_outs(factory, ocoord);
-        },
-        ( false, false, true, false ) => {
-          let ocoord = to_coord_left(last_mouse_up_cell_coord);
-          factory.floor[ocoord].port_r = Port::Inbound;
-          fix_belt_meta(options, state, config, factory, ocoord);
-          belt_discover_ins_and_outs(factory, ocoord);
-        },
-        ( false, false, false, true ) => {
-          let ocoord = to_coord_up(last_mouse_up_cell_coord);
-          factory.floor[ocoord].port_d = Port::Inbound;
-          fix_belt_meta(options, state, config, factory, ocoord);
-          belt_discover_ins_and_outs(factory, ocoord);
-        },
-        ( true, false, false, false ) => {
-          let ocoord = to_coord_right(last_mouse_up_cell_coord);
-          factory.floor[ocoord].port_l = Port::Inbound;
-          fix_belt_meta(options, state, config, factory, ocoord);
-          belt_discover_ins_and_outs(factory, ocoord);
-        },
-        _ => panic!("Should be one side"),
-      }
-    }
-    factory.changed = true;
+
+    set_empty_edge_to_supplier(options, state, config, factory, dragged_part_index, last_mouse_up_cell_coord, dir);
   }
   else if is_middle(last_mouse_up_cell_x, last_mouse_up_cell_y) {
     let coord = to_coord(mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize);
