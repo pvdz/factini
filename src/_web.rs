@@ -613,14 +613,14 @@ pub fn start() -> Result<(), JsValue> {
       craft_over_ci_wh: 0.0,
       craft_over_ci_icon: '#',
       craft_over_ci_index: 99, // <99 means circle button index. >99 means machine cell index -100.
-      craft_over_ci_part_kind: PARTKIND_NONE,
+      craft_over_ci_part_kind: CONFIG_NODE_PART_NONE,
       craft_down_ci: CraftInteractable::None,
       craft_down_ci_wx: 0.0,
       craft_down_ci_wy: 0.0,
       craft_down_ci_ww: 0.0,
       craft_down_ci_wh: 0.0,
       craft_down_ci_icon: '#',
-      craft_down_ci_part_kind: PARTKIND_NONE,
+      craft_down_ci_part_kind: CONFIG_NODE_PART_NONE,
       craft_down_ci_index: 99, // <99 means circle button index. >99 means machine cell index -100.
       craft_up_ci: CraftInteractable::None,
       craft_up_ci_wx: 0.0,
@@ -629,7 +629,7 @@ pub fn start() -> Result<(), JsValue> {
       craft_up_ci_wh: 0.0,
       craft_up_ci_icon: '#',
       craft_up_ci_index: 99, // <99 means circle button index. >99 means machine cell index -100.
-      craft_up_ci_part_kind: PARTKIND_NONE,
+      craft_up_ci_part_kind: CONFIG_NODE_PART_NONE,
       craft_dragging_ci: false,
 
       was_dragging: false,
@@ -1266,7 +1266,7 @@ fn update_mouse_state(
         if options.enable_craft_menu_interact {
           let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
           log!("down inside craft selection -> {:?} {:?} {} at craft index {}", what, part_index, config.nodes[part_index].raw_name, craft_index);
-          if part_index == PARTKIND_NONE {
+          if part_index == CONFIG_NODE_PART_NONE {
             log!("  started dragging from an empty input, ignoring...");
             mouse_state.craft_down_ci = CraftInteractable::None;
           } else {
@@ -1843,7 +1843,7 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
         // - every frame while the animation is active, paint a shadow of the offer at the progress
 
         // Find the first craftable part config node index
-        let mut part_index = PARTKIND_NONE;
+        let mut part_index = CONFIG_NODE_PART_NONE;
         let mut offer_index = 0;
         factory.available_parts_rhs_menu.iter().enumerate().any(|(i, (kind, visible))| {
           if !visible { return false; }
@@ -2081,7 +2081,7 @@ fn on_up_craft(options: &mut Options, state: &mut State, config: &Config, factor
       log!("Clicked an input cell: {}", mouse_state.craft_up_ci_icon);
 
       // Force-clear this cell of the machine
-      machine_change_want_kind(options, state, config, factory, factory.floor[cell_selection.coord].machine.main_coord, mouse_state.craft_up_ci_index as usize - 100, PARTKIND_NONE);
+      machine_change_want_kind(options, state, config, factory, factory.floor[cell_selection.coord].machine.main_coord, mouse_state.craft_up_ci_index as usize - 100, CONFIG_NODE_PART_NONE);
     }
     CraftInteractable::None => {
       log!("Clicked inside selection craft menu but not on an interactable; ignoring");
@@ -2221,7 +2221,7 @@ fn on_drag_end_offer_over_craft(options: &mut Options, state: &mut State, config
 
         log!("Dropped an offer with pattern in the middle on a craft menu. Update the machine!");
         for i in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
-          let part_index = config.nodes[dragged_part_index].pattern_by_index.get(i).unwrap_or(&PARTKIND_NONE);
+          let part_index = config.nodes[dragged_part_index].pattern_by_index.get(i).unwrap_or(&CONFIG_NODE_PART_NONE);
           machine_change_want_kind(options, state, config, factory, main_coord, i, *part_index);
           // Make sure the haves are cleared as well
           factory.floor[main_coord].machine.haves[i] = part_none(config);
@@ -2300,7 +2300,7 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
           log!("- Update the machine!");
           // Update machine to the pattern of the dragged part
           for want_index in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
-            let part_index = config.nodes[dragged_part_index].pattern_by_index.get(want_index).unwrap_or(&PARTKIND_NONE);
+            let part_index = config.nodes[dragged_part_index].pattern_by_index.get(want_index).unwrap_or(&CONFIG_NODE_PART_NONE);
             machine_change_want_kind(options, state, config, factory, main_coord, want_index, *part_index);
             // Make sure the haves are cleared as well
             factory.floor[main_coord].machine.haves[want_index] = part_none(config);
@@ -2895,7 +2895,7 @@ fn on_drag_start_craft(options: &mut Options, state: &mut State, config: &Config
     let index = mouse_state.craft_down_ci_index as usize - 100;
     log!("Clearing input @{} from machine @{} because drag start; has {} wants and {} haves", index, selected_main_coord, factory.floor[selected_main_coord].machine.wants.len(), factory.floor[selected_main_coord].machine.haves.len());
 
-    machine_change_want_kind(options, state, config, factory, selected_main_coord, index, PARTKIND_NONE);
+    machine_change_want_kind(options, state, config, factory, selected_main_coord, index, CONFIG_NODE_PART_NONE);
     // Make sure the haves are cleared as well
     factory.floor[selected_main_coord].machine.haves[index] = part_none(config);
   }
@@ -3059,7 +3059,7 @@ fn hit_test_get_craft_interactable_machine_at(options: &Options, state: &State, 
   let close_wy = center_wy + minr - CELL_H / 2.0;
   if bounds_check(mwx, mwy, close_wx, close_wy, close_wx + CELL_W, close_wy + CELL_H) {
     // log!("Clicked the back/close button. (TODO)");
-    return ( CraftInteractable::BackClose, close_wx, close_wy, CELL_W, CELL_H, '#', PARTKIND_NONE, 99 );
+    return ( CraftInteractable::BackClose, close_wx, close_wy, CELL_W, CELL_H, '#', CONFIG_NODE_PART_NONE, 99 );
   }
 
   // Actual number of seen inputs
@@ -3069,14 +3069,14 @@ fn hit_test_get_craft_interactable_machine_at(options: &Options, state: &State, 
 
   let angle_step = 5.5 - (count as f64 / 2.0).ceil() + (0.5 * ((count % 2) as f64));
   for i in 0..count {
-    let r = hit_test_get_craft_interactable_machine_at_index(angle_step, minr, center_wx, center_wy, mwx, mwy, i, if len == 0 { 't' } else { factory.floor[selected_main_coord].machine.last_received[i].0.icon }, if len == 0 { PARTKIND_TRASH } else { factory.floor[selected_main_coord].machine.last_received[i].0.kind });
+    let r = hit_test_get_craft_interactable_machine_at_index(angle_step, minr, center_wx, center_wy, mwx, mwy, i, if len == 0 { 't' } else { factory.floor[selected_main_coord].machine.last_received[i].0.icon }, if len == 0 { CONFIG_NODE_PART_TRASH } else { factory.floor[selected_main_coord].machine.last_received[i].0.kind });
     if let Some(x) = r {
       return x;
     }
   }
 
   // log!("Clicked inside machine circle but did not hit any interactables");
-  return ( CraftInteractable::None, 0.0, 0.0, 0.0, 0.0, '#', PARTKIND_NONE, 99 );
+  return ( CraftInteractable::None, 0.0, 0.0, 0.0, 0.0, '#', CONFIG_NODE_PART_NONE, 99 );
 }
 fn hit_test_get_craft_interactable_machine_at_index(angle_step: f64, minr: f64, center_wx: f64, center_wy: f64, mwx: f64, mwy: f64, craft_index: usize, icon: char, part_index: PartKind) -> Option< (CraftInteractable, f64, f64, f64, f64, char, PartKind, u8 ) > {
   let angle: f64 = (angle_step + craft_index as f64) * 0.1 * std::f64::consts::TAU;
@@ -4087,7 +4087,7 @@ fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, c
 
       // Draw an indicator that tells you if this machine has received the part "recently"
       // TODO: starting with "has part" because "recent" is annoying
-      if part.kind != PARTKIND_NONE && factory.floor[selected_main_coord].machine.haves.iter().any(|p| p.kind == part.kind) {
+      if part.kind != CONFIG_NODE_PART_NONE && factory.floor[selected_main_coord].machine.haves.iter().any(|p| p.kind == part.kind) {
         context.set_fill_style(&"green".into());
         context.fill_rect(main_wx + CELL_W * (i as f64 % machine_cw).floor() + CELL_W - 8.0, main_wy + CELL_H * (i as f64 / machine_cw).floor() + CELL_H - 8.0, 5.0, 5.0);
       }
@@ -4150,7 +4150,7 @@ fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, c
 
       // When hovering over the index, the _c is set to the char of the digit of that index.
       // If there are no last seen elements, show a trash icon
-      btn_img(options, state, config, context, wx, wy, if len == 0 { PARTKIND_TRASH } else { factory.floor[selected_main_coord].machine.last_received[i].0.kind }, mouse_state.craft_over_ci_index == (i as u8));
+      btn_img(options, state, config, context, wx, wy, if len == 0 { CONFIG_NODE_PART_TRASH } else { factory.floor[selected_main_coord].machine.last_received[i].0.kind }, mouse_state.craft_over_ci_index == (i as u8));
     }
   }
 }
@@ -4506,7 +4506,7 @@ fn paint_debug_selected_belt_cell(context: &Rc<web_sys::CanvasRenderingContext2d
   context.fill_text(format!("ins:  {}", ins_outs_to_str(&factory.floor[selected_coord].ins)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (3.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
   context.fill_text(format!("outs: {}", ins_outs_to_str(&factory.floor[selected_coord].outs)).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (4.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("to text");
 
-  if factory.floor[selected_coord].belt.part.kind != PARTKIND_NONE{
+  if factory.floor[selected_coord].belt.part.kind != CONFIG_NODE_PART_NONE {
     // Paint current part details
     let progress = ((factory.floor[selected_coord].belt.part_progress as f64) / (factory.floor[selected_coord].belt.speed as f64) * 100.0).round();
     let to =
@@ -5498,7 +5498,7 @@ fn paint_segment_part_from_config_bug(options: &Options, state: &State, config: 
   let dw = dw.floor();
   let dh = dh.floor();
 
-  if segment_part_index == PARTKIND_NONE {
+  if segment_part_index == CONFIG_NODE_PART_NONE {
     return false;
   }
 
@@ -5528,7 +5528,7 @@ fn paint_segment_part_from_config_bug(options: &Options, state: &State, config: 
     context.set_fill_style(&"black".into());
     if options.draw_part_kind {
       context.fill_text(segment_part_index.to_string().as_str(), dx + dw / 2.0 - (if segment_part_index < 9 { 4.0 } else { 14.0 }), dy + dh / 2.0 + 3.0).expect("to paint");
-    } else if segment_part_index == PARTKIND_NONE {
+    } else if segment_part_index == CONFIG_NODE_PART_NONE {
       context.fill_text("ε", dx + dw / 2.0 - 4.0, dy + dh / 2.0 + 3.0).expect("to paint");
     } else {
       context.fill_text(format!("{}", config.nodes[segment_part_index].icon).as_str(), dx + dw / 2.0 - 4.0, dy + dh / 2.0 + 3.0).expect("to paint");
@@ -5573,7 +5573,7 @@ fn paint_asset_raw(options: &Options, state: &State, config: &Config, context: &
     context.set_fill_style(&"black".into());
     if options.draw_part_kind {
       context.fill_text(config_node_index.to_string().as_str(), dx + dw / 2.0 - (if config_node_index < 9 { 4.0 } else { 14.0 }), dy + dh / 2.0 + 3.0).expect("to paint");
-    } else if config_node_index == PARTKIND_NONE {
+    } else if config_node_index == CONFIG_NODE_PART_NONE {
       context.fill_text("ε", dx + dw / 2.0 - 4.0, dy + dh / 2.0 + 3.0).expect("to paint");
     } else {
       context.fill_text(format!("{}", config.nodes[config_node_index].icon).as_str(), dx + dw / 2.0 - 4.0, dy + dh / 2.0 + 3.0).expect("to paint");

@@ -74,7 +74,7 @@ pub fn supply_new(gives: Part, neighbor_coord: usize, outgoing_dir: Direction, n
 pub fn tick_supply(options: &mut Options, state: &mut State, factory: &mut Factory, coord: usize) {
   factory.floor[coord].ticks += 1;
 
-  if factory.floor[coord].supply.gives.kind == PARTKIND_NONE {
+  if factory.floor[coord].supply.gives.kind == CONFIG_NODE_PART_NONE {
     return;
   }
 

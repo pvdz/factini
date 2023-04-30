@@ -147,7 +147,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, f
         Direction::Left => ( factory.floor[sub_coord].coord_l, Direction::Right ),
       };
       if let Some(to_coord) = to_coord {
-        if factory.floor[to_coord].kind == CellKind::Belt && factory.floor[to_coord].belt.part.kind == PARTKIND_NONE {
+        if factory.floor[to_coord].kind == CellKind::Belt && factory.floor[to_coord].belt.part.kind == CONFIG_NODE_PART_NONE {
           // The neighbor is a belt that is empty
           if options.print_moves || options.print_moves_machine {
             log!("({}) Machine @{} (sub @{}) finished part {:?}! Moving to belt @{}", factory.ticks, main_coord, sub_coord, factory.floor[main_coord].machine.output_want.kind, to_coord);
@@ -175,7 +175,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, f
     // If a certain input is none, then have should always be none too and it will auto-satisfy
     // Otherwise, it will satisfy if the have is not none, but rather the part that is wanted.
     let want = factory.floor[main_coord].machine.wants[i].kind;
-    if want != PARTKIND_NONE {
+    if want != CONFIG_NODE_PART_NONE {
       accepts_nothing = false;
     }
     if want != factory.floor[main_coord].machine.haves[i].kind {
@@ -206,7 +206,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, f
           // Verify that there is a part, the part is at 100% progress, and that the part is determined to go towards the machine
           let belt_part = factory.floor[from_coord].belt.part.kind;
 
-          if belt_part != PARTKIND_NONE && !factory.floor[from_coord].belt.part_to_tbd && factory.floor[from_coord].belt.part_to == main_neighbor_in_dir && factory.floor[from_coord].belt.part_progress >= factory.floor[from_coord].belt.speed {
+          if belt_part != CONFIG_NODE_PART_NONE && !factory.floor[from_coord].belt.part_to_tbd && factory.floor[from_coord].belt.part_to == main_neighbor_in_dir && factory.floor[from_coord].belt.part_progress >= factory.floor[from_coord].belt.speed {
             // Check whether it fits in any input slot. If so, put it there. Otherwise trash it unless
             // all slots are full (only trash input parts while actually waiting for more input).
 
@@ -216,12 +216,12 @@ pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, f
               for i in 0..factory.floor[main_coord].machine.wants.len() {
                 // There must be space
                 let have = factory.floor[main_coord].machine.haves[i].kind;
-                if have == PARTKIND_NONE {
+                if have == CONFIG_NODE_PART_NONE {
                   // Accept if trash (joker part) or if it matches the required part
                   let want = factory.floor[main_coord].machine.wants[i].kind;
-                  if want != PARTKIND_NONE {
+                  if want != CONFIG_NODE_PART_NONE {
                     let have_eq_wants = belt_part == factory.floor[main_coord].machine.wants[i].kind && belt_part != have;
-                    let trash_joker = options.dbg_trash_is_joker && belt_part == PARTKIND_TRASH;
+                    let trash_joker = options.dbg_trash_is_joker && belt_part == CONFIG_NODE_PART_TRASH;
                     if have_eq_wants || trash_joker {
                       if !have_eq_wants && options.db_joker_corrupts_factory {
                         // Mark the factory as having been poisoned
@@ -286,7 +286,7 @@ fn machine_receive_part(factory: &mut Factory, main_coord: usize, have_index: us
   factory.floor[main_coord].machine.haves[have_index] = part;
 }
 fn machine_update_oldest_list(factory: &mut Factory, main_coord: usize, part: &Part) {
-  assert_ne!(part.kind, PARTKIND_NONE, "machine_update_oldest_list: should not receive NONE parts here...");
+  assert_ne!(part.kind, CONFIG_NODE_PART_NONE, "machine_update_oldest_list: should not receive NONE parts here...");
   assert_ne!(part.kind, 0, "machine_update_oldest_list: should not receive NONE parts here...");
 
   // Update the last_received, if necessary
@@ -355,7 +355,7 @@ pub fn machine_discover_ins_and_outs_floor(floor: &mut [Cell; FLOOR_CELLS_WH], m
 pub fn machine_normalize_wants(wants: &Vec<PartKind>) -> Vec<PartKind> {
   let mut wants = wants.iter()
     .map(|&p| p)
-    .filter(|&part_index| part_index != PARTKIND_NONE)
+    .filter(|&part_index| part_index != CONFIG_NODE_PART_NONE)
     .collect::<Vec<PartKind>>();
   wants.sort_unstable();
   return wants;
@@ -393,9 +393,9 @@ pub fn machine_discover_output_wants(options: &Options, state: &State, config: &
   let pattern_str = str::replace(pattern_str_untrimmed.trim(), " ", "");
   if pattern_str == "" {
     // log!("  Machine has no inputs so it has no output");
-    return PARTKIND_NONE;
+    return CONFIG_NODE_PART_NONE;
   }
-  let target_kind = *config.node_pattern_to_index.get(pattern_str.as_str()).or(Some(&PARTKIND_NONE)).unwrap();
+  let target_kind = *config.node_pattern_to_index.get(pattern_str.as_str()).or(Some(&CONFIG_NODE_PART_NONE)).unwrap();
   // log!("  Looking in node_pattern_to_index for: `{}` --> resulting target kind: {} -> {:?}", pattern_str, target_kind, config.nodes[target_kind]);
   assert!(config.nodes[target_kind].kind == ConfigNodeKind::Part, "the pattern should resolve to a part node...");
   return target_kind;

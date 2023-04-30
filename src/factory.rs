@@ -118,7 +118,7 @@ pub fn create_factory(options: &Options, state: &mut State, config: &Config, flo
     trucks: vec!(),
     parts_in_transit: vec!(),
     day_corrupted: false,
-    edge_hint: (PARTKIND_NONE, (0.0, 0.0), (0.0, 0.0), 0, 0),
+    edge_hint: (CONFIG_NODE_PART_NONE, (0.0, 0.0), (0.0, 0.0), 0, 0),
     quests,
     quest_updated: true,
     maze: create_maze(maze_seed),

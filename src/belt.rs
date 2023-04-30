@@ -69,7 +69,7 @@ fn tick_belt_take_from_belt(options: &mut Options, state: &mut State, config: &C
 
   // if curr_coord == 52 { log!("tick_belt_one_inbound_dir {:?}", curr_dir); }
 
-  if factory.floor[from_coord].belt.part.kind == PARTKIND_NONE {
+  if factory.floor[from_coord].belt.part.kind == CONFIG_NODE_PART_NONE {
     // if curr_coord == 52 {
     //   log!("        - no part, bailing");
     // }
@@ -108,7 +108,7 @@ fn tick_belt_take_from_supply(options: &mut Options, state: &mut State, factory:
   // Check if the belt is empty
   // Check if the supply has a part ready to move out
   // If so, move it to this belt
-  assert_eq!(factory.floor[belt_coord].belt.part.kind, PARTKIND_NONE, "belt is empty or this should not be called");
+  assert_eq!(factory.floor[belt_coord].belt.part.kind, CONFIG_NODE_PART_NONE, "belt is empty or this should not be called");
 
   if factory.floor[supply_coord].supply.part_created_at > 0 {
     if factory.floor[supply_coord].supply.part_tbd {
@@ -134,7 +134,7 @@ fn tick_belt_give_to_demand(options: &mut Options, state: &mut State, config: &C
   // Check if belt part is ready to move out
   // Check if belt part is going into this direction
   // If so, move to demand
-  if factory.floor[belt_coord].belt.part.kind != PARTKIND_NONE {
+  if factory.floor[belt_coord].belt.part.kind != CONFIG_NODE_PART_NONE {
     if factory.floor[belt_coord].belt.part_to == belt_dir_towards_demand {
       if factory.floor[belt_coord].belt.part_at > 0 && factory.floor[belt_coord].belt.part_progress >= factory.floor[belt_coord].belt.speed {
         if demand_ready(options, state, config, factory, demand_coord) {
@@ -219,7 +219,7 @@ pub fn tick_belt(options: &mut Options, state: &mut State, config: &Config, fact
   }
 
   // Try to find a Demand to take a part if one is ready.
-  if factory.floor[curr_coord].belt.part.kind != PARTKIND_NONE {
+  if factory.floor[curr_coord].belt.part.kind != CONFIG_NODE_PART_NONE {
     let outlen = factory.floor[curr_coord].outs.len();
     for index in 0..outlen {
       // Note: not rotating outs here because that already happened when assigning this part_to
@@ -233,7 +233,7 @@ pub fn tick_belt(options: &mut Options, state: &mut State, config: &Config, fact
   }
 
   // Try to take a part from a neighbor belt or supply (but not machine)
-  if factory.floor[curr_coord].belt.part.kind == PARTKIND_NONE {
+  if factory.floor[curr_coord].belt.part.kind == CONFIG_NODE_PART_NONE {
     let inlen = factory.floor[curr_coord].ins.len();
     for index in 0..inlen {
       let (curr_dir, _curr_coord, from_coord, from_dir ) = factory.floor[curr_coord].ins[index];
@@ -262,13 +262,13 @@ pub fn belt_receive_part(factory: &mut Factory, curr_coord: usize, curr_dir: Dir
   factory.floor[curr_coord].belt.part_from = curr_dir;
 
   // if curr_coord == 195 { println!("@195 received a {:?}", factory.floor[curr_coord].belt.part); }
-  if kind != PARTKIND_NONE {
+  if kind != CONFIG_NODE_PART_NONE {
     belt_determine_part_target_port(factory, curr_coord);
   }
 }
 
 pub fn belt_determine_part_target_port(factory: &mut Factory, curr_coord: usize) {
-  assert!(factory.floor[curr_coord].kind == CellKind::Belt && factory.floor[curr_coord].belt.part.kind != PARTKIND_NONE && factory.floor[curr_coord].belt.part_to_tbd, "should be a belt where the part is not yet determined");
+  assert!(factory.floor[curr_coord].kind == CellKind::Belt && factory.floor[curr_coord].belt.part.kind != CONFIG_NODE_PART_NONE && factory.floor[curr_coord].belt.part_to_tbd, "should be a belt where the part is not yet determined");
   // Note: this may leave belt.part_to_tbd as true!
 
   // Where it goes to depends on a few things;
@@ -288,7 +288,7 @@ pub fn belt_determine_part_target_port(factory: &mut Factory, curr_coord: usize)
     let available =
       factory.floor[a_neighbor_coord].kind == CellKind::Demand ||
         factory.floor[a_neighbor_coord].kind == CellKind::Machine || // TODO: if the machine has no space then it should not be considered available here?
-        (factory.floor[a_neighbor_coord].kind == CellKind::Belt && factory.floor[a_neighbor_coord].belt.part.kind == PARTKIND_NONE);
+        (factory.floor[a_neighbor_coord].kind == CellKind::Belt && factory.floor[a_neighbor_coord].belt.part.kind == CONFIG_NODE_PART_NONE);
     if available {
       factory.floor[curr_coord].belt.part_to = a_out_dir;
       factory.floor[curr_coord].belt.part_to_tbd = false;

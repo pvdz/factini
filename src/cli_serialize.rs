@@ -82,7 +82,7 @@ fn serialize(options: &mut Options, state: &mut State, factory: &Factory, dump: 
         factory.floor[coord].machine.id
       },
       CellKind::Belt => {
-        if !dump && factory.floor[coord].belt.part.kind != PARTKIND_NONE {
+        if !dump && factory.floor[coord].belt.part.kind != CONFIG_NODE_PART_NONE {
           factory.floor[coord].belt.part.icon
         } else {
           factory.floor[coord].belt.meta.cli_icon
@@ -240,7 +240,7 @@ pub fn generate_floor_with_views(options: &mut Options, state: &mut State, facto
   let mut e = ee.split('\n');
 
 
-  let ff = serialize_cb(options, state, factory, |cell: &Cell| if cell.kind != CellKind::Belt { ' ' } else if cell.belt.part.kind == PARTKIND_NONE { '-' } else { match cell.belt.part_from {
+  let ff = serialize_cb(options, state, factory, |cell: &Cell| if cell.kind != CellKind::Belt { ' ' } else if cell.belt.part.kind == CONFIG_NODE_PART_NONE { '-' } else { match cell.belt.part_from {
     Direction::Up => 'u',
     Direction::Right => 'r',
     Direction::Down => 'd',
@@ -248,7 +248,7 @@ pub fn generate_floor_with_views(options: &mut Options, state: &mut State, facto
   }});
   let mut f = ff.split('\n');
 
-  let gg = serialize_cb(options, state, factory, |cell: &Cell| if cell.kind != CellKind::Belt { ' ' } else if cell.belt.part.kind == PARTKIND_NONE { '-' } else { match cell.belt.part_to {
+  let gg = serialize_cb(options, state, factory, |cell: &Cell| if cell.kind != CellKind::Belt { ' ' } else if cell.belt.part.kind == CONFIG_NODE_PART_NONE { '-' } else { match cell.belt.part_to {
     Direction::Up => 'u',
     Direction::Right => 'r',
     Direction::Down => 'd',
@@ -350,7 +350,7 @@ pub fn serialize2(options: &Options, state: &State, config: &Config, factory: &F
         factory.floor[coord].machine.id
       },
       CellKind::Belt => {
-        if !dump && factory.floor[coord].belt.part.kind != PARTKIND_NONE {
+        if !dump && factory.floor[coord].belt.part.kind != CONFIG_NODE_PART_NONE {
           factory.floor[coord].belt.part.icon
         } else if factory.floor[coord].belt.meta.btype == BeltType::INVALID {
           match ( factory.floor[coord].port_u != Port::None, factory.floor[coord].port_r != Port::None, factory.floor[coord].port_d != Port::None, factory.floor[coord].port_l != Port::None ) {
@@ -397,7 +397,7 @@ pub fn serialize2(options: &Options, state: &State, config: &Config, factory: &F
       for i in 0..factory.floor[coord].machine.wants.len() {
         cell_params.push(' ');
         let icon =
-            if factory.floor[coord].machine.wants[i].kind == PARTKIND_NONE {
+            if factory.floor[coord].machine.wants[i].kind == CONFIG_NODE_PART_NONE {
             '.' // Explicitly an empty spot since those are relevant
           } else {
             factory.floor[coord].machine.wants[i].icon

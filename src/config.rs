@@ -21,6 +21,9 @@ use super::utils::*;
 use super::log;
 
 // These index directly to the config.nodes vec and BELT_CODES (for belts)
+
+pub const CONFIG_NODE_PART_NONE: usize = 0;
+pub const CONFIG_NODE_PART_TRASH: usize = 1;
 pub const CONFIG_NODE_SUPPLY_UP: usize = 2;
 pub const CONFIG_NODE_SUPPLY_RIGHT: usize = 3;
 pub const CONFIG_NODE_SUPPLY_DOWN: usize = 4;
@@ -426,7 +429,7 @@ pub enum ConfigNodeState {
 
 pub fn config_get_available_parts(config: &Config) -> Vec<PartKind>{
   let mut parts = vec!(
-    PARTKIND_TRASH // for testing/debugging?
+    CONFIG_NODE_PART_TRASH // for testing/debugging?
   );
   config.part_nodes.iter().for_each(|&part_index| {
     if config.nodes[part_index].current_state == ConfigNodeState::Available {
@@ -1281,8 +1284,8 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Asset_Treasure" => CONFIG_NDOE_ASSET_TREASURE,
     "Asset_Pickaxe" => CONFIG_NODE_ASSET_PICKAXE,
     "Asset_DrmPlaceholder" => CONFIG_NODE_ASSET_DRM_PLACEHOLDER,
-    "Part_None" => PARTKIND_NONE,
-    "Part_Trash" => PARTKIND_TRASH,
+    "Part_None" => CONFIG_NODE_PART_NONE,
+    "Part_Trash" => CONFIG_NODE_PART_TRASH,
     "Supply_Up" => CONFIG_NODE_SUPPLY_UP,
     "Supply_Right" => CONFIG_NODE_SUPPLY_RIGHT,
     "Supply_Down" => CONFIG_NODE_SUPPLY_DOWN,
@@ -1571,8 +1574,8 @@ fn get_system_nodes() -> Vec<ConfigNode> {
   // These are default nodes that you can still override like any other node in the config
 
   let v = vec!(
-    config_node_part(PARTKIND_NONE, "None".to_string(), ' '),
-    config_node_part(PARTKIND_TRASH, "Trash".to_string(), 't'),
+    config_node_part(CONFIG_NODE_PART_NONE, "None".to_string(), ' '),
+    config_node_part(CONFIG_NODE_PART_TRASH, "Trash".to_string(), 't'),
     config_node_supply(CONFIG_NODE_SUPPLY_UP, "Up".to_string()),
     config_node_supply(CONFIG_NODE_SUPPLY_RIGHT, "Right".to_string()),
     config_node_supply(CONFIG_NODE_SUPPLY_DOWN, "Down".to_string()),

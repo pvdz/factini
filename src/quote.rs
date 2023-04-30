@@ -92,8 +92,8 @@ pub fn get_fresh_quest_states(options: &Options, state: &mut State, config: &Con
         x: 0.0, // TODO
         y: 0.0, // TODO
         max_y: 0.0, // TODO
-        quest_index: PARTKIND_NONE, // TODO
-        part_index: PARTKIND_NONE, // TODO
+        quest_index: CONFIG_NODE_PART_NONE, // TODO
+        part_index: CONFIG_NODE_PART_NONE, // TODO
         dx: 0.0,
         dy: 0.0,
         /**

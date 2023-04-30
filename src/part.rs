@@ -9,12 +9,9 @@ pub struct Part {
   pub icon: char,
 }
 
-// Note: This is the ConfigKind. The first 260 or so are hardcoded, like Part_None and Belt_U_D
+// Note: This maps to config.nodes[index]. Just a visual alias to differentiate from usize (rust has no opaque types yet)
 // #[derive(Clone, Copy, Debug, PartialEq)]
 pub type PartKind = usize;
-
-pub const PARTKIND_NONE: PartKind = 0;
-pub const PARTKIND_TRASH: PartKind = 1;
 
 pub fn part_none(config: &Config) -> Part {
   return Part {
