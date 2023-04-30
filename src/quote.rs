@@ -23,8 +23,8 @@ pub struct Quote {
   pub quest_name: String, // unqualified name
   pub part_name: String, // unqualified name
 
-  pub quest_index: usize, // on config.nodes
-  pub part_index: PartKind, // on config.nodes
+  pub quest_index: usize, // index on config.nodes
+  pub part_kind: PartKind, // index on config.nodes
   pub target_count: u32,
 
   pub added_at: u64,
@@ -72,8 +72,8 @@ pub fn get_fresh_quest_states(options: &Options, state: &mut State, config: &Con
     // log!("  - status: {:?}", status);
     let unlock_requirement_indexes = config.nodes[quest_node_index].unlocks_after_by_index.iter().map(|&index| config.nodes[index].quest_index).collect::<Vec<usize>>();
     // log!("  - unlock_requirement_indexes: {:?}", unlock_requirement_indexes);
-    let production_part_index = config.nodes[quest_node_index].production_target_by_index[0].1;
-    // log!("  - production_part_index: {:?}", production_part_index);
+    let production_part_kind = config.nodes[quest_node_index].production_target_by_index[0].1;
+    // log!("  - production_part_kind: {:?}", production_part_kind);
     let production_target = config.nodes[quest_node_index].production_target_by_index[0].0;
     // log!("  - production_target: {:?}", production_target);
     return QuestState {
@@ -81,7 +81,7 @@ pub fn get_fresh_quest_states(options: &Options, state: &mut State, config: &Con
       quest_index,
       config_node_index: quest_node_index,
       unlocks_todo: unlock_requirement_indexes,
-      production_part_index,
+      production_part_kind,
       production_progress: 0,
       production_target,
       status,
@@ -93,7 +93,7 @@ pub fn get_fresh_quest_states(options: &Options, state: &mut State, config: &Con
         y: 0.0, // TODO
         max_y: 0.0, // TODO
         quest_index: CONFIG_NODE_PART_NONE, // TODO
-        part_index: CONFIG_NODE_PART_NONE, // TODO
+        part_kind: CONFIG_NODE_PART_NONE, // TODO
         dx: 0.0,
         dy: 0.0,
         /**
@@ -154,15 +154,15 @@ pub fn get_fresh_quest_states(options: &Options, state: &mut State, config: &Con
 }
 
 pub fn quote_create(config: &Config, quest_index: usize, ticks: u64) -> Vec<Quote> {
-  return config.nodes[quest_index].production_target_by_index.iter().map(|&(count, part_index)| {
+  return config.nodes[quest_index].production_target_by_index.iter().map(|&(count, part_kind)| {
     Quote {
-      name: format!("{}/{}", config.nodes[quest_index].name, config.nodes[part_index].name),
+      name: format!("{}/{}", config.nodes[quest_index].name, config.nodes[part_kind].name),
 
       quest_name: config.nodes[quest_index].name.clone(),
-      part_name: config.nodes[part_index].name.clone(),
+      part_name: config.nodes[part_kind].name.clone(),
 
       quest_index: quest_index,
-      part_index: part_index,
+      part_kind,
       target_count: count,
 
       added_at: ticks,
@@ -176,4 +176,3 @@ pub fn quote_create(config: &Config, quest_index: usize, ticks: u64) -> Vec<Quot
     }
   }).collect(); // TODO: js>rust noob here; looks like these are lazy evalled in serial and the collect is preventing this
 }
-

@@ -22,8 +22,8 @@ use super::log;
 
 // These index directly to the config.nodes vec and BELT_CODES (for belts)
 
-pub const CONFIG_NODE_PART_NONE: usize = 0;
-pub const CONFIG_NODE_PART_TRASH: usize = 1;
+pub const CONFIG_NODE_PART_NONE: PartKind = 0;
+pub const CONFIG_NODE_PART_TRASH: PartKind = 1;
 pub const CONFIG_NODE_SUPPLY_UP: usize = 2;
 pub const CONFIG_NODE_SUPPLY_RIGHT: usize = 3;
 pub const CONFIG_NODE_SUPPLY_DOWN: usize = 4;
@@ -386,7 +386,7 @@ pub struct ConfigNode {
   pub required_by_quest_indexes: Vec<usize>, // List of quests that depend on this quest before becoming available. Computed after parsing config.
 
   // Part
-  pub pattern_by_index: Vec<PartKind>, // Machine pattern that generates this part (part_index)
+  pub pattern_by_index: Vec<PartKind>, // Machine pattern that generates this part (part_kind)
   pub pattern_by_name: Vec<String>, // Actual names. Used while parsing. Should only be used for debugging afterwards
   pub pattern_by_icon: Vec<char>, // Char icons. Should only be used for debugging
   pub pattern: String, // pattern_by_icon as a string cached (or "prerendered")
@@ -431,9 +431,9 @@ pub fn config_get_available_parts(config: &Config) -> Vec<PartKind>{
   let mut parts = vec!(
     CONFIG_NODE_PART_TRASH // for testing/debugging?
   );
-  config.part_nodes.iter().for_each(|&part_index| {
-    if config.nodes[part_index].current_state == ConfigNodeState::Available {
-      parts.push(part_index);
+  config.part_nodes.iter().for_each(|&part_kind| {
+    if config.nodes[part_kind].current_state == ConfigNodeState::Available {
+      parts.push(part_kind);
     }
   });
   return parts;
@@ -1147,9 +1147,9 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
       // Clone the list of numbers because otherwise it moves. So be it.
       if print_fmd_trace { log!("    - Quest Part {} is {:?} and would enable parts {:?} ({:?})", nodes[quest_index].name, nodes[quest_index].current_state, nodes[quest_index].starting_part_by_name, nodes[quest_index].starting_part_by_index); }
       if nodes[quest_index].current_state != ConfigNodeState::Waiting {
-        nodes[quest_index].starting_part_by_index.clone().iter().for_each(|&part_index| {
-          if print_fmd_trace { log!("      - Part {} is available because Quest {} is available", nodes[part_index].name, nodes[quest_index].name); }
-          nodes[part_index].current_state = ConfigNodeState::Available;
+        nodes[quest_index].starting_part_by_index.clone().iter().for_each(|&part_kind| {
+          if print_fmd_trace { log!("      - Part {} is available because Quest {} is available", nodes[part_kind].name, nodes[quest_index].name); }
+          nodes[part_kind].current_state = ConfigNodeState::Available;
         });
       }
     });

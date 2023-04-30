@@ -30,7 +30,7 @@ pub struct Bouncer {
   pub y: f64,
   pub max_y: f64,
   pub quest_index: PartKind,
-  pub part_index: usize,
+  pub part_kind: usize,
   pub dx: f64,
   pub dy: f64,
   /**
@@ -42,7 +42,7 @@ pub struct Bouncer {
   pub bouncing_at: u64,
 }
 
-pub fn bouncer_create(x: f64, y: f64, max_y: f64, quest_index: PartKind, part_index: usize, init_speed: f64, created_at: u64, delay: u64) -> Bouncer {
+pub fn bouncer_create(x: f64, y: f64, max_y: f64, quest_index: PartKind, part_kind: PartKind, init_speed: f64, created_at: u64, delay: u64) -> Bouncer {
   let mut frames = VecDeque::new();
   frames.push_back((x, y, created_at));
   return Bouncer {
@@ -52,7 +52,7 @@ pub fn bouncer_create(x: f64, y: f64, max_y: f64, quest_index: PartKind, part_in
     y,
     max_y,
     quest_index,
-    part_index,
+    part_kind,
     dx: init_speed,
     dy: 0.0,
     frames,
@@ -72,4 +72,3 @@ pub fn bouncer_xy_at_t(options: &Options, tick_age: u64, initial_visibile_quest_
   let y: f64 = start_height * (-options.bouncer_decay_rate_modifier * t.powf(options.bouncer_amplitude_decay_rate)).exp() * ( (options.bouncer_initial_angle + options.bouncer_angular_freq * t.powf(options.bouncer_wave_decay_rate)).sin());
   return (x, -y.abs());
 }
-// (options.bouncer_decay_speed as f32).powf(t as f32) as f64 *

@@ -95,7 +95,7 @@ pub fn create_factory(options: &Options, state: &mut State, config: &Config, flo
   log!("initial available_parts (active story): {:?}", available_parts_rhs_menu.iter().map(|(index, _)| config.nodes[*index].name.clone()).collect::<Vec<_>>());
   log!("active story {} nodes: {:?}", state.active_story_index, config.stories[state.active_story_index].part_nodes);
   log!("available quests: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| quest.name.clone()).collect::<Vec<_>>());
-  log!("target quest parts: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| config.nodes[quest.production_part_index].name.clone()).collect::<Vec<_>>());
+  log!("target quest parts: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| config.nodes[quest.production_part_kind].name.clone()).collect::<Vec<_>>());
 
   let maze_seed = dnow();
 
@@ -391,14 +391,14 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
         for i in 0..factory.floor[coord].demand.received.len() {
           if factory.floor.len() <= coord  { log!("coord was incorrect... {} {}", factory.floor.len(), coord); }
           if factory.floor[coord].demand.received.len() <= i { log!("i was incorrect... {} {}", factory.floor[coord].demand.received.len(), i); }
-          let (received_part_index, received_count) = factory.floor[coord].demand.received[i];
+          let (received_part_kind, received_count) = factory.floor[coord].demand.received[i];
 
           // Update the quest counts (expensive search but these arrays should be small
 
           let mut visible_index = 0;
           for quest_index in 0..factory.quests.len() {
             if factory.quests[quest_index].status == QuestStatus::Active {
-              if factory.quests[quest_index].production_part_index == received_part_index {
+              if factory.quests[quest_index].production_part_kind == received_part_kind {
                 factory.quests[quest_index].production_progress += received_count;
                 if factory.quests[quest_index].production_progress >= factory.quests[quest_index].production_target {
                   log!("quest_update_status: production progress exceeds target, we finished {}", config.nodes[factory.quests[quest_index].config_node_index].raw_name);
@@ -596,16 +596,16 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
 
         // We now have a set of available quests and any starting parts that they enabled.
         // Let's create quotes and trucks for them and add them to the lists.
-        new_parts.iter().enumerate().for_each(|(index, &part_index)| {
-          log!("Adding truck {} for {}", index, part_index);
+        new_parts.iter().enumerate().for_each(|(index, &part_kind)| {
+          log!("Adding truck {} for {}", index, part_kind);
           factory.trucks.push(truck_create(
             factory.ticks,
             (((index + 1) as f64 * ONE_SECOND as f64) * options.speed_modifier_floor) as u64,
-            part_index,
+            part_kind,
             factory.available_parts_rhs_menu.len(),
           ));
           // Add the part as a placeholder. Do not paint it yet. The truck will drive there first.
-          factory.available_parts_rhs_menu.push( ( part_index , false ) );
+          factory.available_parts_rhs_menu.push( (part_kind, false ) );
         });
       }
     }
@@ -654,11 +654,11 @@ pub fn factory_collect_machines(floor: &[Cell; FLOOR_CELLS_WH]) -> Vec<usize> {
   return machines;
 }
 
-pub fn set_empty_edge_to_supplier(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, dragged_part_config_node_index: usize, coord: usize, dir: Direction) {
+pub fn set_empty_edge_to_supplier(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, dragged_part_kind: PartKind, coord: usize, dir: Direction) {
   // Note: this does not deal with existing state and it does not (re)connect the demander to the neighbor belt. Caller must do this.
-  log!("set_empty_edge_to_supplier(@{}, {:?}, {})", coord, dir, dragged_part_config_node_index);
+  log!("set_empty_edge_to_supplier(@{}, {:?}, {})", coord, dir, dragged_part_kind);
   let (last_mouse_up_cell_x, last_mouse_up_cell_y) = to_xy(coord);
-  factory.floor[coord] = supply_cell(config, last_mouse_up_cell_x, last_mouse_up_cell_y, part_from_part_index(config, dragged_part_config_node_index), 2000, 500, 1);
+  factory.floor[coord] = supply_cell(config, last_mouse_up_cell_x, last_mouse_up_cell_y, part_from_part_kind(config, dragged_part_kind), 2000, 500, 1);
   connect_to_neighbor_dead_end_belts(options, state, config, factory, coord);
   match dir {
     Direction::Down => factory.floor[coord].port_d = Port::Outbound,

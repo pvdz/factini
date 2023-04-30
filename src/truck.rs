@@ -27,15 +27,15 @@ const LIMIT: f64 = 0.1;       // Minimum velocity required to keep animation run
 pub struct Truck {
   pub created_at: u64,
   pub delay: u64,
-  pub part_index: PartKind,
+  pub part_kind: PartKind,
   pub target_menu_part_position: usize, // Reserved spot in the right menu where the part will end
 }
 
-pub fn truck_create(created_at: u64, delay: u64, part_index: PartKind, target_menu_part_position: usize) -> Truck {
+pub fn truck_create(created_at: u64, delay: u64, part_kind: PartKind, target_menu_part_position: usize) -> Truck {
   return Truck {
     created_at,
     delay,
-    part_index,
+    part_kind,
     target_menu_part_position,
   };
 }

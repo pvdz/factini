@@ -20,7 +20,7 @@
 //   - a part that reaches 100% of a cell but can't be moved to the side should not block the next part from entering the cell until all ports are taken like that. the part can sit in the port and a belt can only take parts if it has an available port.
 // - make sun move across the day bar? in a sort of rainbow path?
 // - what's up with these assertion traps :(
-//   - `let (received_part_index, received_count) = factory.floor[coord].demand.received[i];` threw oob (1 while len=0). i thin it's somehow related to dropping a demander on the edge
+//   - `let (received_part_kind, received_count) = factory.floor[coord].demand.received[i];` threw oob (1 while len=0). i thin it's somehow related to dropping a demander on the edge
 // - hover over craftable offer should highlight craft-inputs (offers)
 // - unblock animations
 //   - car polish; should make nice corners, should drive same speed to any height
@@ -34,7 +34,6 @@
 // - cant save adjacent machines properly? or load. not even undo/redo because same reason.
 // - undo button crashes (web 894, "len 100 index 137")
 // - click on supplier would rotate between available base parts? -> means you cannot select a supplier without rotating it. but that's only a debug thing, anyways so does that matter?
-// - is PartKind een achterhaald type? -> config node type etc?
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -1138,14 +1137,14 @@ fn update_mouse_state(
     ZONE_CRAFT => {
       if options.enable_craft_menu_interact {
         if !mouse_state.is_dragging {
-          let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.world_x, mouse_state.world_y);
+          let ( what, wx, wy, ww, wh, icon, part_kind, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.world_x, mouse_state.world_y);
           mouse_state.craft_over_ci = what;
           mouse_state.craft_over_ci_wx = wx;
           mouse_state.craft_over_ci_wy = wy;
           mouse_state.craft_over_ci_wx = ww;
           mouse_state.craft_over_ci_wy = wh;
           mouse_state.craft_over_ci_icon = icon;
-          mouse_state.craft_over_ci_part_kind = part_index;
+          mouse_state.craft_over_ci_part_kind = part_kind;
           mouse_state.craft_over_ci_index = craft_index;
         }
       } else {
@@ -1264,9 +1263,9 @@ fn update_mouse_state(
       ZONE_MANUAL => {}
       ZONE_CRAFT => {
         if options.enable_craft_menu_interact {
-          let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
-          log!("down inside craft selection -> {:?} {:?} {} at craft index {}", what, part_index, config.nodes[part_index].raw_name, craft_index);
-          if part_index == CONFIG_NODE_PART_NONE {
+          let ( what, wx, wy, ww, wh, icon, part_kind, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
+          log!("down inside craft selection -> {:?} {:?} {} at craft index {}", what, part_kind, config.nodes[part_kind].raw_name, craft_index);
+          if part_kind == CONFIG_NODE_PART_NONE {
             log!("  started dragging from an empty input, ignoring...");
             mouse_state.craft_down_ci = CraftInteractable::None;
           } else {
@@ -1277,7 +1276,7 @@ fn update_mouse_state(
             mouse_state.craft_down_ci_wx = ww;
             mouse_state.craft_down_ci_wy = wh;
             mouse_state.craft_down_ci_icon = icon;
-            mouse_state.craft_down_ci_part_kind = part_index;
+            mouse_state.craft_down_ci_part_kind = part_kind;
             mouse_state.craft_down_ci_index = craft_index;
           }
         } else {
@@ -1427,7 +1426,7 @@ fn update_mouse_state(
       Zone::None => panic!("cant be up on no zone"),
       ZONE_MANUAL => {}
       ZONE_CRAFT => {
-        let ( what, wx, wy, ww, wh, icon, part_index, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_up_world_x, mouse_state.last_up_world_y);
+        let ( what, wx, wy, ww, wh, icon, part_kind, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_up_world_x, mouse_state.last_up_world_y);
         if mouse_state.is_dragging {
           log!("up / drag end inside craft selection -> {:?} -> dropping {} ({:?})", what, mouse_state.craft_down_ci_part_kind, config.nodes[mouse_state.craft_down_ci_part_kind].raw_name);
         } else {
@@ -1440,7 +1439,7 @@ fn update_mouse_state(
           mouse_state.craft_up_ci_wx = ww;
           mouse_state.craft_up_ci_wy = wh;
           mouse_state.craft_up_ci_icon = icon;
-          mouse_state.craft_up_ci_part_kind = part_index;
+          mouse_state.craft_up_ci_part_kind = part_kind;
           mouse_state.craft_up_ci_index = craft_index;
         } else {
           log!("up non-drag on craft is ignored because options.enable_craft_menu_interact = false");
@@ -1765,17 +1764,12 @@ fn on_drag_start_offer(options: &mut Options, state: &mut State, config: &Config
     state.mouse_mode_selecting = false;
 
     log!("not closing machine while dragging atomic part");
-    // let part_index = factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0;
-    // if config.nodes[part_index].pattern_unique_kinds.len() == 0 {
-    //   log(format!("closing machine craft menu because dragging offer without pattern"));
-    //   cell_selection.on = false;
-    // }
   }
 }
 fn on_up_offer(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
   log!("on_up_offer({} -> {})", mouse_state.offer_down_offer_index, mouse_state.offer_hover_offer_index);
 
-  let ( _part_index, visible ) = factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index];
+  let ( _part_kind, visible ) = factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index];
   if !visible {
     // Invisible offers are not interactive
     return;
@@ -1844,13 +1838,13 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
         // - every frame while the animation is active, paint a shadow of the offer at the progress
 
         // Find the first craftable part config node index
-        let mut part_index = CONFIG_NODE_PART_NONE;
+        let mut part_kind = CONFIG_NODE_PART_NONE;
         let mut offer_index = 0;
         factory.available_parts_rhs_menu.iter().enumerate().any(|(i, (kind, visible))| {
           if !visible { return false; }
 
           if config.nodes[*kind].pattern_unique_kinds.len() == 0 {
-            part_index = *kind;
+            part_kind = *kind;
             offer_index = i;
             return true;
           }
@@ -1858,7 +1852,7 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
         });
 
         factory.edge_hint = (
-          part_index,
+          part_kind,
           (UI_FLOOR_OFFSET_X + last_mouse_up_cell_x * CELL_W, UI_FLOOR_OFFSET_Y + last_mouse_up_cell_y * CELL_H),
           get_offer_xy(offer_index),
           factory.ticks,
@@ -1880,9 +1874,7 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
           _ => panic!("Should always ever be one side"),
         };
 
-        set_empty_edge_to_supplier(options, state, config, factory, part_index, coord, dir);
-
-
+        set_empty_edge_to_supplier(options, state, config, factory, part_kind, coord, dir);
       } else {
         log!("Clicked on empty cell. Not selecting it. Removing current selection.");
         cell_selection.on = false;
@@ -2222,8 +2214,8 @@ fn on_drag_end_offer_over_craft(options: &mut Options, state: &mut State, config
 
         log!("Dropped an offer with pattern in the middle on a craft menu. Update the machine!");
         for i in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
-          let part_index = config.nodes[dragged_part_kind].pattern_by_index.get(i).unwrap_or(&CONFIG_NODE_PART_NONE);
-          machine_change_want_kind(options, state, config, factory, main_coord, i, *part_index);
+          let part_kind = config.nodes[dragged_part_kind].pattern_by_index.get(i).unwrap_or(&CONFIG_NODE_PART_NONE);
+          machine_change_want_kind(options, state, config, factory, main_coord, i, *part_kind);
           // Make sure the haves are cleared as well
           factory.floor[main_coord].machine.haves[i] = part_none(config);
         }
@@ -2300,8 +2292,8 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
           log!("- Update the machine!");
           // Update machine to the pattern of the dragged part
           for want_index in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
-            let part_index = config.nodes[dragged_part_kind].pattern_by_index.get(want_index).unwrap_or(&CONFIG_NODE_PART_NONE);
-            machine_change_want_kind(options, state, config, factory, main_coord, want_index, *part_index);
+            let part_kind = config.nodes[dragged_part_kind].pattern_by_index.get(want_index).unwrap_or(&CONFIG_NODE_PART_NONE);
+            machine_change_want_kind(options, state, config, factory, main_coord, want_index, *part_kind);
             // Make sure the haves are cleared as well
             factory.floor[main_coord].machine.haves[want_index] = part_none(config);
           }
@@ -2898,7 +2890,7 @@ fn on_drag_end_craft(options: &mut Options, state: &mut State, config: &Config, 
       log!("Setting input @{} from machine @{} because drag start; has {} wants and {} haves", index, selected_main_coord, factory.floor[selected_main_coord].machine.wants.len(), factory.floor[selected_main_coord].machine.haves.len());
       machine_change_want_kind(options, state, config, factory, selected_main_coord, index, mouse_state.craft_down_ci_part_kind);
       // Clear the haves to make sure it doesn't contain an incompatible part now
-      factory.floor[selected_main_coord].machine.haves[index] = part_from_part_index(config, mouse_state.craft_down_ci_part_kind);
+      factory.floor[selected_main_coord].machine.haves[index] = part_from_part_kind(config, mouse_state.craft_down_ci_part_kind);
     }
     else {
       log!("  Did not end on an input cell, ignoring");
@@ -3064,7 +3056,7 @@ fn hit_test_get_craft_interactable_machine_at(options: &Options, state: &State, 
   // log!("Clicked inside machine circle but did not hit any interactables");
   return ( CraftInteractable::None, 0.0, 0.0, 0.0, 0.0, '#', CONFIG_NODE_PART_NONE, 99 );
 }
-fn hit_test_get_craft_interactable_machine_at_index(angle_step: f64, minr: f64, center_wx: f64, center_wy: f64, mwx: f64, mwy: f64, craft_index: usize, icon: char, part_index: PartKind) -> Option< (CraftInteractable, f64, f64, f64, f64, char, PartKind, u8 ) > {
+fn hit_test_get_craft_interactable_machine_at_index(angle_step: f64, minr: f64, center_wx: f64, center_wy: f64, mwx: f64, mwy: f64, craft_index: usize, icon: char, part_part: PartKind) -> Option< (CraftInteractable, f64, f64, f64, f64, char, PartKind, u8 ) > {
   let angle: f64 = (angle_step + craft_index as f64) * 0.1 * std::f64::consts::TAU;
 
   // TODO: could pre-compute these coords per factory and read the coords from a vec
@@ -3075,7 +3067,7 @@ fn hit_test_get_craft_interactable_machine_at_index(angle_step: f64, minr: f64, 
 
   if bounds_check(mwx, mwy, wx, wy, wx + CELL_W, wy + CELL_H) {
     // log!("Clicked resource box {}. (TODO)", i);
-    return Some( ( CraftInteractable::Resource, btn_c_wx, btn_c_wy, CELL_W, CELL_H, icon, part_index, craft_index as u8 ) );
+    return Some( ( CraftInteractable::Resource, btn_c_wx, btn_c_wy, CELL_W, CELL_H, icon, part_part, craft_index as u8 ) );
   }
 
   return None;
@@ -3350,7 +3342,7 @@ fn paint_world_cli(context: &Rc<web_sys::CanvasRenderingContext2d>, options: &mu
     context.fill_text(format!("{}", lines[n]).as_str(), 50.0, (n as f64) * 24.0 + 50.0).expect("something lower error fill_text");
   }
 }
-fn paint_supply_and_part_for_edge(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, cx: usize, cy: usize, part_index: PartKind) {
+fn paint_supply_and_part_for_edge(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, cx: usize, cy: usize, part_kind: PartKind) {
   let ox = UI_FLOOR_OFFSET_X + CELL_W * (cx as f64);
   let oy = UI_FLOOR_OFFSET_Y + CELL_H * (cy as f64);
   let supply_config_node =
@@ -3366,12 +3358,12 @@ fn paint_supply_and_part_for_edge(options: &Options, state: &State, config: &Con
       panic!("no");
     };
   paint_asset(&options, &state, &config, &context, supply_config_node, factory.ticks, ox, oy, CELL_W, CELL_H);
-  paint_segment_part_from_config(options, state, config, context, part_index, ox + CELL_W/4.0, oy + CELL_H/4.0, CELL_W/2.0, CELL_H/2.0);
+  paint_segment_part_from_config(options, state, config, context, part_kind, ox + CELL_W/4.0, oy + CELL_H/4.0, CELL_W/2.0, CELL_H/2.0);
 }
-fn paint_supply_and_part_not_edge(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, ox: f64, oy: f64, part_index: PartKind) {
-  paint_segment_part_from_config(options, state, config, context, part_index, ox + CELL_W*0.13, oy + CELL_H*0.13, CELL_W*0.75, CELL_H*0.75);
+fn paint_supply_and_part_not_edge(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, ox: f64, oy: f64, part_kind: PartKind) {
+  paint_segment_part_from_config(options, state, config, context, part_kind, ox + CELL_W*0.13, oy + CELL_H*0.13, CELL_W*0.75, CELL_H*0.75);
 }
-fn paint_part_and_pattern_at_middle(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, main_coord: usize, part_index: PartKind) {
+fn paint_part_and_pattern_at_middle(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, main_coord: usize, part_kind: PartKind) {
   // current coord must be a machine. Paint the pattern of the part we're currently dragging.
   let (mx, my) = to_xy(main_coord);
   let mwc = factory.floor[main_coord].machine.cell_width;
@@ -3388,17 +3380,17 @@ fn paint_part_and_pattern_at_middle(options: &Options, state: &State, config: &C
   context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W * (mx as f64) + mw * 0.1, UI_FLOOR_OFFSET_Y + CELL_H * (my as f64) + mh * 0.1, mw * 0.80, mh * 0.80);
 
   // Get the pattern of what you're draggin. Paint it over the machine.
-  for i in 0..config.nodes[part_index].pattern_by_index.len() {
+  for i in 0..config.nodes[part_kind].pattern_by_index.len() {
     paint_segment_part_from_config(
       options, state, config, context,
-      config.nodes[part_index].pattern_by_index[i],
+      config.nodes[part_kind].pattern_by_index[i],
       UI_FLOOR_OFFSET_X + CELL_W * (mx as f64) + margin_w + pw * (i%3) as f64, UI_FLOOR_OFFSET_Y + CELL_H * (my as f64) + margin_h + ph * (i/3) as f64,
       pw, ph
     );
   }
 }
-fn paint_supply_and_part_not_floor(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, ox: f64, oy: f64, part_index: PartKind) {
-  paint_segment_part_from_config(options, state, config, context, part_index, ox + CELL_W*0.13, oy + CELL_H*0.13, CELL_W*0.75, CELL_H*0.75);
+fn paint_supply_and_part_not_floor(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, ox: f64, oy: f64, part_kind: PartKind) {
+  paint_segment_part_from_config(options, state, config, context, part_kind, ox + CELL_W*0.13, oy + CELL_H*0.13, CELL_W*0.75, CELL_H*0.75);
 }
 fn paint_dock_stripes(
   options: &Options,
@@ -4101,7 +4093,7 @@ fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, c
       context.set_font(&"12px monospace");
     }
 
-    fn btn_img(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, wx: f64, wy: f64, part_index: PartKind, is_over: bool) {
+    fn btn_img(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, wx: f64, wy: f64, part_part: PartKind, is_over: bool) {
       if is_over {
         context.set_fill_style(&"grey".into());
       } else {
@@ -4111,7 +4103,7 @@ fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, c
       context.set_stroke_style(&"black".into());
       context.stroke_rect(wx, wy, CELL_W, CELL_H);
 
-      paint_segment_part_from_config(options, state, config, context, part_index, wx, wy, CELL_W, CELL_H);
+      paint_segment_part_from_config(options, state, config, context, part_part, wx, wy, CELL_W, CELL_H);
     }
 
     // The back/close button should always be under the machine, centered. Same size (one cell).
@@ -4317,10 +4309,10 @@ fn paint_mouse_while_dragging_offer(options: &Options, state: &State, config: &C
   // - the offer has a pattern; only allow to drag to machines. with debug setting can be both?
   // - the offer has no pattern; only allow to edge as supply
 
-  let part_index = factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0;
-  paint_ui_offer_hover_droptarget_hint(options, state, config, context, factory, part_index);
+  let part_kind = factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0;
+  paint_ui_offer_hover_droptarget_hint(options, state, config, context, factory, part_kind);
 
-  let len = config.nodes[part_index].pattern_unique_kinds.len();
+  let len = config.nodes[part_kind].pattern_unique_kinds.len();
   if len > 0 {
     // Only machines unless debug setting is enabled
     // When over a machine, preview the pattern over the machine? Or snap the offer to its center?
@@ -4333,18 +4325,18 @@ fn paint_mouse_while_dragging_offer(options: &Options, state: &State, config: &C
       let main_coord = factory.floor[coord].machine.main_coord;
       let selected_main_coord = factory.floor[cell_selection.coord].machine.main_coord;
       if mouse_state.over_zone != ZONE_CRAFT || selected_main_coord == main_coord {
-        paint_part_and_pattern_at_middle(options, state, config, context, factory, main_coord, part_index);
+        paint_part_and_pattern_at_middle(options, state, config, context, factory, main_coord, part_kind);
       }
     } else {
-      paint_supply_and_part_not_floor(options, state, config, context, mouse_state.world_x - ((CELL_W as f64) / 2.0), mouse_state.world_y - ((CELL_H as f64) / 2.0), part_index);
+      paint_supply_and_part_not_floor(options, state, config, context, mouse_state.world_x - ((CELL_W as f64) / 2.0), mouse_state.world_y - ((CELL_H as f64) / 2.0), part_kind);
     }
   }
   else {
     // Only edge. No point in dumping into machine, I guess? Maybe as an expensive supply? Who cares?
     if is_edge_not_corner(mouse_state.cell_x_floored, mouse_state.cell_y_floored) {
-      paint_supply_and_part_for_edge(options, state, config, factory, context, mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize, part_index);
+      paint_supply_and_part_for_edge(options, state, config, factory, context, mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize, part_kind);
     } else {
-      paint_supply_and_part_not_edge(options, state, config, context, mouse_state.world_x - ((CELL_W as f64) / 2.0), mouse_state.world_y - ((CELL_H as f64) / 2.0), part_index);
+      paint_supply_and_part_not_edge(options, state, config, context, mouse_state.world_x - ((CELL_W as f64) / 2.0), mouse_state.world_y - ((CELL_H as f64) / 2.0), part_kind);
     }
   }
 }
@@ -4732,7 +4724,7 @@ fn paint_bouncers(options: &Options, state: &State, config: &Config, context: &R
         let alpha = 1.0 - ((frame_age - trail_time) as f64 / fade_time as f64).max(0.0).min(1.0);
         context.set_global_alpha(alpha);
       }
-      paint_segment_part_from_config(&options, &state, &config, &context, factory.quests[quest_index].production_part_index as usize, x + 40.0, UI_QUOTES_OFFSET_Y + UI_QUOTES_HEIGHT + 50.0 + y, CELL_W, CELL_H);
+      paint_segment_part_from_config(&options, &state, &config, &context, factory.quests[quest_index].production_part_kind, x + 40.0, UI_QUOTES_OFFSET_Y + UI_QUOTES_HEIGHT + 50.0 + y, CELL_W, CELL_H);
       if fading {
         context.set_global_alpha(1.0);
       }
@@ -4854,16 +4846,16 @@ fn paint_quests(options: &Options, state: &State, config: &Config, context: &Rc<
 
     paint_asset(options, state, config, context, CONFIG_NODE_ASSET_QUEST_FRAME, factory.ticks, x, y, UI_QUEST_WIDTH, UI_QUEST_HEIGHT);
 
-    let part_index = factory.quests[quest_index].production_part_index as usize;
+    let part_kind = factory.quests[quest_index].production_part_kind;
     assert!(
-      config.nodes[factory.quests[quest_index].production_part_index as usize].kind == ConfigNodeKind::Part,
+      config.nodes[factory.quests[quest_index].production_part_kind].kind == ConfigNodeKind::Part,
       "quest part index should refer to Part node but was {:?}... have index: {:?}, but it points to: {:?}",
-      config.nodes[factory.quests[quest_index].production_part_index as usize].kind,
-      factory.quests[quest_index].production_part_index,
-      config.nodes[factory.quests[quest_index].production_part_index as usize]
+      config.nodes[factory.quests[quest_index].production_part_kind].kind,
+      factory.quests[quest_index].production_part_kind,
+      config.nodes[factory.quests[quest_index].production_part_kind]
     );
 
-    let composed_of = &config.nodes[part_index].pattern_unique_kinds;
+    let composed_of = &config.nodes[part_kind].pattern_unique_kinds;
     // Print input parts inside a given width. Spacing depends on how many parts there are.
     let margin_left = 10.0;
     let space_left = 120.0 - (margin_left + 25.0 + PART_W + 5.0);
@@ -4876,7 +4868,7 @@ fn paint_quests(options: &Options, state: &State, config: &Config, context: &Rc<
 
     paint_asset(options, state, config, context, CONFIG_NODE_ASSET_DOUBLE_ARROW_RIGHT, 0, x + 120.0 - PART_W - 18.0, y + 8.0, 10.0, PART_H);
 
-    paint_segment_part_from_config(options, state, config, context, part_index as usize, x + 120.0 - PART_W - 5.0, y + 8.0, PART_W, PART_H);
+    paint_segment_part_from_config(options, state, config, context, part_kind, x + 120.0 - PART_W - 5.0, y + 8.0, PART_W, PART_H);
 
     context.set_font(&"12px monospace");
     context.set_fill_style(&"#ddd".into()); // 100% background
@@ -4905,7 +4897,7 @@ fn paint_quests(options: &Options, state: &State, config: &Config, context: &Rc<
           factory.quests[quest_index].production_progress,
           factory.quests[quest_index].production_target,
           factory.quests[quest_index].status_at,
-          factory.quests[quest_index].production_part_index,
+          factory.quests[quest_index].production_part_kind,
           factory.quests[quest_index].unlocks_todo
         ).as_str(),
         UI_QUOTES_OFFSET_X,
@@ -4923,13 +4915,13 @@ fn paint_offers(options: &Options, state: &State, config: &Config, context: &Rc<
 
   let mut inc = 0;
   for offer_index in 0..factory.available_parts_rhs_menu.len() {
-    let ( part_index, part_interactable ) = factory.available_parts_rhs_menu[offer_index];
+    let (part_kind, part_interactable ) = factory.available_parts_rhs_menu[offer_index];
     if part_interactable {
       let highlight = if is_mouse_over_offer { is_mouse_over_offer && offer_index == offer_hover_index } else { mouse_state.offer_selected && mouse_state.offer_selected_index == offer_index };
       if highlight {
         highlight_index = offer_index + 1;
       }
-      paint_offer(options, state, config, context, factory, mouse_state, cell_selection, offer_index, part_index, inc, highlight, config.nodes[part_index].pattern_unique_kinds.len() > 0);
+      paint_offer(options, state, config, context, factory, mouse_state, cell_selection, offer_index, part_kind, inc, highlight, config.nodes[part_kind].pattern_unique_kinds.len() > 0);
       inc += 1;
     }
   }
@@ -4938,7 +4930,7 @@ fn paint_offers(options: &Options, state: &State, config: &Config, context: &Rc<
 }
 fn paint_offer(
   options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection,
-  offer_index: usize, part_index: usize, inc: usize, highlight: bool, is_machine_part: bool
+  offer_index: usize, part_kind: PartKind, inc: usize, highlight: bool, is_machine_part: bool
 ) {
   let ( x, y ) = get_offer_xy(inc);
 
@@ -4951,7 +4943,7 @@ fn paint_offer(
 
   let px = x + (UI_OFFER_WIDTH / 2.0) - (CELL_W / 2.0);
   let py = y + (UI_OFFER_HEIGHT / 2.0) - (CELL_H / 2.0);
-  paint_segment_part_from_config(options, state, config, context, part_index, px, py, CELL_W, CELL_H);
+  paint_segment_part_from_config(options, state, config, context, part_kind, px, py, CELL_W, CELL_H);
 
   if highlight {
     // Popup is drawn in parent function
@@ -4968,13 +4960,13 @@ fn paint_offer(
   // If current selected machine can create this offer, paint some green rotating pixel around it
   let selected_coord = cell_selection.coord;
   let selected_main_coord = factory.floor[selected_coord].machine.main_coord;
-  let craftable = config.nodes[part_index].pattern_unique_kinds.len() > 0;
+  let craftable = config.nodes[part_kind].pattern_unique_kinds.len() > 0;
   let mut highlight_offer =
     cell_selection.on &&
     craftable &&
     factory.floor[selected_coord].kind == CellKind::Machine &&
-    config.nodes[part_index].pattern_unique_kinds.iter().all(|part_index| {
-      return factory.floor[selected_main_coord].machine.last_received_parts.contains(part_index);
+    config.nodes[part_kind].pattern_unique_kinds.iter().all(|part_kind| {
+      return factory.floor[selected_main_coord].machine.last_received_parts.contains(part_kind);
     });
   // Check against current machine that you're hovering over (but not dragging)
   if
@@ -4991,8 +4983,8 @@ fn paint_offer(
     let hover_main_coord = factory.floor[hover_coord].machine.main_coord;
     if
       factory.floor[hover_main_coord].kind == CellKind::Machine &&
-      config.nodes[part_index].pattern_unique_kinds.iter().all(|part_index| {
-        return factory.floor[hover_main_coord].machine.last_received_parts.contains(part_index);
+      config.nodes[part_kind].pattern_unique_kinds.iter().all(|part_kind| {
+        return factory.floor[hover_main_coord].machine.last_received_parts.contains(part_kind);
       })
     {
       highlight_offer = true;
@@ -5020,15 +5012,15 @@ fn paint_offer(
   }
 }
 fn paint_ui_offer_tooltip(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, offer_index: usize) {
-  let ( part_index, _part_interactable ) = factory.available_parts_rhs_menu[offer_index];
-  let required_parts = &config.nodes[part_index].pattern_unique_kinds;
+  let (part_kind, _part_interactable ) = factory.available_parts_rhs_menu[offer_index];
+  let required_parts = &config.nodes[part_kind].pattern_unique_kinds;
 
   if required_parts.len() == 0 {
     // Only paint this for
     return;
   }
 
-  let ( part_index, _part_interactable ) = factory.available_parts_rhs_menu[offer_index];
+  let (part_kind, _part_interactable ) = factory.available_parts_rhs_menu[offer_index];
 
   let ttox = UI_OFFERS_OFFSET_X + (UI_OFFERS_WIDTH / 2.0) - (UI_OFFER_TOOLTIP_WIDTH / 2.0) - 3.0;
   let ttoy = GRID_Y2 + 10.0;
@@ -5134,7 +5126,7 @@ fn paint_ui_offer_tooltip(options: &Options, state: &State, config: &Config, fac
       38.0
     );
 
-    paint_segment_part_from_config(options, state, config, context, part_index,
+    paint_segment_part_from_config(options, state, config, context, part_kind,
       machine_ox + CELL_W * 1.5 + (CELL_H * 0.75),
       machine_oy + 3.0 + 3.0,
       CELL_W,
@@ -5201,7 +5193,7 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
         0.0, 0.0, truck_size, truck_size
       );
       // Paint the part icon on the back of the trick (x-centered, y-bottom)
-      paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_index, 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
+      paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_kind, 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
       context.restore();
     } else if time_since_truck < (truck_dur_1 + truck_dur_2) {
       let progress = ((time_since_truck - truck_dur_1) / truck_dur_2).min(1.0).max(0.0);
@@ -5221,7 +5213,7 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
         0.0, 0.0, truck_size, truck_size
       );
       // Paint the part icon on the back of the trick (x-centered, y-bottom)
-      paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_index, 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
+      paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_kind, 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
       context.restore();
     } else if time_since_truck < (truck_dur_1 + truck_dur_2 + truck_dur_3) {
       // Get target coordinate where this part will be permanently drawn so we know where the truck has to move to
@@ -5239,7 +5231,7 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
       );
 
       // Paint the part icon on the back of the trick (x-centered, y-bottom)
-      paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_index, x + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), y + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
+      paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_kind, x + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), y + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
     } else {
       // Truck reached its destiny.
       // - Enable the button
@@ -5267,14 +5259,13 @@ fn paint_ui_offer_hover_droptarget_hint_conditionally(options: &Options, state: 
     return;
   }
 
-  let hover_part_index: PartKind = if is_mouse_over_offer { factory.available_parts_rhs_menu[mouse_state.offer_hover_offer_index].0 } else { factory.available_parts_rhs_menu[mouse_state.offer_selected_index].0 };
-  paint_ui_offer_hover_droptarget_hint(options, state, config, context, factory, hover_part_index);
+  let hover_part_kind: PartKind = if is_mouse_over_offer { factory.available_parts_rhs_menu[mouse_state.offer_hover_offer_index].0 } else { factory.available_parts_rhs_menu[mouse_state.offer_selected_index].0 };
+  paint_ui_offer_hover_droptarget_hint(options, state, config, context, factory, hover_part_kind);
 }
-fn paint_ui_offer_hover_droptarget_hint(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, part_index: usize) {
+fn paint_ui_offer_hover_droptarget_hint(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, part_kind: PartKind) {
   // Parts with patterns go to machines. Parts without patterns (or empty patterns) are suppliers.
   // Machines will accept in both cases (one case adds the part, the other sets the pattern)
-
-  paint_machines_droptarget_green(options, state, config, context, factory, config.nodes[part_index].pattern_by_index.len());
+  paint_machines_droptarget_green(options, state, config, context, factory, config.nodes[part_kind].pattern_by_index.len());
 }
 fn paint_machines_droptarget_green(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, pattern_len: usize) {
   let for_pattern = pattern_len > 0;
@@ -5475,26 +5466,23 @@ fn get_offer_xy(index: usize) -> (f64, f64 ) {
 
   return ( x, y );
 }
-fn paint_segment_part_from_config(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, segment_part_index: PartKind, dx: f64, dy: f64, dw: f64, dh: f64) -> bool {
-  return paint_segment_part_from_config_bug(options, state, config, context, segment_part_index, dx, dy, dw, dh, false);
+fn paint_segment_part_from_config(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, part_kind: PartKind, dx: f64, dy: f64, dw: f64, dh: f64) -> bool {
+  return paint_segment_part_from_config_bug(options, state, config, context, part_kind, dx, dy, dw, dh, false);
 }
-fn paint_segment_part_from_config_bug(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, segment_part_index: PartKind, dx: f64, dy: f64, dw: f64, dh: f64, bug: bool) -> bool {
+fn paint_segment_part_from_config_bug(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, part_kind: PartKind, dx: f64, dy: f64, dw: f64, dh: f64, bug: bool) -> bool {
   let dx = dx.floor();
   let dy = dy.floor();
   let dw = dw.floor();
   let dh = dh.floor();
 
-  if segment_part_index == CONFIG_NODE_PART_NONE {
+  if part_kind == CONFIG_NODE_PART_NONE {
     return false;
   }
 
-  assert!(config.nodes[segment_part_index].kind == ConfigNodeKind::Part, "segment parts should refer to part nodes but received index: {}, kind: {:?}, node: {:?}", segment_part_index, config.nodes[segment_part_index].kind, config.nodes[segment_part_index]);
+  assert!(config.nodes[part_kind].kind == ConfigNodeKind::Part, "segment parts should refer to part nodes but received index: {}, kind: {:?}, node: {:?}", part_kind, config.nodes[part_kind].kind, config.nodes[part_kind]);
 
-  let (spx, spy, spw, sph, canvas) = part_to_sprite_coord_from_config(config, options, segment_part_index);
-  if bug { log!("meh? {} {} {} {}: {:?} --> {:?}", spx, spy, spw, sph, segment_part_index, config.nodes[segment_part_index]); }
-
-  // log!("wat: {} {} {} {}     {} {} {} {}", spx, spy, spw, sph , dx, dy, dw, dh,);
-  // document().get_element_by_id("$tdb").unwrap().dyn_into::<web_sys::HtmlElement>().unwrap().append_child(&canvas).expect("to work");
+  let (spx, spy, spw, sph, canvas) = part_to_sprite_coord_from_config(config, options, part_kind);
+  if bug { log!("meh? {} {} {} {}: {:?} --> {:?}", spx, spy, spw, sph, part_kind, config.nodes[part_kind]); }
 
   context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
     &canvas,
@@ -5513,11 +5501,11 @@ fn paint_segment_part_from_config_bug(options: &Options, state: &State, config: 
     context.fill_rect(dx, dy, dw, dh);
     context.set_fill_style(&"black".into());
     if options.draw_part_kind {
-      context.fill_text(segment_part_index.to_string().as_str(), dx + dw / 2.0 - (if segment_part_index < 9 { 4.0 } else { 14.0 }), dy + dh / 2.0 + 3.0).expect("to paint");
-    } else if segment_part_index == CONFIG_NODE_PART_NONE {
+      context.fill_text(part_kind.to_string().as_str(), dx + dw / 2.0 - (if part_kind < 9 { 4.0 } else { 14.0 }), dy + dh / 2.0 + 3.0).expect("to paint");
+    } else if part_kind == CONFIG_NODE_PART_NONE {
       context.fill_text("ε", dx + dw / 2.0 - 4.0, dy + dh / 2.0 + 3.0).expect("to paint");
     } else {
-      context.fill_text(format!("{}", config.nodes[segment_part_index].icon).as_str(), dx + dw / 2.0 - 4.0, dy + dh / 2.0 + 3.0).expect("to paint");
+      context.fill_text(format!("{}", config.nodes[part_kind].icon).as_str(), dx + dw / 2.0 - 4.0, dy + dh / 2.0 + 3.0).expect("to paint");
     }
   }
 

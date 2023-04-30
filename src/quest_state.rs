@@ -26,7 +26,7 @@ pub struct QuestState {
   pub quest_index: usize,
   pub config_node_index: usize,
   pub unlocks_todo: Vec<usize>, // Quests left to unlock before this unlocks. Reference onto config.quest_nodes_by_index / factory.quests
-  pub production_part_index: usize, // What part do you need to produce for this quest?
+  pub production_part_kind: usize, // What part do you need to produce for this quest?
   pub production_progress: u32, // How many of the desired item did you produce so far?
   pub production_target: u32, // How many do you need to create to achieve this quest?
   pub status: QuestStatus,

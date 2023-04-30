@@ -34,47 +34,26 @@ pub fn part_from_node(node: &ConfigNode) -> Part {
   }
 }
 
-pub fn part_from_part_index(config: &Config, part_config_node_index: usize) -> Part {
-  let node = &config.nodes[part_config_node_index];
+pub fn part_from_part_kind(config: &Config, part_kind: PartKind) -> Part {
+  let node = &config.nodes[part_kind];
   return Part {
     kind: node.index,
     icon: node.icon,
   }
 }
 
-// h e -> W
-// i p j -> D
-// D W -> C
-// n -> Q
-// k Q -> l
-// W l -> o
-// C o -> K
-
-// blue-dirt + empty-potion -> blue-potion
-// rope + paper -> white-book
-// white-book + blue-potion -> blue-book
-// white-dirt -> white-ingot
-// wood + white-ingot -> shield
-// blue-potion + shield -> blue-shield
-// blue-book + blue-shield -> book-shield
-
-// "achievements" to finish. like 100 bottles of blue in one day
-// achievements unlock new achievements with new craftables
-// should we show craftables in a grid to the right, like the unlock tree
-// could use this to show the craft config to have a machine create a certain thing
-// (should we just show that inside the machine UI, anyways?
-// Offers become machines and special buildings etc
-
 pub fn part_icon_to_kind(config: &Config, c: char) -> PartKind {
   // The value of a PartKind is really just the index on the nodes array of the config
   // TODO: figure out why the .or() is relevant. if you set it to 1 then it'll mess up (use debug tools to print parts)
   return *config.node_name_to_index.get(c.to_string().as_str()).or(Some(&0)).unwrap() as PartKind;
 }
+
 pub fn part_kind_to_icon(config: &Config, kind: PartKind) -> char {
   return config.nodes[kind].icon;
 }
-pub fn part_to_sprite_coord_from_config<'x>(config: &'x Config, options: &Options, belt_type: PartKind) -> (f64, f64, f64, f64, &'x web_sys::HtmlImageElement ) {
-  assert!((belt_type as usize) < config.nodes.len(), "part kind should be a node index: {} < {}", belt_type, config.nodes.len());
 
-  return config_get_sprite_details(config, options, belt_type as usize, 0, 0);
+pub fn part_to_sprite_coord_from_config<'x>(config: &'x Config, options: &Options, part_kind: PartKind) -> (f64, f64, f64, f64, &'x web_sys::HtmlImageElement ) {
+  assert!(part_kind < config.nodes.len(), "part kind should be a node index: {} < {}", part_kind, config.nodes.len());
+
+  return config_get_sprite_details(config, options, part_kind, 0, 0);
 }

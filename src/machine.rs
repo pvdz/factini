@@ -114,7 +114,7 @@ pub fn machine_new(options: &Options, state: &mut State, config: &Config, kind: 
 
     start_at: 0,
 
-    output_want: part_from_part_index(config, output),
+    output_want: part_from_part_kind(config, output),
 
     speed,
     production_price: 0,
@@ -230,7 +230,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, f
                       if options.print_moves || options.print_moves_machine {
                         log!("({}) Machine @{} (sub @{}) accepting part {:?} as input {} from belt @{}, had {:?}", factory.ticks, main_coord, sub_coord, belt_part, i, from_coord, have);
                       }
-                      machine_receive_part(factory, main_coord, i, part_from_part_index(config, want));
+                      machine_receive_part(factory, main_coord, i, part_from_part_kind(config, want));
                       belt_receive_part(factory, from_coord, incoming_dir, part_none(config));
                       trash = false;
                       break;
@@ -355,18 +355,18 @@ pub fn machine_discover_ins_and_outs_floor(floor: &mut [Cell; FLOOR_CELLS_WH], m
 pub fn machine_normalize_wants(wants: &Vec<PartKind>) -> Vec<PartKind> {
   let mut wants = wants.iter()
     .map(|&p| p)
-    .filter(|&part_index| part_index != CONFIG_NODE_PART_NONE)
+    .filter(|&part_part| part_part != CONFIG_NODE_PART_NONE)
     .collect::<Vec<PartKind>>();
   wants.sort_unstable();
   return wants;
 }
 
 pub fn machine_change_want_kind(options: &Options, state: &State, config: &Config, factory: &mut Factory, main_coord: usize, index: usize, kind: PartKind) {
-  factory.floor[main_coord].machine.wants[index] = part_from_part_index(config, kind);
+  factory.floor[main_coord].machine.wants[index] = part_from_part_kind(config, kind);
 
   let new_out = machine_discover_output_unmut(options, state, config, factory, main_coord, index, kind);
   log!("machine_change_want() -> {:?}", new_out);
-  factory.floor[main_coord].machine.output_want = part_from_part_index(config, new_out);
+  factory.floor[main_coord].machine.output_want = part_from_part_kind(config, new_out);
   factory.changed = true;
 }
 pub fn machine_discover_output_unmut(options: &Options, state: &State, config: &Config, factory: &Factory, main_coord: usize, index: usize, kind: PartKind) -> PartKind {

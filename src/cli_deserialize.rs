@@ -656,12 +656,12 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
                 if options.trace_map_parsing { log!("The wants after normalization are: {:?}", normalized_wants); }
 
                 // Note: auto discovery will have to make sure that wants.len and haves.len are equal and at least >= w*h
-                floor[main_coord].machine.wants = want_part_kinds.iter().map(|&p| part_from_part_index(config, p)).collect::<Vec<Part>>();
+                floor[main_coord].machine.wants = want_part_kinds.iter().map(|&p| part_from_part_kind(config, p)).collect::<Vec<Part>>();
                 // floor[main_coord].machine.output_want = out2; // part_c(output);
                 floor[main_coord].machine.speed = speed;
 
                 let output_want = machine_discover_output_floor(options, state, config, &mut floor, main_coord);
-                floor[main_coord].machine.output_want = part_from_part_index(config, output_want);
+                floor[main_coord].machine.output_want = part_from_part_kind(config, output_want);
               } else {
                 if options.trace_map_parsing { log!("Machine {} was defined as having inputs {:?} and output {} at speed {} but its main_coord was not found", nth, wants, output, speed); }
               }
