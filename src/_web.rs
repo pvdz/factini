@@ -31,14 +31,13 @@
 // - store xorshift seed in map save
 // - show produced parts in the prepared area?
 // - actually animate the start of the next maze runner
-// - cant save adjacent machines properly? or load
+// - cant save adjacent machines properly? or load. not even undo/redo because same reason.
 // - changing game speed while truck is moving will teleport the truck...
 // - extending a UR two tiles to the left without connecting it, when there's a DL to the left of it and RL below it, results in wonky track
 // - undo button crashes (web 894, "len 100 index 137")
 // - should it be able to move a machine?
 // - add auto keyword to "parts" of quests which would auto-include all required parts for the targets
 // - if a machine received a part that is used in the current pattern then fade green to indicate that? and/or like a green icon to indicate that a machine has the item stored?
-// - bouncers disappearing behind small machine button
 
 // Letters!
 
@@ -1015,10 +1014,12 @@ pub fn start() -> Result<(), JsValue> {
         paint_zone_borders(&options, &state, &context);
 
         paint_border_hint(&options, &state, &config, &factory, &context);
+        // Paint 2x2 machine button such that bouncers go in front of it
+        paint_machine2x2(&options, &state, &config, &factory, &context, &mouse_state);
         // In front of all game stuff
         paint_bouncers(&options, &state, &config, &context, &mut factory);
-        // Paint big machine button now so bouncers go behind it
-        paint_machine_icons(&options, &state, &config, &factory, &context, &mouse_state);
+        // Paint 3x3 machine button now so bouncers go behind it
+        paint_machine3x3(&options, &state, &config, &factory, &context, &mouse_state);
 
         // Paint offer tooltip above bouncers and trucks, but under mouse cursor
         if highlight_index > 0 {
@@ -5422,10 +5423,6 @@ fn paint_paint_toggle(options: &Options, state: &State, config: &Config, context
   context.set_fill_style(&(if mouse_state.over_menu_button == MenuButton::PaintToggleButton { if state.mouse_mode_mirrored { "red" } else { "#aaa" } } else if state.mouse_mode_mirrored { "tomato" } else { "#ddd" }).into());
   context.fill_text("🖌", UI_MENU_BOTTOM_PAINT_TOGGLE_X + UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH / 2.0 - 24.0, UI_MENU_BOTTOM_PAINT_TOGGLE_Y + UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
   context.restore();
-}
-fn paint_machine_icons(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  paint_machine2x2(options, state, config, factory, context, mouse_state);
-  paint_machine3x3(options, state, config, factory, context, mouse_state);
 }
 fn paint_machine2x2(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   context.set_fill_style(&"#aaa".into());
