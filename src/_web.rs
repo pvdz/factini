@@ -1824,9 +1824,10 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
   }
   else if action == Action::Add {
     // De-/Select this cell
-    log!("clicked {} {} cell selection before: {:?}, belt: {:?}", last_mouse_up_cell_x, last_mouse_up_cell_y, cell_selection, factory.floor[to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize)].belt);
 
     let coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
+
+    log!("clicked {} {} cell selection before: {:?}, belt: {:?}", last_mouse_up_cell_x, last_mouse_up_cell_y, cell_selection, factory.floor[coord].belt);
 
     if cell_selection.on && cell_selection.x == last_mouse_up_cell_x && cell_selection.y == last_mouse_up_cell_y {
       cell_selection.on = false;
@@ -1891,7 +1892,7 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
       cell_selection.on = true;
       cell_selection.x = last_mouse_up_cell_x;
       cell_selection.y = last_mouse_up_cell_y;
-      cell_selection.coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
+      cell_selection.coord = coord;
     }
   }
 }
@@ -2199,29 +2200,29 @@ fn on_drag_end_machine_over_floor(options: &mut Options, state: &mut State, conf
 
     factory.changed = true;
   } else {
-    log!("Dropped a machine on the edge. Ignoring. {} {}", mouse_state.last_up_cell_x, mouse_state.last_up_cell_y as usize);
+    log!("Dropped a machine on the edge. Ignoring. {} {}", mouse_state.last_up_cell_x, mouse_state.last_up_cell_y);
   }
 }
 fn on_drag_end_offer_over_craft(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState, cell_selection: &CellSelection) {
   log!("on_drag_end_offer_over_craft()");
 
-  let dragged_part_index = factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0;
+  let dragged_part_kind = factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0;
 
   let coord = to_coord(mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize);
   let main_coord = factory.floor[coord].machine.main_coord;
   // Figure out whether it was dropped on the machine itself and if it was the selected machine
   if factory.floor[coord].kind == CellKind::Machine && factory.floor[cell_selection.coord].machine.main_coord == main_coord {
-    if config.nodes[dragged_part_index].pattern_unique_kinds.len() > 0 {
+    if config.nodes[dragged_part_kind].pattern_unique_kinds.len() > 0 {
       log!("Dropped an offer _with_ pattern on a machine");
-      if factory.floor[factory.floor[coord].machine.main_coord].machine.wants.len() < config.nodes[dragged_part_index].pattern_unique_kinds.len() {
-        log!("- Machine can hold {} but pattern requires {} parts, not updating machine.", factory.floor[factory.floor[coord].machine.main_coord].machine.wants.len(), config.nodes[dragged_part_index].pattern_unique_kinds.len());
+      if factory.floor[factory.floor[coord].machine.main_coord].machine.wants.len() < config.nodes[dragged_part_kind].pattern_unique_kinds.len() {
+        log!("- Machine can hold {} but pattern requires {} parts, not updating machine.", factory.floor[factory.floor[coord].machine.main_coord].machine.wants.len(), config.nodes[dragged_part_kind].pattern_unique_kinds.len());
       }
       else {
         log!("- Update the machine!");
 
         log!("Dropped an offer with pattern in the middle on a craft menu. Update the machine!");
         for i in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
-          let part_index = config.nodes[dragged_part_index].pattern_by_index.get(i).unwrap_or(&CONFIG_NODE_PART_NONE);
+          let part_index = config.nodes[dragged_part_kind].pattern_by_index.get(i).unwrap_or(&CONFIG_NODE_PART_NONE);
           machine_change_want_kind(options, state, config, factory, main_coord, i, *part_index);
           // Make sure the haves are cleared as well
           factory.floor[main_coord].machine.haves[i] = part_none(config);
@@ -2238,7 +2239,7 @@ fn on_drag_end_offer_over_craft(options: &mut Options, state: &mut State, config
       // Get the machine index and blitz them
       let target_cell_index = (mouse_state.craft_up_ci_index - 100) as usize;
 
-      machine_change_want_kind(options, state, config, factory, main_coord, target_cell_index, dragged_part_index);
+      machine_change_want_kind(options, state, config, factory, main_coord, target_cell_index, dragged_part_kind);
       // Make sure the haves are cleared as well
       factory.floor[main_coord].machine.haves[target_cell_index] = part_none(config);
     }
@@ -2256,11 +2257,11 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
   let last_mouse_up_cell_y = mouse_state.last_up_cell_y.floor();
   let last_mouse_up_cell_coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
 
-  let dragged_part_index = factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0;
+  let dragged_part_kind = factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0;
 
   if is_edge_not_corner(last_mouse_up_cell_x, last_mouse_up_cell_y) {
     log!("Dropped a supply on an edge cell that is not corner. Deploying... {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
-    log!("Drag started from offer {} ({:?})", mouse_state.offer_down_offer_index, dragged_part_index);
+    log!("Drag started from offer {} ({:?})", mouse_state.offer_down_offer_index, dragged_part_kind);
 
     let dir = match (
       last_mouse_up_cell_x == 0.0, // left
@@ -2284,23 +2285,22 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
       floor_delete_cell_at_partial(options, state, config, factory, last_mouse_up_cell_coord);
     }
 
-    set_empty_edge_to_supplier(options, state, config, factory, dragged_part_index, last_mouse_up_cell_coord, dir);
+    set_empty_edge_to_supplier(options, state, config, factory, dragged_part_kind, last_mouse_up_cell_coord, dir);
   }
   else if is_middle(last_mouse_up_cell_x, last_mouse_up_cell_y) {
-    let coord = to_coord(mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize);
     // Figure out whether it was dropped on a machine
-    if factory.floor[coord].kind == CellKind::Machine {
-      let main_coord = factory.floor[coord].machine.main_coord;
-      if config.nodes[dragged_part_index].pattern_unique_kinds.len() > 0 {
+    if factory.floor[last_mouse_up_cell_coord].kind == CellKind::Machine {
+      let main_coord = factory.floor[last_mouse_up_cell_coord].machine.main_coord;
+      if config.nodes[dragged_part_kind].pattern_unique_kinds.len() > 0 {
         log!("Dropped an offer _with_ pattern on a machine");
-        if factory.floor[factory.floor[coord].machine.main_coord].machine.wants.len() < config.nodes[dragged_part_index].pattern_unique_kinds.len() {
-          log!("- Machine can hold {} but pattern requires {} parts, not updating machine.", factory.floor[factory.floor[coord].machine.main_coord].machine.wants.len(), config.nodes[dragged_part_index].pattern_unique_kinds.len());
+        if factory.floor[factory.floor[last_mouse_up_cell_coord].machine.main_coord].machine.wants.len() < config.nodes[dragged_part_kind].pattern_unique_kinds.len() {
+          log!("- Machine can hold {} but pattern requires {} parts, not updating machine.", factory.floor[factory.floor[main_coord].machine.main_coord].machine.wants.len(), config.nodes[dragged_part_kind].pattern_unique_kinds.len());
         }
         else {
           log!("- Update the machine!");
           // Update machine to the pattern of the dragged part
           for want_index in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
-            let part_index = config.nodes[dragged_part_index].pattern_by_index.get(want_index).unwrap_or(&CONFIG_NODE_PART_NONE);
+            let part_index = config.nodes[dragged_part_kind].pattern_by_index.get(want_index).unwrap_or(&CONFIG_NODE_PART_NONE);
             machine_change_want_kind(options, state, config, factory, main_coord, want_index, *part_index);
             // Make sure the haves are cleared as well
             factory.floor[main_coord].machine.haves[want_index] = part_none(config);
@@ -2309,32 +2309,18 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
           cell_selection.area = false;
           cell_selection.x = last_mouse_up_cell_x;
           cell_selection.y = last_mouse_up_cell_y;
-          cell_selection.coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
+          cell_selection.coord = last_mouse_up_cell_coord;
         }
       }
       else {
         log!("Dropped an offer without pattern on a machine. Ignoring.");
       }
-      // else {
-      //   // Add dragged offer pattern to machine want list, if possible
-      //   log!("Dropped an offer _without_ pattern on a machine. Update the machine!");
-      //   // Find first empty spot and fill it.
-      //   for want_index in 0..factory.floor[main_coord].machine.wants.len() {
-      //     if factory.floor[main_coord].machine.wants[want_index].kind == PARTKIND_NONE {
-      //       log!("Machine want index {} is empty. Filling now with {}", want_index, dragged_part_index);
-      //       machine_change_want_kind(options, state, config, factory, main_coord, want_index, dragged_part_index);
-      //       // Make sure the haves are cleared as well
-      //       factory.floor[main_coord].machine.haves[want_index] = part_none(config);
-      //       break;
-      //     }
-      //   }
-      // }
     } else {
       log!("Dropped an offer in the floor but not on a machine. Ignoring...");
     }
   }
   else {
-    log!("Dropped a supply offer ({:?}) without pattern on the floor but not machine, or a supply offer on a corner. Ignoring. {} {}", dragged_part_index, last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
+    log!("Dropped a supply offer ({:?}) without pattern on the floor but not machine, or a supply offer on a corner. Ignoring. {} {}", dragged_part_kind, last_mouse_up_cell_x, last_mouse_up_cell_y);
   }
 }
 fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
@@ -2838,7 +2824,7 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
         // If it is part of the node list for either story then include it, otherwise exclude it.
         for (story_index, story) in config.stories.iter().enumerate() {
           if story_index == 0 || story_index == state.active_story_index {
-            if story.part_nodes.contains(&(*part as usize)) {
+            if story.part_nodes.contains(part) {
               return true;
             }
           }
@@ -3042,11 +3028,11 @@ fn hit_test_get_craft_interactable_machine_at(options: &Options, state: &State, 
   if mwx >= machine_wx && mwx < machine_wx + machine_ww && mwy >= machine_wy && mwy < machine_wy + machine_wh {
     // log!("testing {} {} {}", machine_wy, mwy, ((machine_wy - mwy) / CELL_H));
     // Bit of a hack but we convert the in-machine coordinate to a linear index and set the icon to that number.
-    let index = (((mwy - machine_wy) / CELL_H).floor() * machine_cw) + ((mwx - machine_wx) / CELL_W).floor();
+    let index = ((((mwy - machine_wy) / CELL_H).floor() * machine_cw) + ((mwx - machine_wx) / CELL_W).floor()) as usize;
 
     // Clicked inside machine. Determine cell and delete it.
     // log!("Clicked on a cell of the actual machine. Now determine the input cell and clear it. (TODO)");
-    return ( CraftInteractable::InputCell, machine_wx, machine_wy, CELL_W, CELL_H, factory.floor[selected_main_coord].machine.wants[index as usize].icon, factory.floor[selected_main_coord].machine.wants[index as usize].kind, 100 + (index as u8) );
+    return ( CraftInteractable::InputCell, machine_wx, machine_wy, CELL_W, CELL_H, factory.floor[selected_main_coord].machine.wants[index].icon, factory.floor[selected_main_coord].machine.wants[index].kind, 100 + (index as u8) );
   }
 
   // Minimal distance of painting interactbles is the distance from the center to the furthest
@@ -3616,7 +3602,7 @@ fn paint_floor_round_way(
 
   // log!("painign factory.parts_in_transit: {:?}", factory.parts_in_transit);
   for ( p, px, py, phase ) in factory.parts_in_transit.iter() {
-    paint_segment_part_from_config(options, state, config, context, *p as usize, *px, *py, 10.0, 10.0);
+    paint_segment_part_from_config(options, state, config, context, *p, *px, *py, 10.0, 10.0);
   }
 
 }

@@ -24,7 +24,7 @@ pub struct Quote {
   pub part_name: String, // unqualified name
 
   pub quest_index: usize, // on config.nodes
-  pub part_index: usize, // on config.nodes
+  pub part_index: PartKind, // on config.nodes
   pub target_count: u32,
 
   pub added_at: u64,
@@ -37,7 +37,7 @@ pub struct Quote {
 }
 
 fn quote_get_status_first_pass(config: &Config, config_node_index: usize, available_parts: &Vec<PartKind>, quest_index: usize) -> QuestStatus {
-  let quest = &config.nodes[config_node_index as usize];
+  let quest = &config.nodes[config_node_index];
 
   // Have you already unlocked this goal part? If not then you can't even start to unlock this quest.
   // If all parts are unlocked then this quest is considered at least active (maybe even finished)
