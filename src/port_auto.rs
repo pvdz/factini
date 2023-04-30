@@ -649,7 +649,7 @@ pub fn keep_auto_porting(options: &Options, state: &mut State, factory: &mut Fac
 }
 pub fn auto_port(options: &Options, state: &mut State, factory: &mut Factory, attempt: u32, force_unknowns: bool) -> ( bool, bool ) {
   assert!(attempt > 0, "attempt must be non-zero because it gets deducted");
-  if options.trace_porting_step { log!("  - auto_port({}, {})", attempt, force_unknowns); }
+  if options.trace_porting_step { log!("  - auto_port(attempt={}, force={})", attempt, force_unknowns); }
   let mut changed = false;
   let mut has_unknowns = false;
   for coord in 0..FLOOR_CELLS_WH {

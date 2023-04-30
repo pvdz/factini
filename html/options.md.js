@@ -17,6 +17,8 @@ const GAME_OPTIONS = `
 - print_factory_interval: 5000
 - print_stats_interval: 100000
 - print_auto_layout_debug: false
+- trace_cell_connect: false
+- trace_cell_set_port: false
 - print_fmd_trace: false
 - print_img_loader_trace: false
 - trace_priority_step: false

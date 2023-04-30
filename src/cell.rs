@@ -428,80 +428,36 @@ pub fn fix_belt_meta_floor(options: &Options, state: &State, floor: &mut [Cell; 
   //   log!("    -- fix_belt_meta() modifying @{}! from: {:?}, to: {:?} ;; old ports: {:?} {:?} {:?} {:?} ;; new ports: {:?} {:?} {:?} {:?}", coord, floor[coord].belt.meta.btype, belt_type, pu, pr, pd, pl, floor[coord].port_u, floor[coord].port_r, floor[coord].port_d, floor[coord].port_l);
   // }
   let belt_meta = belt_type_to_belt_meta(belt_type);
+  // log!("--> {:?} --> {:?}", belt_type, belt_meta);
   floor[coord].belt.meta = belt_meta;
 }
 
-// Unused
-/*
-pub fn update_meta_to_belt_type_and_replace_cell(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord: usize, belt_type: BeltType) {
-  let meta = belt_type_to_belt_meta(belt_type);
-
-  if meta.port_u != Port::None {
-    if factory.floor[coord].port_u == Port::None {
-      cell_set_port_u_to(options, state, config, factory, coord, Port::Unknown, to_coord_up(coord));
-    }
-  } else {
-    if factory.floor[coord].port_u != Port::None {
-      cell_set_port_u_to(options, state, config, factory, coord, Port::None, to_coord_up(coord));
-    }
-  }
-
-  if meta.port_r != Port::None {
-    if factory.floor[coord].port_r == Port::None {
-      cell_set_port_r_to(options, state, config, factory, coord, Port::Unknown, to_coord_right(coord));
-    }
-  } else {
-    if factory.floor[coord].port_r != Port::None {
-      cell_set_port_r_to(options, state, config, factory, coord, Port::None, to_coord_right(coord));
-    }
-  }
-
-  if meta.port_d != Port::None {
-    if factory.floor[coord].port_d == Port::None {
-      cell_set_port_d_to(options, state, config, factory, coord, Port::Unknown, to_coord_down(coord));
-    }
-  } else {
-    if factory.floor[coord].port_d != Port::None {
-      cell_set_port_d_to(options, state, config, factory, coord, Port::None, to_coord_down(coord));
-    }
-  }
-
-  if meta.port_l != Port::None {
-    if factory.floor[coord].port_l == Port::None {
-      cell_set_port_l_to(options, state, config, factory, coord, Port::Unknown, to_coord_left(coord));
-    }
-  } else {
-    if factory.floor[coord].port_l != Port::None {
-      cell_set_port_r_to(options, state, config, factory, coord, Port::None, to_coord_left(coord));
-    }
-  }
-
-  factory.floor[coord].belt.meta = meta;
-}
- */
-
 pub fn connect_belt_to_existing_neighbor_cells(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord: usize) {
   // Note: this still requires factory prio update but it should take care of all the other things
-  log!("connect_belt_to_existing_neighbor_cells({})", coord);
+  log!("connect_belt_to_existing_neighbor_cells({}, options.trace_cell_set_port={})", coord, options.trace_cell_set_port);
 
   if let Some(ocoord) = factory.floor[coord].coord_u {
     match factory.floor[ocoord].kind {
       CellKind::Empty => {}
       CellKind::Belt => {
-        cell_set_port_d_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_down(coord));
-        cell_set_port_u_to(options, state, config, factory, coord, Port::Unknown, to_coord_up(coord));
+        if options.trace_cell_set_port { log!("- connecting to belt up"); }
+        cell_set_port_d_to(options, state, config, factory, ocoord, Port::Unknown, coord);
+        cell_set_port_u_to(options, state, config, factory, coord, Port::Unknown, ocoord);
       }
       CellKind::Machine => {
-        cell_set_port_d_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_down(coord));
-        cell_set_port_u_to(options, state, config, factory, coord, Port::Unknown, to_coord_up(coord));
+        if options.trace_cell_set_port {  log!("- connecting to machine up"); }
+        cell_set_port_d_to(options, state, config, factory, ocoord, Port::Unknown, coord);
+        cell_set_port_u_to(options, state, config, factory, coord, Port::Unknown, ocoord);
       }
       CellKind::Supply => {
+        if options.trace_cell_set_port { log!("- connecting to supply up"); }
         assert_eq!(factory.floor[ocoord].port_d, Port::Outbound, "supply port is always outbound");
-        cell_set_port_u_to(options, state, config, factory, coord, Port::Inbound, to_coord_up(coord));
+        cell_set_port_u_to(options, state, config, factory, coord, Port::Inbound, ocoord);
       }
       CellKind::Demand => {
+        if options.trace_cell_set_port { log!("- connecting to demand up"); }
         assert_eq!(factory.floor[ocoord].port_d, Port::Inbound, "demand port is always inbound");
-        cell_set_port_u_to(options, state, config, factory, coord, Port::Outbound, to_coord_up(coord));
+        cell_set_port_u_to(options, state, config, factory, coord, Port::Outbound, ocoord);
       }
     }
   }
@@ -510,20 +466,24 @@ pub fn connect_belt_to_existing_neighbor_cells(options: &Options, state: &State,
     match factory.floor[ocoord].kind {
       CellKind::Empty => {}
       CellKind::Belt => {
-        cell_set_port_l_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_left(coord));
-        cell_set_port_r_to(options, state, config, factory, coord, Port::Unknown, to_coord_right(coord));
+        if options.trace_cell_set_port { log!("- connecting to belt right"); }
+        cell_set_port_l_to(options, state, config, factory, ocoord, Port::Unknown, coord);
+        cell_set_port_r_to(options, state, config, factory, coord, Port::Unknown, ocoord);
       }
       CellKind::Machine => {
-        cell_set_port_l_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_left(coord));
-        cell_set_port_r_to(options, state, config, factory, coord, Port::Unknown, to_coord_right(coord));
+        if options.trace_cell_set_port {  log!("- connecting to machine right"); }
+        cell_set_port_l_to(options, state, config, factory, ocoord, Port::Unknown, coord);
+        cell_set_port_r_to(options, state, config, factory, coord, Port::Unknown, ocoord);
       }
       CellKind::Supply => {
+        if options.trace_cell_set_port { log!("- connecting to supply right"); }
         assert_eq!(factory.floor[ocoord].port_l, Port::Outbound, "supply port is always outbound");
-        cell_set_port_r_to(options, state, config, factory, coord, Port::Inbound, to_coord_right(coord));
+        cell_set_port_r_to(options, state, config, factory, coord, Port::Inbound, ocoord);
       }
       CellKind::Demand => {
+        if options.trace_cell_set_port { log!("- connecting to demand right"); }
         assert_eq!(factory.floor[ocoord].port_l, Port::Inbound, "demand port is always inbound");
-        cell_set_port_r_to(options, state, config, factory, coord, Port::Outbound, to_coord_right(coord));
+        cell_set_port_r_to(options, state, config, factory, coord, Port::Outbound, ocoord);
       }
     }
   }
@@ -532,20 +492,24 @@ pub fn connect_belt_to_existing_neighbor_cells(options: &Options, state: &State,
     match factory.floor[ocoord].kind {
       CellKind::Empty => {}
       CellKind::Belt => {
-        cell_set_port_u_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_up(coord));
-        cell_set_port_d_to(options, state, config, factory, coord, Port::Unknown, to_coord_down(coord));
+        if options.trace_cell_set_port { log!("- connecting {} to belt down {}", coord, ocoord); }
+        cell_set_port_u_to(options, state, config, factory, ocoord, Port::Unknown, coord);
+        cell_set_port_d_to(options, state, config, factory, coord, Port::Unknown, ocoord);
       }
       CellKind::Machine => {
-        cell_set_port_u_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_up(coord));
-        cell_set_port_d_to(options, state, config, factory, coord, Port::Unknown, to_coord_down(coord));
+        if options.trace_cell_set_port { log!("- connecting to machine down"); }
+        cell_set_port_u_to(options, state, config, factory, ocoord, Port::Unknown, coord);
+        cell_set_port_d_to(options, state, config, factory, coord, Port::Unknown, ocoord);
       }
       CellKind::Supply => {
+        if options.trace_cell_set_port { log!("- connecting to supply down"); }
         assert_eq!(factory.floor[ocoord].port_u, Port::Outbound, "supply port is always outbound");
-        cell_set_port_d_to(options, state, config, factory, coord, Port::Inbound, to_coord_down(coord));
+        cell_set_port_d_to(options, state, config, factory, coord, Port::Inbound, ocoord);
       }
       CellKind::Demand => {
+        if options.trace_cell_set_port { log!("- connecting to demand down"); }
         assert_eq!(factory.floor[ocoord].port_u, Port::Inbound, "demand port is always inbound");
-        cell_set_port_d_to(options, state, config, factory, coord, Port::Outbound, to_coord_down(coord));
+        cell_set_port_d_to(options, state, config, factory, coord, Port::Outbound, ocoord);
       }
     }
   }
@@ -554,66 +518,33 @@ pub fn connect_belt_to_existing_neighbor_cells(options: &Options, state: &State,
     match factory.floor[ocoord].kind {
       CellKind::Empty => {}
       CellKind::Belt => {
-        cell_set_port_r_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_right(coord));
-        cell_set_port_l_to(options, state, config, factory, coord, Port::Unknown, to_coord_left(coord));
+        if options.trace_cell_set_port { log!("- connecting to belt left"); }
+        cell_set_port_r_to(options, state, config, factory, ocoord, Port::Unknown, coord);
+        cell_set_port_l_to(options, state, config, factory, coord, Port::Unknown, ocoord);
       }
       CellKind::Machine => {
-        cell_set_port_r_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_right(coord));
-        cell_set_port_l_to(options, state, config, factory, coord, Port::Unknown, to_coord_left(coord));
+        if options.trace_cell_set_port { log!("- connecting to machine left"); }
+        cell_set_port_r_to(options, state, config, factory, ocoord, Port::Unknown, coord);
+        cell_set_port_l_to(options, state, config, factory, coord, Port::Unknown, ocoord);
       }
       CellKind::Supply => {
+        if options.trace_cell_set_port { log!("- connecting to supply left"); }
         assert_eq!(factory.floor[ocoord].port_r, Port::Outbound, "supply port is always outbound");
-        cell_set_port_l_to(options, state, config, factory, coord, Port::Inbound, to_coord_left(coord));
+        cell_set_port_l_to(options, state, config, factory, coord, Port::Inbound, ocoord);
       }
       CellKind::Demand => {
+        if options.trace_cell_set_port { log!("- connecting to demand left"); }
         assert_eq!(factory.floor[ocoord].port_r, Port::Inbound, "demand port is always inbound");
-        cell_set_port_l_to(options, state, config, factory, coord, Port::Outbound, to_coord_left(coord));
+        cell_set_port_l_to(options, state, config, factory, coord, Port::Outbound, ocoord);
       }
     }
   }
 }
-
-// unused
-/*
-pub fn connect_machine_to_existing_neighbor_belts(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord: usize) {
-  // Note: this still requires factory prio update but it should take care of all the other things
-
-  // TODO: all directions or only the drag direction (for machines cells)?
-
-  if let Some(ocoord) = factory.floor[coord].coord_u {
-   if factory.floor[ocoord].kind == CellKind::Belt {
-      cell_set_port_d_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_down(coord));
-      cell_set_port_u_to(options, state, config, factory, coord, Port::Unknown, to_coord_up(coord));
-    }
-  }
-
-  if let Some(ocoord) = factory.floor[coord].coord_r {
-    if factory.floor[ocoord].kind == CellKind::Belt {
-      cell_set_port_l_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_left(coord));
-      cell_set_port_r_to(options, state, config, factory, coord, Port::Unknown, to_coord_right(coord));
-    }
-  }
-
-  if let Some(ocoord) = factory.floor[coord].coord_d {
-    if factory.floor[ocoord].kind == CellKind::Belt {
-      cell_set_port_u_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_up(coord));
-      cell_set_port_d_to(options, state, config, factory, coord, Port::Unknown, to_coord_down(coord));
-    }
-  }
-
-  if let Some(ocoord) = factory.floor[coord].coord_l {
-    if factory.floor[ocoord].kind == CellKind::Belt {
-      cell_set_port_r_to(options, state, config, factory, ocoord, Port::Unknown, to_coord_right(coord));
-      cell_set_port_l_to(options, state, config, factory, coord, Port::Unknown, to_coord_left(coord));
-    }
-  }
-}
-*/
 
 pub fn cell_set_port_u_to(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord_from: usize, port: Port, ocoord: usize) {
   // Note: this still requires factory prio update but it should take care of all the other things
 
-  log!("cell_set_port_u_to; update port from @{} to @{} to port ${:?}", coord_from, ocoord, port);
+  if options.trace_cell_set_port { log!("cell_set_port_u_to; update port from @{} to @{}: meta before: {:?}, port_u before: {:?} -- ports after: {:?} {:?} {:?} {:?}", coord_from, ocoord, factory.floor[coord_from].belt.meta.btype, factory.floor[coord_from].port_u, port, factory.floor[coord_from].port_r, factory.floor[coord_from].port_d, factory.floor[coord_from].port_l); }
 
   if factory.floor[coord_from].port_u == port {
     // noop
@@ -639,9 +570,12 @@ pub fn cell_set_port_u_to(options: &Options, state: &State, config: &Config, fac
     Port::None => {},
     Port::Unknown => {}
   }
+  if options.trace_cell_set_port { log!("- cell_set_port_u_to(@{}, {:?}); meta after: {:?}, ins: {:?}, outs: {:?}", coord_from, port, factory.floor[coord_from].belt.meta.btype, factory.floor[machine_friendly_coord].ins, factory.floor[machine_friendly_coord].outs); }
 }
 pub fn cell_set_port_r_to(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord_from: usize, port: Port, ocoord: usize) {
   // Note: this still requires factory prio update but it should take care of all the other things
+
+  if options.trace_cell_set_port { log!("cell_set_port_r_to; update port from @{} to @{}: meta before: {:?}, port_r before: {:?} -- ports after: {:?} {:?} {:?} {:?}", coord_from, ocoord, factory.floor[coord_from].belt.meta.btype, factory.floor[coord_from].port_r, factory.floor[coord_from].port_u, port, factory.floor[coord_from].port_d, factory.floor[coord_from].port_l); }
 
   if factory.floor[coord_from].port_r == port {
     // noop
@@ -667,9 +601,12 @@ pub fn cell_set_port_r_to(options: &Options, state: &State, config: &Config, fac
     Port::None => {},
     Port::Unknown => {}
   }
+  if options.trace_cell_set_port { log!("- cell_set_port_r_to(@{}, {:?}); meta after: {:?}, ins: {:?}, outs: {:?}", coord_from, port, factory.floor[coord_from].belt.meta.btype, factory.floor[machine_friendly_coord].ins, factory.floor[machine_friendly_coord].outs); }
 }
 pub fn cell_set_port_d_to(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord_from: usize, port: Port, ocoord: usize) {
   // Note: this still requires factory prio update but it should take care of all the other things
+
+  if options.trace_cell_set_port {  log!("cell_set_port_d_to; update port from @{} to @{}: meta before: {:?}, port_d before: {:?} -- ports after: {:?} {:?} {:?} {:?}", coord_from, ocoord, factory.floor[coord_from].belt.meta.btype, factory.floor[coord_from].port_d, factory.floor[coord_from].port_u, factory.floor[coord_from].port_r, port, factory.floor[coord_from].port_l); }
 
   if factory.floor[coord_from].port_d == port {
     // noop
@@ -695,9 +632,12 @@ pub fn cell_set_port_d_to(options: &Options, state: &State, config: &Config, fac
     Port::None => {},
     Port::Unknown => {}
   }
+  if options.trace_cell_set_port { log!("- cell_set_port_d_to(@{}, {:?}); meta after: {:?}, ins: {:?}, outs: {:?}", coord_from, port, factory.floor[coord_from].belt.meta.btype, factory.floor[machine_friendly_coord].ins, factory.floor[machine_friendly_coord].outs); }
 }
 pub fn cell_set_port_l_to(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord_from: usize, port: Port, ocoord: usize) {
   // Note: this still requires factory prio update but it should take care of all the other things
+
+  if options.trace_cell_set_port { log!("cell_set_port_l_to; update port from @{} to @{}: meta before: {:?}, port_l before: {:?} -- ports after: {:?} {:?} {:?} {:?}", coord_from, ocoord, factory.floor[coord_from].belt.meta.btype, factory.floor[coord_from].port_l, factory.floor[coord_from].port_u, factory.floor[coord_from].port_r, factory.floor[coord_from].port_d, port); }
 
   if factory.floor[coord_from].port_l == port {
     // noop
@@ -723,12 +663,18 @@ pub fn cell_set_port_l_to(options: &Options, state: &State, config: &Config, fac
     Port::None => {},
     Port::Unknown => {}
   }
+
+  if options.trace_cell_set_port { log!("- cell_set_port_l_to(@{}, {:?}); meta after: {:?}, ins: {:?}, outs: {:?}", coord_from, port, factory.floor[coord_from].belt.meta.btype, factory.floor[machine_friendly_coord].ins, factory.floor[machine_friendly_coord].outs); }
 }
 
 pub fn cell_connect_if_possible(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord_from: usize, coord_to: usize, dx: i8, dy: i8) {
   // Note: this still requires factory prio update but it should take care of all the other things
 
-  log!("cell_connect_if_possible({} <-> {}) {} {}", coord_from, coord_to, dx, dy);
+  if options.trace_cell_connect {
+    log!("cell_connect_if_possible(@{} <-> @{}, options.trace_cell_connect={}) {} {} meta before: {:?} {:?}", coord_from, coord_to, options.trace_cell_connect, dx, dy, factory.floor[coord_from].belt.meta.btype, factory.floor[coord_to].belt.meta.btype);
+  } else {
+    log!("cell_connect_if_possible(@{} <-> @{}, options.trace_cell_connect={})", coord_from, coord_to, options.trace_cell_connect);
+  }
 
   // The dx and dy values should reflect the coords' deltas. We assume the cells _are_ adjacent and belts or machines.
   assert!((dx == 0) != (dy == 0), "one and only one of dx or dy is zero");
@@ -743,7 +689,7 @@ pub fn cell_connect_if_possible(options: &Options, state: &State, config: &Confi
 
   let from_kind = factory.floor[coord_from].kind;
   let to_kind = factory.floor[coord_to].kind;
-  log!("  - to: {:?}, from: {:?}", to_kind, from_kind);
+  if options.trace_cell_connect { log!("  - to: {:?}, from: {:?}", to_kind, from_kind); }
 
   // Doing a match is going to complicate the code a lot so it'll just be if-elses to apply the rules
 
@@ -843,23 +789,29 @@ pub fn cell_connect_if_possible(options: &Options, state: &State, config: &Confi
     }
   }
 
+  if options.trace_cell_connect { log!("- @{} and @{} should now be connected; meta after: {:?} and {:?}", coord_from, coord_to, factory.floor[coord_from].belt.meta.btype, factory.floor[coord_to].belt.meta.btype); }
+
   // Only rediscover for belts and machines
-  log!("  - rediscover .ins and .outs...");
+  if options.trace_cell_connect { log!("  - rediscover .ins and .outs..."); }
+  if options.trace_cell_connect { log!("    - @{} ({:?})", get_main_coord(factory, coord_from), from_kind); }
   if from_kind == CellKind::Belt {
     belt_discover_ins_and_outs(factory, get_main_coord(factory, coord_from));
   } else if from_kind == CellKind::Machine {
     machine_discover_ins_and_outs(factory, get_main_coord(factory, coord_from));
   }
+  if options.trace_cell_connect { log!("    - @{} ({:?})", get_main_coord(factory, coord_to), to_kind); }
   if to_kind == CellKind::Belt {
     belt_discover_ins_and_outs(factory, get_main_coord(factory, coord_to));
   } else if to_kind == CellKind::Machine {
     machine_discover_ins_and_outs(factory, get_main_coord(factory, coord_to));
   }
 
-  log!("    - .ins[@{}]: {:?}", coord_from, factory.floor[get_main_coord(factory, coord_from)].ins.iter().map(|(dir, c, _, _)| ( dir, c ) ).collect::<Vec<(&Direction, &usize)>>());
-  log!("    - .outs[@{}]: {:?}", coord_from, factory.floor[get_main_coord(factory, coord_from)].outs.iter().map(|(dir, c, _, _)| ( dir, c ) ).collect::<Vec<(&Direction, &usize)>>());
-  log!("    - .ins[@{}]: {:?}", coord_to, factory.floor[get_main_coord(factory, coord_to)].ins.iter().map(|(dir, c, _, _)| ( dir, c ) ).collect::<Vec<(&Direction, &usize)>>());
-  log!("    - .outs[@{}]: {:?}", coord_to, factory.floor[get_main_coord(factory, coord_to)].outs.iter().map(|(dir, c, _, _)| ( dir, c ) ).collect::<Vec<(&Direction, &usize)>>());
+  if options.trace_cell_connect {
+    log!("    - .ins[@{}]: {:?}", coord_from, factory.floor[get_main_coord(factory, coord_from)].ins.iter().map(|(dir, c, _, _)| ( dir, c ) ).collect::<Vec<(&Direction, &usize)>>());
+    log!("    - .outs[@{}]: {:?}", coord_from, factory.floor[get_main_coord(factory, coord_from)].outs.iter().map(|(dir, c, _, _)| ( dir, c ) ).collect::<Vec<(&Direction, &usize)>>());
+    log!("    - .ins[@{}]: {:?}", coord_to, factory.floor[get_main_coord(factory, coord_to)].ins.iter().map(|(dir, c, _, _)| ( dir, c ) ).collect::<Vec<(&Direction, &usize)>>());
+    log!("    - .outs[@{}]: {:?}", coord_to, factory.floor[get_main_coord(factory, coord_to)].outs.iter().map(|(dir, c, _, _)| ( dir, c ) ).collect::<Vec<(&Direction, &usize)>>());
+  }
 }
 
 fn get_main_coord(factory: &Factory, coord: usize) -> usize {

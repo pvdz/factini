@@ -44,6 +44,8 @@ pub struct Options {
   pub print_factory_interval: u64,
   pub print_stats_interval: u64,
   pub print_auto_layout_debug: bool,
+  pub trace_cell_connect: bool,
+  pub trace_cell_set_port: bool,
   pub print_fmd_trace: bool,
   pub print_img_loader_trace: bool,
   pub trace_priority_step: bool,
@@ -139,6 +141,8 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     print_factory_interval: 5000,
     print_stats_interval: 100000,
     print_auto_layout_debug: false,
+    trace_cell_connect: false,
+    trace_cell_set_port: false,
     print_fmd_trace: false,
     print_img_loader_trace: false,
     trace_priority_step: false,
@@ -319,6 +323,8 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "print_factory_interval" => options.print_factory_interval = parse_u64(value, name, strict, options.print_factory_interval, verbose),
             "print_stats_interval" => options.print_stats_interval = parse_u64(value, name, strict, options.print_stats_interval, verbose),
             "print_auto_layout_debug" => options.print_auto_layout_debug = parse_bool(value, name, strict, options.print_auto_layout_debug, verbose),
+            "trace_cell_connect" => options.trace_cell_connect = parse_bool(value, name, strict, options.trace_cell_connect, verbose),
+            "trace_cell_set_port" => options.trace_cell_set_port = parse_bool(value, name, strict, options.trace_cell_set_port, verbose),
             "print_fmd_trace" => options.print_fmd_trace = parse_bool(value, name, strict, options.print_fmd_trace, verbose),
             "print_img_loader_trace" => options.print_img_loader_trace = parse_bool(value, name, strict, options.print_img_loader_trace, verbose),
             "trace_priority_step" => options.trace_priority_step = parse_bool(value, name, strict, options.trace_priority_step, verbose),
@@ -407,6 +413,8 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- print_factory_interval: {}", options.print_factory_interval));
   arr.push(format!("- print_stats_interval: {}", options.print_stats_interval));
   arr.push(format!("- print_auto_layout_debug: {}", options.print_auto_layout_debug));
+  arr.push(format!("- trace_cell_connect: {}", options.trace_cell_connect));
+  arr.push(format!("- trace_cell_set_port: {}", options.trace_cell_set_port));
   arr.push(format!("- print_fmd_trace: {}", options.print_fmd_trace));
   arr.push(format!("- print_img_loader_trace: {}", options.print_img_loader_trace));
   arr.push(format!("- trace_priority_step: {}", options.trace_priority_step));

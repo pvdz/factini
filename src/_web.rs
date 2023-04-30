@@ -33,11 +33,10 @@
 // - actually animate the start of the next maze runner
 // - cant save adjacent machines properly? or load. not even undo/redo because same reason.
 // - changing game speed while truck is moving will teleport the truck...
-// - extending a UR two tiles to the left without connecting it, when there's a DL to the left of it and RL below it, results in wonky track
 // - undo button crashes (web 894, "len 100 index 137")
 // - should it be able to move a machine?
-
-
+// - offer UI should use UI speed, not game speed for animations
+// - edge click hint animation should be ui speed bound, not game speed
 
 
 
@@ -2623,10 +2622,10 @@ fn on_drag_end_floor_multi_cells(state: &State, options: &Options, config: &Conf
 
             // Connect the end points to any existing neighboring cells if not already connected
             if index == 0 || index == len - 1 {
-              log!("  -- okay. first/last track segment: @{} got {:?}", coord, belt_type);
-              log!("  - connect_belt_to_existing_neighbor_belts(), before: {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l);
+              if options.trace_cell_set_port { log!("  -- okay. first/last track segment: @{} got {:?}", coord, belt_type); }
+              if options.trace_cell_set_port { log!("  - connect_belt_to_existing_neighbor_belts(), before: {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l); }
               connect_belt_to_existing_neighbor_cells(options, state, config, factory, coord);
-              log!("  - connect_belt_to_existing_neighbor_belts(),  after: {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l);
+              if options.trace_cell_set_port { log!("  - connect_belt_to_existing_neighbor_belts(),  after: {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l); }
             }
           }
         }
