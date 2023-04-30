@@ -37,9 +37,9 @@
 // - undo button crashes (web 894, "len 100 index 137")
 // - should it be able to move a machine?
 // - add auto keyword to "parts" of quests which would auto-include all required parts for the targets
-// - if a machine received a part that is used in the current pattern then fade green to indicate that? and/or like a green icon to indicate that a machine has the item stored?
 
-// Letters!
+
+
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -997,7 +997,6 @@ pub fn start() -> Result<(), JsValue> {
         paint_background_tiles3(&options, &state, &config, &factory, &context);
         paint_port_arrows(&options, &state, &config, &context, &factory);
         paint_belt_dbg_id(&options, &state, &config, &context, &factory);
-        // paint_belt_items(&options, &state, &config, &context, &factory);
         paint_machine_craft_menu(&options, &state, &config, &context, &factory, &cell_selection, &mouse_state);
         paint_ui_offer_hover_droptarget_hint_conditionally(&options, &state, &config, &context, &mut factory, &mouse_state, &cell_selection);
         paint_debug_app(&options, &state, &context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
@@ -4023,66 +4022,6 @@ fn paint_belt_dbg_id(options: &Options, state: &State, config: &Config, context:
     }
   }
 }
-fn paint_belt_items(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory) {
-  // Paint elements on the belt over the background tiles now
-  for coord in 0..FLOOR_CELLS_WH {
-    let (cx, cy) = to_xy(coord);
-    // This is cheating since we defer the loading stuff to the browser. Sue me.
-    let cell = &factory.floor[coord];
-    match cell.kind {
-      CellKind::Empty => (),
-      CellKind::Belt => {
-        let progress_c = ((cell.belt.part_progress as f64) / (cell.belt.speed as f64)).min(1.0);
-        let first_half = progress_c < 0.5;
-
-        // Start with the coordinate to paint the icon such that it ends up centered
-        // in the target cell.
-        // Then increase or decrease one axis depending on the progress the part made.
-        let sx = UI_FLOOR_OFFSET_X + CELL_W * (cx as f64) + -(PART_W * 0.5);
-        let sy = UI_FLOOR_OFFSET_Y + CELL_H * (cy as f64) + -(PART_H * 0.5);
-
-        let (px, py) =
-          match if first_half { cell.belt.part_from } else { cell.belt.part_to } {
-            Direction::Up => {
-              let cux = sx + (CELL_W * 0.5);
-              let cuy = sy + (CELL_H * (if first_half { progress_c } else { 1.0 - progress_c }));
-              (cux, cuy)
-            }
-            Direction::Right => {
-              let dlx = sx + (CELL_W * (if first_half { 1.0 - progress_c } else { progress_c }));
-              let dly = sy + (CELL_H * 0.5);
-              (dlx, dly)
-            }
-            Direction::Down => {
-              let cux = sx + (CELL_W * 0.5);
-              let cuy = sy + (CELL_H * (if first_half { 1.0 - progress_c } else { progress_c }));
-              (cux, cuy)
-            }
-            Direction::Left => {
-              let dlx = sx + (CELL_W * (if first_half { progress_c } else { 1.0 - progress_c }));
-              let dly = sy + (CELL_H * 0.5);
-              (dlx, dly)
-            }
-          };
-
-        if paint_segment_part_from_config(options, state, config, context, cell.belt.part.kind, px, py, PART_W, PART_H) {
-          // context.set_font(&"8px monospace");
-          // context.set_fill_style(&"green".into());
-          // context.fill_text(format!("{} {}x{}", coord, x, y).as_str(), px + 3.0, py + 10.0).expect("something error fill_text");
-          // context.fill_text(format!("{}", progress_c).as_str(), px + 3.0, py + 21.0).expect("something error fill_text");
-        }
-      },
-      CellKind::Machine => {
-      },
-      CellKind::Supply => {
-        // TODO: paint outbound supply part
-      }
-      CellKind::Demand => {
-        // TODO: paint demand parts (none?)
-      }
-    }
-  }
-}
 fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
   if !cell_selection.on {
     // No cell selected.
@@ -4166,6 +4105,13 @@ fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, c
   for i in 0..(machine_cw * machine_ch) as usize {
     if let Some(part) = factory.floor[selected_main_coord].machine.wants.get(i).or(Some(&none)) {
       paint_segment_part_from_config(options, state, config, context, part.kind, main_wx + CELL_W * (i as f64 % machine_cw).floor(), main_wy + CELL_H * (i as f64 / machine_cw).floor(), CELL_W, CELL_H);
+
+      // Draw an indicator that tells you if this machine has received the part "recently"
+      // TODO: starting with "has part" because "recent" is annoying
+      if part.kind != PARTKIND_NONE && factory.floor[selected_main_coord].machine.haves.iter().any(|p| p.kind == part.kind) {
+        context.set_fill_style(&"green".into());
+        context.fill_rect(main_wx + CELL_W * (i as f64 % machine_cw).floor() + CELL_W - 8.0, main_wy + CELL_H * (i as f64 / machine_cw).floor() + CELL_H - 8.0, 5.0, 5.0);
+      }
     }
   }
 
