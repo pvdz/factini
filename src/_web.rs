@@ -37,7 +37,8 @@
 // - should it be able to move a machine?
 // - offer UI should use UI speed, not game speed for animations
 // - edge click hint animation should be ui speed bound, not game speed
-
+// - click on supplier would rotate between available base parts?
+// - click on edge creates supplier with first/random base part?
 
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
@@ -5040,15 +5041,17 @@ fn paint_offer(
     context.stroke_rect(px, py, CELL_W, CELL_H);
     context.restore();
     // paint some pixels green? (https://colordesigner.io/gradient-generator)
-    paint_green_pixel(context, factory.ticks + 0 * div, x, y, div, "#9ac48b");
-    paint_green_pixel(context, factory.ticks + 1 * div, x, y, div, "#8ebd7f");
-    paint_green_pixel(context, factory.ticks + 2 * div, x, y, div, "#83b773");
-    paint_green_pixel(context, factory.ticks + 3 * div, x, y, div, "#77b066");
-    paint_green_pixel(context, factory.ticks + 4 * div, x, y, div, "#6baa5a");
-    paint_green_pixel(context, factory.ticks + 5 * div, x, y, div, "#5fa34e");
-    paint_green_pixel(context, factory.ticks + 7 * div, x, y, div, "#539c42");
-    paint_green_pixel(context, factory.ticks + 8 * div, x, y, div, "#459635");
-    paint_green_pixel(context, factory.ticks + 9 * div, x, y, div, "#368f27");
+    let ui_throttled_second = (factory.ticks as f64 / (ONE_SECOND as f64 * options.speed_modifier_floor)) * options.speed_modifier_ui;
+    let progress = ui_throttled_second % 1.0;
+    paint_green_pixel(context, progress, 0.0, x, y, "#9ac48b");
+    paint_green_pixel(context, progress, 1.0, x, y, "#8ebd7f");
+    paint_green_pixel(context, progress, 2.0, x, y, "#83b773");
+    paint_green_pixel(context, progress, 3.0, x, y, "#77b066");
+    paint_green_pixel(context, progress, 4.0, x, y, "#6baa5a");
+    paint_green_pixel(context, progress, 5.0, x, y, "#5fa34e");
+    paint_green_pixel(context, progress, 7.0, x, y, "#539c42");
+    paint_green_pixel(context, progress, 8.0, x, y, "#459635");
+    paint_green_pixel(context, progress, 9.0, x, y, "#368f27");
   }
 }
 fn paint_ui_offer_tooltip(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, offer_index: usize) {
@@ -5337,10 +5340,10 @@ fn get_drop_color(options: &Options, ticks: u64) -> String {
   let yo = format!("#00{:02x}0077", p+ color_offset);
   return yo;
 }
-fn paint_green_pixel(context: &Rc<web_sys::CanvasRenderingContext2d>, ticks: u64, x: f64, y: f64, div: u64, color: &str) {
+fn paint_green_pixel(context: &Rc<web_sys::CanvasRenderingContext2d>, progress: f64, delta: f64, x: f64, y: f64, color: &str) {
   context.set_stroke_style(&color.into());
-  let border_len = (UI_OFFER_WIDTH + UI_OFFER_HEIGHT + UI_OFFER_WIDTH + UI_OFFER_HEIGHT) as u64;
-  let pos = ((ticks/div) % border_len) as f64;
+  let border_len = UI_OFFER_WIDTH + UI_OFFER_HEIGHT + UI_OFFER_WIDTH + UI_OFFER_HEIGHT;
+  let pos = (progress * border_len + delta) % border_len;
   let fx = x as f64;
   let fy = y as f64;
   if pos < UI_OFFER_WIDTH {
