@@ -472,3 +472,7 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- test: {}", options.test));
   return arr.join("\n");
 }
+
+pub fn factory_ticks_to_game_time(options: &Options, ticks: u64) -> f64 {
+  return (ticks as f64 / (ONE_SECOND as f64 * options.speed_modifier_floor)) * options.speed_modifier_ui;
+}

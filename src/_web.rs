@@ -5041,7 +5041,7 @@ fn paint_offer(
     context.stroke_rect(px, py, CELL_W, CELL_H);
     context.restore();
     // paint some pixels green? (https://colordesigner.io/gradient-generator)
-    let ui_throttled_second = (factory.ticks as f64 / (ONE_SECOND as f64 * options.speed_modifier_floor)) * options.speed_modifier_ui;
+    let ui_throttled_second = factory_ticks_to_game_time(options, factory.ticks) * 2.0;
     let progress = ui_throttled_second % 1.0;
     paint_green_pixel(context, progress, 0.0, x, y, "#9ac48b");
     paint_green_pixel(context, progress, 1.0, x, y, "#8ebd7f");
