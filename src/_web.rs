@@ -1666,7 +1666,6 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
           on_up_menu(cell_selection, mouse_state, options, state, config, factory);
         }
         ZONE_FLOOR => {
-
           on_up_floor(options, state, config, factory, cell_selection, &mouse_state);
         }
         _ => {}
@@ -1801,21 +1800,28 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
     // Clear the cell if that makes sense for it. Delete a belt with one or zero ports.
     let coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
 
-    let mut ports = 0;
-    if factory.floor[coord].port_u != Port::None { ports += 1; }
-    if factory.floor[coord].port_r != Port::None { ports += 1; }
-    if factory.floor[coord].port_d != Port::None { ports += 1; }
-    if factory.floor[coord].port_l != Port::None { ports += 1; }
-    if ports <= 1 || factory.floor[coord].kind == CellKind::Machine {
-      log!("Deleting stub @{} after rmb click", coord);
+    if is_edge_not_corner(last_mouse_up_cell_x, last_mouse_up_cell_y) {
+      // Remove supplier/demander
+      log!("Deleting edge cell @{} after rmb click", coord);
       floor_delete_cell_at_partial(options, state, config, factory, coord);
       factory.changed = true;
-    }
+    } else {
+      let mut ports = 0;
+      if factory.floor[coord].port_u != Port::None { ports += 1; }
+      if factory.floor[coord].port_r != Port::None { ports += 1; }
+      if factory.floor[coord].port_d != Port::None { ports += 1; }
+      if factory.floor[coord].port_l != Port::None { ports += 1; }
+      if ports <= 1 || factory.floor[coord].kind == CellKind::Machine {
+        log!("Deleting stub @{} after rmb click", coord);
+        floor_delete_cell_at_partial(options, state, config, factory, coord);
+        factory.changed = true;
+      }
 
-    // If this wasn't a belt (ports=999) or the belt had more than 1 ports, then just drop its part.
-    if ports > 1 {
-      log!("Clearing part from @{} after rmb click (ports={})", coord, ports);
-      clear_part_from_cell(options, state, config, factory, coord);
+      // If this wasn't a belt (ports=999) or the belt had more than 1 ports, then just drop its part.
+      if ports > 1 {
+        log!("Clearing part from @{} after rmb click (ports={})", coord, ports);
+        clear_part_from_cell(options, state, config, factory, coord);
+      }
     }
   }
   else if action == Action::Add {
