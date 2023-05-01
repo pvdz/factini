@@ -47,6 +47,7 @@ pub struct Options {
   pub trace_cell_connect: bool,
   pub trace_cell_set_port: bool,
   pub print_fmd_trace: bool,
+  pub trace_get_quote_status: bool,
   pub print_img_loader_trace: bool,
   pub trace_priority_step: bool,
   pub trace_porting_step: bool,
@@ -144,6 +145,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     trace_cell_connect: false,
     trace_cell_set_port: false,
     print_fmd_trace: false,
+    trace_get_quote_status: false,
     print_img_loader_trace: false,
     trace_priority_step: false,
     trace_porting_step: false,
@@ -286,7 +288,7 @@ fn _parse_string(value: String, key: &str, strict: bool, def: &String, verbose: 
 }
 
 pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
-  log!("parse_options_into()");
+  log!("parse_options_into(options.print_options_string={})", options.print_options_string);
 
   let mut verbose = options.print_options_string;
 
@@ -326,6 +328,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "trace_cell_connect" => options.trace_cell_connect = parse_bool(value, name, strict, options.trace_cell_connect, verbose),
             "trace_cell_set_port" => options.trace_cell_set_port = parse_bool(value, name, strict, options.trace_cell_set_port, verbose),
             "print_fmd_trace" => options.print_fmd_trace = parse_bool(value, name, strict, options.print_fmd_trace, verbose),
+            "trace_get_quote_status" => options.trace_get_quote_status = parse_bool(value, name, strict, options.trace_get_quote_status, verbose),
             "print_img_loader_trace" => options.print_img_loader_trace = parse_bool(value, name, strict, options.print_img_loader_trace, verbose),
             "trace_priority_step" => options.trace_priority_step = parse_bool(value, name, strict, options.trace_priority_step, verbose),
             "trace_porting_step" => options.trace_porting_step = parse_bool(value, name, strict, options.trace_porting_step, verbose),
@@ -416,6 +419,7 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- trace_cell_connect: {}", options.trace_cell_connect));
   arr.push(format!("- trace_cell_set_port: {}", options.trace_cell_set_port));
   arr.push(format!("- print_fmd_trace: {}", options.print_fmd_trace));
+  arr.push(format!("- trace_get_quote_status: {}", options.trace_get_quote_status));
   arr.push(format!("- print_img_loader_trace: {}", options.print_img_loader_trace));
   arr.push(format!("- trace_priority_step: {}", options.trace_priority_step));
   arr.push(format!("- trace_porting_step: {}", options.trace_porting_step));

@@ -611,7 +611,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
             "Quest" => {
               // quest_nodes_by_index.push(node_index);
               // Register as node for the current story
-              log!("Adding quest_node_index {} to story_index {}", node_index, current_story_index);
+              if print_fmd_trace { log!("Adding quest_node_index {} to story_index {}", node_index, current_story_index); }
               let story = &mut stories[current_story_index];
               nodes[node_index].quest_index = story.quest_nodes.len();
               story.quest_nodes.push(node_index);
@@ -637,14 +637,14 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
               }
               current_story_index = next_story_index;
               if next_story_index == stories.len() {
-                log!("Added new Story, index {}, name {}", next_story_index, nodes[node_index].raw_name);
+                if print_fmd_trace { log!("Added new Story, index {}, name {}", next_story_index, nodes[node_index].raw_name); }
                 stories.push(Story {
                   story_node_index: node_index,
                   part_nodes: vec!(),
                   quest_nodes: vec!(),
                 });
               }
-              log!("Changing to quest_index {} ({})", current_story_index, nodes[node_index].raw_name);
+              if print_fmd_trace { log!("Changing to quest_index {} ({})", current_story_index, nodes[node_index].raw_name); }
             },
             _ => panic!("Unsupported node kind. Node headers should be composed like Kind_Name and the kind can only be Quest, Part, Supply, Demand, Machine, Belt, or Dock. But it was {:?}", kind),
           }
@@ -680,7 +680,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
               }
               active_story_index = current_story_index;
               story_activated = true;
-              log!("Marked {} as the active_story_index", current_story_index);
+              if print_fmd_trace { log!("Marked {} as the active_story_index", current_story_index); }
             }
             "after" => {
               // This should be a list of zero or more quests that are required to unlock this quest
@@ -799,16 +799,16 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
                   else if kind == "V" { 'v' }
                   else { 'n' };
                 if kind == 'n' {
-                  log!("Parsed a special kind `n`, which means none. Might be intentional, might be a parse error... Current node: {}, input value: `{}`", nodes[current_node_index].raw_name, value_raw);
+                  if print_fmd_trace { log!("Parsed a special kind `n`, which means none. Might be intentional, might be a parse error... Current node: {}, input value: `{}`", nodes[current_node_index].raw_name, value_raw); }
                 } else if kind != 'e' && kind != 's' && kind != 'p' && kind != 'v' {
-                  log!("Parsed an unknown special kind, which defaults to none. Might be intentional, might be a parse error... Current node: {}, input value: `{}`", nodes[current_node_index].raw_name, value_raw);
+                  if print_fmd_trace { log!("Parsed an unknown special kind, which defaults to none. Might be intentional, might be a parse error... Current node: {}, input value: `{}`", nodes[current_node_index].raw_name, value_raw); }
                   kind = 'n';
                 }
 
                 let power_level_str = split[split.len() - 1].trim();
                 let power_level = power_level_str.parse::<u8>().or::<Result<u8, &str>>(Ok(0u8)).unwrap();
                 if power_level == 0 {
-                  log!("Parsed a special level of zero. Maybe this was a bug or a parse error... Current node: {}, input value: `{}`", nodes[current_node_index].raw_name, value_raw);
+                  if print_fmd_trace { log!("Parsed a special level of zero. Maybe this was a bug or a parse error... Current node: {}, input value: `{}`", nodes[current_node_index].raw_name, value_raw); }
                 }
 
                 if print_fmd_trace { log!("Parsing special: `{}` into `{:?}` -> `{}` and `{}`", pair, split, kind, power_level); }

@@ -20,6 +20,7 @@ const GAME_OPTIONS = `
 - trace_cell_connect: false
 - trace_cell_set_port: false
 - print_fmd_trace: false
+- trace_get_quote_status: false
 - print_img_loader_trace: false
 - trace_priority_step: false
 - trace_porting_step: false

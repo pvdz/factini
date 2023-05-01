@@ -613,7 +613,7 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
               // log!("machine id={}", c);
 
               // Find the machine meta
-              let mut machine_id = c;
+              let machine_id = c;
               let mut machine_index = machine_meta_data.len();
               machine_meta_data.iter().enumerate().any(|(i, (main_coord, max_coord, id, speed, pattern))| {
                 if *id != machine_id {
@@ -647,7 +647,7 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
 
               // Parse the current input pattern, separated by spaces, until EOL, dash, or colon
               // The colon is a special case for the modifier `s:100`
-              let mut words: Vec<String> = vec!();
+              let words: Vec<String> = vec!();
               while c != '#' && c != '-' && c != ':' {
                 // Parser:
                 //    m3 = pear apple -> orange s:100 # end
