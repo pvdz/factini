@@ -35,7 +35,6 @@
 // - undo button crashes (web 894, "len 100 index 137")
 // - click on supplier would rotate between available base parts? -> means you cannot select a supplier without rotating it. but that's only a debug thing, anyways so does that matter?
 // - do we want/need to support serialization of maps with more than 60 machines? 2x2 can only go up to 49. but 2x1 or 1x2 would double that.
-// - dragging a machine over an existing machine may in some cases somehow copy the ins/outs of the existing machine. or maybe over a road? if the neighbor machine had an out, the new machine accepts it as an in? hrm. old ins are also not removed.
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -2153,9 +2152,15 @@ fn on_drag_end_machine_over_floor(options: &mut Options, state: &mut State, conf
         let coord = to_coord(x, y);
 
         // Meh. But we want to remember this state for checks below.
-        let ( port_u, port_r, port_d, port_l ) = match factory.floor[coord] {
-          super::cell::Cell { port_u, port_r, port_d, port_l, .. } => ( port_u, port_r, port_d, port_l )
+        let ( mut port_u, mut port_r, mut port_d, mut port_l, coord_u, coord_r, coord_d, coord_l ) = match factory.floor[coord] {
+          super::cell::Cell { port_u, port_r, port_d, port_l, coord_u, coord_r, coord_d, coord_l, .. } => ( port_u, port_r, port_d, port_l, coord_u, coord_r, coord_d, coord_l )
         };
+
+        // If the neighbor was a machine then reset the port
+        if let Some(c) = coord_u { if factory.floor[c].kind == CellKind::Machine { port_u = Port::None; } };
+        if let Some(c) = coord_r { if factory.floor[c].kind == CellKind::Machine { port_r = Port::None; } };
+        if let Some(c) = coord_d { if factory.floor[c].kind == CellKind::Machine { port_d = Port::None; } };
+        if let Some(c) = coord_l { if factory.floor[c].kind == CellKind::Machine { port_l = Port::None; } };
 
         // Make sure to drop machines properly. Belts are 1x1 so no problem. Empty are fine.
         if factory.floor[coord].kind == CellKind::Machine {
