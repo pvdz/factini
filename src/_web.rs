@@ -34,9 +34,8 @@
 // - cant save adjacent machines properly? or load. not even undo/redo because same reason.
 // - undo button crashes (web 894, "len 100 index 137")
 // - click on supplier would rotate between available base parts? -> means you cannot select a supplier without rotating it. but that's only a debug thing, anyways so does that matter?
-// - do we want/need to support serialization of maps with more than 60 machines?
+// - do we want/need to support serialization of maps with more than 60 machines? 2x2 can only go up to 49. but 2x1 or 1x2 would double that.
 // - dragging a machine over an existing machine may in some cases somehow copy the ins/outs of the existing machine. or maybe over a road? if the neighbor machine had an out, the new machine accepts it as an in? hrm. old ins are also not removed.
-// - dragging a machine should remove cell selection
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -1540,10 +1539,10 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
       }
       ZONE_MENU => {
         if mouse_state.down_menu_button == MenuButton::Machine2x2Button {
-          on_drag_start_machine2x2_button(options, state, config, mouse_state);
+          on_drag_start_machine2x2_button(options, state, config, mouse_state, cell_selection);
         }
         else if mouse_state.down_menu_button == MenuButton::Machine3x3Button {
-          on_drag_start_machine3x3_button(options, state, config, mouse_state);
+          on_drag_start_machine3x3_button(options, state, config, mouse_state, cell_selection);
         }
       }
       _ => {}
@@ -2630,17 +2629,21 @@ fn on_up_machine3x3_button() {
 fn on_up_machine2x2_button() {
   log!("on_up_machine2x2_button()");
 }
-fn on_drag_start_machine2x2_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState) {
+fn on_drag_start_machine2x2_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
   log!("is_drag_start from machine2x2");
   mouse_state.dragging_machine2x2 = true;
   mouse_state.dragging_machine3x3 = false;
   state.mouse_mode_selecting = false;
+  mouse_state.offer_selected = false;
+  cell_selection.on = false;
 }
-fn on_drag_start_machine3x3_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState) {
+fn on_drag_start_machine3x3_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
   log!("is_drag_start from machine3x3");
   mouse_state.dragging_machine2x2 = false;
   mouse_state.dragging_machine3x3 = true;
   state.mouse_mode_selecting = false;
+  mouse_state.offer_selected = false;
+  cell_selection.on = false;
 }
 fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
   log!("on_up_menu() down: {:?}, up: {:?}", mouse_state.down_menu_button, mouse_state.up_menu_button);
