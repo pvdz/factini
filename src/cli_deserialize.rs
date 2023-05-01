@@ -199,7 +199,44 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
     }
   }
 
-  let mut machine_main_coords: [usize; 63] = [0; 63];
+  fn add_machine(options: &Options, state: &mut State, config: &Config, floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, x: usize, y: usize, machine_id: char, machine_meta_data: &mut Vec<(usize, usize, char, u64, Vec<PartKind>)>, port_u: char, port_r: char, port_d: char, port_l: char) {
+    // Auto layout will have to reconcile the individual machine parts into one machine
+    // Any modifiers as well as the input and output parameters of this machine are
+    // listed below the floor model. Expect them to be filled in later.
+    let mn = (machine_id as u8 - ('0' as u8)) as usize;
+
+    let mut index = machine_meta_data.len();
+    machine_meta_data.iter_mut().enumerate().any(|(i, obj)| {
+      if obj.2 != machine_id {
+        return false;
+      }
+
+      obj.1 = coord; // Coords are walked left-to-right top-to-bottom so the next coord is always higher than the current.
+      index = i;
+      return true;
+    });
+
+    if index == machine_meta_data.len() {
+      machine_meta_data.push((coord, coord, machine_id, 1, vec!()));
+    }
+
+    let mut cell = machine_any_cell(options, state, config, machine_id as char, x, y, 1, 1, MachineKind::Unknown, vec!(), part_c(config, ' '), 1, 1, 1);
+    cell.port_u = match port_u as char { '^' => Port::Outbound, 'v' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port up indicators must be `^`, `v`, `?` or a space, this was `{}`", port_u)};
+    cell.port_r = match port_r as char { '>' => Port::Outbound, '<' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port right indicators must be `<`, `>`, `?` or a space, this was `{}`", port_u)};
+    cell.port_d = match port_d as char { 'v' => Port::Outbound, '^' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port down indicators must be `^`, `v`, `?` or a space, this was `{}`", port_u)};
+    cell.port_l = match port_l as char { '<' => Port::Outbound, '>' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port left indicators must be `<`, `>`, `?` or a space, this was `{}`", port_u)};
+    floor[coord] = cell;
+
+    if options.trace_map_parsing { log!("This was a machine [{}]: cell @{}, main_coord @{}, with id {}", index, coord, machine_meta_data[index].2, machine_id); }
+  }
+
+  let mut machine_meta_data: Vec<(
+    usize, // main_coord (coord of the top-left-most cell). unused machine if zero.
+    usize, // max_coord (coord of the bottom-right-most cell). unused machine if zero.
+    char, // id
+    u64, // Speed modifier, default=1
+    Vec<PartKind>, // pattern (for a machine up to 5x5)
+  )> = vec!();
 
   // Expect as many cells as specified.
   for j in 0..FLOOR_CELLS_H {
@@ -234,6 +271,13 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
       line3 = lines.next().unwrap(); // Bust if there's no more input.
     }
 
+    if options.trace_map_parsing {
+      log!("three lines:");
+      log!("1: {:?}", line1);
+      log!("2: {:?}", line2);
+      log!("3: {:?}", line3);
+    }
+
     for i in 0..FLOOR_CELLS_W {
       // For each of the three lines, step them cell by cell, each cell consisting of 9 chars.
       // Characters are expected to be consecutive in sync across the three lines, even if they
@@ -241,6 +285,7 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
 
       let coord = to_coord(i, j);
 
+      // (We don't care about the outer corner characters)
       let _a = line1.next().or(Some('#')).unwrap();
       let b = line1.next().or(Some('#')).unwrap();
       let _c = line1.next().or(Some('#')).unwrap();
@@ -251,7 +296,7 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
       let h = line3.next().or(Some('#')).unwrap();
       let _i = line3.next().or(Some('#')).unwrap();
 
-      // log!("{}x{}:\n   {} {} {}\n   {} {} {}\n   {} {} {}", i, j, _a, b, _c, d, e, f, _g, h, _i);
+      if options.trace_map_parsing { log!("{}x{}:\n   {} {} {}\n   {} {} {}\n   {} {} {}", i, j, _a, b, _c, d, e, f, _g, h, _i); }
 
       let cell_kind = e;
       let port_u = b;
@@ -259,53 +304,30 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
       let port_d = h;
       let port_l = d;
 
-      fn add_machine(options: &Options, state: &mut State, config: &Config, floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, x: usize, y: usize, cell_kind: char, machine_main_coords: &mut [usize; 63], port_u: char, port_r: char, port_d: char, port_l: char) {
-        // Auto layout will have to reconcile the individual machine parts into one machine
-        // Any modifiers as well as the input and output parameters of this machine are
-        // listed below the floor model. Expect them to be filled in later.
-        let mn = (cell_kind as u8 - ('0' as u8)) as usize;
-        let main_coord =
-          if machine_main_coords[mn] == 0 {
-            machine_main_coords[mn] = coord;
-            coord
-          } else {
-            machine_main_coords[mn]
-          };
-        let mut cell = machine_any_cell(options, state, config, cell_kind as char, x, y, 1, 1, MachineKind::Unknown, vec!(), part_c(config, ' '), 1, 1, 1);
-        cell.port_u = match port_u as char { '^' => Port::Outbound, 'v' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port up indicators must be `^`, `v`, `?` or a space, this was `{}`", port_u)};
-        cell.port_r = match port_r as char { '>' => Port::Outbound, '<' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port right indicators must be `<`, `>`, `?` or a space, this was `{}`", port_u)};
-        cell.port_d = match port_d as char { 'v' => Port::Outbound, '^' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port down indicators must be `^`, `v`, `?` or a space, this was `{}`", port_u)};
-        cell.port_l = match port_l as char { '<' => Port::Outbound, '>' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port left indicators must be `<`, `>`, `?` or a space, this was `{}`", port_u)};
-        floor[coord] = cell;
-      }
-
       match cell_kind as char {
         's' => {
           if is_middle(i as f64, j as f64) {
-            add_machine(options, state, config, &mut floor, coord, i, j, cell_kind, &mut machine_main_coords, port_u, port_r, port_d, port_l);
+            add_machine(options, state, config, &mut floor, coord, i, j, cell_kind, &mut machine_meta_data, port_u, port_r, port_d, port_l);
           } else {
             let ( port_u, port_r, port_d, port_l ) =
-              if j == 0 {
-                ( Port::None, Port::None, Port::Outbound, Port::None )
-              } else if i == FLOOR_CELLS_W-1 {
-                ( Port::None, Port::Outbound, Port::None, Port::None )
-              } else if j == FLOOR_CELLS_H-1 {
-                ( Port::Outbound, Port::None, Port::None, Port::None )
-              } else if i == 0 {
-                ( Port::None, Port::None, Port::None, Port::Outbound )
-              } else {
+              if j == 0 { ( Port::None, Port::None, Port::Outbound, Port::None ) }
+              else if i == FLOOR_CELLS_W-1 { ( Port::None, Port::Outbound, Port::None, Port::None ) }
+              else if j == FLOOR_CELLS_H-1 { ( Port::Outbound, Port::None, Port::None, Port::None ) }
+              else if i == 0 { ( Port::None, Port::None, Port::None, Port::Outbound ) }
+              else {
                 panic!("Error parsing floor cell: Encountered an `s` inside the floor; this should be a Supply, which is bound to the edge");
               };
             // The speed and cooldown of the supply have to be added below the floor so use placeholder values for now; TODO: wire that up
             if options.trace_map_parsing { log!("Supply"); }
             let cell = supply_cell(config, i, j, part_c(config, 't'), 1, 1, 1);
             floor[coord] = cell;
+            if options.trace_map_parsing { log!("This was a supplier"); }
           }
         },
 
         'd' => {
           if is_middle(i as f64, j as f64) {
-            add_machine(options, state, config, &mut floor, coord, i, j, cell_kind, &mut machine_main_coords, port_u, port_r, port_d, port_l);
+            add_machine(options, state, config, &mut floor, coord, i, j, cell_kind, &mut machine_meta_data, port_u, port_r, port_d, port_l);
           } else {
             let ( port_u, port_r, port_d, port_l ) =
             if j == 0 {
@@ -322,6 +344,7 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
             if options.trace_map_parsing { log!("Demand"); }
             let cell = demand_cell(config, i, j, options.default_demand_speed, options.default_demand_cooldown);
             floor[coord] = cell;
+            if options.trace_map_parsing { log!("This was a demander"); }
           }
         },
 
@@ -330,6 +353,7 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
         | '.'
         => {
           floor[coord] = empty_cell(config, i, j);
+          if options.trace_map_parsing { log!("This was an empty cell"); }
         }
 
         // Then there's a bunch of belt cells. These are either `b` or "table ascii art" chars
@@ -345,6 +369,7 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
           cell.port_d = Port::Unknown;
           cell.port_l = Port::Unknown;
           floor[coord] = cell;
+          if options.trace_map_parsing { log!("This was a BELT_UNKNOWN"); }
         }
 
         // Explicit tiles use box art but are exclusively defined by the ports
@@ -379,13 +404,14 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
           let belt_meta = belt_type_to_belt_meta(belt_type);
           let cell = belt_cell(config, i, j, belt_meta);
           floor[coord] = cell;
+          if options.trace_map_parsing { log!("This was a specific belt: {:?}", belt_type); }
         }
 
         _ => {
           if (cell_kind >= '1' && cell_kind <= '9') || (cell_kind >= 'a' && cell_kind <= 'z') || (cell_kind >= 'A' && cell_kind <= 'Z') {
             // Machine id is a single char 1-9a-zA-Z
             // Note: s and d are special cased between middle and edge cell above
-            add_machine(options, state, config, &mut floor, coord, i, j, cell_kind, &mut machine_main_coords, port_u, port_r, port_d, port_l);
+            add_machine(options, state, config, &mut floor, coord, i, j, cell_kind, &mut machine_meta_data, port_u, port_r, port_d, port_l);
           } else {
             panic!("Error while parsing factory string: Encountered an unknown center cell char at {}x{}: `{}` ({})", i, j, cell_kind as char, cell_kind)
           }
@@ -571,100 +597,166 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
             'm' => {
               // m<n> = <i>{0..w*h} -> <o> [s:<d+>]
               // m1 = a..b.c -> d s:100
-              // Note: zero inputs are allowed. Dots are assumed to be "none". Parts will flow
+              // Note: zero inputs (empty pattern) are allowed. Dots are assumed to be "none". Parts will flow
               // in serial into the machine crafting pattern (left-right, top-bottom)
-              let nth;
               let mut speed = 1;
-              let mut wants: Vec<Part> = vec!();
-              let mut output = '-';
+              let mut wants: Vec<String> = vec!();
 
+              // Parser:
+              //    m3 = pear apple -> orange s:100 # end
+              //     ^
+
+              // Parse the machine ID, following the `m`
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              if !((c >= '1' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) { panic!("Unexpected input on line {} while parsing machine augment: first character after `m` must be 1-9a-zA-Z, indicating which supply it targets, found `{}`", line_no, c); }
-              nth = (c as u8) - ('0' as u8);
+              if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) { panic!("Unexpected input on line {} while parsing machine augment: first character after `m` must be 1-9a-zA-Z, indicating which supply it targets, found `{}`", line_no, c); }
+              // log!("machine id={}", c);
 
+              // Find the machine meta
+              let mut machine_id = c;
+              let mut machine_index = machine_meta_data.len();
+              machine_meta_data.iter().enumerate().any(|(i, (main_coord, max_coord, id, speed, pattern))| {
+                if *id != machine_id {
+                  return false;
+                }
+                machine_index = i;
+                return true;
+              });
+              if machine_index == machine_meta_data.len() {
+                // Do we need to fatal this? Should we? Could just ignore it, but .. not sure if we should.
+                panic!("Parsed a machine modifier with id={} but did not encounter a machine cell with that id", machine_id);
+              }
+              // log!("machine index={}/{}", machine_index + 1, machine_meta_data.len());
+
+              // Parser:
+              //    m3 = pear apple -> orange s:100 # end
+              //      ^
+
+              // Skip pas the `=` sign
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              if c != '=' { panic!("Unexpected input on line {} while parsing machine augment: first character after `m{}` must be the `=` sign, found `{}`", line_no, nth, c); }
+              if c != '=' { panic!("Unexpected input on line {} while parsing machine augment: first character after `m{}` must be the `=` sign, found `{}`", line_no, machine_id, c); }
 
-              let mut c = line.next().or(Some('#')).unwrap();
-              while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+              // Parser:
+              //    m3 = pear apple -> orange s:100 # end
+              //       ^
+              c = line.next().or(Some('#')).unwrap();
+              // Parser:
+              //    m3 = pear apple -> orange s:100 # end
+              //        ^
+
+              // Parse the current input pattern, separated by spaces, until EOL, dash, or colon
+              // The colon is a special case for the modifier `s:100`
+              let mut words: Vec<String> = vec!();
               while c != '#' && c != '-' && c != ':' {
-                if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '.' || c as u8 > 127) { panic!("Unexpected input on line {} while parsing machine input: input characters must be a-zA-Z or dot or non-ascii, found `{}`", line_no, c); }
-                // Convert the dot back to an empty part.
-                wants.push(part_c(config, if c == '.' { ' ' } else { c }));
+                // Parser:
+                //    m3 = pear apple -> orange s:100 # end
+                //        ^    ^     ^
+                // Collect letters until spacing/EOL/colon/dash. They can form words or icons.
+                let mut letters: Vec<char> = vec!();
+                while c == ' ' || c == '.' { c = line.next().or(Some('#')).unwrap(); }
+                // Parser:
+                //    m3 = pear apple -> orange s:100 # end
+                //         ^    ^     ^
+                //    m3 = s:100 # end
+                //         ^
+                while c != '#' && c != '-' && c != ':' && c != '.' && c != ' ' {
+                  if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c as u8 > 127) { panic!("Unexpected input on line {} while parsing machine input: input characters must be a-zA-Z or dot or non-ascii, found `{}`", line_no, c); }
+                  letters.push(c);
+                  c = line.next().or(Some('#')).unwrap();
+                }
 
+                if letters.len() > 0 {
+                  // Convert to a string. Deal with icon vs raw_name later
+                  // log!("collected one input: {:?}", letters);
+                  wants.push(letters.iter().collect::<String>());
+                }
+              }
+              // Parser:
+              //    m3 = pear apple -> orange s:100 # end
+              //                    ^
+              //    m3 = pear apple s:100 # end
+              //                     ^
+
+              // If the next char is a colon then the previous letter was not a part but a modifier
+              // This would be for `m1 = a.b.c s:100`, without an arrow
+              let mut modifier_edge_case = c == ':';
+              if modifier_edge_case {
+                // Pop the last word from the pattern. It should be "s" (or any other supported modifier).
+                if wants.len() == 0 || wants.pop().unwrap() != "s".to_string() {
+                  panic!("Unexpected colon (`:`) on line {} while parsing machine config line. Expecting a pattern, arrow, output, and then maybe a modifier. But modifiers should start with a letter, like `s:100`", line_no);
+                }
+              }
+
+              // Try to parse an arrow `->`
+              if c == '-' {
                 c = line.next().or(Some('#')).unwrap();
                 while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              }
+                if c != '>' { panic!("Unexpected input on line {} while parsing machine augment: after input pattern an `->` arrow must follow and then the output, found `{}`", line_no, c); }
 
-              let mut modifier_edge_case = c == ':'; // If the next char is a colon then the previous letter was not a part but a modifier
-              if c == '-' {
-                let mut c = line.next().or(Some('#')).unwrap();
+                // Skip past spacing after arrow
+                c = line.next().or(Some('#')).unwrap();
                 while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                if c != '>' { panic!("Unexpected input on line {} while parsing machine augment: after input must follow an `->` arrow and then the output, found `{}`", line_no, c); }
 
-                let mut c = line.next().or(Some('#')).unwrap();
-                while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '.' || c as u8 > 127) { panic!("Unexpected input on line {} while parsing machine output: input characters must be a-zA-Z or dot or non-ascii, found `{}`", line_no, c); }
-                output = c;
-              }
-
-              loop {
-                let mut c =
-                  if modifier_edge_case {
-                    wants.pop().unwrap().icon
-                  } else {
-                    line.next().or(Some('#')).unwrap()
-                  };
-                while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                match c {
-                  '#' => break, // EOL or start of line comment
-                  's' => {
-                    // speed modifier
-                    // A modifier after inputs (without output) will look like a part at first and we must correct for that
-                    if !modifier_edge_case {
-                      let mut c = line.next().or(Some('#')).unwrap();
-                      while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                      if c != ':' { panic!("Unexpected input while parsing machine augment speed modifier: first character after `s` must be a `:`, found `{}`", c); }
-                    }
-
-                    speed = 0;
-                    let mut c = line.next().or(Some('#')).unwrap();
-                    while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                    loop {
-                      if c >= '0' && c <= '9' {
-                        speed = (speed * 10) + ((c as u8) - ('0' as u8)) as u64; // This can lead to overflow fatal. :shrug:
-                      } else if c == '#' || c == ' ' {
-                        break;
-                      } else {
-                        panic!("Unexpected input on line {} while parsing machine augment speed modifier: speed value consists of digits, found `{}`", line_no, c);
-                      }
-                      c = line.next().or(Some('#')).unwrap();
-                    }
-                  }
-                  c => panic!("Unexpected input on line {} while parsing machine augment modifier: expecting `s`, '#', or EOL, found `{}`. Input map:\n{}", line_no, c, str),
+                // Skip past a word; the output for this machine. We ignore the value.
+                while c != '#' && c != ' ' {
+                  if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c as u8 > 127) { panic!("Unexpected input on line {} while parsing machine output: input characters must be a-zA-Z or non-ascii, found `{}`", line_no, c); }
+                  c = line.next().or(Some('#')).unwrap();
                 }
-                modifier_edge_case = false;
+                // We discard the output because we detect it based on the pattern, anyways.
               }
 
-              let main_coord = machine_main_coords[nth as usize];
-              if main_coord > 0 {
-                let want_part_kinds = wants.iter().map(|p| p.kind).collect::<Vec<PartKind>>();
+              // Now past the pattern, arrow, and output
+              // We may not have parsed anything and only have seen a `s:` so far. Or nothing at all.
 
-                let normalized_wants = machine_normalize_wants(&want_part_kinds);
-                if options.trace_map_parsing { log!("The wants after normalization are: {:?}", normalized_wants); }
+              // Skip spaces
+              while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
 
-                // Note: auto discovery will have to make sure that wants.len and haves.len are equal and at least >= w*h
-                floor[main_coord].machine.wants = want_part_kinds.iter().map(|&p| part_from_part_kind(config, p)).collect::<Vec<Part>>();
-                // floor[main_coord].machine.output_want = out2; // part_c(output);
-                floor[main_coord].machine.speed = speed;
-
-                let output_want = machine_discover_output_floor(options, state, config, &mut floor, main_coord);
-                floor[main_coord].machine.output_want = part_from_part_kind(config, output_want);
-              } else {
-                if options.trace_map_parsing { log!("Machine {} was defined as having inputs {:?} and output {} at speed {} but its main_coord was not found", nth, wants, output, speed); }
+              // If there is a modifier, it would have to appear now
+              if !modifier_edge_case {
+                if c == 's' {
+                  while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+                  if c == ':' {
+                    modifier_edge_case = true;
+                  } else {
+                    panic!("Unexpected input on line {} while parsing machine tail with modifier: found s but no colon, found `{}`", line_no, c);
+                  }
+                } else if c != '#' {
+                  panic!("Unexpected input on line {} while parsing machine tail: expected `s` or `#`, found `{}`", line_no, c);
+                }
               }
+
+              if modifier_edge_case {
+                assert_eq!(c, ':', "pointer must now be at the colon");
+                c = line.next().or(Some('#')).unwrap();
+                while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+                // Now start parsing digits. Only valid input is digits or spacing/eol.
+                speed = 0;
+                loop {
+                  if c >= '0' && c <= '9' {
+                    speed = (speed * 10) + ((c as u8) - ('0' as u8)) as u64; // This can lead to overflow fatal. :shrug:
+                  } else if c == '#' || c == ' ' {
+                    break;
+                  } else {
+                    panic!("Unexpected input on line {} while parsing machine augment speed modifier: speed value consists of digits, found `{}`", line_no, c);
+                  }
+                  c = line.next().or(Some('#')).unwrap();
+                }
+              }
+
+              // Skip more spacing
+              while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+
+              // Must now be reaching the end of the line
+              if c != '#' {
+                panic!("Unexpected input on line {} after parsing line: expected # or EOL, found `{}`", line_no, c);
+              }
+
+              machine_meta_data[machine_index].3 = speed;
+              machine_meta_data[machine_index].4 = wants.iter().map(|x| {
+                let index = config.node_name_to_index.get(x).unwrap_or_else(| | panic!("pattern_by_name to index: what happened here: unlock name=`{}`", x));
+                return *index;
+              }).collect::<Vec<PartKind>>();
             },
             '$' => {
               if options.trace_map_parsing { log!("Parsing $ unlocked parts list:"); }
@@ -688,8 +780,46 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
     }
   }
 
+  if options.trace_map_parsing { log!("Machines after config phase: {:?}", machine_meta_data); }
+
+  for ( main_coord, max_coord, id, speed, input_pattern ) in machine_meta_data.iter() {
+    let (x1, y1) = to_xy(*main_coord);
+    let (x2, y2) = to_xy(*max_coord);
+
+    let w = x2 - x1 + 1;
+    let h = y2 - y1 + 1;
+
+    if options.trace_map_parsing { log!("Initializing machine @{}x@{} ({}): {}x{} with speed {}. The wants before normalization are: {:?}", main_coord, max_coord, id, w, h, speed, input_pattern); }
+    assert!(*main_coord > 0, "each element should now represent a machine. before it was possible to be zero here.");
+
+    let normalized_wants = machine_normalize_wants(&input_pattern);
+    if options.trace_map_parsing { log!("The wants after normalization are: {:?}", normalized_wants); }
+
+    // Mark the machine grid of cells with the proper main_coord. This will cause the actual machine to take the proper shape.
+    for x in x1..=x2 {
+      for y in y1..=y2 {
+        let coord = to_coord(x, y);
+        floor[coord].machine.kind = if x == x1 && y == y1 { MachineKind::Main } else { MachineKind::SubBuilding };
+        floor[coord].machine.main_coord = *main_coord;
+        floor[coord].machine.id = *id;
+        floor[coord].machine.cell_width = w;
+        floor[coord].machine.cell_height = h;
+      }
+    }
+
+    // Note: auto discovery will have to make sure that wants.len() and haves.len() are equal and at least >= w*h
+    floor[*main_coord].machine.wants = input_pattern.iter().map(|&p| part_from_part_kind(config, p)).collect::<Vec<Part>>();
+    floor[*main_coord].machine.haves = input_pattern.iter().map(|&p| part_from_part_kind(config, CONFIG_NODE_PART_NONE)).collect::<Vec<Part>>();
+    floor[*main_coord].machine.speed = *speed;
+
+    let output_want = machine_discover_output_floor(options, state, config, &mut floor, *main_coord);
+    floor[*main_coord].machine.output_want = part_from_part_kind(config, output_want);
+  }
+
   // Set the .ins and .outs of each cell cause otherwise nothing happens.
   auto_ins_outs_floor(options, state, config, &mut floor);
+
+  if options.trace_map_parsing { log!("-- end of str_to_floor2()"); }
 
   return (floor, unlocked_part_icons);
 }
