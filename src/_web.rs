@@ -35,6 +35,8 @@
 // - undo button crashes (web 894, "len 100 index 137")
 // - click on supplier would rotate between available base parts? -> means you cannot select a supplier without rotating it. but that's only a debug thing, anyways so does that matter?
 // - do we want/need to support serialization of maps with more than 60 machines?
+// - dragging a machine over an existing machine may in some cases somehow copy the ins/outs of the existing machine. or maybe over a road? if the neighbor machine had an out, the new machine accepts it as an in? hrm. old ins are also not removed.
+// - dragging a machine should remove cell selection
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 

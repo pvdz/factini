@@ -818,9 +818,9 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
       }
     }
 
-    // Note: auto discovery will have to make sure that wants.len() and haves.len() are equal and at least >= w*h
-    floor[*main_coord].machine.wants = input_pattern.iter().map(|&p| part_from_part_kind(config, p)).collect::<Vec<Part>>();
-    floor[*main_coord].machine.haves = input_pattern.iter().map(|&p| part_from_part_kind(config, CONFIG_NODE_PART_NONE)).collect::<Vec<Part>>();
+    // Ensure that .wants and .haves are exactly as big as they cover cells.
+    floor[*main_coord].machine.wants = coords.iter().enumerate().map(|(i, _)| part_from_part_kind(config, *input_pattern.get(i).unwrap_or(&CONFIG_NODE_PART_NONE))).collect::<Vec<Part>>();
+    floor[*main_coord].machine.haves = coords.iter().map(|_| part_from_part_kind(config, CONFIG_NODE_PART_NONE)).collect::<Vec<Part>>();
     floor[*main_coord].machine.speed = *speed;
 
     let output_want = machine_discover_output_floor(options, state, config, &mut floor, *main_coord);
