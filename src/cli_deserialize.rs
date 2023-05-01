@@ -795,15 +795,26 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
     let normalized_wants = machine_normalize_wants(&input_pattern);
     if options.trace_map_parsing { log!("The wants after normalization are: {:?}", normalized_wants); }
 
+    let mut coords: Vec<usize> = vec!();
+    for x in x1..=x2 {
+      for y in y1..=y2 {
+        coords.push(to_coord(x, y));
+      }
+    }
+
+    log!("coords: {:?}", coords);
+
     // Mark the machine grid of cells with the proper main_coord. This will cause the actual machine to take the proper shape.
     for x in x1..=x2 {
       for y in y1..=y2 {
         let coord = to_coord(x, y);
+        floor[coord].kind = CellKind::Machine;
         floor[coord].machine.kind = if x == x1 && y == y1 { MachineKind::Main } else { MachineKind::SubBuilding };
         floor[coord].machine.main_coord = *main_coord;
         floor[coord].machine.id = *id;
         floor[coord].machine.cell_width = w;
         floor[coord].machine.cell_height = h;
+        floor[coord].machine.coords = coords.clone();
       }
     }
 

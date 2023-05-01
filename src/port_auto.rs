@@ -505,7 +505,6 @@ fn auto_port_machine_neighbors(options: &Options, state: &mut State, factory: &m
   if options.trace_porting_step { log!("- auto_port_machine_neighbors({}, {}): {:?}", coord, attempt, factory.floor[coord].machine.coords); }
   
   let mut changed = false;
-  // for cur_coord in floor[coord].machine.coords {
   for i in 0..factory.floor[coord].machine.coords.len() {
     let cur_coord= factory.floor[coord].machine.coords[i];
     if auto_port_machine_u(options, state, factory, cur_coord, attempt) { changed = true; };
