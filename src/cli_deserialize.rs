@@ -688,6 +688,12 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
                 }
               }
 
+              // Parser:
+              //    m3 = pear apple -> orange s:100 # end
+              //                    ^
+              //    m3 = pear apple s:100 # end
+              //                     ^
+
               // Try to parse an arrow `->`
               if c == '-' {
                 c = line.next().or(Some('#')).unwrap();
@@ -709,22 +715,45 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
               // Now past the pattern, arrow, and output
               // We may not have parsed anything and only have seen a `s:` so far. Or nothing at all.
 
+              // Parser:
+              //    m3 = pear apple -> orange s:100 # end
+              //                             ^
+              //    m3 = pear apple s:100 # end
+              //                     ^
+
               // Skip spaces
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+
+              // Parser:
+              //    m3 = pear apple -> orange s:100 # end
+              //                              ^
+              //    m3 = pear apple s:100 # end
+              //                     ^
 
               // If there is a modifier, it would have to appear now
               if !modifier_edge_case {
                 if c == 's' {
+                  c = line.next().or(Some('#')).unwrap();
                   while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
                   if c == ':' {
                     modifier_edge_case = true;
                   } else {
+                    log!("map:");
+                    log!("{}", str);
+                    log!("line:");
+                    log!("{:?}", line);
                     panic!("Unexpected input on line {} while parsing machine tail with modifier: found s but no colon, found `{}`", line_no, c);
                   }
                 } else if c != '#' {
                   panic!("Unexpected input on line {} while parsing machine tail: expected `s` or `#`, found `{}`", line_no, c);
                 }
               }
+
+              // Parser:
+              //    m3 = pear apple -> orange s:100 # end
+              //                               ^
+              //    m3 = pear apple s:100 # end
+              //                     ^
 
               if modifier_edge_case {
                 assert_eq!(c, ':', "pointer must now be at the colon");
@@ -754,7 +783,17 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
 
               machine_meta_data[machine_index].3 = speed;
               machine_meta_data[machine_index].4 = wants.iter().map(|x| {
-                let index = config.node_name_to_index.get(x).unwrap_or_else(| | panic!("pattern_by_name to index: what happened here: unlock name=`{}`", x));
+                let index = config.node_name_to_index.get(x).unwrap_or_else(| | {
+                  log!("map:");
+                  log!("{}", str);
+                  log!("line:");
+                  log!("{:?}", line);
+
+                  log!("config.node_name_to_index: {:?}", config.node_name_to_index);
+                  log!("looking for: {}", x);
+
+                  panic!("pattern_by_name to index: what happened here: unlock name=`{}`", x)
+                });
                 return *index;
               }).collect::<Vec<PartKind>>();
             },
