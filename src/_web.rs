@@ -29,12 +29,12 @@
 // - help the player
 //   - create tutorial
 // - store xorshift seed in map save
-// - show produced parts in the prepared area?
+// - show produced parts for the maze runner in the prepared area?
 // - actually animate the start of the next maze runner
-// - cant save adjacent machines properly? or load. not even undo/redo because same reason.
 // - undo button crashes (web 894, "len 100 index 137")
 // - click on supplier would rotate between available base parts? -> means you cannot select a supplier without rotating it. but that's only a debug thing, anyways so does that matter?
 // - do we want/need to support serialization of maps with more than 60 machines? 2x2 can only go up to 49. but 2x1 or 1x2 would double that.
+// - why pink not unlocking white?
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 

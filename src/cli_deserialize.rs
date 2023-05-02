@@ -841,7 +841,7 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
       }
     }
 
-    log!("coords: {:?}", coords);
+    if options.trace_map_parsing { log!("coords: {:?}", coords); }
 
     // Mark the machine grid of cells with the proper main_coord. This will cause the actual machine to take the proper shape.
     for x in x1..=x2 {
