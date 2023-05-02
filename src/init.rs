@@ -23,8 +23,7 @@ pub fn init(options: &Options, config: &Config, map_str: String) -> ( State, Fac
   let mut state = state_create(options, config.active_story_index);
 
   let mut factory = create_factory(options, &mut state, &config, map_str);
-  let parts = config_get_available_parts(config);
-  log!("available_parts_rhs_menu (4): {:?}", factory.available_parts_rhs_menu);
+  log!("available_parts_rhs_menu (4): {:?}", factory.available_parts_rhs_menu.iter().map(|(p, b)| config.nodes[*p].raw_name.clone()).collect::<Vec<String>>());
 
   // log!("eh? paint_ui_offers {:?}", config.part_nodes);
   // log!("pushing {:?} to paint_ui_offers", factory.available_parts_rhs_menu);

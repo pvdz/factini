@@ -78,7 +78,7 @@ fn dnow() -> u64 {
 pub fn create_factory(options: &Options, state: &mut State, config: &Config, floor_str: String) -> Factory {
   let ( floor, unlocked_part_icons ) = floor_from_str(options, state, config, &floor_str);
   let available_parts: Vec<PartKind> = unlocked_part_icons.iter().map(|icon| part_icon_to_kind(config,*icon)).collect();
-  let available_parts_rhs_menu: Vec<(PartKind, bool)> = available_parts.iter().filter(|part| {
+  let available_parts_rhs_menu_before: Vec<(PartKind, bool)> = available_parts.iter().filter(|part| {
     // Search for this part in the default story (system nodes) and the current active story.
     // If it is part of the node list for either story then include it, otherwise exclude it.
     for (story_index, story) in config.stories.iter().enumerate() {
@@ -90,6 +90,14 @@ pub fn create_factory(options: &Options, state: &mut State, config: &Config, flo
     }
     return false;
   }).map(|kind| ( *kind, true )).collect();
+  let mut available_parts_rhs_menu= available_parts_rhs_menu_before.clone();
+  for (part_kind, _viz) in available_parts_rhs_menu_before.iter() {
+    for p2 in &config.nodes[*part_kind].pattern_by_index {
+      if !available_parts_rhs_menu.iter().any(|(p, _v)| *p == *p2) {
+        available_parts_rhs_menu.push((*p2, true));
+      }
+    }
+  }
   let quests = get_fresh_quest_states(options, state, config, 0, &available_parts);
   log!("initial available_parts (all): {:?}", available_parts.iter().map(|index| (index, config.nodes[*index].name.clone())).collect::<Vec<_>>());
   log!("initial available_parts (active story): {:?}", available_parts_rhs_menu.iter().map(|(index, _)| config.nodes[*index].name.clone()).collect::<Vec<_>>());
@@ -470,24 +478,33 @@ pub fn factory_reset_stats(options: &mut Options, state: &mut State, factory: &m
 pub fn factory_load_map(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, floor_str: String) {
   let ( floor, unlocked_part_icons ) = floor_from_str(options, state, config, &floor_str);
   log!("Active quests before: {:?}", factory.quests.iter().filter(|quest| quest.status == QuestStatus::Active));
-  log!("available_parts_rhs_menu (1): {:?}", factory.available_parts_rhs_menu);
   factory.floor = floor;
-  let available_parts: Vec<PartKind> = unlocked_part_icons.iter().map(|icon| part_icon_to_kind(config,*icon)).collect();
-  let available_parts: Vec<PartKind> = available_parts.iter().filter(|part| {
-    // Search for this part in the default story (system nodes) and the current active story.
-    // If it is part of the node list for either story then include it, otherwise exclude it.
-    for (story_index, story) in config.stories.iter().enumerate() {
-      if story_index == 0 || story_index == state.active_story_index {
-        if story.part_nodes.contains(&(**part as usize)) {
-          return true;
+  let available_parts: Vec<PartKind> = unlocked_part_icons.iter()
+    .map(|icon| part_icon_to_kind(config,*icon))
+    .filter(|part| {
+      // Search for this part in the default story (system nodes) and the current active story.
+      // If it is part of the node list for either story then include it, otherwise exclude it.
+      for (story_index, story) in config.stories.iter().enumerate() {
+        if story_index == 0 || story_index == state.active_story_index {
+          if story.part_nodes.contains(&(*part as usize)) {
+            return true;
+          }
         }
       }
+      return false;
+    })
+    .collect();
+  let available_parts_rhs_menu_before: Vec<(PartKind,bool)> = available_parts.iter().map(|kind| (*kind, true)).collect();
+  let mut available_parts_rhs_menu = available_parts_rhs_menu_before.clone();
+  for (part_kind, _viz) in available_parts_rhs_menu_before.iter() {
+    for p2 in &config.nodes[*part_kind].pattern_by_index {
+      if !available_parts_rhs_menu.iter().any(|(p, _v)| *p == *p2) {
+        available_parts_rhs_menu.push((*p2, true));
+      }
     }
-    return false;
-  }).map(|&x| x).collect();
-  let available_parts_rhs_menu = available_parts.iter().map(|kind| (*kind, true)).collect();
+  }
   factory.available_parts_rhs_menu = available_parts_rhs_menu;
-  log!("available_parts_rhs_menu (2): {:?}", factory.available_parts_rhs_menu);
+  log!("available_parts_rhs_menu (1): {:?}", factory.available_parts_rhs_menu);
   factory.quests = get_fresh_quest_states(options, state, config, factory.ticks, &available_parts);
   factory.quest_updated = true;
   log!("new current_active_quests: {:?}", factory.quests.iter().map(|quest| config.nodes[quest.config_node_index as usize].name.clone()).collect::<Vec<String>>().join(", "));

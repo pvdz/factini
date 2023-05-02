@@ -355,7 +355,6 @@ pub struct Config {
   pub nodes: Vec<ConfigNode>,
   pub stories: Vec<Story>,
   pub active_story_index: usize, // Defaults to 0. Use `- active` in any one story to activate it. Rejects for multiple occurrences (to prevent accidental issues)
-  pub part_nodes: Vec<PartKind>, // maps to nodes vec
   pub node_name_to_index: HashMap<String, PartKind>,
   pub node_pattern_to_index: HashMap<String, PartKind>,
   pub sprite_cache_lookup: HashMap<String, usize>, // indexes into sprite_cache_canvas
@@ -427,17 +426,22 @@ pub enum ConfigNodeState {
   Available, // Part that can be used
 }
 
-pub fn config_get_available_parts(config: &Config) -> Vec<PartKind>{
-  let mut parts = vec!(
-    CONFIG_NODE_PART_TRASH // for testing/debugging?
-  );
-  config.part_nodes.iter().for_each(|&part_kind| {
-    if config.nodes[part_kind].current_state == ConfigNodeState::Available {
-      parts.push(part_kind);
-    }
-  });
-  return parts;
-}
+// pub fn config_get_available_parts(config: &Config) -> Vec<PartKind>{
+//   let mut parts = vec!(
+//     CONFIG_NODE_PART_TRASH // for testing/debugging?
+//   );
+//
+//   log!("just checking: {:?}", config.stories[config.active_story_index].part_nodes);
+//   config.stories[config.active_story_index].part_nodes.iter().for_each(|&part_kind| {
+//     if config.nodes[part_kind].current_state == ConfigNodeState::Available {
+//       log!("kind: {}, pattern: {:?}", config.nodes[part_kind].raw_name, config.nodes[part_kind].pattern_by_name);
+//       parts.push(part_kind);
+//       config.nodes[part_kind].pattern_unique_kinds.iter().for_each(|&p| parts.push(p));
+//     }
+//   });
+//
+//   return parts;
+// }
 
 pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   // Parse Fake MD config
@@ -479,10 +483,6 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   let mut current_story_index = 0; // Start with the first one
 
   let mut nodes: Vec<ConfigNode> = get_system_nodes();
-  // Indirect references to nodes. Can't share direct references so these index the nodes vec.
-  // let mut quest_nodes_by_index: Vec<usize> = vec!(); // superseded by stories
-  let mut part_nodes: Vec<usize> = vec!(0, 1);
-  // Stories: ( node_index, story_nodes, story_quests )
   let mut stories: Vec<Story> = vec!(Story {
     story_node_index: CONFIG_NODE_STORY_DEFAULT,
     part_nodes: vec!(),
@@ -607,7 +607,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
           }
           current_node_index = node_index;
           match kind {
-            "Asset" => part_nodes.push(node_index),
+            "Asset" => {}
             "Quest" => {
               // quest_nodes_by_index.push(node_index);
               // Register as node for the current story
@@ -615,12 +615,10 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
               let story = &mut stories[current_story_index];
               nodes[node_index].quest_index = story.quest_nodes.len();
               story.quest_nodes.push(node_index);
-              story.part_nodes.push(node_index);
             },
             "Part" => {
-              part_nodes.push(node_index);
               // Register as node for the current story
-              if print_fmd_trace { log!("Adding part {} to stories {} / {}", node_index, current_story_index, stories.len()); }
+              if print_fmd_trace { log!("Adding part {} ({}) to stories {} / {}", node_index, nodes[node_index].raw_name, current_story_index, stories.len()); }
               stories[current_story_index].part_nodes.push(node_index);
             },
             "Supply" => {}
@@ -1221,7 +1219,6 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
     nodes,
     stories,
     active_story_index,
-    part_nodes,
     node_name_to_index,
     node_pattern_to_index,
     sprite_cache_lookup,
@@ -1911,22 +1908,27 @@ fn get_system_nodes() -> Vec<ConfigNode> {
 pub fn config_get_initial_unlocks(options: &Options, state: &mut State, config: &Config) -> Vec<char> {
   let mut unlocked_part_icons: Vec<char> = vec!();
 
-  config.nodes.iter().filter(|node| node.unlocks_after_by_index.len() == 0).for_each(|node| {
-    node.starting_part_by_index.iter().for_each(|index| {
-      let icon = config.nodes[*index].icon;
-      if !unlocked_part_icons.contains(&icon) { unlocked_part_icons.push(icon); }
-    });
-    node.production_target_by_index.iter().for_each(|(_count, index)| {
-      let icon = config.nodes[*index].icon;
-      if !unlocked_part_icons.contains(&icon) { unlocked_part_icons.push(icon); }
-      // Automatically unlock all parts required to create this target part.
-      // Won't do this recursively. Other mechanism must prevent proper quest unlock order.
-      config.nodes[*index].pattern_unique_kinds.iter().for_each(|kind| {
-        let icon = part_kind_to_icon(config, *kind);
+  config.nodes.iter()
+    .filter(|node| {
+      return node.unlocks_after_by_index.len() == 0
+    })
+    .for_each(|node| {
+      node.starting_part_by_index.iter().for_each(|index| {
+        let icon = config.nodes[*index].icon;
         if !unlocked_part_icons.contains(&icon) { unlocked_part_icons.push(icon); }
       });
+
+      node.production_target_by_index.iter().for_each(|(_count, index)| {
+        let icon = config.nodes[*index].icon;
+        if !unlocked_part_icons.contains(&icon) { unlocked_part_icons.push(icon); }
+        // Automatically unlock all parts required to create this target part.
+        // Won't do this recursively. Other mechanism must prevent proper quest unlock order.
+        config.nodes[*index].pattern_unique_kinds.iter().for_each(|kind| {
+          let icon = part_kind_to_icon(config, *kind);
+          if !unlocked_part_icons.contains(&icon) { unlocked_part_icons.push(icon); }
+        });
+      });
     });
-  });
 
   return unlocked_part_icons;
 }

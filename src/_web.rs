@@ -31,10 +31,10 @@
 // - store xorshift seed in map save
 // - show produced parts for the maze runner in the prepared area?
 // - actually animate the start of the next maze runner
-// - undo button crashes (web 894, "len 100 index 137")
 // - click on supplier would rotate between available base parts? -> means you cannot select a supplier without rotating it. but that's only a debug thing, anyways so does that matter?
 // - do we want/need to support serialization of maps with more than 60 machines? 2x2 can only go up to 49. but 2x1 or 1x2 would double that.
-// - why pink not unlocking white?
+// - why are unlocks_after_by_name and node.production_target_by_index empty?
+// - why is configNode.unlocks_after_by_index empty for everyone?
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -891,7 +891,7 @@ pub fn start() -> Result<(), JsValue> {
           // If currently looking at a historic snapshot, then now copy that
           // snapshot to the front of the stack before adding a new state to it
           if state.load_snapshot_next_frame && state.snapshot_pointer != state.snapshot_undo_pointer {
-            let snap = state.snapshot_stack[state.snapshot_undo_pointer].clone();
+            let snap = state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].clone();
             log!("Pushing current undo/redo snapshot to the front of the stack; size: {} bytes, undo pointer: {}, pointer: {}", snap.len(), state.snapshot_undo_pointer, state.snapshot_pointer + 1);
             state.snapshot_stack[(state.snapshot_pointer + 1) % UNDO_STACK_SIZE] = snap;
           }
