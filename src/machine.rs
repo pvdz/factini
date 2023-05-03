@@ -437,6 +437,7 @@ pub struct MachineUIConfig {
   pub part_x: f64,
   pub part_y: f64,
 }
+
 pub const MACHINE_1X1_UI: MachineUIConfig = MachineUIConfig {
   missing_input_x: 0.0,
   missing_input_y: 0.0,
@@ -453,6 +454,41 @@ pub const MACHINE_1X1_UI: MachineUIConfig = MachineUIConfig {
   part_x: 0.0,
   part_y: 0.0,
 };
+
+pub const MACHINE_1X2_UI: MachineUIConfig = MachineUIConfig {
+  missing_input_x: 0.0,
+  missing_input_y: 0.0 + CELL_H,
+
+  missing_output_x: 0.0,
+  missing_output_y: 0.0 + CELL_H,
+
+  missing_purpose_x: 0.0,
+  missing_purpose_y: 0.0 * CELL_H / 2.0,
+
+  wee_woo_x: 0.0,
+  wee_woo_y: 5.0,
+
+  part_x: 0.0,
+  part_y: 0.0,
+};
+
+pub const MACHINE_2X1_UI: MachineUIConfig = MachineUIConfig {
+  missing_input_x: 0.0,
+  missing_input_y: 0.0,
+
+  missing_output_x: 0.0 + CELL_W,
+  missing_output_y: 0.0,
+
+  missing_purpose_x: 0.0 + CELL_W / 2.0,
+  missing_purpose_y: 0.0,
+
+  wee_woo_x: 0.0 + CELL_W,
+  wee_woo_y: 5.0,
+
+  part_x: 0.0,
+  part_y: 0.0,
+};
+
 pub const MACHINE_2X2_UI: MachineUIConfig = MachineUIConfig {
   missing_input_x: 0.0,
   missing_input_y: 0.0 + CELL_H,
@@ -488,6 +524,12 @@ pub const MACHINE_3X3_UI: MachineUIConfig = MachineUIConfig {
 };
 
 pub fn get_machine_ui_config(w: usize, h: usize) -> MachineUIConfig {
+  if w == 1 && h == 2 {
+    return MACHINE_1X2_UI;
+  }
+  if w == 2 && h == 1 {
+    return MACHINE_2X1_UI;
+  }
   if w == 2 && h == 2 {
     return MACHINE_2X2_UI;
   }

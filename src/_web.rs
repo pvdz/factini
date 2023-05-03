@@ -33,8 +33,7 @@
 // - actually animate the start of the next maze runner
 // - click on supplier would rotate between available base parts? -> means you cannot select a supplier without rotating it. but that's only a debug thing, anyways so does that matter?
 // - do we want/need to support serialization of maps with more than 60 machines? 2x2 can only go up to 49. but 2x1 or 1x2 would double that.
-// - why are unlocks_after_by_name and node.production_target_by_index empty?
-// - why is configNode.unlocks_after_by_index empty for everyone?
+// - missing purpose for machine is not properly displayed for 1x2. see MACHINE_1X2_UI / missing_purpose_y
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -603,6 +602,8 @@ pub fn start() -> Result<(), JsValue> {
       offer_selected: false,
       offer_selected_index: 0, // Offer index, not part index
       dragging_offer: false,
+      dragging_machine1x2: false,
+      dragging_machine2x1: false,
       dragging_machine2x2: false,
       dragging_machine3x3: false,
 
@@ -1009,6 +1010,8 @@ pub fn start() -> Result<(), JsValue> {
 
         paint_border_hint(&options, &state, &config, &factory, &context);
         // Paint 2x2 machine button such that bouncers go in front of it
+        paint_machine1x2(&options, &state, &config, &factory, &context, &mouse_state);
+        paint_machine2x1(&options, &state, &config, &factory, &context, &mouse_state);
         paint_machine2x2(&options, &state, &config, &factory, &context, &mouse_state);
         // In front of all game stuff
         paint_bouncers(&options, &state, &config, &context, &mut factory);
@@ -1084,6 +1087,8 @@ fn update_mouse_state(
     mouse_state.down_menu_button = MenuButton::None;
     mouse_state.up_menu_button = MenuButton::None;
     mouse_state.dragging_offer = false;
+    mouse_state.dragging_machine1x2 = false;
+    mouse_state.dragging_machine2x1 = false;
     mouse_state.dragging_machine2x2 = false;
     mouse_state.dragging_machine3x3 = false;
     mouse_state.down_quest = false;
@@ -1198,6 +1203,16 @@ fn update_mouse_state(
         // the paint toggle left of the machine
         mouse_state.over_menu_row = MenuRow::None;
         mouse_state.over_menu_button = MenuButton::PaintToggleButton;
+      }
+      else if hit_test_machine1x2_button(mouse_state.world_x, mouse_state.world_y) {
+        // the smallest tall machine button
+        mouse_state.over_menu_row = MenuRow::None;
+        mouse_state.over_menu_button = MenuButton::Machine1x2Button;
+      }
+      else if hit_test_machine2x1_button(mouse_state.world_x, mouse_state.world_y) {
+        // the smallest wide machine button
+        mouse_state.over_menu_row = MenuRow::None;
+        mouse_state.over_menu_button = MenuButton::Machine2x1Button;
       }
       else if hit_test_machine2x2_button(mouse_state.world_x, mouse_state.world_y) {
         // the small machine button
@@ -1328,6 +1343,16 @@ fn update_mouse_state(
           // the paint toggle left of the machine
           mouse_state.down_menu_row = MenuRow::None;
           mouse_state.down_menu_button = MenuButton::PaintToggleButton;
+        }
+        else if hit_test_machine1x2_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
+          // the smallest tall machine button
+          mouse_state.down_menu_row = MenuRow::None;
+          mouse_state.down_menu_button = MenuButton::Machine1x2Button;
+        }
+        else if hit_test_machine2x1_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
+          // the smallest wide machine button
+          mouse_state.down_menu_row = MenuRow::None;
+          mouse_state.down_menu_button = MenuButton::Machine2x1Button;
         }
         else if hit_test_machine2x2_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
           // the small machine button
@@ -1483,6 +1508,16 @@ fn update_mouse_state(
           mouse_state.up_menu_row = MenuRow::None;
           mouse_state.up_menu_button = MenuButton::PaintToggleButton;
         }
+        else if hit_test_machine1x2_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
+          // the smallest tall machine button
+          mouse_state.up_menu_row = MenuRow::None;
+          mouse_state.up_menu_button = MenuButton::Machine1x2Button;
+        }
+        else if hit_test_machine2x1_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
+          // the smallest wide machine button
+          mouse_state.up_menu_row = MenuRow::None;
+          mouse_state.up_menu_button = MenuButton::Machine2x1Button;
+        }
         else if hit_test_machine2x2_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
           // the small machine button
           mouse_state.up_menu_row = MenuRow::None;
@@ -1537,7 +1572,13 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         }
       }
       ZONE_MENU => {
-        if mouse_state.down_menu_button == MenuButton::Machine2x2Button {
+        if mouse_state.down_menu_button == MenuButton::Machine1x2Button {
+          on_drag_start_machine1x2_button(options, state, config, mouse_state, cell_selection);
+        }
+        else if mouse_state.down_menu_button == MenuButton::Machine2x1Button {
+          on_drag_start_machine2x1_button(options, state, config, mouse_state, cell_selection);
+        }
+        else if mouse_state.down_menu_button == MenuButton::Machine2x2Button {
           on_drag_start_machine2x2_button(options, state, config, mouse_state, cell_selection);
         }
         else if mouse_state.down_menu_button == MenuButton::Machine3x3Button {
@@ -1600,6 +1641,20 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         ZONE_FLOOR => {
           if mouse_state.dragging_offer {
             on_drag_end_offer_over_floor(options, state, config, factory, mouse_state, cell_selection);
+          }
+          else if mouse_state.down_menu_button == MenuButton::Machine1x2Button {
+            if mouse_state.dragging_machine1x2 {
+              on_drag_end_machine1x2_over_floor(options, state, config, factory, mouse_state);
+            } else {
+              log!("drag end 1x2 on floor but was not dragging 1x2?");
+            }
+          }
+          else if mouse_state.down_menu_button == MenuButton::Machine2x1Button {
+            if mouse_state.dragging_machine2x1 {
+              on_drag_end_machine2x1_over_floor(options, state, config, factory, mouse_state);
+            } else {
+              log!("drag end 2x1 on floor but was not dragging 2x1?");
+            }
           }
           else if mouse_state.down_menu_button == MenuButton::Machine2x2Button {
             if mouse_state.dragging_machine2x2 {
@@ -2090,6 +2145,12 @@ fn on_up_craft(options: &mut Options, state: &mut State, config: &Config, factor
 }
 fn on_drag_end_craft_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
   log!("on_drag_end_craft_over_floor() dropping a craft icon on the floor does nothing, action ignored.");
+}
+fn on_drag_end_machine1x2_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
+  on_drag_end_machine_over_floor(options, state, config, factory, mouse_state, 1, 2);
+}
+fn on_drag_end_machine2x1_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
+  on_drag_end_machine_over_floor(options, state, config, factory, mouse_state, 2, 1);
 }
 fn on_drag_end_machine2x2_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
   on_drag_end_machine_over_floor(options, state, config, factory, mouse_state, 2, 2);
@@ -2634,14 +2695,42 @@ fn on_up_paint_toggle(state: &mut State) {
   // state.selected_area_copy = vec!(); // Or retain this?
 }
 
-fn on_up_machine3x3_button() {
-  log!("on_up_machine3x3_button()");
+fn on_up_machine1x2_button() {
+  log!("on_up_machine1x2_button()");
+}
+fn on_up_machine2x1_button() {
+  log!("on_up_machine2x1_button()");
 }
 fn on_up_machine2x2_button() {
   log!("on_up_machine2x2_button()");
 }
+fn on_up_machine3x3_button() {
+  log!("on_up_machine3x3_button()");
+}
+fn on_drag_start_machine1x2_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
+  log!("is_drag_start from machine1x2");
+  mouse_state.dragging_machine1x2 = true;
+  mouse_state.dragging_machine2x1 = false;
+  mouse_state.dragging_machine2x2 = false;
+  mouse_state.dragging_machine3x3 = false;
+  state.mouse_mode_selecting = false;
+  mouse_state.offer_selected = false;
+  cell_selection.on = false;
+}
+fn on_drag_start_machine2x1_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
+  log!("is_drag_start from machine2x1");
+  mouse_state.dragging_machine1x2 = false;
+  mouse_state.dragging_machine2x1 = true;
+  mouse_state.dragging_machine2x2 = true;
+  mouse_state.dragging_machine3x3 = false;
+  state.mouse_mode_selecting = false;
+  mouse_state.offer_selected = false;
+  cell_selection.on = false;
+}
 fn on_drag_start_machine2x2_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
   log!("is_drag_start from machine2x2");
+  mouse_state.dragging_machine1x2 = false;
+  mouse_state.dragging_machine2x1 = false;
   mouse_state.dragging_machine2x2 = true;
   mouse_state.dragging_machine3x3 = false;
   state.mouse_mode_selecting = false;
@@ -2650,6 +2739,8 @@ fn on_drag_start_machine2x2_button(options: &mut Options, state: &mut State, con
 }
 fn on_drag_start_machine3x3_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
   log!("is_drag_start from machine3x3");
+  mouse_state.dragging_machine1x2 = false;
+  mouse_state.dragging_machine2x1 = false;
   mouse_state.dragging_machine2x2 = false;
   mouse_state.dragging_machine3x3 = true;
   state.mouse_mode_selecting = false;
@@ -2671,6 +2762,12 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
   match mouse_state.up_menu_button {
     MenuButton::None => {}
 
+    MenuButton::Machine1x2Button => {
+      on_up_machine1x2_button();
+    }
+    MenuButton::Machine2x1Button => {
+      on_up_machine2x1_button();
+    }
     MenuButton::Machine2x2Button => {
       on_up_machine2x2_button();
     }
@@ -3125,6 +3222,12 @@ fn hit_test_paint_toggle(x: f64, y: f64) -> bool {
 }
 fn hit_test_machine3x3_button(x: f64, y: f64) -> bool {
   return bounds_check(x, y, UI_MENU_BOTTOM_MACHINE3X3_X, UI_MENU_BOTTOM_MACHINE3X3_Y, UI_MENU_BOTTOM_MACHINE3X3_X + UI_MENU_BOTTOM_MACHINE3X3_WIDTH, UI_MENU_BOTTOM_MACHINE3X3_Y + UI_MENU_BOTTOM_MACHINE3X3_HEIGHT);
+}
+fn hit_test_machine1x2_button(x: f64, y: f64) -> bool {
+  return bounds_check(x, y, UI_MENU_BOTTOM_MACHINE1X2_X, UI_MENU_BOTTOM_MACHINE1X2_Y, UI_MENU_BOTTOM_MACHINE1X2_X + UI_MENU_BOTTOM_MACHINE1X2_WIDTH, UI_MENU_BOTTOM_MACHINE1X2_Y + UI_MENU_BOTTOM_MACHINE1X2_HEIGHT);
+}
+fn hit_test_machine2x1_button(x: f64, y: f64) -> bool {
+  return bounds_check(x, y, UI_MENU_BOTTOM_MACHINE2X1_X, UI_MENU_BOTTOM_MACHINE2X1_Y, UI_MENU_BOTTOM_MACHINE2X1_X + UI_MENU_BOTTOM_MACHINE2X1_WIDTH, UI_MENU_BOTTOM_MACHINE2X1_Y + UI_MENU_BOTTOM_MACHINE2X1_HEIGHT);
 }
 fn hit_test_machine2x2_button(x: f64, y: f64) -> bool {
   return bounds_check(x, y, UI_MENU_BOTTOM_MACHINE2X2_X, UI_MENU_BOTTOM_MACHINE2X2_Y, UI_MENU_BOTTOM_MACHINE2X2_X + UI_MENU_BOTTOM_MACHINE2X2_WIDTH, UI_MENU_BOTTOM_MACHINE2X2_Y + UI_MENU_BOTTOM_MACHINE2X2_HEIGHT);
@@ -3890,7 +3993,7 @@ fn paint_background_tiles3(
           } else if factory.floor[cell.machine.main_coord].machine.output_want.icon == ' ' {
             context.set_fill_style(&"#ffffff9f".into());
             context.begin_path();
-            context.arc(ox + mconfig.missing_purpose_x + (CELL_W / 2.0), oy + mconfig.missing_purpose_y+ (CELL_H / 2.0), CELL_W * 0.75, 0.0, 2.0 * 3.14).expect("to paint");
+            context.arc(ox + mconfig.missing_purpose_x + (CELL_W / 2.0), oy + mconfig.missing_purpose_y + (CELL_H / 2.0), CELL_W * 0.75, 0.0, 2.0 * 3.14).expect("to paint");
             context.fill();
 
             paint_asset(options, state, config, context, CONFIG_NODE_ASSET_MISSING_PURPOSE, factory.ticks,
@@ -4165,6 +4268,12 @@ fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory
   else if mouse_state.dragging_offer {
     paint_mouse_while_dragging_offer(options, state, config, factory, context, mouse_state, cell_selection);
   }
+  else if mouse_state.dragging_machine1x2 {
+    paint_mouse_while_dragging_machine1x2(options, state, factory, context, mouse_state);
+  }
+  else if mouse_state.dragging_machine2x1 {
+    paint_mouse_while_dragging_machine2x1(options, state, factory, context, mouse_state);
+  }
   else if mouse_state.dragging_machine2x2 {
     paint_mouse_while_dragging_machine2x2(options, state, factory, context, mouse_state);
   }
@@ -4252,6 +4361,12 @@ fn paint_mouse_in_selection_mode(options: &Options, state: &State, config: &Conf
       context.stroke_rect(UI_FLOOR_OFFSET_X + mouse_state.cell_x_floored * CELL_W, UI_FLOOR_OFFSET_Y + mouse_state.cell_y_floored * CELL_H, CELL_W, CELL_H);
     }
   }
+}
+fn paint_mouse_while_dragging_machine1x2(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  paint_mouse_while_dragging_machine(options, state, factory, context, mouse_state, 1, 2);
+}
+fn paint_mouse_while_dragging_machine2x1(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  paint_mouse_while_dragging_machine(options, state, factory, context, mouse_state, 2, 1);
 }
 fn paint_mouse_while_dragging_machine2x2(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   paint_mouse_while_dragging_machine(options, state, factory, context, mouse_state, 2, 2);
@@ -5344,6 +5459,28 @@ fn paint_paint_toggle(options: &Options, state: &State, config: &Config, context
   context.set_fill_style(&(if mouse_state.over_menu_button == MenuButton::PaintToggleButton { if state.mouse_mode_mirrored { "red" } else { "#aaa" } } else if state.mouse_mode_mirrored { "tomato" } else { "#ddd" }).into());
   context.fill_text("🖌", UI_MENU_BOTTOM_PAINT_TOGGLE_X + UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH / 2.0 - 24.0, UI_MENU_BOTTOM_PAINT_TOGGLE_Y + UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
   context.restore();
+}
+fn paint_machine1x2(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  context.set_fill_style(&"#aaa".into());
+  context.fill_rect(UI_MENU_BOTTOM_MACHINE1X2_X, UI_MENU_BOTTOM_MACHINE1X2_Y, UI_MENU_BOTTOM_MACHINE1X2_WIDTH, UI_MENU_BOTTOM_MACHINE1X2_HEIGHT);
+
+  paint_asset(options, state, config, context, machine_size_to_asset_index(2, 2), factory.ticks,
+    UI_MENU_BOTTOM_MACHINE1X2_X, UI_MENU_BOTTOM_MACHINE1X2_Y, UI_MENU_BOTTOM_MACHINE1X2_WIDTH, UI_MENU_BOTTOM_MACHINE1X2_HEIGHT
+  );
+
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(UI_MENU_BOTTOM_MACHINE1X2_X, UI_MENU_BOTTOM_MACHINE1X2_Y, UI_MENU_BOTTOM_MACHINE1X2_WIDTH, UI_MENU_BOTTOM_MACHINE1X2_HEIGHT);
+}
+fn paint_machine2x1(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  context.set_fill_style(&"#aaa".into());
+  context.fill_rect(UI_MENU_BOTTOM_MACHINE2X1_X, UI_MENU_BOTTOM_MACHINE2X1_Y, UI_MENU_BOTTOM_MACHINE2X1_WIDTH, UI_MENU_BOTTOM_MACHINE2X1_HEIGHT);
+
+  paint_asset(options, state, config, context, machine_size_to_asset_index(2, 2), factory.ticks,
+    UI_MENU_BOTTOM_MACHINE2X1_X, UI_MENU_BOTTOM_MACHINE2X1_Y, UI_MENU_BOTTOM_MACHINE2X1_WIDTH, UI_MENU_BOTTOM_MACHINE2X1_HEIGHT
+  );
+
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(UI_MENU_BOTTOM_MACHINE2X1_X, UI_MENU_BOTTOM_MACHINE2X1_Y, UI_MENU_BOTTOM_MACHINE2X1_WIDTH, UI_MENU_BOTTOM_MACHINE2X1_HEIGHT);
 }
 fn paint_machine2x2(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   context.set_fill_style(&"#aaa".into());
