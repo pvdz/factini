@@ -31,7 +31,6 @@
 // - store xorshift seed in map save
 // - show produced parts for the maze runner in the prepared area?
 // - actually animate the start of the next maze runner
-// - click on supplier would rotate between available base parts? -> means you cannot select a supplier without rotating it. but that's only a debug thing, anyways so does that matter?
 // - do we want/need to support serialization of maps with more than 60 machines? 2x2 can only go up to 49. but 2x1 or 1x2 would double that.
 // - missing purpose for machine is not properly displayed for 1x2. see MACHINE_1X2_UI / missing_purpose_y
 
@@ -1880,13 +1879,47 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
   }
   else if action == Action::Add {
     // De-/Select this cell
+    // For suppliers; cycle through legit inputs
 
     let coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
 
     log!("clicked {} {} cell selection before: {:?}, belt: {:?}", last_mouse_up_cell_x, last_mouse_up_cell_y, cell_selection, factory.floor[coord].belt);
 
     if cell_selection.on && cell_selection.x == last_mouse_up_cell_x && cell_selection.y == last_mouse_up_cell_y {
-      cell_selection.on = false;
+      // For suppliers we will cycle rather than toggle.
+      // For anything else we will toggle the selection.
+      if factory.floor[coord].kind == CellKind::Supply {
+
+        let len = factory.available_parts_rhs_menu.len();
+        // - Find the index of the current part
+        // - Loop through available parts to find next part
+        let current_part = factory.floor[coord].supply.gives.kind;
+        let mut current_index = 0;
+        for i in 0..len {
+          if factory.available_parts_rhs_menu[i].1 && factory.available_parts_rhs_menu[i].0 == current_part {
+            current_index = i;
+            break;
+          }
+        }
+        let mut new_part = current_part;
+        for i in 1..len {
+          // First check if the part is actually visible in menu
+          let new_index = (current_index + i) % len;
+          if factory.available_parts_rhs_menu[new_index].1 {
+            let t_part = factory.available_parts_rhs_menu[new_index].0;
+            if config.nodes[t_part].pattern_unique_kinds.len() == 0 {
+              new_part = t_part;
+              break;
+            }
+          }
+        }
+        // It seems new_part is the next available zero-pattern part :)
+        log!("Going to change part of supplier @{} from {:?} to {:?}", coord, config.nodes[current_part].raw_name, config.nodes[new_part].raw_name);
+        factory.floor[coord].supply.gives = part_from_part_kind(config, new_part);
+        factory.changed = true;
+      } else {
+        cell_selection.on = false;
+      }
     }
     else if factory.floor[coord].kind == CellKind::Empty {
       if is_edge_not_corner(last_mouse_up_cell_x, last_mouse_up_cell_y) {

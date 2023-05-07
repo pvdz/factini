@@ -428,6 +428,7 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
     match lines.next() {
       None => break,
       Some(line) => {
+        let bak = line.clone();
         if options.trace_map_parsing { log!("Next line({}): {}", line_no, line.clone().collect::<String>()); }
         while line.peek().or(Some(&'#')).unwrap() == &' ' { line.next(); }
         // Keep skipping lines that start with comments and empty lines (only containing spaces)
@@ -440,7 +441,7 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
               let nth;
               let mut speed = 1;
               let mut cooldown = 1;
-              let gives;
+              let mut gives;
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
@@ -500,7 +501,51 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
                       c = line.next().or(Some('#')).unwrap();
                     }
                   }
-                  c => panic!("Unexpected input on line {} while parsing supply augment modifier: expecting `s`, `c`, '#', or EOL, found `{}`", line_no, c),
+                  c => {
+                    if (gives == 's' || gives == 'c') && c == ':' {
+                      if options.trace_map_parsing { log!("Correcting parse for the empty-part case"); }
+                      let gave = gives;
+                      gives = ' ';
+
+                      if gave == 's' {
+                        speed = 0;
+                        let mut c = line.next().or(Some('#')).unwrap();
+                        while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+                        loop {
+                          if c >= '0' && c <= '9' {
+                            speed = (speed * 10) + ((c as u8) - ('0' as u8)) as u64; // This can lead to overflow fatal. :shrug:
+                          } else if c == '#' || c == ' ' {
+                            break;
+                          } else {
+                            panic!("Unexpected input on line {} while parsing supply augment speed modifier: speed value consists of digits, found `{}`", line_no, c);
+                          }
+                          c = line.next().or(Some('#')).unwrap();
+                        }
+                      }
+                      else if gave == 'c' {
+                        cooldown = 0;
+                        let mut c = line.next().or(Some('#')).unwrap();
+                        while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+                        loop {
+                          if c >= '0' && c <= '9' {
+                            cooldown = (cooldown * 10) + ((c as u8) - ('0' as u8)) as u64; // This can lead to overflow fatal. :shrug:
+                          } else if c == '#' || c == ' ' {
+                            break;
+                          } else {
+                            panic!("Unexpected input on line {} while parsing supply augment cooldown modifier: cooldown value consists of digits, found `{}`", line_no, c);
+                          }
+                          c = line.next().or(Some('#')).unwrap();
+                        }
+                      }
+                      else {
+                        panic!("nope. you forgot something here: gave={}", gave);
+                      }
+                    }
+                    else {
+                      log!("Error line: `{:?}`", bak);
+                      panic!("Unexpected input on line {} while parsing supply augment modifier: expecting `s`, `c`, '#', or EOL, found `{}`", line_no, c)
+                    }
+                  },
                 }
               }
 
