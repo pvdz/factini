@@ -244,6 +244,8 @@ pub fn create_maze_runner(x: usize, y: usize) -> MazeRunner {
 }
 
 pub fn tick_maze(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+  if !options.enable_maze_runner { return; }
+
   if factory.ticks % 150 == 0 {
     let x = (GRID_X2 + MAZE_WIDTH / 2.0).floor() + 0.5;
     let y = (GRID_Y1 + FLOOR_HEIGHT - MAZE_WIDTH).floor() + 0.5;

@@ -33,6 +33,10 @@
 // - actually animate the start of the next maze runner
 // - do we want/need to support serialization of maps with more than 60 machines? 2x2 can only go up to 49. but 2x1 or 1x2 would double that.
 // - missing purpose for machine is not properly displayed for 1x2. see MACHINE_1X2_UI / missing_purpose_y
+// - machine hint based on history received should decay
+// - clicking on machine should cycle through available parts
+// - clicking on empty machine should select one of the parts it can create based on the history
+// - cars with new parts shouldn't jump. that's the whole point of the invisible placeholder. why does it still do that when unlocking pink and grey at the same time?
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -5866,6 +5870,11 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
   let y = (GRID_Y1 + FLOOR_HEIGHT - MAZE_HEIGHT).floor() + 0.5;
 
   let maze = &factory.maze;
+
+  if !options.enable_maze_runner {
+    context.set_fill_style(&"black".into());
+    context.fill_text("Warning: options.enable_maze_runner = false", x, y + MAZE_HEIGHT + 15.0).expect("an ok");
+  }
 
   // Paint four "current" runner bars
 

@@ -60,6 +60,7 @@ const GAME_OPTIONS = `
 - bouncer_stamp_interval: 60
 - bouncer_stop_after: 0.55
 - bouncer_formula_total_distance: 1200.0
+- enable_maze_runner: true
 - bouncer_decay_speed: 4.0
 - splash_keep_loader: false
 - splash_no_loader: false

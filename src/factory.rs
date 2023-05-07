@@ -588,9 +588,23 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
                     p as usize == part as usize
                   }) {
                     new_parts.push(part);
+                    // Resolve and add their components to the unlocks
+                    let pattern = &config.nodes[part].pattern_unique_kinds;
+                    for i in 0..pattern.len() {
+                      let part = pattern[i];
+                      // Confirm the part isn't already unlocked before starting the process to unlock it
+                      if !factory.available_parts_rhs_menu.iter().any(|p| {
+                        return part == p.0
+                      }) && !new_parts.iter().any(|&p| {
+                        p as usize == part as usize
+                      }) {
+                        new_parts.push(part);
+                        // We don't also resolve this (we could) and instead rely on quest structure to never need to do this ...
+                      }
+                    }
                   }
                 }
-                // Add unlocked parts to the new list
+                // Add explicitly unlocked parts to the new list (sort of unused but the feature still allows you to do this)
                 for i in 0..config.nodes[factory.quests[quest_unlock_search_index].config_node_index].starting_part_by_index.len() {
                   let part = config.nodes[factory.quests[quest_unlock_search_index].config_node_index].starting_part_by_index[i];
                   // Confirm the part isn't already unlocked before starting the process to unlock it

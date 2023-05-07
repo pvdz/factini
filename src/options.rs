@@ -97,6 +97,8 @@ pub struct Options {
   pub bouncer_stop_after: f64, // On the scale of bouncer_formula_total_distance, how far into the formula do we end the bouncer? this would be ideally when the bouncer is inside the factory.
   pub bouncer_formula_total_distance: f64, // The bouncer follows a formula and this is the would-be total distance until it "stops bouncing", the bouncer_stop_after is a normalized point onto this value
 
+  pub enable_maze_runner: bool,
+
   // obsolete
   pub bouncer_decay_speed: f64,
 
@@ -185,6 +187,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     bouncer_stamp_interval: 20,
     bouncer_stop_after: 1200.0,
     bouncer_formula_total_distance: 650.0,
+    enable_maze_runner: true,
     splash_keep_loader: false,
     splash_no_loader: false,
     splash_keep_main: false,
@@ -363,6 +366,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "bouncer_stamp_interval" => options.bouncer_stamp_interval = parse_u64(value, name, strict, options.bouncer_stamp_interval, verbose),
             "bouncer_stop_after" => options.bouncer_stop_after = parse_f64(value, name, strict, options.bouncer_stop_after, verbose),
             "bouncer_formula_total_distance" => options.bouncer_formula_total_distance = parse_f64(value, name, strict, options.bouncer_formula_total_distance, verbose),
+            "enable_maze_runner" => options.enable_maze_runner = parse_bool(value, name, strict, options.enable_maze_runner, verbose),
             "splash_keep_loader" => options.splash_keep_loader = parse_bool(value, name, strict, options.splash_keep_loader, verbose),
             "splash_no_loader" => options.splash_no_loader = parse_bool(value, name, strict, options.splash_no_loader, verbose),
             "splash_keep_main" => options.splash_keep_main = parse_bool(value, name, strict, options.splash_keep_main, verbose),
@@ -459,6 +463,7 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- bouncer_stamp_interval: {}", options.bouncer_stamp_interval));
   arr.push(format!("- bouncer_stop_after: {}", options.bouncer_stop_after));
   arr.push(format!("- bouncer_formula_total_distance: {}", options.bouncer_formula_total_distance));
+  arr.push(format!("- enable_maze_runner: {}", options.enable_maze_runner));
   arr.push(format!("- bouncer_decay_speed: {}", options.bouncer_decay_speed));
   arr.push(format!("- splash_keep_loader: {}", options.splash_keep_loader));
   arr.push(format!("- splash_no_loader: {}", options.splash_no_loader));
