@@ -29,9 +29,7 @@
 // - help the player
 //   - create tutorial
 // - store xorshift seed in map save
-// - show produced parts for the maze runner in the prepared area?
-// - actually animate the start of the next maze runner
-// - do we want/need to support serialization of maps with more than 60 machines? 2x2 can only go up to 49. but 2x1 or 1x2 would double that.
+// - do we want/need to support serialization of maps with more than 60 machines? 2x2 can only go up to 49. but 2x1 or 1x2 would double that, up to 84. if not we should gracefully handle it rather than let it throw
 // - missing purpose for machine is not properly displayed for 1x2. see MACHINE_1X2_UI / missing_purpose_y
 // - machine hint based on history received should decay
 // - clicking on machine should cycle through available parts
@@ -42,7 +40,9 @@
 // - paint brush toggle must be X when deleting, must be away from the machine buttons
 // - menu must be moved away
 // - full screen button
-
+// - paint belts lighter
+// - something's off with the pause and refuel delay of the maze. something related to speed.
+// - collected parts after refueling starts should be hidden until refueling finishes. it currently adds a cube even when in flight.
 
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
@@ -5886,55 +5886,64 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
   // Paint four "current" runner bars
 
   // Energy remaining
+  let energy_x = x + 10.0;
+  let energy_y = y - 30.0;
   context.set_fill_style(&"black".into());
-  // context.fill_text(format!("{} / {}", factory.maze_runner.energy_now, factory.maze_runner.energy_max).as_str(), x + 10.0, y - 35.0).expect("it to work");
+  if options.print_maze_prepared_stats { context.fill_text(format!("{} / {}", factory.maze_runner.energy_now, factory.maze_runner.energy_max).as_str(), energy_x, energy_y - 5.0).expect("it to work"); }
   context.set_fill_style(&"white".into());
-  context.fill_rect(x + 10.0, y - 30.0, 80.0, 25.0);
+  context.fill_rect(energy_x, energy_y, 80.0, 25.0);
   context.set_fill_style(&"yellow".into());
-  context.fill_rect(x + 10.0, y - 30.0, (factory.maze_runner.energy_now as f64 / factory.maze_runner.energy_max as f64) * 80.0, 25.0);
+  context.fill_rect(energy_x, energy_y, (factory.maze_runner.energy_now as f64 / factory.maze_runner.energy_max as f64) * 80.0, 25.0);
   context.set_stroke_style(&"black".into());
-  context.stroke_rect(x + 10.0, y - 30.0, 80.0, 25.0);
+  context.stroke_rect(energy_x, energy_y, 80.0, 25.0);
 
   // Speed indicator
+  let speed_x = x + 100.0;
+  let speed_y = y - 30.0;
   context.set_fill_style(&"black".into());
-  // context.fill_text(format!("{}", factory.maze_runner.speed).as_str(), x + 100.0, y - 35.0).expect("it to work");
+  if options.print_maze_prepared_stats { context.fill_text(format!("{}", factory.maze_runner.speed).as_str(), speed_x, speed_y - 5.0).expect("it to work"); }
   context.set_fill_style(&"white".into());
-  context.fill_rect(x + 100.0, y - 30.0, 30.0, 25.0);
+  context.fill_rect(speed_x, speed_y, 30.0, 25.0);
   context.set_stroke_style(&"black".into());
-  context.stroke_rect(x + 100.0, y - 30.0, 30.0, 25.0);
+  context.stroke_rect(speed_x, speed_y, 30.0, 25.0);
   context.set_fill_style(&"black".into());
-  context.fill_text(&format!("{}", factory.maze_runner.speed), x + 111.0, y - 14.0).expect("it to work");
+  context.fill_text(&format!("{}", factory.maze_runner.speed), speed_x + 11.0, speed_y + 16.0).expect("it to work");
 
   // Power indicator, paint one hammer per rock that can be broken
+  let power_x = x + 140.0;
+  let power_y = y - 30.0;
   context.set_fill_style(&"black".into());
-  // context.fill_text(format!("{} / {}", factory.maze_runner.power_now, factory.maze_runner.power_max).as_str(), x + 140.0, y - 35.0).expect("it to work");
+  if options.print_maze_prepared_stats { context.fill_text(format!("{} / {}", factory.maze_runner.power_now, factory.maze_runner.power_max).as_str(), power_x, power_y - 5.0).expect("it to work"); }
   context.set_fill_style(&"white".into());
-  context.fill_rect(x + 140.0, y - 30.0, 60.0, 25.0);
+  context.fill_rect(power_x, power_y, 60.0, 25.0);
   // paint one hammer evenly divided across the space. maintain location (dont "jump" when removing a hammer). max width to divide is field_width-margin-img_width-margin. max spacing is img_width+margin
   let max_power_space = 60.0 - 5.0 - 5.0;
   let power_offset_step = (max_power_space / (factory.maze_runner.power_max as f64)).min(20.0);
   for i in 0..factory.maze_runner.power_now {
     // will overlap. by design
-    paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_PICKAXE, factory.ticks, x + 140.0 + 5.0 + (i as f64) * power_offset_step, y - 25.0, 15.0, 15.0);
+    paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_PICKAXE, factory.ticks, power_x + 5.0 + (i as f64) * power_offset_step, power_y + 5.0, 15.0, 15.0);
   }
   context.set_stroke_style(&"black".into());
-  context.stroke_rect(x + 140.0, y - 30.0, 60.0, 25.0);
+  context.stroke_rect(power_x, power_y, 60.0, 25.0);
 
   // Collection / Volume indicator
+  let volume_x = x + 210.0;
+  let volume_y = y - 30.0;
   context.set_fill_style(&"black".into());
-  // context.fill_text(format!("{} / {}", factory.maze_runner.volume_now, factory.maze_runner.volume_max).as_str(), x + 210.0, y - 35.0).expect("it to work");
+  if options.print_maze_prepared_stats {
+    context.fill_text(format!("{} / {}", factory.maze_runner.volume_now, factory.maze_runner.volume_max).as_str(), volume_x, volume_y - 5.0).expect("it to work");
+  }
   context.set_fill_style(&"white".into());
-  context.fill_rect(x + 210.0, y - 30.0, 80.0, 25.0);
+  context.fill_rect(volume_x, volume_y, 80.0, 25.0);
   // Unlike power, here we may actually want to update the spacing as the volume goes up. Try to make it a "pile" or whatever. We can probably fake that to some degree with some kind of pre-defined positioning table etc.
   let max_volume_space = 60.0 - 5.0 - 10.0 - 5.0;
   let volume_offset_step = (max_volume_space / (factory.maze_runner.volume_max as f64)).min(20.0);
   for i in 0..factory.maze_runner.volume_now {
     // will overlap. by design
-    paint_asset(&options, &state, &config, &context, CONFIG_NDOE_ASSET_TREASURE, factory.ticks, x + 210.0 + 5.0 + (i as f64) * volume_offset_step, y - 25.0, 15.0, 15.0);
-
+    paint_asset(&options, &state, &config, &context, CONFIG_NDOE_ASSET_TREASURE, factory.ticks, volume_x + 5.0 + (i as f64) * volume_offset_step, volume_y + 5.0, 15.0, 15.0);
   }
   context.set_stroke_style(&"black".into());
-  context.stroke_rect(x + 210.0, y - 30.0, 80.0, 25.0);
+  context.stroke_rect(volume_x, volume_y, 80.0, 25.0);
 
   // Actual maze next...
 
@@ -6010,8 +6019,11 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     ).as_str(), 0.5 + x + 40.0, 0.5 + GRID_Y2 + delta - 10.0).expect("canvas api call to work");
   }
 
+  let fuel_progress = if factory.maze_runner.maze_restart_at > 0 { (factory.ticks - factory.maze_runner.maze_restart_at) as f64 / maze_get_refuel_time(options) as f64 } else { 0.0 };
+
   // e = green
-  let filled = bar_width * ((1 + e/10).min(16) as f64);
+  let have = (e/10).min(16);
+  let filled = bar_width * (1 + have) as f64;
   let semi = if filled >= 16.0 * bar_width { 0.0 } else { (bar_width * ((e as f64 % 10.0) / 10.0)).floor() };
   context.set_fill_style(&"white".into());
   context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + delta, MAZE_WIDTH, 25.0);
@@ -6029,9 +6041,20 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 25.0);
     context.stroke();
   }
+  context.set_fill_style(&"#169d06".into());
+  context.set_stroke_style(&"black".into());
+  for i in 0..have {
+    let ox = 0.5 + x + bar_width + (bar_width * (i as f64)) + 4.0;
+    let oy = 0.5 + GRID_Y2 + delta + 8.0;
+    let cx = ox + (energy_x - ox) * fuel_progress;
+    let cy = oy + (energy_y - oy) * fuel_progress;
+    context.fill_rect(cx, cy, 10.0, 10.0);
+    context.stroke_rect(cx, cy, 10.0, 10.0);
+  }
 
   // s = orange
-  let filled = bar_width * ((1 + s/10).min(16) as f64);
+  let have = (s/10).min(16);
+  let filled = bar_width *(1 + have) as f64;
   let semi = if filled >= 16.0 * bar_width { 0.0 } else { (bar_width * ((s as f64 % 10.0) / 10.0)).floor() };
   context.set_fill_style(&"white".into());
   context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 32.0 + delta, MAZE_WIDTH, 25.0);
@@ -6049,9 +6072,20 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 32.0 + 25.0);
     context.stroke();
   }
+  context.set_fill_style(&"#a86007".into());
+  context.set_stroke_style(&"black".into());
+  for i in 0..have {
+    let ox = 0.5 + x + bar_width + (bar_width * (i as f64)) + 4.0;
+    let oy = 0.5 + GRID_Y2 + delta + 40.0;
+    let cx = ox + (speed_x - ox) * fuel_progress;
+    let cy = oy + (speed_y - oy) * fuel_progress;
+    context.fill_rect(cx, cy, 10.0, 10.0);
+    context.stroke_rect(cx, cy, 10.0, 10.0);
+  }
 
   // p = pink
-  let filled = bar_width * ((1 + p/10).min(16) as f64);
+  let have = (p/10).min(16);
+  let filled = bar_width *(1 + have) as f64;
   let semi = if filled >= 16.0 * bar_width { 0.0 } else { (bar_width * ((p as f64 % 10.0) / 10.0)).floor() };
   context.set_fill_style(&"white".into());
   context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 64.0 + delta, MAZE_WIDTH, 25.0);
@@ -6069,9 +6103,20 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 64.0 + 25.0);
     context.stroke();
   }
+  context.set_fill_style(&"#ef13bf".into());
+  context.set_stroke_style(&"black".into());
+  for i in 0..have {
+    let ox = 0.5 + x + bar_width + (bar_width * (i as f64)) + 4.0;
+    let oy = 0.5 + GRID_Y2 + delta + 72.0;
+    let cx = ox + (power_x - ox) * fuel_progress;
+    let cy = oy + (power_y - oy) * fuel_progress;
+    context.fill_rect(cx, cy, 10.0, 10.0);
+    context.stroke_rect(cx, cy, 10.0, 10.0);
+  }
 
   // v = purple
-  let filled = bar_width * ((1 + v/10).min(16) as f64);
+  let have = (p/10).min(16);
+  let filled = bar_width *(1 + have) as f64;
   let semi = if filled >= 16.0 * bar_width { 0.0 } else { (bar_width * ((v as f64 % 10.0) / 10.0)).floor() };
   context.set_fill_style(&"white".into());
   context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 96.0 + delta, MAZE_WIDTH, 25.0);
@@ -6088,6 +6133,16 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 96.0);
     context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 96.0 + 25.0);
     context.stroke();
+  }
+  context.set_fill_style(&"#360676".into());
+  context.set_stroke_style(&"black".into());
+  for i in 0..have {
+    let ox = 0.5 + x + bar_width + (bar_width * (i as f64)) + 4.0;
+    let oy = 0.5 + GRID_Y2 + delta + 104.0;
+    let cx = ox + (volume_x - ox) * fuel_progress;
+    let cy = oy + (volume_y - oy) * fuel_progress;
+    context.fill_rect(cx, cy, 10.0, 10.0);
+    context.stroke_rect(cx, cy, 10.0, 10.0);
   }
 }
 

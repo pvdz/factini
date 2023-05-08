@@ -243,6 +243,14 @@ pub fn create_maze_runner(x: usize, y: usize) -> MazeRunner {
   }
 }
 
+pub fn maze_get_finish_pause_time(options: &Options) -> u64 {
+  return (5.0 * ONE_SECOND as f64 * options.speed_modifier_floor) as u64;
+}
+
+pub fn maze_get_refuel_time(options: &Options) -> u64 {
+  return (2.0 * ONE_SECOND as f64 * options.speed_modifier_floor) as u64;
+}
+
 pub fn tick_maze(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
   if !options.enable_maze_runner { return; }
 
@@ -251,7 +259,7 @@ pub fn tick_maze(options: &Options, state: &State, config: &Config, factory: &mu
     let y = (GRID_Y1 + FLOOR_HEIGHT - MAZE_WIDTH).floor() + 0.5;
 
     if factory.maze_runner.maze_finish_at > 0 {
-      if factory.ticks - factory.maze_runner.maze_finish_at > (5.0 * ONE_SECOND as f64 * options.speed_modifier_floor) as u64 {
+      if factory.ticks - factory.maze_runner.maze_finish_at > maze_get_finish_pause_time(options) {
         log!("Maze runner finished 5 seconds ago. Fueling it now...");
         // A few seconds after the maze runner gets stuck or out of energy, start the
         // "refueling" animation that starts the next run.
@@ -262,7 +270,7 @@ pub fn tick_maze(options: &Options, state: &State, config: &Config, factory: &mu
     }
 
     if factory.maze_runner.maze_restart_at > 0 {
-      if factory.ticks - factory.maze_runner.maze_restart_at > (5.0 * ONE_SECOND as f64 * options.speed_modifier_floor) as u64 {
+      if factory.ticks - factory.maze_runner.maze_restart_at > maze_get_refuel_time(options) {
         log!("Maze runner finished refueling. Starting new run");
         // Start the next maze runner.
 
