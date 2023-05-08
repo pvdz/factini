@@ -45,7 +45,6 @@ Desc: Simple example story
   ===
 
     # Part_BucketGrey
-    - special: p 1
     - pattern: Part_BucketWhite Part_BucketBlack
     - file: ./img/parts/bucket_simple_grey.png
     - w: 32
@@ -73,6 +72,7 @@ Desc: Simple example story
     - h: 32
     
     # Part_BucketPink
+    - special: p 1
     - pattern: Part_BucketWhite Part_BucketRed
     - file: ./img/parts/bucket_simple_pink.png
     - w: 32
@@ -148,7 +148,6 @@ Desc: Simple example story
     - h: 32
     
     # Part_BucketGreyPlus
-    - special: p 2
     - pattern: Part_BucketBlackPlus Part_BucketWhitePlus
     - file: ./img/parts/bucket_simple_grey_plus.png
     - w: 32
@@ -169,6 +168,7 @@ Desc: Simple example story
     - h: 32
     
     # Part_BucketPinkPlus
+    - special: p 2
     - pattern: Part_BucketRedPlus Part_BucketWhitePlus
     - file: ./img/parts/bucket_simple_pink_plus.png
     - w: 32
@@ -216,7 +216,6 @@ Desc: Simple example story
   ===
 
     # Part_BucketGreyPlusPlus
-    - special: p 3
     - pattern: Part_BucketBlackPlusPlus Part_BucketWhitePlusPlus
     - file: ./img/parts/bucket_simple_grey_plusplus.png
     - w: 32
@@ -244,6 +243,7 @@ Desc: Simple example story
     - h: 32
     
     # Part_BucketPinkPlusPlus
+    - special: p 3
     - pattern: Part_BucketRedPlusPlus Part_BucketWhitePlusPlus
     - file: ./img/parts/bucket_simple_pink_plusplus.png
     - w: 32
