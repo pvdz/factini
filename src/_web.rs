@@ -37,6 +37,9 @@
 // - clicking on machine should cycle through available parts
 // - clicking on empty machine should select one of the parts it can create based on the history
 // - cars with new parts shouldn't jump. that's the whole point of the invisible placeholder. why does it still do that when unlocking pink and grey at the same time?
+// - for the prepared maze stats: show semi-trans progress bar of each color. when a block is full, paint it with less transparency.
+// - for the prepared maze stats: use fast fake belt to move the parts to the vehicle? one part per bar? balance accordingly? level 1=1, 2=10, 3=100, 4=1000 or whatever scale? on a log requirements scale?
+// - what does the maze runner ultimately find that allows you to move to the next level? (no plus, one plus, two plus)
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -5994,12 +5997,14 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
   let delta = -6.0;
 
   context.set_fill_style(&"black".into());
-  // context.fill_text(format!(
-  //   "{}  {}  {}  {} :: fin {} ref {}",
-  //   e, s, p ,w,
-  //   if factory.maze_runner.maze_finish_at > 0 { ((5.0 * ONE_SECOND as f64 * options.speed_modifier_floor) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_finish_at as i64)).max(0) } else { -1 },
-  //   if factory.maze_runner.maze_restart_at > 0 { ((5.0 * ONE_SECOND as f64 * options.speed_modifier_floor) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_restart_at as i64)).max(0) } else { -1 },
-  // ).as_str(), 0.5 + x + 40.0, 0.5 + GRID_Y2 + delta - 10.0).expect("canvas api call to work");
+  if options.print_maze_prepared_stats {
+    context.fill_text(format!(
+      "{}  {}  {}  {} :: fin {} ref {}",
+      e, s, p ,w,
+      if factory.maze_runner.maze_finish_at > 0 { ((5.0 * ONE_SECOND as f64 * options.speed_modifier_floor) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_finish_at as i64)).max(0) } else { -1 },
+      if factory.maze_runner.maze_restart_at > 0 { ((5.0 * ONE_SECOND as f64 * options.speed_modifier_floor) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_restart_at as i64)).max(0) } else { -1 },
+    ).as_str(), 0.5 + x + 40.0, 0.5 + GRID_Y2 + delta - 10.0).expect("canvas api call to work");
+  }
 
   context.set_fill_style(&"white".into());
   context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + delta, MAZE_WIDTH, 25.0);

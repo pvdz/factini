@@ -97,7 +97,8 @@ pub struct Options {
   pub bouncer_stop_after: f64, // On the scale of bouncer_formula_total_distance, how far into the formula do we end the bouncer? this would be ideally when the bouncer is inside the factory.
   pub bouncer_formula_total_distance: f64, // The bouncer follows a formula and this is the would-be total distance until it "stops bouncing", the bouncer_stop_after is a normalized point onto this value
 
-  pub enable_maze_runner: bool,
+  pub enable_maze_runner: bool, // Start the maze runner at all?
+  pub print_maze_prepared_stats: bool, // Show actual numbers of prepared maze stats?
 
   // obsolete
   pub bouncer_decay_speed: f64,
@@ -188,6 +189,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     bouncer_stop_after: 1200.0,
     bouncer_formula_total_distance: 650.0,
     enable_maze_runner: true,
+    print_maze_prepared_stats: false,
     splash_keep_loader: false,
     splash_no_loader: false,
     splash_keep_main: false,
@@ -367,6 +369,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "bouncer_stop_after" => options.bouncer_stop_after = parse_f64(value, name, strict, options.bouncer_stop_after, verbose),
             "bouncer_formula_total_distance" => options.bouncer_formula_total_distance = parse_f64(value, name, strict, options.bouncer_formula_total_distance, verbose),
             "enable_maze_runner" => options.enable_maze_runner = parse_bool(value, name, strict, options.enable_maze_runner, verbose),
+            "print_maze_prepared_stats" => options.print_maze_prepared_stats = parse_bool(value, name, strict, options.print_maze_prepared_stats, verbose),
             "splash_keep_loader" => options.splash_keep_loader = parse_bool(value, name, strict, options.splash_keep_loader, verbose),
             "splash_no_loader" => options.splash_no_loader = parse_bool(value, name, strict, options.splash_no_loader, verbose),
             "splash_keep_main" => options.splash_keep_main = parse_bool(value, name, strict, options.splash_keep_main, verbose),
@@ -464,6 +467,7 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- bouncer_stop_after: {}", options.bouncer_stop_after));
   arr.push(format!("- bouncer_formula_total_distance: {}", options.bouncer_formula_total_distance));
   arr.push(format!("- enable_maze_runner: {}", options.enable_maze_runner));
+  arr.push(format!("- print_maze_prepared_stats: {}", options.print_maze_prepared_stats));
   arr.push(format!("- bouncer_decay_speed: {}", options.bouncer_decay_speed));
   arr.push(format!("- splash_keep_loader: {}", options.splash_keep_loader));
   arr.push(format!("- splash_no_loader: {}", options.splash_no_loader));

@@ -27,8 +27,8 @@ const GAME_OPTIONS = `
 - trace_map_parsing: false
 - print_priority_tile_order: false
 - print_initial_table: false
-- draw_part_borders: false
 - show_drm: true
+- draw_part_borders: false
 - draw_part_char_icon: false
 - draw_part_kind: false
 - draw_port_arrows: false
@@ -61,6 +61,7 @@ const GAME_OPTIONS = `
 - bouncer_stop_after: 0.55
 - bouncer_formula_total_distance: 1200.0
 - enable_maze_runner: true
+- print_maze_prepared_stats: false
 - bouncer_decay_speed: 4.0
 - splash_keep_loader: false
 - splash_no_loader: false
