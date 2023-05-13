@@ -18,7 +18,6 @@
 // - belts
 //   - does snaking bother me when a belt should move all at once or not at all? should we change the algo? probably not that hard to move all connected cells between intersections/entry/exit points at once. if one moves, all move, etc.
 //   - a part that reaches 100% of a cell but can't be moved to the side should not block the next part from entering the cell until all ports are taken like that. the part can sit in the port and a belt can only take parts if it has an available port.
-// - make sun move across the day bar? in a sort of rainbow path?
 // - what's up with these assertion traps :(
 //   - `let (received_part_kind, received_count) = factory.floor[coord].demand.received[i];` threw oob (1 while len=0). i thin it's somehow related to dropping a demander on the edge
 // - hover over craftable offer should highlight craft-inputs (offers)
@@ -585,8 +584,6 @@ pub fn start() -> Result<(), JsValue> {
       is_dragging: false,
       is_drag_start: false,
 
-      over_day_bar: false,
-
       over_floor_area: false,
       over_floor_not_corner: false,
       down_floor_area: false,
@@ -939,12 +936,6 @@ pub fn start() -> Result<(), JsValue> {
             state.snapshot_stack[state.snapshot_pointer % UNDO_STACK_SIZE] = snap;
           }
 
-          factory.modified_at = factory.ticks;
-          if factory.last_day_start == 0 {
-            factory.last_day_start = factory.ticks;
-            factory.finished_at = 0;
-            factory.finished_with = 0;
-          }
           factory.changed = false;
           factory.accepted = 0;
           factory.produced = 0;
@@ -963,11 +954,6 @@ pub fn start() -> Result<(), JsValue> {
           let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
           local_storage.set_item("factini.lastMap", last_map).unwrap();
           log!("Stored last map to local storage ({} bytes)", last_map.len());
-
-          // This works but it's not nice. Maybe it should be an option :shrug:
-          if options.game_auto_reset_day {
-            day_reset(&mut options, &mut state, &config, &mut factory);
-          }
         }
 
         // Paint the world (we should not do input or world mutations after this point)
@@ -995,7 +981,6 @@ pub fn start() -> Result<(), JsValue> {
         paint_zone_hovers(&options, &state, &context, &mouse_state);
         // paint_top_stats(&context, &mut factory);
         paint_corner_help_icon(&options, &state, &config, &factory, &context, mouse_state.help_hover);
-        paint_top_bars(&options, &state, &mut factory, &context, &mouse_state);
         paint_quests(&options, &state, &config, &context, &factory, &mouse_state);
         let highlight_index = paint_offers(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
         paint_lasers(&options, &mut state, &config, &context);
@@ -1124,7 +1109,6 @@ fn update_mouse_state(
   mouse_state.over_quest = false;
   mouse_state.over_menu_button = MenuButton::None;
   mouse_state.help_hover = false;
-  mouse_state.over_day_bar = false;
   mouse_state.over_save_map = false;
   mouse_state.over_undo = false;
   mouse_state.over_trash = false;
@@ -1200,9 +1184,7 @@ fn update_mouse_state(
       mouse_state.over_save_map_index = button_index;
     }
     Zone::BottomBottomLeft => {}
-    ZONE_DAY_BAR => {
-      mouse_state.over_day_bar = bounds_check(mouse_state.world_x, mouse_state.world_y, UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_OFFSET_Y + UI_DAY_PROGRESS_HEIGHT);
-    }
+    Zone::Top => {}
     ZONE_FLOOR => {
       mouse_state.over_floor_area = true;
       mouse_state.over_floor_not_corner =
@@ -1342,7 +1324,7 @@ fn update_mouse_state(
         mouse_state.down_save_map_index = button_index;
       }
       Zone::BottomBottomLeft => {}
-      ZONE_DAY_BAR => {}
+      Zone::Top => {}
       ZONE_FLOOR => {
         mouse_state.down_floor_area = true;
         mouse_state.down_floor_not_corner =
@@ -1511,10 +1493,8 @@ fn update_mouse_state(
         mouse_state.up_save_map_index = button_index;
       }
       Zone::BottomBottomLeft => {}
-      ZONE_DAY_BAR => {
-      }
-      ZONE_FLOOR => {
-      }
+      Zone::Top => {}
+      ZONE_FLOOR => {}
       ZONE_MENU => {
         // Start with special buttons and then the generic menu button layout
         if hit_test_paint_toggle(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
@@ -1695,9 +1675,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
       }
     } else {
       match mouse_state.up_zone {
-        ZONE_DAY_BAR => {
-          on_up_top_bar(options, state, config, factory, mouse_state)
-        }
+        Zone::Top => {}
         ZONE_CRAFT => {
           on_up_craft(options, state, config, factory, cell_selection, mouse_state);
         }
@@ -2998,31 +2976,7 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
     }
   }
 }
-fn on_down_top_bar() {
 
-}
-fn on_up_top_bar(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
-  if !bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_OFFSET_Y + UI_DAY_PROGRESS_HEIGHT) {
-    log!("Up inside bar zone but not over the actual bar");
-    return;
-  }
-  if !bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_OFFSET_Y + UI_DAY_PROGRESS_HEIGHT) {
-    // Dragged onto this button but did not start on this button so ignore the up.
-    log!("Up on the bar but wasn't down on the bar");
-    return;
-  }
-  day_reset(options, state, config, factory);
-}
-fn day_reset(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
-  log!("Resetting day... any time now!");
-
-  unpart(options, state, config, factory, true);
-  factory_reset_stats(options, state, factory);
-  factory.last_day_start = factory.ticks;
-  factory.modified_at = 0;
-  factory.finished_at = 0;
-  factory.finished_with = 0;
-}
 fn on_down_craft_menu() {
 
 }
@@ -4941,67 +4895,14 @@ fn paint_zone_hovers(options: &Options, state: &State, context: &Rc<web_sys::Can
 fn paint_top_stats(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory) {
   context.set_fill_style(&"black".into());
   context.fill_text(format!("Ticks: {}, Supplied: {}, Produced: {}, Received: {}, Trashed: {}", factory.ticks, factory.supplied, factory.produced, factory.accepted, factory.trashed).as_str(), 20.0, 20.0).expect("to paint");
-  context.fill_text(format!("Current time: {}, day start: {}, modified at: {}", factory.ticks, factory.last_day_start, factory.modified_at).as_str(), 20.0, 40.0).expect("to paint");
+  context.fill_text(format!("Current time: {}", factory.ticks).as_str(), 20.0, 40.0).expect("to paint");
 }
 fn paint_corner_help_icon(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, hovering: bool) {
   paint_asset(options, state, config, context, if hovering { CONFIG_NODE_ASSET_HELP_RED } else { CONFIG_NODE_ASSET_HELP_BLACK }, factory.ticks,
     UI_HELP_X, UI_HELP_Y, UI_HELP_WIDTH, UI_HELP_HEIGHT
   );
 }
-fn paint_top_bars(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  let hovering = mouse_state.over_zone == ZONE_DAY_BAR && !mouse_state.is_down && !mouse_state.is_up && mouse_state.over_day_bar;
-  let corrupted = factory.day_corrupted;
-  let invalid = factory.finished_at == 0 && factory.modified_at > factory.last_day_start && factory.modified_at < factory.last_day_start + ONE_MS * 1000 * 60 * 60;
-  let day_ticks = ONE_MS * 1000 * 60; // one day a minute (arbitrary)
 
-  if hovering {
-    context.set_fill_style(&"white".into()); // 100% background
-  } else {
-    context.set_fill_style(&"grey".into()); // 100% background
-  }
-  context.fill_rect(UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_HEIGHT);
-  if corrupted {
-    context.set_fill_style(&"tomato".into()); // progress green
-  } else {
-    context.set_fill_style(&"lightgreen".into()); // progress green
-  }
-  context.fill_rect(UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_WIDTH * factory.curr_day_progress.min(1.0), UI_DAY_PROGRESS_HEIGHT);
-
-  if hovering {
-    context.set_stroke_style(&"red".into());
-  } else {
-    context.set_stroke_style(&"black".into());
-  }
-  context.stroke_rect(UI_DAY_PROGRESS_OFFSET_X, UI_DAY_PROGRESS_OFFSET_Y, UI_DAY_PROGRESS_WIDTH, UI_DAY_PROGRESS_HEIGHT);
-
-  if !options.game_enable_clean_days {
-    context.set_font(&"18px monospace");
-    context.set_fill_style(&"black".into());
-    context.fill_text("(Clean days not enabled, do whatever)", UI_DAY_PROGRESS_OFFSET_X + 37.0, UI_DAY_PROGRESS_OFFSET_Y + 22.0).expect("oopsie fill_text"); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
-  }
-  else if invalid {
-    context.set_font(&"18px monospace");
-    context.set_fill_style(&"black".into());
-    context.fill_text("Change detected! Click to restart day", UI_DAY_PROGRESS_OFFSET_X + 37.0, UI_DAY_PROGRESS_OFFSET_Y + 22.0).expect("oopsie fill_text"); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
-  }
-  else if corrupted {
-    context.set_font(&"18px monospace");
-    context.set_fill_style(&"black".into());
-    context.fill_text("Factory corrupted by trash", UI_DAY_PROGRESS_OFFSET_X + 130.0, UI_DAY_PROGRESS_OFFSET_Y + 22.0).expect("oopsie fill_text"); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
-  }
-  else if factory.finished_at > 0 {
-    context.set_font(&"18px monospace");
-    context.set_fill_style(&"black".into());
-    context.fill_text("Click to restart day", UI_DAY_PROGRESS_OFFSET_X + 150.0, UI_DAY_PROGRESS_OFFSET_Y + 22.0).expect("oopsie fill_text"); // Note: this won't scale with the floor size. But this should be a clipart or svg, anyways, which will scale.
-  }
-
-  context.set_font(&"30px monospace");
-  context.set_fill_style(&"black".into());
-  context.fill_text("🌄", UI_DAY_BAR_OFFSET_X, UI_DAY_BAR_OFFSET_Y + 26.0).expect("oopsie fill_text");
-  context.fill_text("🎑", UI_DAY_PROGRESS_OFFSET_X + UI_DAY_PROGRESS_WIDTH + 5.0, UI_DAY_PROGRESS_OFFSET_Y + 26.0).expect("oopsie fill_text");
-
-  context.set_font(&"12px monospace");
-}
 fn paint_quests(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState) {
   let mut visible_index = 0;
 

@@ -44,8 +44,6 @@ const GAME_OPTIONS = `
 - speed_modifier_floor: 0.4
 - speed_modifier_ui: 0.2
 - touch_drag_compensation: false
-- game_enable_clean_days: false
-- game_auto_reset_day: false
 - dropzone_color_offset: 75
 - dropzone_bounce_speed: 8
 - dropzone_bounce_distance: 150

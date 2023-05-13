@@ -77,9 +77,6 @@ pub struct Options {
   pub speed_modifier_ui: f64, // Same as speed_modifier_floor but for rest of the UI (buttons, bouncers, trucks, dropzone pulse, etc)
   pub touch_drag_compensation: bool, // Show the mouse pointer 50x50 away from the actual pointer? helpful for dragging on touch screen but can be annoying
 
-  pub game_enable_clean_days: bool, // Require to achieve quests from a clean day start rather than in any way
-  pub game_auto_reset_day: bool, // Immediately reset day (and clear parts) upon factory change? I find it annoying but maybe you don't?
-
   // Dropzone hint for offers
   pub dropzone_color_offset: u64, // In a 255 color range, what's the "zero" bounce value?
   pub dropzone_bounce_speed: u64, // The rgb color value will "bounce" up and down
@@ -172,8 +169,6 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     speed_modifier_floor,
     speed_modifier_ui,
     touch_drag_compensation: false,
-    game_enable_clean_days: false,
-    game_auto_reset_day: false,
     dropzone_color_offset: 75,
     dropzone_bounce_speed: 10,
     dropzone_bounce_distance: 150,
@@ -375,8 +370,6 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "splash_keep_main" => options.splash_keep_main = parse_bool(value, name, strict, options.splash_keep_main, verbose),
             "splash_no_main" => options.splash_no_main = parse_bool(value, name, strict, options.splash_no_main, verbose),
             "touch_drag_compensation" => options.touch_drag_compensation = parse_bool(value, name, strict, options.touch_drag_compensation, verbose),
-            "game_enable_clean_days" => options.game_enable_clean_days = parse_bool(value, name, strict, options.game_enable_clean_days, verbose),
-            "game_auto_reset_day" => options.game_auto_reset_day = parse_bool(value, name, strict, options.game_auto_reset_day, verbose),
             "dropzone_color_offset" => options.dropzone_color_offset = parse_u64(value, name, strict, options.dropzone_color_offset, verbose),
             "dropzone_bounce_speed" => options.dropzone_bounce_speed = parse_u64(value, name, strict, options.dropzone_bounce_speed, verbose),
             "dropzone_bounce_distance" => options.dropzone_bounce_distance = parse_u64(value, name, strict, options.dropzone_bounce_distance, verbose),
@@ -450,8 +443,6 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- speed_modifier_floor: {}", options.speed_modifier_floor));
   arr.push(format!("- speed_modifier_ui: {}", options.speed_modifier_ui));
   arr.push(format!("- touch_drag_compensation: {}", options.touch_drag_compensation));
-  arr.push(format!("- game_enable_clean_days: {}", options.game_enable_clean_days));
-  arr.push(format!("- game_auto_reset_day: {}", options.game_auto_reset_day));
   arr.push(format!("- dropzone_color_offset: {}", options.dropzone_color_offset));
   arr.push(format!("- dropzone_bounce_speed: {}", options.dropzone_bounce_speed));
   arr.push(format!("- dropzone_bounce_distance: {}", options.dropzone_bounce_distance));

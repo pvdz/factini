@@ -75,7 +75,6 @@ pub const UI_UNREDO_REDO_OFFSET_Y: f64 = UI_UNREDO_OFFSET_Y;
 pub const UI_UNREDO_REDO_WIDTH: f64 = 60.0;
 pub const UI_UNREDO_REDO_HEIGHT: f64 = 60.0;
 
-// Top menu has the Day progress bar (and whatever). Starts next to achievement menu and goes above the Floor.
 pub const UI_TOP_OFFSET_X: f64 = GRID_X1;
 pub const UI_TOP_OFFSET_Y: f64 = GRID_Y0;
 pub const UI_TOP_WIDTH: f64 = UI_FLOOR_WIDTH;
@@ -85,14 +84,6 @@ pub const UI_HELP_X: f64 = GRID_X0 + 40.0;
 pub const UI_HELP_Y: f64 = GRID_Y0 + 8.0;
 pub const UI_HELP_WIDTH: f64 = 50.0;
 pub const UI_HELP_HEIGHT: f64 = 40.0;
-
-pub const UI_DAY_BAR_ICON_WIDTH: f64 = 30.0;
-pub const UI_DAY_BAR_OFFSET_X: f64 = UI_TOP_OFFSET_X;
-pub const UI_DAY_BAR_OFFSET_Y: f64 = UI_TOP_OFFSET_Y + 10.0;
-pub const UI_DAY_PROGRESS_OFFSET_X: f64 = UI_DAY_BAR_OFFSET_X + UI_DAY_BAR_ICON_WIDTH + 5.0;
-pub const UI_DAY_PROGRESS_OFFSET_Y: f64 = UI_DAY_BAR_OFFSET_Y;
-pub const UI_DAY_PROGRESS_WIDTH: f64 = UI_TOP_WIDTH - (UI_DAY_BAR_ICON_WIDTH + 5.0 + 5.0 + UI_DAY_BAR_ICON_WIDTH);
-pub const UI_DAY_PROGRESS_HEIGHT: f64 = 30.0;
 
 pub const UI_SAVE_OFFSET_X: f64 = 5.0;
 pub const UI_SAVE_OFFSET_Y: f64 = 8.0;
@@ -195,7 +186,6 @@ pub const ZONE_HELP: Zone = Zone::TopLeft;
 pub const ZONE_QUOTES: Zone = Zone::Left;
 pub const ZONE_SAVE_MAP: Zone = Zone::BottomLeft;
 pub const ZONE_BOTTOM_BOTTOM_LEFT: Zone = Zone::BottomBottomLeft;
-pub const ZONE_DAY_BAR: Zone = Zone::Top;
 pub const ZONE_FLOOR: Zone = Zone::Middle;
 pub const ZONE_MENU: Zone = Zone::Bottom;
 pub const ZONE_BOTTOM_BOTTOM: Zone = Zone::BottomBottom;
@@ -235,8 +225,8 @@ pub fn coord_to_zone(options: &Options, state: &State, config: &Config, x: f64, 
   }
   else if x >= GRID_X1 && x < GRID_X1 + UI_FLOOR_WIDTH {
     return if y >= GRID_Y0 && y < GRID_Y0 + GRID_TOP_HEIGHT {
-      // top, day bar
-      ZONE_DAY_BAR
+      // top
+      Zone::Top
     } else if y >= GRID_Y1 && y < GRID_Y1 + UI_FLOOR_HEIGHT {
       // middle, the floor
       ZONE_FLOOR

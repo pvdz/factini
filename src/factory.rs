@@ -38,11 +38,6 @@ pub struct Factory {
 
   pub changed: bool, // Was any part of the factory changed since last tick? Resets counters and (p)recomputes tracks.
 
-  pub last_day_start: u64, // 1 Day is a minute worth of ticks; ONE_MS*1000*60 ticks, no matter the speed or frame rate
-  pub modified_at: u64, // Track last time the factory was user manipulated. Any changes or part removal count. Score is mulled if this happens during the day.
-  pub curr_day_progress: f64,
-  pub finished_at: u64, // Do not set for invalid scores. If at any point before the end of day the targets have been fulfilled, set this value so it sticks at it in the UI. Zero value is ignored.
-  pub finished_with: u64, // Do not set for invalid scores. If at the end of day the targets have not been fulfilled, set this value to the % of progress where it failed so it sticks in the UI. Zero value is ignored.
   pub machines: Vec<usize>, // List of main_coord for all machines, actively maintained
 
   pub supplied: u64,
@@ -54,8 +49,6 @@ pub struct Factory {
   pub quests: Vec<QuestState>,
   pub quest_updated: bool,
   pub parts_in_transit: Vec<(PartKind, f64, f64, u8)>,
-
-  pub day_corrupted: bool, // Used trash as jokers to create parts in machines?
 
   // mouse xy, offer xy, tick start, tick duration
   pub edge_hint: (PartKind, (f64, f64), (f64, f64), u64, u64),
@@ -113,11 +106,6 @@ pub fn create_factory(options: &Options, state: &mut State, config: &Config, flo
     prio: vec!(),
     available_parts_rhs_menu,
     changed: true,
-    last_day_start: 0,
-    modified_at: 0,
-    curr_day_progress: 0.0,
-    finished_at: 0,
-    finished_with: 0,
     machines: vec!(),
     supplied: 0,
     produced: 0,
@@ -125,7 +113,6 @@ pub fn create_factory(options: &Options, state: &mut State, config: &Config, flo
     trashed: 0,
     trucks: vec!(),
     parts_in_transit: vec!(),
-    day_corrupted: false,
     edge_hint: (CONFIG_NODE_PART_NONE, (0.0, 0.0), (0.0, 0.0), 0, 0),
     quests,
     quest_updated: true,
@@ -359,18 +346,7 @@ pub fn tick_factory(options: &mut Options, state: &mut State, config: &Config, f
     factory.parts_in_transit = factory.parts_in_transit.iter().filter(|t| t.3 != END).map(|t| *t).collect::<Vec<(PartKind, f64, f64, u8)>>();
   }
 
-  if factory.finished_at == 0 {
-    let day_ticks = ONE_MS * 1000 * 60; // one day a minute (arbitrary)
-    let day_progress = (factory.ticks - factory.last_day_start) as f64 / (day_ticks as f64);
-    factory.curr_day_progress = day_progress;
-
-    factory_collect_stats(config, options, state, factory);
-
-    if options.game_enable_clean_days && factory.finished_at <= 0 && day_progress >= 1.0 {
-      factory.finished_at = factory.ticks;
-      // factory.finished_with = target_progress as u64 * 100; // Store whole percentage of progress
-    }
-  }
+  factory_collect_stats(config, options, state, factory);
 
   factory_tick_bouncers(options, state, config, factory);
   factory_tick_trucks(options, state, config, factory);
@@ -447,32 +423,6 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
   factory.produced = total_parts_produced;
   factory.accepted = total_parts_accepted;
   factory.trashed = total_parts_trashed;
-}
-
-pub fn factory_reset_stats(options: &mut Options, state: &mut State, factory: &mut Factory) {
-  for coord in 0..factory.floor.len() {
-    match factory.floor[coord].kind {
-      CellKind::Empty => {} // Ignore empty cells here
-      CellKind::Supply => {
-        factory.floor[coord].supply.supplied = 0;
-      }
-      CellKind::Machine => {
-        factory.floor[coord].machine.produced = 0;
-        factory.floor[coord].machine.trashed = 0;
-      }
-      CellKind::Belt => {} // Ignore
-      CellKind::Demand => {
-        factory.floor[coord].demand.received = vec!();
-      }
-    }
-  }
-
-  factory.supplied = 0;
-  factory.produced = 0;
-  factory.accepted = 0;
-  factory.trashed = 0;
-
-  factory.quests.iter_mut().for_each(|quest| if quest.status == QuestStatus::Active { quest.production_progress = 0; });
 }
 
 pub fn factory_load_map(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, floor_str: String) {

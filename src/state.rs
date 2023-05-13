@@ -90,8 +90,6 @@ pub struct MouseState {
 
   // TODO: change the hover/down state/location to an enum rather than individual down states for each part of the UI
 
-  pub over_day_bar: bool,
-
   pub over_floor_area: bool,
   pub over_floor_not_corner: bool, // Over the floor but not any of the corner cells
   pub down_floor_area: bool,
