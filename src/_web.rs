@@ -985,6 +985,7 @@ pub fn start() -> Result<(), JsValue> {
         let highlight_index = paint_offers(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
         paint_lasers(&options, &mut state, &config, &context);
         paint_trucks(&options, &state, &config, &context, &mut factory);
+        paint_ui_time_control(&options, &state, &context, &mouse_state);
         paint_bottom_menu(&options, &state, &config, &factory, &context, &button_canvii, &mouse_state);
         paint_floor_round_way(&options, &state, &config, &factory, &context);
         paint_background_tiles1(&options, &state, &config, &factory, &context);
@@ -1184,7 +1185,14 @@ fn update_mouse_state(
       mouse_state.over_save_map_index = button_index;
     }
     Zone::BottomBottomLeft => {}
-    Zone::Top => {}
+    Zone::Top => {
+      let ( menu_button, button_row ) = hit_test_menu_speed_buttons(mouse_state.world_x, mouse_state.world_y);
+      if menu_button != MenuButton::None {
+        // time controls, first, second row of menu buttons
+        mouse_state.over_menu_row = button_row;
+        mouse_state.over_menu_button = menu_button;
+      }
+    }
     ZONE_FLOOR => {
       mouse_state.over_floor_area = true;
       mouse_state.over_floor_not_corner =
@@ -1324,7 +1332,15 @@ fn update_mouse_state(
         mouse_state.down_save_map_index = button_index;
       }
       Zone::BottomBottomLeft => {}
-      Zone::Top => {}
+      Zone::Top => {
+        let ( menu_button, button_row ) = hit_test_menu_speed_buttons(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
+        if menu_button != MenuButton::None {
+          // time controls, first, second row of menu buttons
+          mouse_state.down_menu_row = button_row;
+          mouse_state.down_menu_button = menu_button;
+        }
+        log!("Top menu button down: {:?} {:?}", mouse_state.down_menu_row, mouse_state.down_menu_button);
+      }
       ZONE_FLOOR => {
         mouse_state.down_floor_area = true;
         mouse_state.down_floor_not_corner =
@@ -1359,8 +1375,7 @@ fn update_mouse_state(
           // the big machine button
           mouse_state.down_menu_row = MenuRow::None;
           mouse_state.down_menu_button = MenuButton::Machine3x3Button;
-        }
-        else {
+        } else {
           let ( menu_button, button_row ) = hit_test_menu_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
           if menu_button != MenuButton::None {
             // time controls, first, second row of menu buttons
@@ -1368,6 +1383,7 @@ fn update_mouse_state(
             mouse_state.down_menu_button = menu_button;
           }
         }
+        log!("Bottom menu button down: {:?} {:?}", mouse_state.down_menu_row, mouse_state.down_menu_button);
       }
       Zone::BottomBottom => {}
       Zone::TopRight => {}
@@ -1493,7 +1509,15 @@ fn update_mouse_state(
         mouse_state.up_save_map_index = button_index;
       }
       Zone::BottomBottomLeft => {}
-      Zone::Top => {}
+      Zone::Top => {
+        let ( menu_button, button_row ) = hit_test_menu_speed_buttons(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
+        if menu_button != MenuButton::None {
+          // time controls, first, second row of menu buttons
+          mouse_state.up_menu_button = menu_button;
+          mouse_state.up_menu_row = button_row;
+        }
+        log!("Top menu button up: {:?} {:?}", mouse_state.up_menu_row, mouse_state.up_menu_button);
+      }
       ZONE_FLOOR => {}
       ZONE_MENU => {
         // Start with special buttons and then the generic menu button layout
@@ -1530,11 +1554,11 @@ fn update_mouse_state(
             mouse_state.up_menu_row = button_row;
           }
         }
+        log!("Bottom menu button up: {:?} {:?}", mouse_state.up_menu_row, mouse_state.up_menu_button);
       }
       Zone::BottomBottom => {}
       Zone::TopRight => {}
-      ZONE_OFFERS => {
-      }
+      ZONE_OFFERS => {}
       Zone::BottomRight => {}
       Zone::BottomBottomRight => {}
       Zone::Margin => {}
@@ -1675,7 +1699,9 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
       }
     } else {
       match mouse_state.up_zone {
-        Zone::Top => {}
+        Zone::Top => {
+          on_up_menu(cell_selection, mouse_state, options, state, config, factory);
+        }
         ZONE_CRAFT => {
           on_up_craft(options, state, config, factory, cell_selection, mouse_state);
         }
@@ -3043,6 +3069,31 @@ fn on_up_selecting(options: &mut Options, state: &mut State, config: &Config, fa
   }
 }
 
+fn hit_test_menu_speed_buttons(x: f64, y: f64) -> (MenuButton, MenuRow) {
+  if bounds_check(
+    x, y,
+    UI_SPEED_BUBBLE_OFFSET_X,
+    UI_SPEED_BUBBLE_OFFSET_Y,
+    UI_SPEED_BUBBLE_OFFSET_X + 5.0 * (2.0 * UI_SPEED_BUBBLE_RADIUS) + 4.0 * UI_SPEED_BUBBLE_SPACING,
+    UI_SPEED_BUBBLE_OFFSET_Y + (2.0 * UI_SPEED_BUBBLE_RADIUS)
+  ) {
+    if hit_check_speed_bubble_x(x, y, 0) {
+      ( MenuButton::Row1ButtonMin, MenuRow::First )
+    } else if hit_check_speed_bubble_x(x, y, 1) {
+      ( MenuButton::Row1ButtonHalf, MenuRow::First )
+    } else if hit_check_speed_bubble_x(x, y, 2) {
+      ( MenuButton::Row1ButtonPlay, MenuRow::First )
+    } else if hit_check_speed_bubble_x(x, y, 3) {
+      ( MenuButton::Row1Button2x, MenuRow::First )
+    } else if hit_check_speed_bubble_x(x, y, 4) {
+      ( MenuButton::Row1ButtonPlus, MenuRow::First )
+    } else {
+      ( MenuButton::None, MenuRow::None )
+    }
+  } else {
+    ( MenuButton::None, MenuRow::None )
+  }
+}
 fn hit_test_menu_button(x: f64, y: f64) -> (MenuButton, MenuRow) {
   // The menu is three rows of buttons. The top row has circular buttons, the bottom two are rects.
 
@@ -3082,28 +3133,6 @@ fn hit_test_menu_button(x: f64, y: f64) -> (MenuButton, MenuRow) {
       };
 
       ( button, MenuRow::Third )
-    } else {
-      ( MenuButton::None, MenuRow::None )
-    }
-  }
-  // Any of the speed bubbles? (most expensive to check)
-  else if bounds_check(
-    x, y,
-    UI_SPEED_BUBBLE_OFFSET_X,
-    UI_SPEED_BUBBLE_OFFSET_Y,
-    UI_SPEED_BUBBLE_OFFSET_X + 5.0 * (2.0 * UI_SPEED_BUBBLE_RADIUS) + 4.0 * UI_SPEED_BUBBLE_SPACING,
-    UI_SPEED_BUBBLE_OFFSET_Y + (2.0 * UI_SPEED_BUBBLE_RADIUS)
-  ) {
-    if hit_check_speed_bubble_x(x, y, 0) {
-      ( MenuButton::Row1ButtonMin, MenuRow::First )
-    } else if hit_check_speed_bubble_x(x, y, 1) {
-      ( MenuButton::Row1ButtonHalf, MenuRow::First )
-    } else if hit_check_speed_bubble_x(x, y, 2) {
-      ( MenuButton::Row1ButtonPlay, MenuRow::First )
-    } else if hit_check_speed_bubble_x(x, y, 3) {
-      ( MenuButton::Row1Button2x, MenuRow::First )
-    } else if hit_check_speed_bubble_x(x, y, 4) {
-      ( MenuButton::Row1ButtonPlus, MenuRow::First )
     } else {
       ( MenuButton::None, MenuRow::None )
     }
@@ -5395,7 +5424,6 @@ fn paint_green_pixel(context: &Rc<web_sys::CanvasRenderingContext2d>, progress: 
 }
 fn paint_bottom_menu(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
   // Note: Machine button is painted elsewhere due to bouncer z-index priority
-  paint_ui_time_control(options, state, context, mouse_state);
   paint_paint_toggle(options, state, config, context, button_canvii, mouse_state);
   paint_ui_buttons(options, state, context, mouse_state);
   paint_ui_buttons2(options, state, context, mouse_state);
