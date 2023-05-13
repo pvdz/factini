@@ -43,7 +43,11 @@
 // - paint belts lighter
 // - something's off with the pause and refuel delay of the maze. something related to speed.
 // - collected parts after refueling starts should be hidden until refueling finishes. it currently adds a cube even when in flight.
-
+// - finished quests restart on load. all of them.
+// - automatically place machine, suppliers, connect them, and connect output to demander
+// - copy paste should copy machines too? why not
+// - experiment with bigger maps and scrolling
+// - collected stuff is only cleared if a cell is completed. fractions are kept etc.
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
