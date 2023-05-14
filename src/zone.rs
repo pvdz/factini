@@ -47,7 +47,7 @@ pub const UI_FLOOR_HEIGHT: f64 = FLOOR_PATH_SPACING + FLOOR_HEIGHT + FLOOR_PATH_
 
 // Achievements on the left
 pub const UI_QUOTES_OFFSET_X: f64 = GRID_X0;
-pub const UI_QUOTES_OFFSET_Y: f64 = GRID_Y1;
+pub const UI_QUOTES_OFFSET_Y: f64 = UI_FLOOR_OFFSET_Y;
 pub const UI_QUOTES_WIDTH: f64 = GRID_LEFT_WIDTH;
 pub const UI_QUOTES_HEIGHT: f64 = UI_FLOOR_HEIGHT;
 pub const UI_QUOTE_X: f64 = 15.0;
@@ -160,7 +160,7 @@ pub const UI_DEBUG_CELL_MARGIN: f64 = 5.0;
 pub const UI_DEBUG_CELL_FONT_HEIGHT: f64 = 16.0; // at 12px + bottom spacing
 
 pub const UI_OFFERS_OFFSET_X: f64 = GRID_X2 + 10.0;
-pub const UI_OFFERS_OFFSET_Y: f64 = GRID_Y1;
+pub const UI_OFFERS_OFFSET_Y: f64 = UI_FLOOR_OFFSET_Y;
 pub const UI_OFFER_WIDTH: f64 = 50.0;
 pub const UI_OFFER_HEIGHT: f64 = 50.0;
 pub const UI_OFFER_WIDTH_PLUS_MARGIN: f64 = UI_OFFER_WIDTH + 10.0;

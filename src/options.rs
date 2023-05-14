@@ -118,6 +118,10 @@ pub struct Options {
   pub default_demand_speed: u64,
   pub default_demand_cooldown: u64,
 
+  pub enable_quick_save_menu: bool,
+  pub enable_maze: bool,
+  pub enable_speed_menu: bool,
+
   pub test: u64, // just a temporary flag
 }
 
@@ -199,6 +203,9 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     dbg_print_quest_states: false,
     default_demand_speed: 1000,
     default_demand_cooldown: 500,
+    enable_quick_save_menu: true,
+    enable_maze: true,
+    enable_speed_menu: true,
     test: 0,
   };
 }
@@ -382,6 +389,9 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "dbg_print_quest_states" => options.dbg_print_quest_states = parse_bool(value, name, strict, options.dbg_print_quest_states, verbose),
             "default_demand_speed" => options.default_demand_speed = parse_u64(value, name, strict, options.default_demand_speed, verbose),
             "default_demand_cooldown" => options.default_demand_cooldown = parse_u64(value, name, strict, options.default_demand_cooldown, verbose),
+            "enable_quick_save_menu" => options.enable_quick_save_menu = parse_bool(value, name, strict, options.enable_quick_save_menu, verbose),
+            "enable_maze" => options.enable_maze = parse_bool(value, name, strict, options.enable_maze, verbose),
+            "enable_speed_menu" => options.enable_speed_menu = parse_bool(value, name, strict, options.enable_speed_menu, verbose),
             "test" => options.test = parse_u64(value, name, strict, options.test, verbose),
             _ => {
               log!("  - ignoring `{}` because it is an unknown option or because it needs to be added to the options parser", name);
@@ -473,6 +483,9 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- dbg_print_quest_states: {}", options.dbg_print_quest_states));
   arr.push(format!("- default_demand_speed: {}", options.default_demand_speed));
   arr.push(format!("- default_demand_cooldown: {}", options.default_demand_cooldown));
+  arr.push(format!("- enable_quick_save_menu: {}", options.enable_quick_save_menu));
+  arr.push(format!("- enable_maze: {}", options.enable_maze));
+  arr.push(format!("- enable_speed_menu: {}", options.enable_speed_menu));
   arr.push(format!("- test: {}", options.test));
   return arr.join("\n");
 }

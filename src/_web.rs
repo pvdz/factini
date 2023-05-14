@@ -1179,18 +1179,22 @@ fn update_mouse_state(
       }
     }
     ZONE_SAVE_MAP => {
-      let button_index = hit_test_save_map(mouse_state.world_x, mouse_state.world_y);
-      if button_index == 100 { return; } // Not up on a button
-      mouse_state.over_save_map = true;
-      mouse_state.over_save_map_index = button_index;
+      if options.enable_quick_save_menu {
+        let button_index = hit_test_save_map_button_index(mouse_state.world_x, mouse_state.world_y);
+        if button_index == 100 { return; } // Not up on a button
+        mouse_state.over_save_map = true;
+        mouse_state.over_save_map_index = button_index;
+      }
     }
     Zone::BottomBottomLeft => {}
     Zone::Top => {
-      let ( menu_button, button_row ) = hit_test_menu_speed_buttons(mouse_state.world_x, mouse_state.world_y);
-      if menu_button != MenuButton::None {
-        // time controls, first, second row of menu buttons
-        mouse_state.over_menu_row = button_row;
-        mouse_state.over_menu_button = menu_button;
+      if options.enable_speed_menu {
+        let ( menu_button, button_row ) = hit_test_menu_speed_buttons(mouse_state.world_x, mouse_state.world_y);
+        if menu_button != MenuButton::None {
+          // time controls, first, second row of menu buttons
+          mouse_state.over_menu_row = button_row;
+          mouse_state.over_menu_button = menu_button;
+        }
       }
     }
     ZONE_FLOOR => {
@@ -1326,18 +1330,26 @@ fn update_mouse_state(
         }
       }
       ZONE_SAVE_MAP => {
-        let button_index = hit_test_save_map(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
-        if button_index == 100 { return; } // Not up on a button
-        mouse_state.down_save_map = true;
-        mouse_state.down_save_map_index = button_index;
+        if options.enable_quick_save_menu {
+          let button_index = hit_test_save_map_button_index(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
+          if button_index == 100 { return; } // Not up on a button
+          mouse_state.down_save_map = true;
+          mouse_state.down_save_map_index = button_index;
+        } else {
+          log!("Ignoring map save down");
+        }
       }
       Zone::BottomBottomLeft => {}
       Zone::Top => {
-        let ( menu_button, button_row ) = hit_test_menu_speed_buttons(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
-        if menu_button != MenuButton::None {
-          // time controls, first, second row of menu buttons
-          mouse_state.down_menu_row = button_row;
-          mouse_state.down_menu_button = menu_button;
+        if options.enable_speed_menu {
+          let ( menu_button, button_row ) = hit_test_menu_speed_buttons(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
+          if menu_button != MenuButton::None {
+            // time controls, first, second row of menu buttons
+            mouse_state.down_menu_row = button_row;
+            mouse_state.down_menu_button = menu_button;
+          }
+        } else {
+          log!("Speed menu disabled, ignoring down");
         }
         log!("Top menu button down: {:?} {:?}", mouse_state.down_menu_row, mouse_state.down_menu_button);
       }
@@ -1503,18 +1515,26 @@ fn update_mouse_state(
         }
       }
       ZONE_SAVE_MAP => {
-        let button_index = hit_test_save_map(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
-        if button_index == 100 { return; } // Not up on a button
-        mouse_state.up_save_map = true;
-        mouse_state.up_save_map_index = button_index;
+        if options.enable_quick_save_menu {
+          let button_index = hit_test_save_map_button_index(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
+          if button_index == 100 { return; } // Not up on a button
+          mouse_state.up_save_map = true;
+          mouse_state.up_save_map_index = button_index;
+        } else {
+          log!("Ignoring map save up");
+        }
       }
       Zone::BottomBottomLeft => {}
       Zone::Top => {
-        let ( menu_button, button_row ) = hit_test_menu_speed_buttons(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
-        if menu_button != MenuButton::None {
-          // time controls, first, second row of menu buttons
-          mouse_state.up_menu_button = menu_button;
-          mouse_state.up_menu_row = button_row;
+        if options.enable_speed_menu {
+          let ( menu_button, button_row ) = hit_test_menu_speed_buttons(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
+          if menu_button != MenuButton::None {
+            // time controls, first, second row of menu buttons
+            mouse_state.up_menu_button = menu_button;
+            mouse_state.up_menu_row = button_row;
+          }
+        } else {
+          log!("Speed menu disabled, ignoring up");
         }
         log!("Top menu button up: {:?} {:?}", mouse_state.up_menu_row, mouse_state.up_menu_button);
       }
@@ -2093,9 +2113,9 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
       3 => (1.0, 1.0),
       _ => panic!("no such button: {}", mouse_state.up_save_map_index),
     };
-    let button_x = hit_test_save_map_right(mouse_state.world_x, mouse_state.world_y, row, col);
+    let pressed_delete_area = hit_test_save_map_delete_part(mouse_state.world_x, mouse_state.world_y, row, col);
 
-    if button_x {
+    if pressed_delete_area {
       log!("  deleting saved map");
       quick_saves[mouse_state.up_save_map_index] = None;
       let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
@@ -3569,6 +3589,9 @@ fn paint_floor_round_way(
   context: &Rc<web_sys::CanvasRenderingContext2d>,
 ) {
   // Paint a track around the floor. It will be smaller than the track on the floor.
+  if !options.enable_maze {
+    return;
+  }
 
   // The way-belt size is deliberately half of the floor-cell. This way we can predictably stack
   // the way-belt around the floor and start at arbitrary offsets with little computational overhead.
@@ -5542,12 +5565,14 @@ fn paint_ui_button2(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state
   context.fill_text(text, x + 5.0, y + 14.0).expect("to paint");
 }
 fn paint_ui_time_control(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  // paint_buttons
-  paint_ui_speed_bubble(MenuButton::Row1ButtonMin, options, state, context, mouse_state, 0, "-");
-  paint_ui_speed_bubble(MenuButton::Row1ButtonHalf, options, state, context, mouse_state, 1, "½");
-  paint_ui_speed_bubble(MenuButton::Row1ButtonPlay, options, state, context, mouse_state, 2, "⏭"); // "play" / "pause" / Row1ButtonPlay
-  paint_ui_speed_bubble(MenuButton::Row1Button2x, options, state, context, mouse_state, 3, "2");
-  paint_ui_speed_bubble(MenuButton::Row1ButtonPlus, options, state, context, mouse_state, 4, "+");
+  if options.enable_speed_menu {
+    // paint_buttons
+    paint_ui_speed_bubble(MenuButton::Row1ButtonMin, options, state, context, mouse_state, 0, "-");
+    paint_ui_speed_bubble(MenuButton::Row1ButtonHalf, options, state, context, mouse_state, 1, "½");
+    paint_ui_speed_bubble(MenuButton::Row1ButtonPlay, options, state, context, mouse_state, 2, "⏭"); // "play" / "pause" / Row1ButtonPlay
+    paint_ui_speed_bubble(MenuButton::Row1Button2x, options, state, context, mouse_state, 3, "2");
+    paint_ui_speed_bubble(MenuButton::Row1ButtonPlus, options, state, context, mouse_state, 4, "+");
+  }
 }
 fn paint_ui_speed_bubble(button: MenuButton, options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, index: usize, text: &str) {
   let cx = UI_SPEED_BUBBLE_OFFSET_X + (2.0 * UI_SPEED_BUBBLE_RADIUS + UI_SPEED_BUBBLE_SPACING) * (index as f64) + UI_SPEED_BUBBLE_RADIUS;
@@ -5696,29 +5721,24 @@ fn hit_test_clear(x: f64, y: f64) -> bool {
 fn hit_test_redo(x: f64, y: f64) -> bool {
   return bounds_check(x, y, UI_UNREDO_REDO_OFFSET_X, UI_UNREDO_REDO_OFFSET_Y, UI_UNREDO_REDO_OFFSET_X + UI_UNREDO_REDO_WIDTH, UI_UNREDO_REDO_OFFSET_Y + UI_UNREDO_REDO_HEIGHT);
 }
-fn hit_test_save_map(x: f64, y: f64) -> usize {
+fn hit_test_save_map_button_index(x: f64, y: f64) -> usize {
   return
-    if hit_test_save_map_rc(x, y, 0.0, 0.0) { 0 }
-    else if hit_test_save_map_rc(x, y, 0.0, 1.0) { 1 }
-    else if hit_test_save_map_rc(x, y, 1.0, 0.0) { 2 }
-    else if hit_test_save_map_rc(x, y, 1.0, 1.0) { 3 }
+    if hit_test_save_map_row_col(x, y, 0.0, 0.0) { 0 }
+    else if hit_test_save_map_row_col(x, y, 0.0, 1.0) { 1 }
+    else if hit_test_save_map_row_col(x, y, 1.0, 0.0) { 2 }
+    else if hit_test_save_map_row_col(x, y, 1.0, 1.0) { 3 }
     else { 100 };
 }
-fn hit_test_save_map_rc(x: f64, y: f64, row: f64, col: f64) -> bool {
+fn hit_test_save_map_row_col(x: f64, y: f64, row: f64, col: f64) -> bool {
+  // Do hit test for one of the four map thumbnail save/load buttons 
   return bounds_check(
     x, y,
     GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN), GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN),
     GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN) + UI_SAVE_THUMB_WIDTH, GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN) + UI_SAVE_THUMB_HEIGHT,
   );
 }
-fn hit_test_save_map_left(x: f64, y: f64, row: f64, col: f64) -> bool {
-  return bounds_check(
-    x, y,
-    GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN), GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN),
-    GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN) + UI_SAVE_THUMB_WIDTH * 0.66, GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN) + UI_SAVE_THUMB_HEIGHT,
-  );
-}
-fn hit_test_save_map_right(x: f64, y: f64, row: f64, col: f64) -> bool {
+fn hit_test_save_map_delete_part(x: f64, y: f64, row: f64, col: f64) -> bool {
+  // Checks if you clicked in the right side of a map thumbnail. In that case we are going to delete the map.
   return bounds_check(
     x, y,
     GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN) + UI_SAVE_THUMB_WIDTH * 0.66, GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN),
@@ -5726,6 +5746,10 @@ fn hit_test_save_map_right(x: f64, y: f64, row: f64, col: f64) -> bool {
   );
 }
 fn paint_load_thumbs(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState, quick_saves: &mut [Option<QuickSave>; 9]) {
+  if !options.enable_quick_save_menu {
+    return;
+  }
+
   paint_map_load_button(options, state, config,factory, 0.0, 0.0, 0, context, &mut quick_saves[0], button_canvii, mouse_state);
   paint_map_load_button(options, state, config,factory, 1.0, 0.0, 1, context, &mut quick_saves[1], button_canvii, mouse_state);
   paint_map_load_button(options, state, config,factory, 0.0, 1.0, 2, context, &mut quick_saves[2], button_canvii, mouse_state);
@@ -5806,6 +5830,10 @@ fn paint_map_state_buttons(options: &Options, state: &State, config: &Config, co
   context.restore();
 }
 fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  if !options.enable_maze {
+    return;
+  }
+
   let x = (GRID_X2 + GRID_RIGHT_WIDTH / 2.0 - MAZE_WIDTH / 2.0).floor() + 0.5;
   let y = (GRID_Y1 + FLOOR_HEIGHT - MAZE_HEIGHT).floor() + 0.5;
 

@@ -74,4 +74,7 @@ const GAME_OPTIONS = `
 - dbg_print_quest_states: false
 - default_demand_speed: 1000
 - default_demand_cooldown: 0
+- enable_quick_save_menu: true
+- enable_maze: true
+- enable_speed_menu: true
 `;

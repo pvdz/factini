@@ -150,7 +150,9 @@ pub fn tick_factory(options: &mut Options, state: &mut State, config: &Config, f
     }
   }
 
-  tick_maze(options, state, config, factory);
+  if options.enable_maze {
+    tick_maze(options, state, config, factory);
+  }
 
   if factory.ticks % 100 == 0 {
     // Step the round-way, where parts from demanders are put and moved to the maze/furnace
