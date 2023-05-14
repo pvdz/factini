@@ -47,6 +47,7 @@
 // - copy paste should copy machines too? why not
 // - experiment with bigger maps and scrolling
 // - collected stuff is only cleared if a cell is completed. fractions are kept etc.
+// - should undo/redo reset quest progress?
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -596,11 +597,8 @@ pub fn start() -> Result<(), JsValue> {
       up_quote: false,
       up_quest_visible_index: 0, // Only if up_quote
 
-      over_menu_row: MenuRow::None,
       over_menu_button: MenuButton::None,
-      down_menu_row: MenuRow::None,
       down_menu_button: MenuButton::None,
-      up_menu_row: MenuRow::None,
       up_menu_button: MenuButton::None,
 
       help_hover: false,
@@ -668,31 +666,23 @@ pub fn start() -> Result<(), JsValue> {
 
       over_save_map: false,
       over_save_map_index: 0,
-      over_undo: false,
-      over_trash: false,
-      over_redo: false,
       down_save_map: false,
       down_save_map_index: 0,
-      down_undo: false,
-      down_trash: false,
-      down_redo: false,
       up_save_map: false,
       up_save_map_index: 0,
-      up_undo: false,
-      up_trash: false,
-      up_redo: false,
     };
     let mut last_time: f64 = 0.0;
     let mut todo_create_buttons: bool = true;
 
     let button_canvii: Vec<web_sys::HtmlCanvasElement> = vec!(
       // Buttons on the left (undo, trash, redo)
-      prerender_button(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHT, true),
-      prerender_button(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHT, false),
+      prerender_button(&options, &state, &config, UI_UNREDO_WIDTH, UI_UNREDO_HEIGHT, true),
+      prerender_button(&options, &state, &config, UI_UNREDO_WIDTH, UI_UNREDO_HEIGHT, false),
 
-      // paint toggle button (left of big machine button)
-      prerender_button(&options, &state, &config, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT, true),
-      prerender_button(&options, &state, &config, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT, false),
+      // TODO: merge this with above
+      // paint toggle button (toggle paint/delete mode)
+      prerender_button(&options, &state, &config, UI_UNREDO_WIDTH, UI_UNREDO_HEIGHT, true),
+      prerender_button(&options, &state, &config, UI_UNREDO_WIDTH, UI_UNREDO_HEIGHT, false),
 
       // paint big quick save button
       prerender_button(&options, &state, &config, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT, true),
@@ -850,10 +840,10 @@ pub fn start() -> Result<(), JsValue> {
       if !config.sprite_cache_loading && todo_create_buttons {
         log!("Filling in button styles now...");
         todo_create_buttons = false;
-        prerender_button_stage2(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), true);
-        prerender_button_stage2(&options, &state, &config, UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), false);
-        prerender_button_stage2(&options, &state, &config, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_UP].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), true);
-        prerender_button_stage2(&options, &state, &config, UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_DOWN].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), false);
+        prerender_button_stage2(&options, &state, &config, UI_UNREDO_WIDTH, UI_UNREDO_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), true);
+        prerender_button_stage2(&options, &state, &config, UI_UNREDO_WIDTH, UI_UNREDO_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), false);
+        prerender_button_stage2(&options, &state, &config, UI_UNREDO_WIDTH, UI_UNREDO_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_UP].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), true);
+        prerender_button_stage2(&options, &state, &config, UI_UNREDO_WIDTH, UI_UNREDO_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_DOWN].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), false);
         prerender_button_stage2(&options, &state, &config, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_SAVE_BIG_UP].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), true);
         prerender_button_stage2(&options, &state, &config, UI_SAVE_THUMB_WIDTH, UI_SAVE_THUMB_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_SAVE_BIG_DOWN].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), false);
         prerender_button_stage2(&options, &state, &config, UI_SAVE_THUMB_WIDTH - UI_SAVE_THUMB_IMG_WIDTH, UI_SAVE_THUMB_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_SAVE_THIN_UP].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), true);
@@ -986,7 +976,8 @@ pub fn start() -> Result<(), JsValue> {
         paint_lasers(&options, &mut state, &config, &context);
         paint_trucks(&options, &state, &config, &context, &mut factory);
         paint_ui_time_control(&options, &state, &context, &mouse_state);
-        paint_bottom_menu(&options, &state, &config, &factory, &context, &button_canvii, &mouse_state);
+        paint_paint_toggle(&options, &state, &config, &context, &button_canvii, &mouse_state); // TODO: move to left
+        paint_button_menu_ui(&options, &state, &config, &factory, &context, &button_canvii, &mouse_state);
         paint_floor_round_way(&options, &state, &config, &factory, &context);
         paint_background_tiles1(&options, &state, &config, &factory, &context);
         paint_background_tiles2(&options, &state, &config, &factory, &context);
@@ -1095,12 +1086,6 @@ fn update_mouse_state(
     mouse_state.up_quote = false;
     mouse_state.down_save_map = false;
     mouse_state.up_save_map = false;
-    mouse_state.down_undo = false;
-    mouse_state.down_trash = false;
-    mouse_state.down_redo = false;
-    mouse_state.up_undo = false;
-    mouse_state.up_trash = false;
-    mouse_state.up_redo = false;
   }
   mouse_state.was_down = false;
   mouse_state.is_up = false;
@@ -1111,9 +1096,6 @@ fn update_mouse_state(
   mouse_state.over_menu_button = MenuButton::None;
   mouse_state.help_hover = false;
   mouse_state.over_save_map = false;
-  mouse_state.over_undo = false;
-  mouse_state.over_trash = false;
-  mouse_state.over_redo = false;
 
   mouse_state.up_zone = Zone::None;
   mouse_state.over_zone = Zone::None;
@@ -1162,21 +1144,10 @@ fn update_mouse_state(
       }
     }
     ZONE_QUOTES => {
-      if hit_test_undo(mouse_state.world_x, mouse_state.world_y) {
-        mouse_state.over_undo = true;
-      }
-      else if hit_test_clear(mouse_state.world_x, mouse_state.world_y) {
-        mouse_state.over_trash = true;
-      }
-      else if hit_test_redo(mouse_state.world_x, mouse_state.world_y) {
-        mouse_state.over_redo = true;
-      }
-      else {
-        mouse_state.over_quest =
-          mouse_state.world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUEST_WIDTH &&
-          (mouse_state.world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUEST_HEIGHT + UI_QUEST_MARGIN) < UI_QUEST_HEIGHT;
-        mouse_state.over_quest_visible_index = if mouse_state.over_quest { ((mouse_state.world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUEST_HEIGHT + UI_QUEST_MARGIN)) as usize } else { 0 };
-      }
+      mouse_state.over_quest =
+        mouse_state.world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUEST_WIDTH &&
+        (mouse_state.world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUEST_HEIGHT + UI_QUEST_MARGIN) < UI_QUEST_HEIGHT;
+      mouse_state.over_quest_visible_index = if mouse_state.over_quest { ((mouse_state.world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUEST_HEIGHT + UI_QUEST_MARGIN)) as usize } else { 0 };
     }
     ZONE_SAVE_MAP => {
       if options.enable_quick_save_menu {
@@ -1188,13 +1159,31 @@ fn update_mouse_state(
     }
     Zone::BottomBottomLeft => {}
     Zone::Top => {
-      if options.enable_speed_menu {
-        let ( menu_button, button_row ) = hit_test_menu_speed_buttons(mouse_state.world_x, mouse_state.world_y);
+      if hit_test_undo(mouse_state.world_x, mouse_state.world_y) {
+        mouse_state.over_menu_button = MenuButton::UndoButton;
+      }
+      else if hit_test_clear(mouse_state.world_x, mouse_state.world_y) {
+        mouse_state.over_menu_button = MenuButton::ClearButton;
+      }
+      else if hit_test_redo(mouse_state.world_x, mouse_state.world_y) {
+        mouse_state.over_menu_button = MenuButton::RedoButton;
+      }
+      else if hit_test_paint_toggle(mouse_state.world_x, mouse_state.world_y) {
+        mouse_state.over_menu_button = MenuButton::PaintToggleButton;
+      }
+      else if options.enable_speed_menu {
+        let menu_button = hit_test_menu_speed_buttons(mouse_state.world_x, mouse_state.world_y);
         if menu_button != MenuButton::None {
           // time controls, first, second row of menu buttons
-          mouse_state.over_menu_row = button_row;
           mouse_state.over_menu_button = menu_button;
         }
+      }
+    }
+    Zone::TopRight => {
+      let menu_button = hit_test_menu_buttons(mouse_state.world_x, mouse_state.world_y);
+      if menu_button != MenuButton::None {
+        // time controls, first, second row of menu buttons
+        mouse_state.over_menu_button = menu_button;
       }
     }
     ZONE_FLOOR => {
@@ -1205,44 +1194,25 @@ fn update_mouse_state(
         // Not corner
         !((mouse_state.cell_x_floored == 0.0 || mouse_state.cell_x_floored == (FLOOR_CELLS_W - 1) as f64) && (mouse_state.cell_y_floored == 0.0 || mouse_state.cell_y_floored == (FLOOR_CELLS_H - 1) as f64));
     }
-    ZONE_MENU => {
-      // Start with special buttons and then the generic menu button layout
-      if hit_test_paint_toggle(mouse_state.world_x, mouse_state.world_y) {
-        // the paint toggle left of the machine
-        mouse_state.over_menu_row = MenuRow::None;
-        mouse_state.over_menu_button = MenuButton::PaintToggleButton;
-      }
-      else if hit_test_machine1x2_button(mouse_state.world_x, mouse_state.world_y) {
+    Zone::Bottom => {
+      if hit_test_machine1x2_button(mouse_state.world_x, mouse_state.world_y) {
         // the smallest tall machine button
-        mouse_state.over_menu_row = MenuRow::None;
         mouse_state.over_menu_button = MenuButton::Machine1x2Button;
       }
       else if hit_test_machine2x1_button(mouse_state.world_x, mouse_state.world_y) {
         // the smallest wide machine button
-        mouse_state.over_menu_row = MenuRow::None;
         mouse_state.over_menu_button = MenuButton::Machine2x1Button;
       }
       else if hit_test_machine2x2_button(mouse_state.world_x, mouse_state.world_y) {
         // the small machine button
-        mouse_state.over_menu_row = MenuRow::None;
         mouse_state.over_menu_button = MenuButton::Machine2x2Button;
       }
       else if hit_test_machine3x3_button(mouse_state.world_x, mouse_state.world_y) {
         // the big machine button
-        mouse_state.over_menu_row = MenuRow::None;
         mouse_state.over_menu_button = MenuButton::Machine3x3Button;
-      }
-      else {
-        let ( menu_button, button_row ) = hit_test_menu_button(mouse_state.world_x, mouse_state.world_y);
-        if menu_button != MenuButton::None {
-          // time controls, first, second row of menu buttons
-          mouse_state.over_menu_row = button_row;
-          mouse_state.over_menu_button = menu_button;
-        }
       }
     }
     Zone::BottomBottom => {}
-    Zone::TopRight => {}
     ZONE_OFFERS => {
       if !mouse_state.is_dragging {
         // When already dragging do not update offer visual state, do not record the "over" state at all
@@ -1313,21 +1283,10 @@ fn update_mouse_state(
         }
       }
       ZONE_QUOTES => {
-        if hit_test_undo(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
-          mouse_state.down_undo = true;
-        }
-        else if hit_test_clear(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
-          mouse_state.down_trash = true;
-        }
-        else if hit_test_redo(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
-          mouse_state.down_redo = true;
-        }
-        else {
-          mouse_state.down_quest =
-            mouse_state.last_down_world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.last_down_world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUEST_WIDTH &&
-            (mouse_state.last_down_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUEST_HEIGHT + UI_QUEST_MARGIN) < UI_QUEST_HEIGHT;
-          mouse_state.down_quest_visible_index = if mouse_state.down_quest { ((mouse_state.last_down_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUEST_HEIGHT + UI_QUEST_MARGIN)) as usize } else { 0 };
-        }
+        mouse_state.down_quest =
+          mouse_state.last_down_world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.last_down_world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUEST_WIDTH &&
+          (mouse_state.last_down_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUEST_HEIGHT + UI_QUEST_MARGIN) < UI_QUEST_HEIGHT;
+        mouse_state.down_quest_visible_index = if mouse_state.down_quest { ((mouse_state.last_down_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUEST_HEIGHT + UI_QUEST_MARGIN)) as usize } else { 0 };
       }
       ZONE_SAVE_MAP => {
         if options.enable_quick_save_menu {
@@ -1341,17 +1300,39 @@ fn update_mouse_state(
       }
       Zone::BottomBottomLeft => {}
       Zone::Top => {
-        if options.enable_speed_menu {
-          let ( menu_button, button_row ) = hit_test_menu_speed_buttons(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
+        if hit_test_undo(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
+          mouse_state.down_menu_button = MenuButton::UndoButton;
+        }
+        else if hit_test_clear(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
+          mouse_state.down_menu_button = MenuButton::ClearButton;
+        }
+        else if hit_test_redo(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
+          mouse_state.down_menu_button = MenuButton::RedoButton;
+        }
+        else if hit_test_paint_toggle(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
+          mouse_state.down_menu_button = MenuButton::PaintToggleButton;
+        }
+        else if !options.enable_speed_menu {
+          log!("Speed menu disabled, ignoring down");
+        } else {
+          let menu_button = hit_test_menu_speed_buttons(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
           if menu_button != MenuButton::None {
             // time controls, first, second row of menu buttons
-            mouse_state.down_menu_row = button_row;
             mouse_state.down_menu_button = menu_button;
+          } else {
+            log!("Did not hit a top menu button on down");
           }
-        } else {
-          log!("Speed menu disabled, ignoring down");
         }
-        log!("Top menu button down: {:?} {:?}", mouse_state.down_menu_row, mouse_state.down_menu_button);
+        log!("Top menu button down: {:?}", mouse_state.down_menu_button);
+      }
+      Zone::TopRight => {
+        let menu_button = hit_test_menu_buttons(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
+        if menu_button != MenuButton::None {
+          // time controls, first, second row of menu buttons
+          mouse_state.down_menu_button = menu_button;
+        } else {
+          log!("Ignored top-right down event");
+        }
       }
       ZONE_FLOOR => {
         mouse_state.down_floor_area = true;
@@ -1361,44 +1342,28 @@ fn update_mouse_state(
           // Not corner
           !((mouse_state.last_down_cell_x_floored == 0.0 || mouse_state.last_down_cell_x_floored == (FLOOR_CELLS_W - 1) as f64) && (mouse_state.last_down_cell_y_floored == 0.0 || mouse_state.last_down_cell_y_floored == (FLOOR_CELLS_H - 1) as f64));
       }
-      ZONE_MENU => {
-        // Start with special buttons and then the generic menu button layout
-        if hit_test_paint_toggle(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
-          // the paint toggle left of the machine
-          mouse_state.down_menu_row = MenuRow::None;
-          mouse_state.down_menu_button = MenuButton::PaintToggleButton;
-        }
-        else if hit_test_machine1x2_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
+      Zone::Bottom => {
+        if hit_test_machine1x2_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
           // the smallest tall machine button
-          mouse_state.down_menu_row = MenuRow::None;
           mouse_state.down_menu_button = MenuButton::Machine1x2Button;
         }
         else if hit_test_machine2x1_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
           // the smallest wide machine button
-          mouse_state.down_menu_row = MenuRow::None;
           mouse_state.down_menu_button = MenuButton::Machine2x1Button;
         }
         else if hit_test_machine2x2_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
           // the small machine button
-          mouse_state.down_menu_row = MenuRow::None;
           mouse_state.down_menu_button = MenuButton::Machine2x2Button;
         }
         else if hit_test_machine3x3_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
           // the big machine button
-          mouse_state.down_menu_row = MenuRow::None;
           mouse_state.down_menu_button = MenuButton::Machine3x3Button;
         } else {
-          let ( menu_button, button_row ) = hit_test_menu_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
-          if menu_button != MenuButton::None {
-            // time controls, first, second row of menu buttons
-            mouse_state.down_menu_row = button_row;
-            mouse_state.down_menu_button = menu_button;
-          }
+          log!("Ignored down event in bottom");
         }
-        log!("Bottom menu button down: {:?} {:?}", mouse_state.down_menu_row, mouse_state.down_menu_button);
+        log!("Bottom menu button down: {:?}", mouse_state.down_menu_button);
       }
       Zone::BottomBottom => {}
-      Zone::TopRight => {}
       ZONE_OFFERS => {
         if mouse_state.offer_hover {
           mouse_state.offer_down = true;
@@ -1498,21 +1463,10 @@ fn update_mouse_state(
       ZONE_HELP => {
       }
       ZONE_QUOTES => {
-        if hit_test_undo(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
-          mouse_state.up_undo = true;
-        }
-        else if hit_test_clear(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
-          mouse_state.up_trash = true;
-        }
-        else if hit_test_redo(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
-          mouse_state.up_redo = true;
-        }
-        else {
-          mouse_state.up_quote =
-            mouse_state.last_up_world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.last_up_world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUEST_WIDTH &&
-            (mouse_state.last_up_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUEST_HEIGHT + UI_QUEST_MARGIN) < UI_QUEST_HEIGHT;
-          mouse_state.up_quest_visible_index = if mouse_state.up_quote { ((mouse_state.last_up_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUEST_HEIGHT + UI_QUEST_MARGIN)) as usize } else { 0 };
-        }
+        mouse_state.up_quote =
+          mouse_state.last_up_world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.last_up_world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUEST_WIDTH &&
+          (mouse_state.last_up_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUEST_HEIGHT + UI_QUEST_MARGIN) < UI_QUEST_HEIGHT;
+        mouse_state.up_quest_visible_index = if mouse_state.up_quote { ((mouse_state.last_up_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUEST_HEIGHT + UI_QUEST_MARGIN)) as usize } else { 0 };
       }
       ZONE_SAVE_MAP => {
         if options.enable_quick_save_menu {
@@ -1526,58 +1480,65 @@ fn update_mouse_state(
       }
       Zone::BottomBottomLeft => {}
       Zone::Top => {
-        if options.enable_speed_menu {
-          let ( menu_button, button_row ) = hit_test_menu_speed_buttons(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
+        if hit_test_undo(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
+          mouse_state.up_menu_button = MenuButton::UndoButton;
+        }
+        else if hit_test_clear(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
+          mouse_state.up_menu_button = MenuButton::ClearButton;
+        }
+        else if hit_test_redo(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
+          mouse_state.up_menu_button = MenuButton::RedoButton;
+        }
+        else if hit_test_paint_toggle(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
+          mouse_state.up_menu_button = MenuButton::PaintToggleButton;
+        }
+        else if !options.enable_speed_menu {
+          log!("Speed menu disabled, ignoring up");
+        }
+        else {
+          let menu_button = hit_test_menu_speed_buttons(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
           if menu_button != MenuButton::None {
             // time controls, first, second row of menu buttons
             mouse_state.up_menu_button = menu_button;
-            mouse_state.up_menu_row = button_row;
+          } else {
+            log!("Did not hit a top menu button on up");
           }
-        } else {
-          log!("Speed menu disabled, ignoring up");
         }
-        log!("Top menu button up: {:?} {:?}", mouse_state.up_menu_row, mouse_state.up_menu_button);
+        log!("Top menu button up: {:?}", mouse_state.up_menu_button);
+      }
+      Zone::TopRight => {
+        let menu_button = hit_test_menu_buttons(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
+        if menu_button != MenuButton::None {
+          // time controls, first, second row of menu buttons
+          mouse_state.up_menu_button = menu_button;
+        } else {
+          log!("Ignored top-right up event");
+        }
       }
       ZONE_FLOOR => {}
-      ZONE_MENU => {
-        // Start with special buttons and then the generic menu button layout
-        if hit_test_paint_toggle(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
-          // the paint toggle left of the machine
-          mouse_state.up_menu_row = MenuRow::None;
-          mouse_state.up_menu_button = MenuButton::PaintToggleButton;
-        }
-        else if hit_test_machine1x2_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
+      Zone::Bottom => {
+        if hit_test_machine1x2_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
           // the smallest tall machine button
-          mouse_state.up_menu_row = MenuRow::None;
           mouse_state.up_menu_button = MenuButton::Machine1x2Button;
         }
         else if hit_test_machine2x1_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
           // the smallest wide machine button
-          mouse_state.up_menu_row = MenuRow::None;
           mouse_state.up_menu_button = MenuButton::Machine2x1Button;
         }
         else if hit_test_machine2x2_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
           // the small machine button
-          mouse_state.up_menu_row = MenuRow::None;
           mouse_state.up_menu_button = MenuButton::Machine2x2Button;
         }
         else if hit_test_machine3x3_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
           // the big machine button
-          mouse_state.up_menu_row = MenuRow::None;
           mouse_state.up_menu_button = MenuButton::Machine3x3Button;
         }
         else {
-          let ( menu_button, button_row ) = hit_test_menu_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
-          if menu_button != MenuButton::None {
-            // time controls, first, second row of menu buttons
-            mouse_state.up_menu_button = menu_button;
-            mouse_state.up_menu_row = button_row;
-          }
+          log!("Ignored bottom up event");
         }
-        log!("Bottom menu button up: {:?} {:?}", mouse_state.up_menu_row, mouse_state.up_menu_button);
+        log!("Bottom menu button up: {:?}", mouse_state.up_menu_button);
       }
       Zone::BottomBottom => {}
-      Zone::TopRight => {}
       ZONE_OFFERS => {}
       Zone::BottomRight => {}
       Zone::BottomBottomRight => {}
@@ -1609,7 +1570,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
           on_drag_start_offer(options, state, config, factory, mouse_state, cell_selection);
         }
       }
-      ZONE_MENU => {
+      Zone::Bottom => {
         if mouse_state.down_menu_button == MenuButton::Machine1x2Button {
           on_drag_start_machine1x2_button(options, state, config, mouse_state, cell_selection);
         }
@@ -1632,16 +1593,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         on_down_floor(mouse_state);
       }
       ZONE_QUOTES => {
-        if mouse_state.down_undo {
-          on_down_undo(options, state, config, factory, mouse_state);
-        }
-        else if mouse_state.down_trash {
-          on_down_trash(options, state, config, factory, mouse_state);
-        }
-        else if mouse_state.down_redo {
-          on_down_redo(options, state, config, factory, mouse_state);
-        }
-        else if mouse_state.down_quest {
+        if mouse_state.down_quest {
           on_down_quest(options, state, config, factory, mouse_state);
         }
       }
@@ -1722,6 +1674,10 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         Zone::Top => {
           on_up_menu(cell_selection, mouse_state, options, state, config, factory);
         }
+        Zone::TopRight => {
+          // For options etc
+          on_up_menu(cell_selection, mouse_state, options, state, config, factory);
+        }
         ZONE_CRAFT => {
           on_up_craft(options, state, config, factory, cell_selection, mouse_state);
         }
@@ -1731,16 +1687,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
           }
         }
         ZONE_QUOTES => {
-          if mouse_state.up_undo {
-            on_up_undo(options, state, config, factory, mouse_state);
-          }
-          else if mouse_state.up_trash {
-            on_up_trash(options, state, config, factory, mouse_state);
-          }
-          else if mouse_state.up_redo {
-            on_up_redo(options, state, config, factory, mouse_state);
-          }
-          else if mouse_state.up_quote {
+          if mouse_state.up_quote {
             on_up_quest(options, state, config, factory, mouse_state);
           }
         }
@@ -1753,9 +1700,6 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
           if mouse_state.help_down {
             on_click_help(options, state, config);
           }
-        }
-        ZONE_MENU => {
-          on_up_menu(cell_selection, mouse_state, options, state, config, factory);
         }
         ZONE_FLOOR => {
           on_up_floor(options, state, config, factory, cell_selection, &mouse_state);
@@ -2022,9 +1966,6 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
     }
   }
 }
-fn on_down_undo(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
-  log!("on_down_undo()");
-}
 fn on_up_undo(options: &Options, state: &mut State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
   log!("on_up_undo()");
   // keep stack of n snapshots
@@ -2042,9 +1983,6 @@ fn on_up_undo(options: &Options, state: &mut State, config: &Config, factory: &F
     state.load_snapshot_next_frame = true;
   }
 }
-fn on_down_trash(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
-  log!("on_down_trash()");
-}
 fn on_up_trash(options: &Options, state: &State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState) {
   log!("on_up_trash()");
   log!("Removing all cells from the factory...");
@@ -2054,9 +1992,6 @@ fn on_up_trash(options: &Options, state: &State, config: &Config, factory: &mut 
   }
   factory.parts_in_transit.clear();
   factory.changed = true;
-}
-fn on_down_redo(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
-  log!("on_down_redo()");
 }
 fn on_up_redo(options: &Options, state: &mut State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
   log!("on_up_redo()");
@@ -2846,6 +2781,16 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
     MenuButton::Machine3x3Button => {
       on_up_machine3x3_button();
     }
+
+    MenuButton::UndoButton => {
+      on_up_undo(options, state, config, factory, mouse_state);
+    }
+    MenuButton::ClearButton => {
+      on_up_trash(options, state, config, factory, mouse_state);
+    }
+    MenuButton::RedoButton => {
+      on_up_redo(options, state, config, factory, mouse_state);
+    }
     MenuButton::PaintToggleButton => {
       on_up_paint_toggle(state);
     }
@@ -3089,7 +3034,7 @@ fn on_up_selecting(options: &mut Options, state: &mut State, config: &Config, fa
   }
 }
 
-fn hit_test_menu_speed_buttons(x: f64, y: f64) -> (MenuButton, MenuRow) {
+fn hit_test_menu_speed_buttons(x: f64, y: f64) -> MenuButton {
   if bounds_check(
     x, y,
     UI_SPEED_BUBBLE_OFFSET_X,
@@ -3098,23 +3043,23 @@ fn hit_test_menu_speed_buttons(x: f64, y: f64) -> (MenuButton, MenuRow) {
     UI_SPEED_BUBBLE_OFFSET_Y + (2.0 * UI_SPEED_BUBBLE_RADIUS)
   ) {
     if hit_check_speed_bubble_x(x, y, 0) {
-      ( MenuButton::Row1ButtonMin, MenuRow::First )
+      MenuButton::Row1ButtonMin
     } else if hit_check_speed_bubble_x(x, y, 1) {
-      ( MenuButton::Row1ButtonHalf, MenuRow::First )
+      MenuButton::Row1ButtonHalf
     } else if hit_check_speed_bubble_x(x, y, 2) {
-      ( MenuButton::Row1ButtonPlay, MenuRow::First )
+      MenuButton::Row1ButtonPlay
     } else if hit_check_speed_bubble_x(x, y, 3) {
-      ( MenuButton::Row1Button2x, MenuRow::First )
+      MenuButton::Row1Button2x
     } else if hit_check_speed_bubble_x(x, y, 4) {
-      ( MenuButton::Row1ButtonPlus, MenuRow::First )
+      MenuButton::Row1ButtonPlus
     } else {
-      ( MenuButton::None, MenuRow::None )
+      MenuButton::None
     }
   } else {
-    ( MenuButton::None, MenuRow::None )
+    MenuButton::None
   }
 }
-fn hit_test_menu_button(x: f64, y: f64) -> (MenuButton, MenuRow) {
+fn hit_test_menu_buttons(x: f64, y: f64) -> MenuButton {
   // The menu is three rows of buttons. The top row has circular buttons, the bottom two are rects.
 
   // Was one of the buttons below the floor clicked?
@@ -3132,9 +3077,9 @@ fn hit_test_menu_button(x: f64, y: f64) -> (MenuButton, MenuRow) {
         _ => panic!("what button was clicked?"),
       };
 
-      ( button, MenuRow::Second )
+      button
     } else {
-      ( MenuButton::None, MenuRow::None )
+      MenuButton::None
     }
   }
   // Second row of buttons?
@@ -3152,13 +3097,13 @@ fn hit_test_menu_button(x: f64, y: f64) -> (MenuButton, MenuRow) {
         _ => panic!("what button was clicked?"),
       };
 
-      ( button, MenuRow::Third )
+      button
     } else {
-      ( MenuButton::None, MenuRow::None )
+      MenuButton::None
     }
   }
   else {
-    ( MenuButton::None, MenuRow::None )
+    MenuButton::None
   }
 }
 fn hit_test_get_craft_interactable_machine_at(options: &Options, state: &State, factory: &Factory, cell_selection: &CellSelection, mwx: f64, mwy: f64) -> ( CraftInteractable, f64, f64, f64, f64, char, PartKind, u8 ) {
@@ -3268,20 +3213,17 @@ fn hit_test_offers(factory: &Factory, mx: f64, my: f64) -> (bool, usize ) {
     return ( false, 0 );
   };
 }
-fn hit_test_paint_toggle(x: f64, y: f64) -> bool {
-  return bounds_check(x, y, UI_MENU_BOTTOM_PAINT_TOGGLE_X, UI_MENU_BOTTOM_PAINT_TOGGLE_Y, UI_MENU_BOTTOM_PAINT_TOGGLE_X + UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH, UI_MENU_BOTTOM_PAINT_TOGGLE_Y + UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT);
-}
 fn hit_test_machine3x3_button(x: f64, y: f64) -> bool {
-  return bounds_check(x, y, UI_MENU_BOTTOM_MACHINE3X3_X, UI_MENU_BOTTOM_MACHINE3X3_Y, UI_MENU_BOTTOM_MACHINE3X3_X + UI_MENU_BOTTOM_MACHINE3X3_WIDTH, UI_MENU_BOTTOM_MACHINE3X3_Y + UI_MENU_BOTTOM_MACHINE3X3_HEIGHT);
+  return bounds_check(x, y, UI_MENU_MACHINE_BUTTON_3X3_X, UI_MENU_MACHINE_BUTTON_3X3_Y, UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH, UI_MENU_MACHINE_BUTTON_3X3_Y + UI_MENU_MACHINE_BUTTON_3X3_HEIGHT);
 }
 fn hit_test_machine1x2_button(x: f64, y: f64) -> bool {
-  return bounds_check(x, y, UI_MENU_BOTTOM_MACHINE1X2_X, UI_MENU_BOTTOM_MACHINE1X2_Y, UI_MENU_BOTTOM_MACHINE1X2_X + UI_MENU_BOTTOM_MACHINE1X2_WIDTH, UI_MENU_BOTTOM_MACHINE1X2_Y + UI_MENU_BOTTOM_MACHINE1X2_HEIGHT);
+  return bounds_check(x, y, UI_MENU_MACHINE_BUTTON_1X2_X, UI_MENU_MACHINE_BUTTON_1X2_Y, UI_MENU_MACHINE_BUTTON_1X2_X + UI_MENU_MACHINE_BUTTON_1X2_WIDTH, UI_MENU_MACHINE_BUTTON_1X2_Y + UI_MENU_MACHINE_BUTTON_1X2_HEIGHT);
 }
 fn hit_test_machine2x1_button(x: f64, y: f64) -> bool {
-  return bounds_check(x, y, UI_MENU_BOTTOM_MACHINE2X1_X, UI_MENU_BOTTOM_MACHINE2X1_Y, UI_MENU_BOTTOM_MACHINE2X1_X + UI_MENU_BOTTOM_MACHINE2X1_WIDTH, UI_MENU_BOTTOM_MACHINE2X1_Y + UI_MENU_BOTTOM_MACHINE2X1_HEIGHT);
+  return bounds_check(x, y, UI_MENU_MACHINE_BUTTON_2X1_X, UI_MENU_MACHINE_BUTTON_2X1_Y, UI_MENU_MACHINE_BUTTON_2X1_X + UI_MENU_MACHINE_BUTTON_2X1_WIDTH, UI_MENU_MACHINE_BUTTON_2X1_Y + UI_MENU_MACHINE_BUTTON_2X1_HEIGHT);
 }
 fn hit_test_machine2x2_button(x: f64, y: f64) -> bool {
-  return bounds_check(x, y, UI_MENU_BOTTOM_MACHINE2X2_X, UI_MENU_BOTTOM_MACHINE2X2_Y, UI_MENU_BOTTOM_MACHINE2X2_X + UI_MENU_BOTTOM_MACHINE2X2_WIDTH, UI_MENU_BOTTOM_MACHINE2X2_Y + UI_MENU_BOTTOM_MACHINE2X2_HEIGHT);
+  return bounds_check(x, y, UI_MENU_MACHINE_BUTTON_2X2_X, UI_MENU_MACHINE_BUTTON_2X2_Y, UI_MENU_MACHINE_BUTTON_2X2_X + UI_MENU_MACHINE_BUTTON_2X2_WIDTH, UI_MENU_MACHINE_BUTTON_2X2_Y + UI_MENU_MACHINE_BUTTON_2X2_HEIGHT);
 }
 fn hit_test_help_button(mx: f64, my: f64) -> bool {
   return bounds_check(mx, my, UI_HELP_X, UI_HELP_Y, UI_HELP_X + UI_HELP_WIDTH, UI_HELP_Y + UI_HELP_HEIGHT);
@@ -5296,7 +5238,7 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
   let truck_dur_2 = 1.0 * options.speed_modifier_ui; // turning circle
   let truck_dur_3 = 5.0 * options.speed_modifier_ui; // time to get up
   let truck_size = 50.0;
-  let start_x = UI_MENU_BOTTOM_MACHINE3X3_X + UI_MENU_BOTTOM_MACHINE3X3_WIDTH - (truck_size + 5.0);
+  let start_x = UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH - (truck_size + 5.0);
   let end_x = GRID_X2 + 5.0;
   // paint dump truck so it starts under the factory
   for t in 0..factory.trucks.len() {
@@ -5311,7 +5253,7 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
     let time_since_truck = ticks_since_truck / (ONE_SECOND as f64);
     if time_since_truck < truck_dur_1 {
       let truck_x = start_x + (time_since_truck / truck_dur_1).min(1.0).max(0.0) * (end_x - start_x);
-      let truck_y = UI_MENU_BOTTOM_MACHINE3X3_Y + (UI_MENU_BOTTOM_MACHINE3X3_HEIGHT / 2.0) - (truck_size / 2.0); // Factory mid
+      let truck_y = UI_MENU_MACHINE_BUTTON_3X3_Y + (UI_MENU_MACHINE_BUTTON_3X3_HEIGHT / 2.0) - (truck_size / 2.0); // Factory mid
 
       context.save();
       // This is how canvas rotation works; you rotate around the center of what you're painting, paint it, then reset the translation matrix.
@@ -5331,7 +5273,7 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
     } else if time_since_truck < (truck_dur_1 + truck_dur_2) {
       let progress = ((time_since_truck - truck_dur_1) / truck_dur_2).min(1.0).max(0.0);
       let truck_x = end_x + progress * 20.0;
-      let truck_y = UI_MENU_BOTTOM_MACHINE3X3_Y + (UI_MENU_BOTTOM_MACHINE3X3_HEIGHT / 2.0) - (truck_size / 2.0) + (progress * -50.0); // Turn upward
+      let truck_y = UI_MENU_MACHINE_BUTTON_3X3_Y + (UI_MENU_MACHINE_BUTTON_3X3_HEIGHT / 2.0) - (truck_size / 2.0) + (progress * -50.0); // Turn upward
 
       context.save();
       // This is how canvas rotation works; you rotate around the center of what you're painting, paint it, then reset the translation matrix.
@@ -5354,7 +5296,7 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
 
       let progress = ((time_since_truck - (truck_dur_1 + truck_dur_2)) / truck_dur_3).min(1.0).max(0.0);
       let truck_x = end_x + 20.0;
-      let truck_y = UI_MENU_BOTTOM_MACHINE3X3_Y + (UI_MENU_BOTTOM_MACHINE3X3_HEIGHT / 2.0) - (truck_size / 2.0) + -50.0; // Turn upward
+      let truck_y = UI_MENU_MACHINE_BUTTON_3X3_Y + (UI_MENU_MACHINE_BUTTON_3X3_HEIGHT / 2.0) - (truck_size / 2.0) + -50.0; // Turn upward
 
       let x = truck_x + (target_x - truck_x) * progress;
       let y = truck_y + (target_y - truck_y) * progress;
@@ -5445,64 +5387,62 @@ fn paint_green_pixel(context: &Rc<web_sys::CanvasRenderingContext2d>, progress: 
     context.stroke_rect(fx, fy + UI_OFFER_HEIGHT - (pos - (UI_OFFER_WIDTH + UI_OFFER_HEIGHT + UI_OFFER_WIDTH)), 1.0, 1.0);
   }
 }
-fn paint_bottom_menu(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
-  // Note: Machine button is painted elsewhere due to bouncer z-index priority
-  paint_paint_toggle(options, state, config, context, button_canvii, mouse_state);
+fn paint_button_menu_ui(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
   paint_ui_buttons(options, state, context, mouse_state);
   paint_ui_buttons2(options, state, context, mouse_state);
 }
 fn paint_paint_toggle(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
-  paint_button(options, state, config, context, button_canvii, if state.mouse_mode_mirrored { BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_UP }, UI_MENU_BOTTOM_PAINT_TOGGLE_X, UI_MENU_BOTTOM_PAINT_TOGGLE_Y);
+  paint_button(options, state, config, context, button_canvii, if state.mouse_mode_mirrored { BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_UP }, UI_UNREDO_PAINT_TOGGLE_X, UI_UNREDO_PAINT_TOGGLE_Y);
 
   context.save();
   context.set_font(&"48px monospace");
   context.set_fill_style(&(if mouse_state.over_menu_button == MenuButton::PaintToggleButton { if state.mouse_mode_mirrored { "red" } else { "#aaa" } } else if state.mouse_mode_mirrored { "tomato" } else { "#ddd" }).into());
-  context.fill_text("🖌", UI_MENU_BOTTOM_PAINT_TOGGLE_X + UI_MENU_BOTTOM_PAINT_TOGGLE_WIDTH / 2.0 - 24.0, UI_MENU_BOTTOM_PAINT_TOGGLE_Y + UI_MENU_BOTTOM_PAINT_TOGGLE_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
+  context.fill_text("🖌", UI_UNREDO_PAINT_TOGGLE_X + UI_UNREDO_WIDTH / 2.0 - 24.0, UI_UNREDO_PAINT_TOGGLE_Y + UI_UNREDO_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
   context.restore();
 }
 fn paint_machine1x2(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   context.set_fill_style(&"#aaa".into());
-  context.fill_rect(UI_MENU_BOTTOM_MACHINE1X2_X, UI_MENU_BOTTOM_MACHINE1X2_Y, UI_MENU_BOTTOM_MACHINE1X2_WIDTH, UI_MENU_BOTTOM_MACHINE1X2_HEIGHT);
+  context.fill_rect(UI_MENU_MACHINE_BUTTON_1X2_X, UI_MENU_MACHINE_BUTTON_1X2_Y, UI_MENU_MACHINE_BUTTON_1X2_WIDTH, UI_MENU_MACHINE_BUTTON_1X2_HEIGHT);
 
   paint_asset(options, state, config, context, machine_size_to_asset_index(2, 2), factory.ticks,
-    UI_MENU_BOTTOM_MACHINE1X2_X, UI_MENU_BOTTOM_MACHINE1X2_Y, UI_MENU_BOTTOM_MACHINE1X2_WIDTH, UI_MENU_BOTTOM_MACHINE1X2_HEIGHT
+    UI_MENU_MACHINE_BUTTON_1X2_X, UI_MENU_MACHINE_BUTTON_1X2_Y, UI_MENU_MACHINE_BUTTON_1X2_WIDTH, UI_MENU_MACHINE_BUTTON_1X2_HEIGHT
   );
 
   context.set_stroke_style(&"black".into());
-  context.stroke_rect(UI_MENU_BOTTOM_MACHINE1X2_X, UI_MENU_BOTTOM_MACHINE1X2_Y, UI_MENU_BOTTOM_MACHINE1X2_WIDTH, UI_MENU_BOTTOM_MACHINE1X2_HEIGHT);
+  context.stroke_rect(UI_MENU_MACHINE_BUTTON_1X2_X, UI_MENU_MACHINE_BUTTON_1X2_Y, UI_MENU_MACHINE_BUTTON_1X2_WIDTH, UI_MENU_MACHINE_BUTTON_1X2_HEIGHT);
 }
 fn paint_machine2x1(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   context.set_fill_style(&"#aaa".into());
-  context.fill_rect(UI_MENU_BOTTOM_MACHINE2X1_X, UI_MENU_BOTTOM_MACHINE2X1_Y, UI_MENU_BOTTOM_MACHINE2X1_WIDTH, UI_MENU_BOTTOM_MACHINE2X1_HEIGHT);
+  context.fill_rect(UI_MENU_MACHINE_BUTTON_2X1_X, UI_MENU_MACHINE_BUTTON_2X1_Y, UI_MENU_MACHINE_BUTTON_2X1_WIDTH, UI_MENU_MACHINE_BUTTON_2X1_HEIGHT);
 
   paint_asset(options, state, config, context, machine_size_to_asset_index(2, 2), factory.ticks,
-    UI_MENU_BOTTOM_MACHINE2X1_X, UI_MENU_BOTTOM_MACHINE2X1_Y, UI_MENU_BOTTOM_MACHINE2X1_WIDTH, UI_MENU_BOTTOM_MACHINE2X1_HEIGHT
+    UI_MENU_MACHINE_BUTTON_2X1_X, UI_MENU_MACHINE_BUTTON_2X1_Y, UI_MENU_MACHINE_BUTTON_2X1_WIDTH, UI_MENU_MACHINE_BUTTON_2X1_HEIGHT
   );
 
   context.set_stroke_style(&"black".into());
-  context.stroke_rect(UI_MENU_BOTTOM_MACHINE2X1_X, UI_MENU_BOTTOM_MACHINE2X1_Y, UI_MENU_BOTTOM_MACHINE2X1_WIDTH, UI_MENU_BOTTOM_MACHINE2X1_HEIGHT);
+  context.stroke_rect(UI_MENU_MACHINE_BUTTON_2X1_X, UI_MENU_MACHINE_BUTTON_2X1_Y, UI_MENU_MACHINE_BUTTON_2X1_WIDTH, UI_MENU_MACHINE_BUTTON_2X1_HEIGHT);
 }
 fn paint_machine2x2(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   context.set_fill_style(&"#aaa".into());
-  context.fill_rect(UI_MENU_BOTTOM_MACHINE2X2_X, UI_MENU_BOTTOM_MACHINE2X2_Y, UI_MENU_BOTTOM_MACHINE2X2_WIDTH, UI_MENU_BOTTOM_MACHINE2X2_HEIGHT);
+  context.fill_rect(UI_MENU_MACHINE_BUTTON_2X2_X, UI_MENU_MACHINE_BUTTON_2X2_Y, UI_MENU_MACHINE_BUTTON_2X2_WIDTH, UI_MENU_MACHINE_BUTTON_2X2_HEIGHT);
 
   paint_asset(options, state, config, context, machine_size_to_asset_index(2, 2), factory.ticks,
-    UI_MENU_BOTTOM_MACHINE2X2_X, UI_MENU_BOTTOM_MACHINE2X2_Y, UI_MENU_BOTTOM_MACHINE2X2_WIDTH, UI_MENU_BOTTOM_MACHINE2X2_HEIGHT
+    UI_MENU_MACHINE_BUTTON_2X2_X, UI_MENU_MACHINE_BUTTON_2X2_Y, UI_MENU_MACHINE_BUTTON_2X2_WIDTH, UI_MENU_MACHINE_BUTTON_2X2_HEIGHT
   );
 
   context.set_stroke_style(&"black".into());
-  context.stroke_rect(UI_MENU_BOTTOM_MACHINE2X2_X, UI_MENU_BOTTOM_MACHINE2X2_Y, UI_MENU_BOTTOM_MACHINE2X2_WIDTH, UI_MENU_BOTTOM_MACHINE2X2_HEIGHT);
+  context.stroke_rect(UI_MENU_MACHINE_BUTTON_2X2_X, UI_MENU_MACHINE_BUTTON_2X2_Y, UI_MENU_MACHINE_BUTTON_2X2_WIDTH, UI_MENU_MACHINE_BUTTON_2X2_HEIGHT);
 }
 fn paint_machine3x3(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   context.set_fill_style(&"#aaa".into());
-  context.fill_rect(UI_MENU_BOTTOM_MACHINE3X3_X, UI_MENU_BOTTOM_MACHINE3X3_Y, UI_MENU_BOTTOM_MACHINE3X3_WIDTH, UI_MENU_BOTTOM_MACHINE3X3_HEIGHT);
+  context.fill_rect(UI_MENU_MACHINE_BUTTON_3X3_X, UI_MENU_MACHINE_BUTTON_3X3_Y, UI_MENU_MACHINE_BUTTON_3X3_WIDTH, UI_MENU_MACHINE_BUTTON_3X3_HEIGHT);
 
   paint_asset(options, state, config, context, machine_size_to_asset_index(3, 3), factory.ticks,
-    UI_MENU_BOTTOM_MACHINE3X3_X, UI_MENU_BOTTOM_MACHINE3X3_Y, UI_MENU_BOTTOM_MACHINE3X3_WIDTH, UI_MENU_BOTTOM_MACHINE3X3_HEIGHT
+    UI_MENU_MACHINE_BUTTON_3X3_X, UI_MENU_MACHINE_BUTTON_3X3_Y, UI_MENU_MACHINE_BUTTON_3X3_WIDTH, UI_MENU_MACHINE_BUTTON_3X3_HEIGHT
   );
 
   context.set_stroke_style(&"black".into());
-  context.stroke_rect(UI_MENU_BOTTOM_MACHINE3X3_X, UI_MENU_BOTTOM_MACHINE3X3_Y, UI_MENU_BOTTOM_MACHINE3X3_WIDTH, UI_MENU_BOTTOM_MACHINE3X3_HEIGHT);
+  context.stroke_rect(UI_MENU_MACHINE_BUTTON_3X3_X, UI_MENU_MACHINE_BUTTON_3X3_Y, UI_MENU_MACHINE_BUTTON_3X3_WIDTH, UI_MENU_MACHINE_BUTTON_3X3_HEIGHT);
 }
 fn paint_ui_buttons(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   // See on_up_menu for events
@@ -5713,13 +5653,16 @@ fn paint_asset_raw(options: &Options, state: &State, config: &Config, context: &
   return true;
 }
 fn hit_test_undo(x: f64, y: f64) -> bool {
-  return bounds_check(x, y, UI_UNREDO_UNDO_OFFSET_X, UI_UNREDO_UNDO_OFFSET_Y, UI_UNREDO_UNDO_OFFSET_X + UI_UNREDO_UNDO_WIDTH, UI_UNREDO_UNDO_OFFSET_Y + UI_UNREDO_UNDO_HEIGHT);
-}
-fn hit_test_clear(x: f64, y: f64) -> bool {
-  return bounds_check(x, y, UI_UNREDO_CLEAR_OFFSET_X, UI_UNREDO_CLEAR_OFFSET_Y, UI_UNREDO_CLEAR_OFFSET_X + UI_UNREDO_CLEAR_WIDTH, UI_UNREDO_CLEAR_OFFSET_Y + UI_UNREDO_CLEAR_HEIGHT);
+  return bounds_check(x, y, UI_UNREDO_UNDO_OFFSET_X, UI_UNREDO_UNDO_OFFSET_Y, UI_UNREDO_UNDO_OFFSET_X + UI_UNREDO_WIDTH, UI_UNREDO_UNDO_OFFSET_Y + UI_UNREDO_HEIGHT);
 }
 fn hit_test_redo(x: f64, y: f64) -> bool {
-  return bounds_check(x, y, UI_UNREDO_REDO_OFFSET_X, UI_UNREDO_REDO_OFFSET_Y, UI_UNREDO_REDO_OFFSET_X + UI_UNREDO_REDO_WIDTH, UI_UNREDO_REDO_OFFSET_Y + UI_UNREDO_REDO_HEIGHT);
+  return bounds_check(x, y, UI_UNREDO_REDO_OFFSET_X, UI_UNREDO_REDO_OFFSET_Y, UI_UNREDO_REDO_OFFSET_X + UI_UNREDO_WIDTH, UI_UNREDO_REDO_OFFSET_Y + UI_UNREDO_HEIGHT);
+}
+fn hit_test_clear(x: f64, y: f64) -> bool {
+  return bounds_check(x, y, UI_UNREDO_CLEAR_OFFSET_X, UI_UNREDO_CLEAR_OFFSET_Y, UI_UNREDO_CLEAR_OFFSET_X + UI_UNREDO_WIDTH, UI_UNREDO_CLEAR_OFFSET_Y + UI_UNREDO_HEIGHT);
+}
+fn hit_test_paint_toggle(x: f64, y: f64) -> bool {
+  return bounds_check(x, y, UI_UNREDO_PAINT_TOGGLE_X, UI_UNREDO_PAINT_TOGGLE_Y, UI_UNREDO_PAINT_TOGGLE_X + UI_UNREDO_WIDTH, UI_UNREDO_PAINT_TOGGLE_Y + UI_UNREDO_HEIGHT);
 }
 fn hit_test_save_map_button_index(x: f64, y: f64) -> usize {
   return
@@ -5809,23 +5752,23 @@ fn paint_map_state_buttons(options: &Options, state: &State, config: &Config, co
   context.save();
   context.set_font(&"48px monospace");
 
-  paint_button(options, state, config, context, button_canvii, if state.snapshot_undo_pointer > 0 && mouse_state.down_undo { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_UNREDO_UNDO_OFFSET_X, UI_UNREDO_UNDO_OFFSET_Y);
-  let text_color = if state.snapshot_undo_pointer <= 0 { "#777" } else if mouse_state.over_undo { "#aaa" } else { "#ddd" };
+  paint_button(options, state, config, context, button_canvii, if state.snapshot_undo_pointer > 0 && mouse_state.down_menu_button == MenuButton::UndoButton { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_UNREDO_UNDO_OFFSET_X, UI_UNREDO_UNDO_OFFSET_Y);
+  let text_color = if state.snapshot_undo_pointer <= 0 { "#777" } else if mouse_state.over_menu_button == MenuButton::UndoButton { "#aaa" } else { "#ddd" };
   context.set_fill_style(&text_color.into());
-  context.fill_text("↶", UI_UNREDO_UNDO_OFFSET_X + UI_UNREDO_UNDO_WIDTH / 2.0 - 16.0, UI_UNREDO_UNDO_OFFSET_Y + UI_UNREDO_UNDO_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
+  context.fill_text("↶", UI_UNREDO_UNDO_OFFSET_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_UNREDO_UNDO_OFFSET_Y + UI_UNREDO_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
 
-  paint_button(options, state, config, context, button_canvii, if mouse_state.down_trash { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_UNREDO_CLEAR_OFFSET_X, UI_UNREDO_CLEAR_OFFSET_Y);
+  paint_button(options, state, config, context, button_canvii, if mouse_state.down_menu_button == MenuButton::ClearButton { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_UNREDO_CLEAR_OFFSET_X, UI_UNREDO_CLEAR_OFFSET_Y);
 
   paint_asset_raw(
-    options, state, config, &context, if mouse_state.over_trash { CONFIG_NODE_ASSET_TRASH_RED } else { CONFIG_NODE_ASSET_TRASH_LIGHT }, 0,
-    UI_UNREDO_CLEAR_OFFSET_X + UI_UNREDO_UNDO_WIDTH / 2.0 - 16.0, UI_UNREDO_CLEAR_OFFSET_Y + UI_UNREDO_CLEAR_HEIGHT / 2.0 - 16.0, 32.0, 32.0
+    options, state, config, &context, if mouse_state.over_menu_button == MenuButton::ClearButton { CONFIG_NODE_ASSET_TRASH_RED } else { CONFIG_NODE_ASSET_TRASH_LIGHT }, 0,
+    UI_UNREDO_CLEAR_OFFSET_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_UNREDO_CLEAR_OFFSET_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0
   );
 
   // 🗑 🚮
-  paint_button(options, state, config, context, button_canvii, if state.snapshot_undo_pointer != state.snapshot_pointer && mouse_state.down_redo { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_UNREDO_REDO_OFFSET_X, UI_UNREDO_REDO_OFFSET_Y);
-  let text_color = if state.snapshot_undo_pointer == state.snapshot_pointer { "#777" } else if mouse_state.over_redo { "#aaa" } else { "#ddd" };
+  paint_button(options, state, config, context, button_canvii, if state.snapshot_undo_pointer != state.snapshot_pointer && mouse_state.down_menu_button == MenuButton::RedoButton { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_UNREDO_REDO_OFFSET_X, UI_UNREDO_REDO_OFFSET_Y);
+  let text_color = if state.snapshot_undo_pointer == state.snapshot_pointer { "#777" } else if mouse_state.over_menu_button == MenuButton::RedoButton { "#aaa" } else { "#ddd" };
   context.set_fill_style(&text_color.into());
-  context.fill_text("↷", UI_UNREDO_REDO_OFFSET_X + UI_UNREDO_REDO_WIDTH / 2.0 - 16.0, UI_UNREDO_REDO_OFFSET_Y + UI_UNREDO_REDO_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
+  context.fill_text("↷", UI_UNREDO_REDO_OFFSET_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_UNREDO_REDO_OFFSET_Y + UI_UNREDO_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
 
   context.restore();
 }

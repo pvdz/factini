@@ -102,11 +102,8 @@ pub struct MouseState {
   pub up_quote: bool,
   pub up_quest_visible_index: usize, // Only if up_quote
 
-  pub over_menu_row: MenuRow,
   pub over_menu_button: MenuButton,
-  pub down_menu_row: MenuRow,
   pub down_menu_button: MenuButton,
-  pub up_menu_row: MenuRow,
   pub up_menu_button: MenuButton,
 
   pub help_hover: bool,
@@ -178,16 +175,6 @@ pub struct MouseState {
   pub down_save_map_index: usize,
   pub up_save_map: bool,
   pub up_save_map_index: usize,
-
-  pub over_undo: bool,
-  pub down_undo: bool,
-  pub up_undo: bool,
-  pub over_trash: bool,
-  pub down_trash: bool,
-  pub up_trash: bool,
-  pub over_redo: bool,
-  pub down_redo: bool,
-  pub up_redo: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -212,19 +199,14 @@ pub enum MenuButton {
   Row3Button4,
   Row3Button5,
   Row3Button6,
-  PaintToggleButton, // Left of the big factory button
+  UndoButton,
+  RedoButton,
+  ClearButton,
+  PaintToggleButton,
   Machine1x2Button,
   Machine2x1Button,
   Machine2x2Button,
   Machine3x3Button,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum MenuRow {
-  None,
-  First,
-  Second,
-  Third,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
