@@ -121,6 +121,7 @@ pub struct Options {
   pub enable_quick_save_menu: bool,
   pub enable_maze: bool,
   pub enable_speed_menu: bool,
+  pub show_menu: bool,
 
   pub test: u64, // just a temporary flag
 }
@@ -206,6 +207,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     enable_quick_save_menu: true,
     enable_maze: true,
     enable_speed_menu: true,
+    show_menu: true,
     test: 0,
   };
 }
@@ -392,6 +394,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "enable_quick_save_menu" => options.enable_quick_save_menu = parse_bool(value, name, strict, options.enable_quick_save_menu, verbose),
             "enable_maze" => options.enable_maze = parse_bool(value, name, strict, options.enable_maze, verbose),
             "enable_speed_menu" => options.enable_speed_menu = parse_bool(value, name, strict, options.enable_speed_menu, verbose),
+            "show_menu" => options.show_menu = parse_bool(value, name, strict, options.show_menu, verbose),
             "test" => options.test = parse_u64(value, name, strict, options.test, verbose),
             _ => {
               log!("  - ignoring `{}` because it is an unknown option or because it needs to be added to the options parser", name);
@@ -486,6 +489,7 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- enable_quick_save_menu: {}", options.enable_quick_save_menu));
   arr.push(format!("- enable_maze: {}", options.enable_maze));
   arr.push(format!("- enable_speed_menu: {}", options.enable_speed_menu));
+  arr.push(format!("- show_menu: {}", options.show_menu));
   arr.push(format!("- test: {}", options.test));
   return arr.join("\n");
 }

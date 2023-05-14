@@ -1180,10 +1180,12 @@ fn update_mouse_state(
       }
     }
     Zone::TopRight => {
-      let menu_button = hit_test_menu_buttons(mouse_state.world_x, mouse_state.world_y);
-      if menu_button != MenuButton::None {
-        // time controls, first, second row of menu buttons
-        mouse_state.over_menu_button = menu_button;
+      if options.show_menu {
+        let menu_button = hit_test_menu_buttons(mouse_state.world_x, mouse_state.world_y);
+        if menu_button != MenuButton::None {
+          // time controls, first, second row of menu buttons
+          mouse_state.over_menu_button = menu_button;
+        }
       }
     }
     ZONE_FLOOR => {
@@ -1326,12 +1328,14 @@ fn update_mouse_state(
         log!("Top menu button down: {:?}", mouse_state.down_menu_button);
       }
       Zone::TopRight => {
-        let menu_button = hit_test_menu_buttons(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
-        if menu_button != MenuButton::None {
-          // time controls, first, second row of menu buttons
-          mouse_state.down_menu_button = menu_button;
-        } else {
-          log!("Ignored top-right down event");
+        if options.show_menu {
+          let menu_button = hit_test_menu_buttons(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
+          if menu_button != MenuButton::None {
+            // time controls, first, second row of menu buttons
+            mouse_state.down_menu_button = menu_button;
+          } else {
+            log!("Ignored top-right down event");
+          }
         }
       }
       ZONE_FLOOR => {
@@ -1507,12 +1511,14 @@ fn update_mouse_state(
         log!("Top menu button up: {:?}", mouse_state.up_menu_button);
       }
       Zone::TopRight => {
-        let menu_button = hit_test_menu_buttons(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
-        if menu_button != MenuButton::None {
-          // time controls, first, second row of menu buttons
-          mouse_state.up_menu_button = menu_button;
-        } else {
-          log!("Ignored top-right up event");
+        if options.show_menu {
+          let menu_button = hit_test_menu_buttons(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
+          if menu_button != MenuButton::None {
+            // time controls, first, second row of menu buttons
+            mouse_state.up_menu_button = menu_button;
+          } else {
+            log!("Ignored top-right up event");
+          }
         }
       }
       ZONE_FLOOR => {}
@@ -4794,13 +4800,13 @@ fn paint_zone_borders(options: &Options, state: &State, context: &Rc<web_sys::Ca
   if options.draw_zone_borders {
     context.set_stroke_style(&options.zone_borders_color.clone().into());
     context.stroke_rect(GRID_X0, GRID_Y0, GRID_LEFT_WIDTH, GRID_TOP_HEIGHT);
-    context.stroke_rect(GRID_X1, GRID_Y0, FLOOR_WIDTH, GRID_TOP_HEIGHT);
-    context.stroke_rect(GRID_X2, GRID_Y0, GRID_RIGHT_WIDTH, GRID_TOP_HEIGHT + GRID_PADDING + FLOOR_HEIGHT + GRID_PADDING + GRID_BOTTOM_HEIGHT);
-    context.stroke_rect(GRID_X0, GRID_Y1, GRID_LEFT_WIDTH, FLOOR_HEIGHT);
-    context.stroke_rect(GRID_X1, GRID_Y1, FLOOR_WIDTH, FLOOR_HEIGHT);
+    context.stroke_rect(GRID_X1, GRID_Y0, UI_FLOOR_WIDTH, GRID_TOP_HEIGHT);
+    context.stroke_rect(GRID_X2, GRID_Y0, GRID_RIGHT_WIDTH, GRID_TOP_HEIGHT + GRID_PADDING + UI_FLOOR_HEIGHT + GRID_PADDING + GRID_BOTTOM_HEIGHT);
+    context.stroke_rect(GRID_X0, GRID_Y1, GRID_LEFT_WIDTH, UI_FLOOR_HEIGHT);
+    context.stroke_rect(GRID_X1, GRID_Y1, UI_FLOOR_WIDTH, UI_FLOOR_HEIGHT);
     context.stroke_rect(GRID_X0, GRID_Y2, GRID_LEFT_WIDTH, GRID_BOTTOM_HEIGHT);
-    context.stroke_rect(GRID_X1, GRID_Y2, FLOOR_WIDTH, GRID_BOTTOM_HEIGHT);
-    context.stroke_rect(GRID_X0, GRID_Y3, GRID_LEFT_WIDTH + GRID_PADDING + FLOOR_WIDTH + GRID_PADDING + GRID_RIGHT_WIDTH, GRID_BOTTOM_DEBUG_HEIGHT);
+    context.stroke_rect(GRID_X1, GRID_Y2, UI_FLOOR_WIDTH, GRID_BOTTOM_HEIGHT);
+    context.stroke_rect(GRID_X0, GRID_Y3, GRID_LEFT_WIDTH + GRID_PADDING + UI_FLOOR_WIDTH + GRID_PADDING + GRID_RIGHT_WIDTH, GRID_BOTTOM_DEBUG_HEIGHT);
   }
 }
 fn paint_manual(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>) {
@@ -4869,16 +4875,16 @@ fn paint_zone_hovers(options: &Options, state: &State, context: &Rc<web_sys::Can
     match mouse_state.over_zone {
       Zone::None => {}
       Zone::TopLeft =>            context.fill_rect(GRID_X0, GRID_Y0, GRID_LEFT_WIDTH, GRID_TOP_HEIGHT),
-      Zone::Top =>                context.fill_rect(GRID_X1, GRID_Y0, FLOOR_WIDTH, GRID_TOP_HEIGHT),
+      Zone::Top =>                context.fill_rect(GRID_X1, GRID_Y0, UI_FLOOR_WIDTH, GRID_TOP_HEIGHT),
       Zone::TopRight =>           context.fill_rect(GRID_X2, GRID_Y0, GRID_RIGHT_WIDTH, GRID_TOP_HEIGHT),
-      Zone::Left =>               context.fill_rect(GRID_X0, GRID_Y1, GRID_LEFT_WIDTH, FLOOR_HEIGHT),
-      Zone::Middle =>             context.fill_rect(GRID_X1, GRID_Y1, FLOOR_WIDTH, FLOOR_HEIGHT),
-      Zone::Right =>              context.fill_rect(GRID_X2, GRID_Y1, GRID_RIGHT_WIDTH, FLOOR_HEIGHT),
+      Zone::Left =>               context.fill_rect(GRID_X0, GRID_Y1, GRID_LEFT_WIDTH, UI_FLOOR_HEIGHT),
+      Zone::Middle =>             context.fill_rect(GRID_X1, GRID_Y1, UI_FLOOR_WIDTH, UI_FLOOR_HEIGHT),
+      Zone::Right =>              context.fill_rect(GRID_X2, GRID_Y1, GRID_RIGHT_WIDTH, UI_FLOOR_HEIGHT),
       Zone::BottomLeft =>         context.fill_rect(GRID_X0, GRID_Y2, GRID_LEFT_WIDTH, GRID_BOTTOM_HEIGHT),
-      Zone::Bottom =>             context.fill_rect(GRID_X1, GRID_Y2, FLOOR_WIDTH, GRID_BOTTOM_HEIGHT),
+      Zone::Bottom =>             context.fill_rect(GRID_X1, GRID_Y2, UI_FLOOR_WIDTH, GRID_BOTTOM_HEIGHT),
       Zone::BottomRight =>        context.fill_rect(GRID_X2, GRID_Y2, GRID_RIGHT_WIDTH, GRID_BOTTOM_HEIGHT),
       Zone::BottomBottomLeft =>   context.fill_rect(GRID_X0, GRID_Y3, GRID_LEFT_WIDTH, GRID_BOTTOM_DEBUG_HEIGHT),
-      Zone::BottomBottom =>       context.fill_rect(GRID_X1, GRID_Y3, FLOOR_WIDTH, GRID_BOTTOM_DEBUG_HEIGHT),
+      Zone::BottomBottom =>       context.fill_rect(GRID_X1, GRID_Y3, UI_FLOOR_WIDTH, GRID_BOTTOM_DEBUG_HEIGHT),
       Zone::BottomBottomRight =>  context.fill_rect(GRID_X2, GRID_Y3, GRID_RIGHT_WIDTH, GRID_BOTTOM_DEBUG_HEIGHT),
       Zone::Craft => {}
       Zone::Manual => {}
@@ -5388,8 +5394,10 @@ fn paint_green_pixel(context: &Rc<web_sys::CanvasRenderingContext2d>, progress: 
   }
 }
 fn paint_button_menu_ui(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
-  paint_ui_buttons(options, state, context, mouse_state);
-  paint_ui_buttons2(options, state, context, mouse_state);
+  if options.show_menu {
+    paint_ui_buttons(options, state, context, mouse_state);
+    paint_ui_buttons2(options, state, context, mouse_state);
+  }
 }
 fn paint_paint_toggle(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
   paint_button(options, state, config, context, button_canvii, if state.mouse_mode_mirrored { BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_UP }, UI_UNREDO_PAINT_TOGGLE_X, UI_UNREDO_PAINT_TOGGLE_Y);
@@ -5505,8 +5513,8 @@ fn paint_ui_button2(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state
   context.fill_text(text, x + 5.0, y + 14.0).expect("to paint");
 }
 fn paint_ui_time_control(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  // paint_speed_buttons
   if options.enable_speed_menu {
-    // paint_buttons
     paint_ui_speed_bubble(MenuButton::Row1ButtonMin, options, state, context, mouse_state, 0, "-");
     paint_ui_speed_bubble(MenuButton::Row1ButtonHalf, options, state, context, mouse_state, 1, "½");
     paint_ui_speed_bubble(MenuButton::Row1ButtonPlay, options, state, context, mouse_state, 2, "⏭"); // "play" / "pause" / Row1ButtonPlay
@@ -5778,7 +5786,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
   }
 
   let x = (GRID_X2 + GRID_RIGHT_WIDTH / 2.0 - MAZE_WIDTH / 2.0).floor() + 0.5;
-  let y = (GRID_Y1 + FLOOR_HEIGHT - MAZE_HEIGHT).floor() + 0.5;
+  let y = (GRID_Y1 + UI_FLOOR_HEIGHT - MAZE_HEIGHT).floor() + 0.5;
 
   let maze = &factory.maze;
 

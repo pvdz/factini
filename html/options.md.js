@@ -77,4 +77,5 @@ const GAME_OPTIONS = `
 - enable_quick_save_menu: true
 - enable_maze: true
 - enable_speed_menu: true
+- show_menu: true
 `;
