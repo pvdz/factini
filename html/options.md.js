@@ -78,4 +78,5 @@ const GAME_OPTIONS = `
 - enable_maze: true
 - enable_speed_menu: true
 - show_menu: true
+- show_debug_bottom: true
 `;

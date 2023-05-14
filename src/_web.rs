@@ -195,6 +195,7 @@ pub fn start() -> Result<(), JsValue> {
   canvas.style().set_property("width", format!("{}px", CANVAS_CSS_WIDTH as u32).as_str())?;
   canvas.style().set_property("height", format!("{}px", CANVAS_CSS_HEIGHT as u32).as_str())?;
   canvas.style().set_property("background-image", "url(./img/sand.png)").expect("should work");
+  canvas.style().set_property("id", "sand_bg").expect("should work");
   let context = canvas.get_context("2d")?.unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>()?;
   let context = Rc::new(context);
 
@@ -827,7 +828,18 @@ pub fn start() -> Result<(), JsValue> {
       if queued_action != "" { log!("getAction() had `{}`", queued_action); }
       let options_started_from_source = options.options_started_from_source; // Don't change this value here.
       match queued_action.as_str() {
-        "apply_options" => parse_and_save_options_string(getGameOptions(), &mut options, false, options_started_from_source, false),
+        "apply_options" => {
+          parse_and_save_options_string(getGameOptions(), &mut options, false, options_started_from_source, false);
+
+          if options.show_debug_bottom != state.showing_debug_bottom {
+            state.showing_debug_bottom = options.show_debug_bottom;
+            let h = if state.showing_debug_bottom { CANVAS_CSS_HEIGHT } else { CANVAS_CSS_HEIGHT - GRID_BOTTOM_DEBUG_HEIGHT - GRID_PADDING } as u32;
+
+            let c = document.get_element_by_id("$main_game_canvas").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().expect("should work");
+            c.set_height(h);
+            c.style().set_property("height", format!("{}px", h).as_str()).expect("should work");
+          }
+        },
         "load_map" => state.reset_next_frame = true, // implicitly will call getGameMap() which loads the map from UI indirectly
         "load_config" => {
           let mut config = parse_fmd(options.print_fmd_trace, getGameConfig());
@@ -952,16 +964,7 @@ pub fn start() -> Result<(), JsValue> {
 
         // Clear canvas
         // Global background
-        // if let Some(ptrn_sand) = context.create_pattern_with_html_image_element(&img_loading_sand, "repeat").expect("trying to load sand ztile") {
-          // context.set_fill_style(&ptrn_sand);
-          // context.fill_rect(0.0, 0.0, CANVAS_WIDTH as f64, GRID_Y3);
-          context.clear_rect(0.0, 0.0, CANVAS_WIDTH as f64, GRID_Y3);
-        // } else {
-        //   context.set_fill_style(&"#E86A17".into());
-        //   context.fill_rect(0.0, 0.0, CANVAS_WIDTH as f64, CANVAS_HEIGHT as f64);
-        //   context.set_stroke_style(&"#aaa".into());
-        //   context.stroke_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, FLOOR_CELLS_W as f64 * CELL_W, FLOOR_CELLS_H as f64 * CELL_H);
-        // }
+        context.clear_rect(0.0, 0.0, CANVAS_WIDTH, CANVAS_HEIGHT - GRID_BOTTOM_DEBUG_HEIGHT);
 
         // Put a semi-transparent layer over the inner floor part to make it darker
         // context.set_fill_style(&"#00000077".into());
@@ -3383,6 +3386,12 @@ fn hit_check_speed_bubble_x(x: f64, y: f64, index: usize) -> bool {
 }
 
 fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, fps: &VecDeque<f64>, now: f64, since_prev: f64, ticks_todo: u64, estimated_fps: f64, rounded_fps: u64, factory: &Factory, mouse_state: &MouseState) {
+
+  if !state.showing_debug_bottom {
+    context.set_fill_style(&"black".into());
+    context.fill_text(format!("fps: {}", fps.len()).as_str(), GRID_X3 - 70.0, GRID_Y0 + 15.0).expect("something error fill_text");
+    return;
+  }
 
   let mut ui_lines = 0.0;
 

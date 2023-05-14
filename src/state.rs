@@ -44,6 +44,8 @@ pub struct State {
   pub reset_next_frame: bool,
   pub load_snapshot_next_frame: bool,
   pub load_example_next_frame: bool,
+
+  pub showing_debug_bottom: bool, // Allows us to toggle the debug part with little overhead
 }
 
 #[derive(Debug)]
@@ -250,6 +252,7 @@ pub fn state_create(options: &Options, active_story_index: usize) -> State {
     load_example_next_frame: false,
     examples: vec!(),
     example_pointer: 0,
+    showing_debug_bottom: true,
   };
 }
 
