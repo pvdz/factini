@@ -46,6 +46,7 @@ pub struct State {
   pub load_example_next_frame: bool,
 
   pub showing_debug_bottom: bool, // Allows us to toggle the debug part with little overhead
+  pub ui_unlock_progress: u8, // Used to track how much of the UI to unlock
 }
 
 #[derive(Debug)]
@@ -253,6 +254,7 @@ pub fn state_create(options: &Options, active_story_index: usize) -> State {
     examples: vec!(),
     example_pointer: 0,
     showing_debug_bottom: true,
+    ui_unlock_progress: 0,
   };
 }
 

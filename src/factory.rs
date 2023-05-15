@@ -150,7 +150,7 @@ pub fn tick_factory(options: &mut Options, state: &mut State, config: &Config, f
     }
   }
 
-  if options.enable_maze {
+  if options.enable_maze_full {
     tick_maze(options, state, config, factory);
   }
 
@@ -410,6 +410,7 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
               if fade_progress >= 1.0 {
                 log!("quest_update_status: fade finished {}", config.nodes[factory.quests[quest_index].config_node_index].raw_name);
                 quest_update_status(factory, quest_index, QuestStatus::Finished, factory.ticks);
+                update_game_ui_after_quest_finish(options, state);
               }
             }
           }
@@ -425,6 +426,28 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
   factory.produced = total_parts_produced;
   factory.accepted = total_parts_accepted;
   factory.trashed = total_parts_trashed;
+}
+
+pub fn update_game_ui_after_quest_finish(options: &mut Options, state: &mut State) {
+  if state.ui_unlock_progress == 0 {
+    log!("Moving to UI stage 1; {} {} {}", options.enable_speed_menu, options.enable_quick_save_menu, options.enable_maze_full);
+    // Move to stage 1: showing the .... speed controls
+    options.enable_speed_menu = true;
+    state.ui_unlock_progress = 1;
+  }
+  else if state.ui_unlock_progress == 1 {
+    log!("Moving to UI stage 2");
+    options.enable_quick_save_menu = true;
+    state.ui_unlock_progress = 2;
+  }
+  else if state.ui_unlock_progress == 2 {
+    log!("Moving to UI stage 3");
+    // TODO: Probably want the user to use a bigger machine for that
+    // TODO: should first unlock the meter. The maze should unlock once each input on the meter has at least one bar.
+    options.enable_maze_partial = true;
+    state.ui_unlock_progress = 3;
+  }
+  // Note: enable_maze_full is set once you have at least one cell in all four bars
 }
 
 pub fn factory_load_map(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, floor_str: String) {
@@ -505,7 +528,9 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
       // TODO: remove from tick loop and move to paint loop
       if factory.quests[quest_current_index].status == QuestStatus::Bouncing && factory.quests[quest_current_index].bouncer.frames.len() == 0 {
         log!("Marking quest {} as Finished", quest_current_index);
-        factory.quests[quest_current_index].status = QuestStatus::Finished;
+        quest_update_status(factory, quest_current_index, QuestStatus::Finished, factory.ticks);
+        update_game_ui_after_quest_finish(options, state);
+
         // - Find out which quests were unlocked by finishing this one
         // - Find out which parts are newly available by unlocking that quest
         // - Create a dump truck with those parts

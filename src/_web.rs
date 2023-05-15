@@ -48,6 +48,8 @@
 // - experiment with bigger maps and scrolling
 // - collected stuff is only cleared if a cell is completed. fractions are kept etc.
 // - should undo/redo reset quest progress?
+// - when next ui-phase unlocks, use an animation where ui elements drift into their place
+// - once the partial is enabled, wait until the four bars all have at least one cell and then start the maze. preferably animated
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -3546,7 +3548,7 @@ fn paint_floor_round_way(
   context: &Rc<web_sys::CanvasRenderingContext2d>,
 ) {
   // Paint a track around the floor. It will be smaller than the track on the floor.
-  if !options.enable_maze {
+  if !options.enable_maze_partial {
     return;
   }
 
@@ -5790,7 +5792,7 @@ fn paint_map_state_buttons(options: &Options, state: &State, config: &Config, co
   context.restore();
 }
 fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  if !options.enable_maze {
+  if !options.enable_maze_partial {
     return;
   }
 
@@ -5799,271 +5801,276 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
 
   let maze = &factory.maze;
 
-  if !options.enable_maze_runner {
-    context.set_fill_style(&"black".into());
-    context.fill_text("Warning: options.enable_maze_runner = false", x, y + MAZE_HEIGHT + 15.0).expect("an ok");
-  }
-
-  // Paint four "current" runner bars
-
   // Energy remaining
   let energy_x = x + 10.0;
   let energy_y = y - 30.0;
-  context.set_fill_style(&"black".into());
-  if options.print_maze_prepared_stats { context.fill_text(format!("{} / {}", factory.maze_runner.energy_now, factory.maze_runner.energy_max).as_str(), energy_x, energy_y - 5.0).expect("it to work"); }
-  context.set_fill_style(&"white".into());
-  context.fill_rect(energy_x, energy_y, 80.0, 25.0);
-  context.set_fill_style(&"yellow".into());
-  context.fill_rect(energy_x, energy_y, (factory.maze_runner.energy_now as f64 / factory.maze_runner.energy_max as f64) * 80.0, 25.0);
-  context.set_stroke_style(&"black".into());
-  context.stroke_rect(energy_x, energy_y, 80.0, 25.0);
-
   // Speed indicator
   let speed_x = x + 100.0;
   let speed_y = y - 30.0;
-  context.set_fill_style(&"black".into());
-  if options.print_maze_prepared_stats { context.fill_text(format!("{}", factory.maze_runner.speed).as_str(), speed_x, speed_y - 5.0).expect("it to work"); }
-  context.set_fill_style(&"white".into());
-  context.fill_rect(speed_x, speed_y, 30.0, 25.0);
-  context.set_stroke_style(&"black".into());
-  context.stroke_rect(speed_x, speed_y, 30.0, 25.0);
-  context.set_fill_style(&"black".into());
-  context.fill_text(&format!("{}", factory.maze_runner.speed), speed_x + 11.0, speed_y + 16.0).expect("it to work");
-
   // Power indicator, paint one hammer per rock that can be broken
   let power_x = x + 140.0;
   let power_y = y - 30.0;
-  context.set_fill_style(&"black".into());
-  if options.print_maze_prepared_stats { context.fill_text(format!("{} / {}", factory.maze_runner.power_now, factory.maze_runner.power_max).as_str(), power_x, power_y - 5.0).expect("it to work"); }
-  context.set_fill_style(&"white".into());
-  context.fill_rect(power_x, power_y, 60.0, 25.0);
-  // paint one hammer evenly divided across the space. maintain location (dont "jump" when removing a hammer). max width to divide is field_width-margin-img_width-margin. max spacing is img_width+margin
-  let max_power_space = 60.0 - 5.0 - 5.0;
-  let power_offset_step = (max_power_space / (factory.maze_runner.power_max as f64)).min(20.0);
-  for i in 0..factory.maze_runner.power_now {
-    // will overlap. by design
-    paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_PICKAXE, factory.ticks, power_x + 5.0 + (i as f64) * power_offset_step, power_y + 5.0, 15.0, 15.0);
-  }
-  context.set_stroke_style(&"black".into());
-  context.stroke_rect(power_x, power_y, 60.0, 25.0);
-
   // Collection / Volume indicator
   let volume_x = x + 210.0;
   let volume_y = y - 30.0;
-  context.set_fill_style(&"black".into());
-  if options.print_maze_prepared_stats {
-    context.fill_text(format!("{} / {}", factory.maze_runner.volume_now, factory.maze_runner.volume_max).as_str(), volume_x, volume_y - 5.0).expect("it to work");
-  }
-  context.set_fill_style(&"white".into());
-  context.fill_rect(volume_x, volume_y, 80.0, 25.0);
-  // Unlike power, here we may actually want to update the spacing as the volume goes up. Try to make it a "pile" or whatever. We can probably fake that to some degree with some kind of pre-defined positioning table etc.
-  let max_volume_space = 60.0 - 5.0 - 10.0 - 5.0;
-  let volume_offset_step = (max_volume_space / (factory.maze_runner.volume_max as f64)).min(20.0);
-  for i in 0..factory.maze_runner.volume_now {
-    // will overlap. by design
-    paint_asset(&options, &state, &config, &context, CONFIG_NDOE_ASSET_TREASURE, factory.ticks, volume_x + 5.0 + (i as f64) * volume_offset_step, volume_y + 5.0, 15.0, 15.0);
-  }
-  context.set_stroke_style(&"black".into());
-  context.stroke_rect(volume_x, volume_y, 80.0, 25.0);
 
-  // Actual maze next...
+  if options.enable_maze_full {
+    if !options.enable_maze_runner {
+      context.set_fill_style(&"black".into());
+      context.fill_text("Warning: options.enable_maze_runner = false", x, y + MAZE_HEIGHT + 15.0).expect("an ok");
+    }
 
-  context.set_fill_style(&"white".into());
-  context.fill_rect(x, y, MAZE_WIDTH, MAZE_HEIGHT);
-  context.set_stroke_style(&"black".into());
-  context.stroke_rect(x, y, MAZE_WIDTH, MAZE_HEIGHT);
+    // Paint four "current" runner bars
 
-  for i in 0..MAZE_CELLS_W as usize {
-    for j in 0..MAZE_CELLS_H as usize {
-      let v = &maze[j* MAZE_CELLS_W +i];
-      if v.state > 0 {
-        context.set_fill_style(&format!("#ff{:02x}{:02x}", 255-v.state, 255-v.state).into());
-        // context.set_fill_style(&format!("#ff0000").into());
-        context.fill_rect(x + (i as f64) * MAZE_CELL_SIZE, y + (j as f64) * MAZE_CELL_SIZE, MAZE_CELL_SIZE, MAZE_CELL_SIZE);
+    context.set_fill_style(&"black".into());
+    if options.print_maze_prepared_stats { context.fill_text(format!("{} / {}", factory.maze_runner.energy_now, factory.maze_runner.energy_max).as_str(), energy_x, energy_y - 5.0).expect("it to work"); }
+    context.set_fill_style(&"white".into());
+    context.fill_rect(energy_x, energy_y, 80.0, 25.0);
+    context.set_fill_style(&"yellow".into());
+    context.fill_rect(energy_x, energy_y, (factory.maze_runner.energy_now as f64 / factory.maze_runner.energy_max as f64) * 80.0, 25.0);
+    context.set_stroke_style(&"black".into());
+    context.stroke_rect(energy_x, energy_y, 80.0, 25.0);
+
+    context.set_fill_style(&"black".into());
+    if options.print_maze_prepared_stats { context.fill_text(format!("{}", factory.maze_runner.speed).as_str(), speed_x, speed_y - 5.0).expect("it to work"); }
+    context.set_fill_style(&"white".into());
+    context.fill_rect(speed_x, speed_y, 30.0, 25.0);
+    context.set_stroke_style(&"black".into());
+    context.stroke_rect(speed_x, speed_y, 30.0, 25.0);
+    context.set_fill_style(&"black".into());
+    context.fill_text(&format!("{}", factory.maze_runner.speed), speed_x + 11.0, speed_y + 16.0).expect("it to work");
+
+    context.set_fill_style(&"black".into());
+    if options.print_maze_prepared_stats { context.fill_text(format!("{} / {}", factory.maze_runner.power_now, factory.maze_runner.power_max).as_str(), power_x, power_y - 5.0).expect("it to work"); }
+    context.set_fill_style(&"white".into());
+    context.fill_rect(power_x, power_y, 60.0, 25.0);
+    // paint one hammer evenly divided across the space. maintain location (dont "jump" when removing a hammer). max width to divide is field_width-margin-img_width-margin. max spacing is img_width+margin
+    let max_power_space = 60.0 - 5.0 - 5.0;
+    let power_offset_step = (max_power_space / (factory.maze_runner.power_max as f64)).min(20.0);
+    for i in 0..factory.maze_runner.power_now {
+      // will overlap. by design
+      paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_PICKAXE, factory.ticks, power_x + 5.0 + (i as f64) * power_offset_step, power_y + 5.0, 15.0, 15.0);
+    }
+    context.set_stroke_style(&"black".into());
+    context.stroke_rect(power_x, power_y, 60.0, 25.0);
+
+    context.set_fill_style(&"black".into());
+    if options.print_maze_prepared_stats {
+      context.fill_text(format!("{} / {}", factory.maze_runner.volume_now, factory.maze_runner.volume_max).as_str(), volume_x, volume_y - 5.0).expect("it to work");
+    }
+    context.set_fill_style(&"white".into());
+    context.fill_rect(volume_x, volume_y, 80.0, 25.0);
+    // Unlike power, here we may actually want to update the spacing as the volume goes up. Try to make it a "pile" or whatever. We can probably fake that to some degree with some kind of pre-defined positioning table etc.
+    let max_volume_space = 60.0 - 5.0 - 10.0 - 5.0;
+    let volume_offset_step = (max_volume_space / (factory.maze_runner.volume_max as f64)).min(20.0);
+    for i in 0..factory.maze_runner.volume_now {
+      // will overlap. by design
+      paint_asset(&options, &state, &config, &context, CONFIG_NDOE_ASSET_TREASURE, factory.ticks, volume_x + 5.0 + (i as f64) * volume_offset_step, volume_y + 5.0, 15.0, 15.0);
+    }
+    context.set_stroke_style(&"black".into());
+    context.stroke_rect(volume_x, volume_y, 80.0, 25.0);
+
+    // Actual maze next...
+
+    context.set_fill_style(&"white".into());
+    context.fill_rect(x, y, MAZE_WIDTH, MAZE_HEIGHT);
+    context.set_stroke_style(&"black".into());
+    context.stroke_rect(x, y, MAZE_WIDTH, MAZE_HEIGHT);
+
+    for i in 0..MAZE_CELLS_W as usize {
+      for j in 0..MAZE_CELLS_H as usize {
+        let v = &maze[j* MAZE_CELLS_W +i];
+        if v.state > 0 {
+          context.set_fill_style(&format!("#ff{:02x}{:02x}", 255-v.state, 255-v.state).into());
+          // context.set_fill_style(&format!("#ff0000").into());
+          context.fill_rect(x + (i as f64) * MAZE_CELL_SIZE, y + (j as f64) * MAZE_CELL_SIZE, MAZE_CELL_SIZE, MAZE_CELL_SIZE);
+        }
       }
     }
-  }
 
-  for i in 0..MAZE_CELLS_W as usize {
-    for j in 0..MAZE_CELLS_H as usize {
-      let v = &maze[j* MAZE_CELLS_W +i];
-      if !v.up {
-        // can not go up, draw top-border
-        context.begin_path();
-        context.move_to(x + ((i) as f64) * MAZE_CELL_SIZE, y + ((j) as f64) * MAZE_CELL_SIZE);
-        context.line_to(x + ((i+1) as f64) * MAZE_CELL_SIZE, y + ((j) as f64) * MAZE_CELL_SIZE);
-        context.stroke();
-      }
-      if !v.left {
-        // can not go left, draw left-border
-        context.begin_path();
-        context.move_to(x + ((i) as f64) * MAZE_CELL_SIZE, y + ((j) as f64) * MAZE_CELL_SIZE);
-        context.line_to(x + ((i) as f64) * MAZE_CELL_SIZE, y + ((j+1) as f64) * MAZE_CELL_SIZE);
-        context.stroke();
-      }
+    for i in 0..MAZE_CELLS_W as usize {
+      for j in 0..MAZE_CELLS_H as usize {
+        let v = &maze[j* MAZE_CELLS_W +i];
+        if !v.up {
+          // can not go up, draw top-border
+          context.begin_path();
+          context.move_to(x + ((i) as f64) * MAZE_CELL_SIZE, y + ((j) as f64) * MAZE_CELL_SIZE);
+          context.line_to(x + ((i+1) as f64) * MAZE_CELL_SIZE, y + ((j) as f64) * MAZE_CELL_SIZE);
+          context.stroke();
+        }
+        if !v.left {
+          // can not go left, draw left-border
+          context.begin_path();
+          context.move_to(x + ((i) as f64) * MAZE_CELL_SIZE, y + ((j) as f64) * MAZE_CELL_SIZE);
+          context.line_to(x + ((i) as f64) * MAZE_CELL_SIZE, y + ((j+1) as f64) * MAZE_CELL_SIZE);
+          context.stroke();
+        }
 
-      match v.special {
-        // MAZE_TREASURE
-        2 => {
-          context.set_fill_style(&"orange".into());
-          context.fill_rect(x + i as f64 * MAZE_CELL_SIZE + 2.0, y + j as f64 * MAZE_CELL_SIZE + 2.0, MAZE_CELL_SIZE - 4.0, 6.0);
+        match v.special {
+          // MAZE_TREASURE
+          2 => {
+            context.set_fill_style(&"orange".into());
+            context.fill_rect(x + i as f64 * MAZE_CELL_SIZE + 2.0, y + j as f64 * MAZE_CELL_SIZE + 2.0, MAZE_CELL_SIZE - 4.0, 6.0);
+          }
+          // MAZE_ROCK
+          1 => {
+            context.set_fill_style(&"black".into());
+            context.fill_rect(x + i as f64 * MAZE_CELL_SIZE + 2.0, y + j as f64 * MAZE_CELL_SIZE + 2.0, MAZE_CELL_SIZE - 4.0, 6.0);
+          }
+          _ => {}
         }
-        // MAZE_ROCK
-        1 => {
-          context.set_fill_style(&"black".into());
-          context.fill_rect(x + i as f64 * MAZE_CELL_SIZE + 2.0, y + j as f64 * MAZE_CELL_SIZE + 2.0, MAZE_CELL_SIZE - 4.0, 6.0);
-        }
-        _ => {}
       }
     }
+
+    context.set_fill_style(&"blue".into());
+    context.fill_rect(x + (factory.maze_runner.x as f64) * MAZE_CELL_SIZE + 2.0, y + (factory.maze_runner.y as f64) * MAZE_CELL_SIZE + 2.0, MAZE_CELL_SIZE - 4.0, 6.0);
   }
 
-  context.set_fill_style(&"blue".into());
-  context.fill_rect(x + (factory.maze_runner.x as f64) * MAZE_CELL_SIZE + 2.0, y + (factory.maze_runner.y as f64) * MAZE_CELL_SIZE + 2.0, MAZE_CELL_SIZE - 4.0, 6.0);
+  if options.enable_maze_partial {
+    // stats bars
 
-  // stats bars
+    let bars = 15.0;
+    let bar_width = MAZE_WIDTH / (bars + 1.0); // one extra for the label
 
-  let bars = 15.0;
-  let bar_width = MAZE_WIDTH / (bars + 1.0); // one extra for the label
+    let ( e, s, p, v) = factory.maze_prep;
 
-  let ( e, s, p, v) = factory.maze_prep;
+    let delta = -6.0;
 
-  let delta = -6.0;
+    context.set_fill_style(&"black".into());
+    if options.print_maze_prepared_stats {
+      context.fill_text(format!(
+        "{}  {}  {}  {} :: fin {} ref {}",
+        e, s, p , v,
+        if factory.maze_runner.maze_finish_at > 0 { ((5.0 * ONE_SECOND as f64 * options.speed_modifier_floor) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_finish_at as i64)).max(0) } else { -1 },
+        if factory.maze_runner.maze_restart_at > 0 { ((5.0 * ONE_SECOND as f64 * options.speed_modifier_floor) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_restart_at as i64)).max(0) } else { -1 },
+      ).as_str(), 0.5 + x + 40.0, 0.5 + GRID_Y2 + delta - 10.0).expect("canvas api call to work");
+    }
 
-  context.set_fill_style(&"black".into());
-  if options.print_maze_prepared_stats {
-    context.fill_text(format!(
-      "{}  {}  {}  {} :: fin {} ref {}",
-      e, s, p , v,
-      if factory.maze_runner.maze_finish_at > 0 { ((5.0 * ONE_SECOND as f64 * options.speed_modifier_floor) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_finish_at as i64)).max(0) } else { -1 },
-      if factory.maze_runner.maze_restart_at > 0 { ((5.0 * ONE_SECOND as f64 * options.speed_modifier_floor) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_restart_at as i64)).max(0) } else { -1 },
-    ).as_str(), 0.5 + x + 40.0, 0.5 + GRID_Y2 + delta - 10.0).expect("canvas api call to work");
-  }
+    let fuel_progress = if factory.maze_runner.maze_restart_at > 0 { (factory.ticks - factory.maze_runner.maze_restart_at) as f64 / maze_get_refuel_time(options) as f64 } else { 0.0 };
 
-  let fuel_progress = if factory.maze_runner.maze_restart_at > 0 { (factory.ticks - factory.maze_runner.maze_restart_at) as f64 / maze_get_refuel_time(options) as f64 } else { 0.0 };
+    // e = green
+    let have = (e/10).min(16);
+    let filled = bar_width * (1 + have) as f64;
+    let semi = if filled >= 16.0 * bar_width { 0.0 } else { (bar_width * ((e as f64 % 10.0) / 10.0)).floor() };
+    context.set_fill_style(&"white".into());
+    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + delta, MAZE_WIDTH, 25.0);
+    context.set_fill_style(&"#169d06".into());
+    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + delta, filled, 25.0);
+    context.set_fill_style(&"#169d0655".into());
+    context.fill_rect(0.5 + x + filled, 0.5 + GRID_Y2 + delta, semi, 25.0);
+    context.set_stroke_style(&"black".into());
+    context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + delta, MAZE_WIDTH, 25.0);
+    context.set_fill_style(&"white".into());
+    context.fill_text("E", 0.5 + x + 5.0, 0.5 + GRID_Y2 + delta + 17.0).expect("canvas api call to work");
+    for i in 0..((bars as usize) + 1) {
+      context.begin_path();
+      context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta);
+      context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 25.0);
+      context.stroke();
+    }
+    context.set_fill_style(&"#169d06".into());
+    context.set_stroke_style(&"black".into());
+    for i in 0..have {
+      let ox = 0.5 + x + bar_width + (bar_width * (i as f64)) + 4.0;
+      let oy = 0.5 + GRID_Y2 + delta + 8.0;
+      let cx = ox + (energy_x - ox) * fuel_progress;
+      let cy = oy + (energy_y - oy) * fuel_progress;
+      context.fill_rect(cx, cy, 10.0, 10.0);
+      context.stroke_rect(cx, cy, 10.0, 10.0);
+    }
 
-  // e = green
-  let have = (e/10).min(16);
-  let filled = bar_width * (1 + have) as f64;
-  let semi = if filled >= 16.0 * bar_width { 0.0 } else { (bar_width * ((e as f64 % 10.0) / 10.0)).floor() };
-  context.set_fill_style(&"white".into());
-  context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + delta, MAZE_WIDTH, 25.0);
-  context.set_fill_style(&"#169d06".into());
-  context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + delta, filled, 25.0);
-  context.set_fill_style(&"#169d0655".into());
-  context.fill_rect(0.5 + x + filled, 0.5 + GRID_Y2 + delta, semi, 25.0);
-  context.set_stroke_style(&"black".into());
-  context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + delta, MAZE_WIDTH, 25.0);
-  context.set_fill_style(&"white".into());
-  context.fill_text("E", 0.5 + x + 5.0, 0.5 + GRID_Y2 + delta + 17.0).expect("canvas api call to work");
-  for i in 0..((bars as usize) + 1) {
-    context.begin_path();
-    context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta);
-    context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 25.0);
-    context.stroke();
-  }
-  context.set_fill_style(&"#169d06".into());
-  context.set_stroke_style(&"black".into());
-  for i in 0..have {
-    let ox = 0.5 + x + bar_width + (bar_width * (i as f64)) + 4.0;
-    let oy = 0.5 + GRID_Y2 + delta + 8.0;
-    let cx = ox + (energy_x - ox) * fuel_progress;
-    let cy = oy + (energy_y - oy) * fuel_progress;
-    context.fill_rect(cx, cy, 10.0, 10.0);
-    context.stroke_rect(cx, cy, 10.0, 10.0);
-  }
+    // s = orange
+    let have = (s/10).min(16);
+    let filled = bar_width *(1 + have) as f64;
+    let semi = if filled >= 16.0 * bar_width { 0.0 } else { (bar_width * ((s as f64 % 10.0) / 10.0)).floor() };
+    context.set_fill_style(&"white".into());
+    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 32.0 + delta, MAZE_WIDTH, 25.0);
+    context.set_fill_style(&"#a86007".into());
+    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 32.0 + delta, filled, 25.0);
+    context.set_fill_style(&"#a8600777".into());
+    context.fill_rect(0.5 + x + filled, 0.5 + GRID_Y2 + 32.0 + delta, semi, 25.0);
+    context.set_stroke_style(&"black".into());
+    context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + 32.0 + delta, MAZE_WIDTH, 25.0);
+    context.set_fill_style(&"white".into());
+    context.fill_text("S", 0.5 + x + 5.0, 0.5 + GRID_Y2 + 32.0 + delta + 17.0).expect("canvas api call to work");
+    for i in 0..((bars as usize) + 1) {
+      context.begin_path();
+      context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 32.0);
+      context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 32.0 + 25.0);
+      context.stroke();
+    }
+    context.set_fill_style(&"#a86007".into());
+    context.set_stroke_style(&"black".into());
+    for i in 0..have {
+      let ox = 0.5 + x + bar_width + (bar_width * (i as f64)) + 4.0;
+      let oy = 0.5 + GRID_Y2 + delta + 40.0;
+      let cx = ox + (speed_x - ox) * fuel_progress;
+      let cy = oy + (speed_y - oy) * fuel_progress;
+      context.fill_rect(cx, cy, 10.0, 10.0);
+      context.stroke_rect(cx, cy, 10.0, 10.0);
+    }
 
-  // s = orange
-  let have = (s/10).min(16);
-  let filled = bar_width *(1 + have) as f64;
-  let semi = if filled >= 16.0 * bar_width { 0.0 } else { (bar_width * ((s as f64 % 10.0) / 10.0)).floor() };
-  context.set_fill_style(&"white".into());
-  context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 32.0 + delta, MAZE_WIDTH, 25.0);
-  context.set_fill_style(&"#a86007".into());
-  context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 32.0 + delta, filled, 25.0);
-  context.set_fill_style(&"#a8600777".into());
-  context.fill_rect(0.5 + x + filled, 0.5 + GRID_Y2 + 32.0 + delta, semi, 25.0);
-  context.set_stroke_style(&"black".into());
-  context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + 32.0 + delta, MAZE_WIDTH, 25.0);
-  context.set_fill_style(&"white".into());
-  context.fill_text("S", 0.5 + x + 5.0, 0.5 + GRID_Y2 + 32.0 + delta + 17.0).expect("canvas api call to work");
-  for i in 0..((bars as usize) + 1) {
-    context.begin_path();
-    context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 32.0);
-    context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 32.0 + 25.0);
-    context.stroke();
-  }
-  context.set_fill_style(&"#a86007".into());
-  context.set_stroke_style(&"black".into());
-  for i in 0..have {
-    let ox = 0.5 + x + bar_width + (bar_width * (i as f64)) + 4.0;
-    let oy = 0.5 + GRID_Y2 + delta + 40.0;
-    let cx = ox + (speed_x - ox) * fuel_progress;
-    let cy = oy + (speed_y - oy) * fuel_progress;
-    context.fill_rect(cx, cy, 10.0, 10.0);
-    context.stroke_rect(cx, cy, 10.0, 10.0);
-  }
+    // p = pink
+    let have = (p/10).min(16);
+    let filled = bar_width *(1 + have) as f64;
+    let semi = if filled >= 16.0 * bar_width { 0.0 } else { (bar_width * ((p as f64 % 10.0) / 10.0)).floor() };
+    context.set_fill_style(&"white".into());
+    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 64.0 + delta, MAZE_WIDTH, 25.0);
+    context.set_fill_style(&"#ef13bf".into());
+    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 64.0 + delta, filled, 25.0);
+    context.set_fill_style(&"#ef13bf77".into());
+    context.fill_rect(0.5 + x + filled, 0.5 + GRID_Y2 + 64.0 + delta, semi, 25.0);
+    context.set_stroke_style(&"black".into());
+    context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + 64.0 + delta, MAZE_WIDTH, 25.0);
+    context.set_fill_style(&"white".into());
+    context.fill_text("P", 0.5 + x + 5.0, 0.5 + GRID_Y2 + 64.0 + delta + 17.0).expect("canvas api call to work");
+    for i in 0..((bars as usize) + 1) {
+      context.begin_path();
+      context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 64.0);
+      context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 64.0 + 25.0);
+      context.stroke();
+    }
+    context.set_fill_style(&"#ef13bf".into());
+    context.set_stroke_style(&"black".into());
+    for i in 0..have {
+      let ox = 0.5 + x + bar_width + (bar_width * (i as f64)) + 4.0;
+      let oy = 0.5 + GRID_Y2 + delta + 72.0;
+      let cx = ox + (power_x - ox) * fuel_progress;
+      let cy = oy + (power_y - oy) * fuel_progress;
+      context.fill_rect(cx, cy, 10.0, 10.0);
+      context.stroke_rect(cx, cy, 10.0, 10.0);
+    }
 
-  // p = pink
-  let have = (p/10).min(16);
-  let filled = bar_width *(1 + have) as f64;
-  let semi = if filled >= 16.0 * bar_width { 0.0 } else { (bar_width * ((p as f64 % 10.0) / 10.0)).floor() };
-  context.set_fill_style(&"white".into());
-  context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 64.0 + delta, MAZE_WIDTH, 25.0);
-  context.set_fill_style(&"#ef13bf".into());
-  context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 64.0 + delta, filled, 25.0);
-  context.set_fill_style(&"#ef13bf77".into());
-  context.fill_rect(0.5 + x + filled, 0.5 + GRID_Y2 + 64.0 + delta, semi, 25.0);
-  context.set_stroke_style(&"black".into());
-  context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + 64.0 + delta, MAZE_WIDTH, 25.0);
-  context.set_fill_style(&"white".into());
-  context.fill_text("P", 0.5 + x + 5.0, 0.5 + GRID_Y2 + 64.0 + delta + 17.0).expect("canvas api call to work");
-  for i in 0..((bars as usize) + 1) {
-    context.begin_path();
-    context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 64.0);
-    context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 64.0 + 25.0);
-    context.stroke();
-  }
-  context.set_fill_style(&"#ef13bf".into());
-  context.set_stroke_style(&"black".into());
-  for i in 0..have {
-    let ox = 0.5 + x + bar_width + (bar_width * (i as f64)) + 4.0;
-    let oy = 0.5 + GRID_Y2 + delta + 72.0;
-    let cx = ox + (power_x - ox) * fuel_progress;
-    let cy = oy + (power_y - oy) * fuel_progress;
-    context.fill_rect(cx, cy, 10.0, 10.0);
-    context.stroke_rect(cx, cy, 10.0, 10.0);
-  }
-
-  // v = purple
-  let have = (p/10).min(16);
-  let filled = bar_width *(1 + have) as f64;
-  let semi = if filled >= 16.0 * bar_width { 0.0 } else { (bar_width * ((v as f64 % 10.0) / 10.0)).floor() };
-  context.set_fill_style(&"white".into());
-  context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 96.0 + delta, MAZE_WIDTH, 25.0);
-  context.set_fill_style(&"#360676".into());
-  context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 96.0 + delta, filled, 25.0);
-  context.set_fill_style(&"#36067677".into());
-  context.fill_rect(0.5 + x + filled, 0.5 + GRID_Y2 + 96.0 + delta, semi, 25.0);
-  context.set_stroke_style(&"black".into());
-  context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + 96.0 + delta, MAZE_WIDTH, 25.0);
-  context.set_fill_style(&"white".into());
-  context.fill_text("V", 0.5 + x + 5.0, 0.5 + GRID_Y2 + 96.0 + delta + 17.0).expect("canvas api call to work");
-  for i in 0..((bars as usize) + 1) {
-    context.begin_path();
-    context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 96.0);
-    context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 96.0 + 25.0);
-    context.stroke();
-  }
-  context.set_fill_style(&"#360676".into());
-  context.set_stroke_style(&"black".into());
-  for i in 0..have {
-    let ox = 0.5 + x + bar_width + (bar_width * (i as f64)) + 4.0;
-    let oy = 0.5 + GRID_Y2 + delta + 104.0;
-    let cx = ox + (volume_x - ox) * fuel_progress;
-    let cy = oy + (volume_y - oy) * fuel_progress;
-    context.fill_rect(cx, cy, 10.0, 10.0);
-    context.stroke_rect(cx, cy, 10.0, 10.0);
+    // v = purple
+    let have = (p/10).min(16);
+    let filled = bar_width *(1 + have) as f64;
+    let semi = if filled >= 16.0 * bar_width { 0.0 } else { (bar_width * ((v as f64 % 10.0) / 10.0)).floor() };
+    context.set_fill_style(&"white".into());
+    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 96.0 + delta, MAZE_WIDTH, 25.0);
+    context.set_fill_style(&"#360676".into());
+    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 96.0 + delta, filled, 25.0);
+    context.set_fill_style(&"#36067677".into());
+    context.fill_rect(0.5 + x + filled, 0.5 + GRID_Y2 + 96.0 + delta, semi, 25.0);
+    context.set_stroke_style(&"black".into());
+    context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + 96.0 + delta, MAZE_WIDTH, 25.0);
+    context.set_fill_style(&"white".into());
+    context.fill_text("V", 0.5 + x + 5.0, 0.5 + GRID_Y2 + 96.0 + delta + 17.0).expect("canvas api call to work");
+    for i in 0..((bars as usize) + 1) {
+      context.begin_path();
+      context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 96.0);
+      context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 96.0 + 25.0);
+      context.stroke();
+    }
+    context.set_fill_style(&"#360676".into());
+    context.set_stroke_style(&"black".into());
+    for i in 0..have {
+      let ox = 0.5 + x + bar_width + (bar_width * (i as f64)) + 4.0;
+      let oy = 0.5 + GRID_Y2 + delta + 104.0;
+      let cx = ox + (volume_x - ox) * fuel_progress;
+      let cy = oy + (volume_y - oy) * fuel_progress;
+      context.fill_rect(cx, cy, 10.0, 10.0);
+      context.stroke_rect(cx, cy, 10.0, 10.0);
+    }
   }
 }
 

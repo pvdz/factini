@@ -75,7 +75,8 @@ const GAME_OPTIONS = `
 - default_demand_speed: 1000
 - default_demand_cooldown: 0
 - enable_quick_save_menu: true
-- enable_maze: true
+- enable_maze_partial: true
+- enable_maze_full: true
 - enable_speed_menu: true
 - show_menu: true
 - show_debug_bottom: true
