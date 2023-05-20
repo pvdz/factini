@@ -180,3 +180,17 @@ pub fn quote_create(config: &Config, quest_index: usize, ticks: u64) -> Vec<Quot
     }
   }).collect(); // TODO: js>rust noob here; looks like these are lazy evalled in serial and the collect is preventing this
 }
+
+pub fn quest_visible_index_to_quest_index(options: &Options, state: &State, config: &Config, factory: &mut Factory, quest_visible_index: usize) -> Option<usize> {
+  let mut visible_index = 0;
+  for quest_index in 0..factory.quests.len() {
+    if factory.quests[quest_index].status != QuestStatus::Active && factory.quests[quest_index].status != QuestStatus::FadingAndBouncing {
+      continue;
+    }
+    if visible_index == quest_visible_index {
+      return Some(quest_index);
+    }
+    visible_index += 1;
+  }
+  return None;
+}

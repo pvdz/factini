@@ -151,7 +151,7 @@ pub fn belt_cell(config: &Config, x: usize, y: usize, meta: BeltMeta) -> Cell {
   };
 }
 
-pub fn machine_any_cell(options: &Options, state: &mut State, config: &Config, id: char, x: usize, y: usize, cell_width: usize, cell_height: usize, kind: MachineKind, wants: Vec<Part>, output: Part, speed: u64, machine_production_price: i32, machine_trash_price: i32) -> Cell {
+pub fn machine_any_cell(options: &Options, state: &State, config: &Config, id: char, x: usize, y: usize, cell_width: usize, cell_height: usize, kind: MachineKind, wants: Vec<Part>, output: Part, speed: u64, machine_production_price: i32, machine_trash_price: i32) -> Cell {
   assert!(x > 0 && y > 0 && x < FLOOR_CELLS_W - 1 && y < FLOOR_CELLS_H - 1);
 
   let coord = x + y * FLOOR_CELLS_W;
@@ -194,7 +194,7 @@ pub fn machine_any_cell(options: &Options, state: &mut State, config: &Config, i
   };
 }
 
-pub fn machine_main_cell(options: &mut Options, state: &mut State, config: &Config, id: char, x: usize, y: usize, cell_width: usize, cell_height: usize, wants: Vec<Part>, output: Part, speed: u64, machine_production_price: i32, machine_trash_price: i32) -> Cell {
+pub fn machine_main_cell(options: &Options, state: &State, config: &Config, id: char, x: usize, y: usize, cell_width: usize, cell_height: usize, wants: Vec<Part>, output: Part, speed: u64, machine_production_price: i32, machine_trash_price: i32) -> Cell {
   assert!(x > 0 && y > 0 && x < FLOOR_CELLS_W - 1 && y < FLOOR_CELLS_H - 1);
 
   let coord = x + y * FLOOR_CELLS_W;
@@ -237,7 +237,7 @@ pub fn machine_main_cell(options: &mut Options, state: &mut State, config: &Conf
   };
 }
 
-pub fn machine_sub_cell(options: &mut Options, state: &mut State, config: &Config, id: char, x: usize, y: usize, main_coord: usize, ocw: usize, och: usize) -> Cell {
+pub fn machine_sub_cell(options: &Options, state: &State, config: &Config, id: char, x: usize, y: usize, main_coord: usize, ocw: usize, och: usize) -> Cell {
   assert!(x > 0 && y > 0 && x < FLOOR_CELLS_W - 1 && y < FLOOR_CELLS_H - 1);
 
   let coord = x + y * FLOOR_CELLS_W;
@@ -859,12 +859,6 @@ pub fn clear_part_from_cell(options: &Options, state: &State, config: &Config, f
   }
 }
 
-// fn remove_dir_from_cell_ins_and_outs(factory: &mut Factory, coord: usize, needle_dir: Direction) {
-//   // Make sure given direction is not part of the .ins or .outs anymore
-//   remove_dir_from_cell_ins(factory, coord, needle_dir);
-//   remove_dir_from_cell_outs(factory, coord, needle_dir);
-// }
-
 fn remove_dir_from_cell_ins(factory: &mut Factory, coord: usize, needle_dir: Direction) {
   if let Some(pos) = factory.floor[coord].ins.iter().position(|(dir, ..)| dir == &needle_dir) {
     factory.floor[coord].ins.remove(pos);
@@ -933,4 +927,250 @@ pub fn cell_neighbors_to_auto_belt_meta(up: CellKind, right: CellKind, down: Cel
     (_, _, _, _) =>
       BELT___DLRU,
   };
+}
+
+pub fn belt_connect_cells_expensive(options: &Options, state: &State, config: &Config, factory: &mut Factory, x1: usize, y1: usize, x2: usize, y2: usize) {
+  // This should connect two cells with a belt and take care of everything.
+  // It will do ray tracing which is relatively expensive.
+  // It will fill every cell in between with a belt.
+  // Note: It will not auto-connect any of those with neighbors other than the path.
+
+  let track = ray_trace_dragged_line_expensive(factory, x1 as f64, y1 as f64, x2 as f64, y2 as f64);
+
+  for i in 1..track.len() {
+    let ((cell_x1, cell_y1), belt_type1, _unused, _port_out_dir1) = track[i-1]; // First element has no inbound port here
+    let ((cell_x2, cell_y2), belt_type2, _port_in_dir2, _unused) = track[i]; // Last element has no outbound port here
+
+    apply_action_between_two_cells(state, options, config, factory, Action::Add, cell_x1, cell_y1, belt_type1, cell_x2, cell_y2, belt_type2);
+  }
+}
+
+pub fn ray_trace_dragged_line_expensive(factory: &Factory, ix0: f64, iy0: f64, ix1: f64, iy1: f64) -> Vec<((usize, usize), BeltType, Direction, Direction)> {
+  // We raytracing
+  // The dragged line becomes a ray that we trace through cells of the floor
+  // We then generate a belt track such that it fits in with the existing belts, if any
+  // - Figure out which cells the ray passes through
+  // - If the ray crosses existing belts, generate the belt type as if the original was modified to support the new path (the pathing would not destroy existing ports)
+  // - If the ray only spans one cell, force it to be invalid
+  // - The first and last cells in the ray also auto-connect to any neighbor belts. Sections in the middle of the ray do not.
+  // - Special case: if the line starts on an edge but finishes away from that same edge, force the second step to be away from that edge. there's some manual logic to make that work.
+
+  // Check start of path and compensate if on edge
+  let x_left0 = ix0 == 0.0 && ix1 != 0.0;
+  let y_top0 = iy0 == 0.0 && iy1 != 0.0;
+  let x_right0 = ix0 == ((FLOOR_CELLS_W - 1) as f64) && ix1 != ((FLOOR_CELLS_W - 1) as f64);
+  let y_bottom0 = iy0 == ((FLOOR_CELLS_H - 1) as f64) && iy1 != ((FLOOR_CELLS_H - 1) as f64);
+  let x0 = if x_left0 { ix0 + 1.0 } else if x_right0 { ix0 - 1.0 } else { ix0 };
+  let y0 = if y_top0 { iy0 + 1.0 } else if y_bottom0 { iy0 - 1.0 } else { iy0 };
+
+  // Check end of path and compensate if on edge
+  let x_left1 = ix1 == 0.0 && x0 != 0.0;
+  let y_top1 = iy1 == 0.0 && y0 != 0.0;
+  let x_right1 = ix1 == ((FLOOR_CELLS_W - 1) as f64) && x0 != ((FLOOR_CELLS_W - 1) as f64);
+  let y_bottom1 = iy1 == ((FLOOR_CELLS_H - 1) as f64) && y0 != ((FLOOR_CELLS_H - 1) as f64);
+  let x1 = if x_left1 { ix1 + 1.0 } else if x_right1 { ix1 - 1.0 } else { ix1 };
+  let y1 = if y_top1 { iy1 + 1.0 } else if y_bottom1 { iy1 - 1.0 } else { iy1 };
+
+  let mut covered = get_cells_from_a_to_b(x0, y0, x1, y1);
+  assert!(covered.len() >= 1, "Should always record at least one cell coord");
+
+  // Now put the start/end of path back if it was moved. This way the path will never have more than one edge cell on the same side
+  if x_left0 || y_top0 || x_right0 || y_bottom0 {
+    // "push_front"
+    let mut t = vec!((ix0 as usize, iy0 as usize));
+    t.append(&mut covered);
+    covered = t;
+  }
+  if x_left1 || y_top1 || x_right1 || y_bottom1 {
+    covered.push((ix1 as usize, iy1 as usize));
+  }
+
+  if covered.len() == 1 {
+    return vec!((covered[0], BeltType::INVALID, Direction::Up, Direction::Up));
+  }
+
+  // Note: in order of (dragging) appearance
+  let mut track: Vec<((usize, usize), BeltType, Direction, Direction)> = vec!(); // ((x, y), new_bt)
+
+  let (mut lx, mut ly) = covered[0];
+  let mut last_from = Direction::Up; // first one ignores this value
+
+  // Draw example tiles of the path you're drawing.
+  // Take the existing cell and add one (first/last segment) or two ports to it;
+  // - first one only gets the "to" port added to it
+  // - last one only gets the "from" port added to it
+  // - middle parts get the "from" and "to" port added to them
+  for index in 1..covered.len() {
+    let (x, y) = covered[index];
+    // Always set the previous one.
+    let new_from = get_from_dir_between_xy(lx, ly, x, y);
+    let last_to = direction_reverse(new_from);
+    let bt =
+      if track.len() == 0 {
+        add_unknown_port_to_cell(factory, to_coord(lx, ly), last_to)
+      } else {
+        add_two_ports_to_cell(factory, to_coord(lx, ly), last_from, last_to)
+      };
+    track.push(((lx, ly), bt, last_from, last_to)); // Note: first segment has undefined "from"
+
+    lx = x;
+    ly = y;
+    last_from = new_from;
+  }
+  // Final step. Only has a from port.
+  let bt = add_unknown_port_to_cell(factory, to_coord(lx, ly), last_from);
+  track.push(((lx, ly), bt, last_from, last_from)); // Note: last segment has undefined "from"
+
+  return track;
+}
+fn get_cells_from_a_to_b(x0: f64, y0: f64, x1: f64, y1: f64) -> Vec<(usize, usize)> {
+  // https://playtechs.blogspot.com/2007/03/raytracing-on-grid.html
+  // Super cover int algo, ported from:
+  //
+  // void raytrace(int x0, int y0, int x1, int y1)
+  // {
+  //   int dx = abs(x1 - x0);
+  //   int dy = abs(y1 - y0);
+  //   int x = x0;
+  //   int y = y0;
+  //   int n = 1 + dx + dy;
+  //   int x_inc = (x1 > x0) ? 1 : -1;
+  //   int y_inc = (y1 > y0) ? 1 : -1;
+  //   int error = dx - dy;
+  //   dx *= 2;
+  //   dy *= 2;
+  //
+  //   for (; n > 0; --n)
+  //   {
+  //     visit(x, y);
+  //
+  //     if (error > 0)
+  //     {
+  //       x += x_inc;
+  //       error -= dy;
+  //     }
+  //     else
+  //     {
+  //       y += y_inc;
+  //       error += dx;
+  //     }
+  //   }
+  // }
+
+  let dx = (x1 - x0).abs();
+  let dy = (y1 - y0).abs();
+  let mut x = x0;
+  let mut y = y0;
+  let n = 1.0 + dx + dy;
+  let x_inc = if x1 > x0 { 1.0 } else { -1.0 };
+  let y_inc = if y1 > y0 { 1.0 } else { -1.0 };
+  let mut error = dx - dy;
+
+  let mut covered = vec!();
+  for n in 0..n as u64 {
+    covered.push((x as usize, y as usize));
+    if error > 0.0 {
+      x += x_inc;
+      error -= dy;
+    } else {
+      y += y_inc;
+      error += dx;
+    }
+  }
+
+  return covered;
+}
+
+pub fn apply_action_between_two_cells(state: &State, options: &Options, config: &Config, factory: &mut Factory, add_or_remove: Action, cell_x1: usize, cell_y1: usize, belt_type1: BeltType, cell_x2: usize, cell_y2: usize, belt_type2: BeltType) {
+  let coord1 = to_coord(cell_x1, cell_y1);
+  let coord2 = to_coord(cell_x2, cell_y2);
+
+  let dx = (cell_x2 as i8) - (cell_x1 as i8);
+  let dy = (cell_y2 as i8) - (cell_y1 as i8);
+  assert!((dx == 0) != (dy == 0), "one and only one of dx or dy is zero");
+  assert!(dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1, "since they are adjacent they must be -1, 0, or 1");
+
+  if add_or_remove == Action::Add {
+    log!(" - Connecting the two cells");
+
+    // Convert empty cells to belt cells.
+    // Create a port between these two cells, but none of the other cells.
+
+    if is_edge(cell_x1 as f64, cell_y1 as f64) && is_edge(cell_x2 as f64, cell_y2 as f64) {
+      // Noop. Just don't.
+    }
+    else {
+      if factory.floor[coord1].kind == CellKind::Empty {
+        if is_edge_not_corner(cell_x1 as f64, cell_y1 as f64) {
+          // Cell is empty so place a trash supplier here as a placeholder
+          factory.floor[coord1] = supply_cell(config, cell_x1, cell_y1, part_c(config, 't'), 2000, 0, 0);
+        }
+        else if is_middle(cell_x1 as f64, cell_y1 as f64) {
+          factory.floor[coord1] = belt_cell(config, cell_x1, cell_y1, belt_type_to_belt_meta(belt_type1));
+        }
+      }
+      if factory.floor[coord2].kind == CellKind::Empty {
+        if is_edge_not_corner(cell_x2 as f64, cell_y2 as f64) {
+          // Cell is empty so place a demander here
+          factory.floor[coord2] = demand_cell(config, cell_x2, cell_y2, options.default_demand_speed, options.default_demand_cooldown);
+        }
+        else if is_middle(cell_x2 as f64, cell_y2 as f64) {
+          factory.floor[coord2] = belt_cell(config, cell_x2, cell_y2, belt_type_to_belt_meta(belt_type2));
+        }
+      }
+
+      cell_connect_if_possible(options, state, config, factory, coord1, coord2, dx, dy);
+    }
+  }
+  else if add_or_remove == Action::Remove {
+    log!(" - Disconnecting the two cells");
+
+    // Delete the port between the two cells but leave everything else alone.
+    // The coords must be adjacent to one side.
+
+    let ( dir1, dir2) = match ( dx, dy ) {
+      ( 0 , -1 ) => {
+        // x1 was bigger so xy1 is under xy2
+        (Direction::Up, Direction::Down)
+      }
+      ( 1 , 0 ) => {
+        // x2 was bigger so xy1 is left of xy2
+        (Direction::Right, Direction::Left)
+      }
+      ( 0 , 1 ) => {
+        // y2 was bigger so xy1 is above xy2
+        (Direction::Down, Direction::Up)
+      }
+      ( -1 , 0 ) => {
+        // x1 was bigger so xy1 is right of xy2
+        (Direction::Left, Direction::Right)
+      }
+      _ => panic!("already asserted the range of x and y"),
+    };
+
+    port_disconnect_cells(options, state, config, factory, coord1, dir1, coord2, dir2);
+  }
+  else {
+    // Other mouse button or multi-button. ignore for now / ever.
+    // (Remember: this was a drag of two cells)
+    log!(" - Not left or right button; ignoring unknown button click");
+  }
+
+  fix_belt_meta(options, state, config, factory, coord1);
+  fix_belt_meta(options, state, config, factory, coord2);
+
+  if add_or_remove == Action::Remove {
+    if factory.floor[coord1].kind == CellKind::Belt && factory.floor[coord1].port_u == Port::None && factory.floor[coord1].port_r == Port::None && factory.floor[coord1].port_d == Port::None && factory.floor[coord1].port_l == Port::None {
+      floor_delete_cell_at_partial(options, state, config, factory, coord1);
+    } else {
+      clear_part_from_cell(options, state, config, factory, coord1);
+    }
+    if factory.floor[coord2].kind == CellKind::Belt && factory.floor[coord2].port_u == Port::None && factory.floor[coord2].port_r == Port::None && factory.floor[coord2].port_d == Port::None && factory.floor[coord2].port_l == Port::None {
+      floor_delete_cell_at_partial(options, state, config, factory, coord2);
+    } else {
+      clear_part_from_cell(options, state, config, factory, coord2);
+    }
+  }
+
+  factory.changed = true;
 }

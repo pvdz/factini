@@ -199,7 +199,7 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
     }
   }
 
-  fn add_machine(options: &Options, state: &mut State, config: &Config, floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, x: usize, y: usize, machine_id: char, machine_meta_data: &mut Vec<(usize, usize, char, u64, Vec<PartKind>)>, port_u: char, port_r: char, port_d: char, port_l: char) {
+  fn add_machine(options: &Options, state: &State, config: &Config, floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, x: usize, y: usize, machine_id: char, machine_meta_data: &mut Vec<(usize, usize, char, u64, Vec<PartKind>)>, port_u: char, port_r: char, port_d: char, port_l: char) {
     // Auto layout will have to reconcile the individual machine parts into one machine
     // Any modifiers as well as the input and output parameters of this machine are
     // listed below the floor model. Expect them to be filled in later.

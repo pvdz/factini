@@ -143,6 +143,14 @@ pub const UI_DEBUG_APP_LINE_H: f64 = 25.0;
 pub const UI_DEBUG_APP_FONT_H: f64 = 16.0;
 pub const UI_DEBUG_APP_SPACING: f64 = 6.0;
 pub const UI_DEBUG_LINES: f64 = 11.0; // Update after adding more lines
+// Debug for AutoBuild mode
+pub const UI_DEBUG_AUTO_BUILD_OFFSET_X: f64 = GRID_X1 + 5.0;
+pub const UI_DEBUG_AUTO_BUILD_OFFSET_Y: f64 = GRID_Y3 + 10.0;
+pub const UI_DEBUG_AUTO_BUILD_WIDTH: f64 = 240.0;
+pub const UI_DEBUG_AUTO_BUILD_LINE_H: f64 = 25.0;
+pub const UI_DEBUG_AUTO_BUILD_FONT_H: f64 = 16.0;
+pub const UI_DEBUG_AUTO_BUILD_SPACING: f64 = 6.0;
+pub const UI_DEBUG_AUTO_BUILD_LINES: f64 = 5.0; // Update after adding more lines
 // Selected cell/machine details
 pub const UI_DEBUG_CELL_OFFSET_X: f64 = UI_DEBUG_OFFSET_X;
 pub const UI_DEBUG_CELL_OFFSET_Y: f64 = UI_DEBUG_OFFSET_Y;
@@ -161,6 +169,11 @@ pub const UI_OFFERS_PER_ROW: f64 = 6.0;
 pub const UI_OFFERS_WIDTH: f64 = UI_OFFER_WIDTH + ((UI_OFFERS_PER_ROW - 1.0) * UI_OFFER_WIDTH_PLUS_MARGIN);
 pub const UI_OFFER_TOOLTIP_WIDTH: f64 = 185.0;
 pub const UI_OFFER_TOOLTIP_HEIGHT: f64 = 3.0 + (0.75 * CELL_H) + 5.0 + (0.75 * CELL_H) + 5.0 + (0.75 * CELL_H) + 3.0;
+
+pub const UI_AUTO_BUILD_W: f64 = 48.0;
+pub const UI_AUTO_BUILD_H: f64 = 48.0;
+pub const UI_AUTO_BUILD_X: f64 = GRID_X0 + 100.0;
+pub const UI_AUTO_BUILD_Y: f64 = GRID_Y0 + 10.0;
 
 // The UI is a 3x3 grid of sections. The center section is the main part of the game, "the Floor"
 // Define the coordinates of each "tab" (whatever the terminology ought to be) that defines the grid

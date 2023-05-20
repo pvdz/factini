@@ -210,6 +210,7 @@ pub enum MenuButton {
   Machine2x1Button,
   Machine2x2Button,
   Machine3x3Button,
+  AutoBuildButton,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

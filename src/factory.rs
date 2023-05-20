@@ -1,5 +1,7 @@
 use std::collections::VecDeque;
+use crate::auto::AutoBuildPhase;
 
+use super::auto::*;
 use super::belt::*;
 use super::bouncer::*;
 use super::cell::*;
@@ -62,6 +64,27 @@ pub struct Factory {
   // Prepared stats for the next maze runner
   // TODO: maybe this should be a vec of parts that contribute to the total current value? So we can paint them in order received etc
   pub maze_prep: ( u16, u16, u16, u16 ),
+
+  pub auto_build_phase: AutoBuildPhase,
+  pub auto_build_mouse_offset_x: f64,
+  pub auto_build_mouse_offset_y: f64,
+  pub auto_build_mouse_target_x: f64,
+  pub auto_build_mouse_target_y: f64,
+  pub auto_build_machine_x: usize,
+  pub auto_build_machine_y: usize,
+  pub auto_build_machine_w: usize,
+  pub auto_build_machine_h: usize,
+  pub auto_build_phase_at: u64,
+  pub auto_build_phase_duration: u64,
+  pub auto_build_phase_progress: f64,
+  pub auto_build_seed: u64,
+  pub auto_build_quest_visible_index: usize,
+  pub auto_build_quest_index: usize,
+  pub auto_build_target_edge_x: usize,
+  pub auto_build_target_edge_y: usize,
+  pub auto_build_current_path: Vec<(usize, usize)>,
+  // This is used for phases that require multiple steps, like connecting multiple inputs
+  pub auto_build_step_counter: usize,
 }
 
 fn dnow() -> u64 {
@@ -120,6 +143,25 @@ pub fn create_factory(options: &Options, state: &mut State, config: &Config, flo
     maze_seed,
     maze_runner: create_maze_runner(0, 0),
     maze_prep: (0, 0, 0, 0),
+    auto_build_phase: AutoBuildPhase::None,
+    auto_build_mouse_offset_x: 0.0,
+    auto_build_mouse_offset_y: 0.0,
+    auto_build_mouse_target_x: 0.0,
+    auto_build_mouse_target_y: 0.0,
+    auto_build_phase_duration: 0,
+    auto_build_phase_progress: 0.0,
+    auto_build_machine_x: 0,
+    auto_build_machine_y: 0,
+    auto_build_machine_w: 0,
+    auto_build_machine_h: 0,
+    auto_build_phase_at: 0,
+    auto_build_seed: 0,
+    auto_build_quest_visible_index: 0,
+    auto_build_quest_index: 0,
+    auto_build_target_edge_x: 0,
+    auto_build_target_edge_y: 0,
+    auto_build_current_path: vec!(),
+    auto_build_step_counter: 0,
   };
 
   // log!("The maze: {:?}", factory.maze);
@@ -136,6 +178,8 @@ pub fn create_factory(options: &Options, state: &mut State, config: &Config, flo
 
 pub fn tick_factory(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
   factory.ticks += 1;
+
+  auto_build_tick(options, state, config, factory);
 
   for n in 0..factory.prio.len() {
     let coord = factory.prio[n];
@@ -662,7 +706,7 @@ pub fn factory_collect_machines(floor: &[Cell; FLOOR_CELLS_WH]) -> Vec<usize> {
   return machines;
 }
 
-pub fn set_empty_edge_to_supplier(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, dragged_part_kind: PartKind, coord: usize, dir: Direction) {
+pub fn set_empty_edge_to_supplier(options: &Options, state: &State, config: &Config, factory: &mut Factory, dragged_part_kind: PartKind, coord: usize, dir: Direction) {
   // Note: this does not deal with existing state and it does not (re)connect the demander to the neighbor belt. Caller must do this.
   log!("set_empty_edge_to_supplier(@{}, {:?}, {})", coord, dir, dragged_part_kind);
   let (last_mouse_up_cell_x, last_mouse_up_cell_y) = to_xy(coord);
@@ -675,4 +719,32 @@ pub fn set_empty_edge_to_supplier(options: &mut Options, state: &mut State, conf
     Direction::Right => factory.floor[coord].port_r = Port::Outbound,
   }
   factory.changed = true;
+}
+
+pub fn set_edge_to_part(options: &Options, state: &State, config: &Config, factory: &mut Factory, x: usize, y: usize, part_kind: PartKind) {
+  let coord = to_coord(x, y);
+
+  let dir = match (
+    x == 0, // left
+    y == 0, // up
+    x == FLOOR_CELLS_W - 1, // right
+    y == FLOOR_CELLS_H - 1 // down
+  ) {
+    ( false, true, false, false ) => Direction::Left,
+    ( false, false, true, false ) => Direction::Up,
+    ( false, false, false, true ) => Direction::Right,
+    ( true, false, false, false ) => Direction::Down,
+    _ => panic!("Should always ever be one side {} {} {} {}", x, y, FLOOR_CELLS_W - 1, FLOOR_CELLS_H - 1),
+  };
+
+  // If there's already something on this cell then we need to remove it first
+  if factory.floor[coord].kind != CellKind::Empty {
+    // Must be supply or demand
+    // We should be able to replace this one with the new tile without having to update
+    // the neighbors (if any). We do have to update the prio list (in case demand->supply).
+    log!(" - Removing old edge cell...");
+    floor_delete_cell_at_partial(options, state, config, factory, coord);
+  }
+
+  set_empty_edge_to_supplier(options, state, config, factory, part_kind, coord, dir);
 }

@@ -43,13 +43,26 @@
 // - something's off with the pause and refuel delay of the maze. something related to speed.
 // - collected parts after refueling starts should be hidden until refueling finishes. it currently adds a cube even when in flight.
 // - finished quests restart on load. all of them.
-// - automatically place machine, suppliers, connect them, and connect output to demander
 // - copy paste should copy machines too? why not
 // - experiment with bigger maps and scrolling
 // - collected stuff is only cleared if a cell is completed. fractions are kept etc.
 // - should undo/redo reset quest progress?
 // - when next ui-phase unlocks, use an animation where ui elements drift into their place
 // - once the partial is enabled, wait until the four bars all have at least one cell and then start the maze. preferably animated
+// - auto build
+//   - debug panel always on should be fixed
+//   - prettier button
+//   - animated button? state indicator etc
+//   - disable user while auto build is busy?
+//   - allow to cancel auto build. and to let it run continuously.
+//   - add auto build speed option
+//   - clean up auto build states
+//   - clean up auto build output
+//   - should pick machine suitable for the quest
+//   - sort-of animate cursor (red/green). errors. button press. indicator dot?
+//   - clean die paint_auto_build or throw it away
+//   - move factory autoBuild state into its own state object. and related code as well.
+//   - can we prevent undo/redo stack changes until the end?
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -71,6 +84,7 @@ use wasm_bindgen::JsCast;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 
+use super::auto::*;
 use super::belt::*;
 use super::belt_type::*;
 use super::bouncer::*;
@@ -86,6 +100,7 @@ use super::init::*;
 use super::options::*;
 use super::machine::*;
 use super::maze::*;
+use super::offer::*;
 use super::part::*;
 use super::paste::*;
 use super::port::*;
@@ -770,6 +785,7 @@ pub fn start() -> Result<(), JsValue> {
 
         context.set_font(&"12px monospace");
         paint_debug_app(&options, &state, &context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
+        paint_debug_auto_build(&options, &state, &context, &factory, &mouse_state);
 
         if loading == 0 {
           log!("Loaded all {} images!", config.sprite_cache_canvas.len());
@@ -975,7 +991,7 @@ pub fn start() -> Result<(), JsValue> {
 
         paint_zone_hovers(&options, &state, &context, &mouse_state);
         // paint_top_stats(&context, &mut factory);
-        paint_corner_help_icon(&options, &state, &config, &factory, &context, mouse_state.help_hover);
+        paint_corner_help_icon(&options, &state, &config, &factory, &context, mouse_state.help_hover, mouse_state.over_menu_button == MenuButton::AutoBuildButton);
         paint_quests(&options, &state, &config, &context, &factory, &mouse_state);
         let highlight_index = paint_offers(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
         paint_lasers(&options, &mut state, &config, &context);
@@ -992,6 +1008,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_machine_craft_menu(&options, &state, &config, &context, &factory, &cell_selection, &mouse_state);
         paint_ui_offer_hover_droptarget_hint_conditionally(&options, &state, &config, &context, &mut factory, &mouse_state, &cell_selection);
         paint_debug_app(&options, &state, &context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
+        paint_debug_auto_build(&options, &state, &context, &factory, &mouse_state);
         paint_debug_selected_belt_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_debug_selected_machine_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_debug_selected_supply_cell(&context, &factory, &cell_selection, &mouse_state);
@@ -1020,7 +1037,7 @@ pub fn start() -> Result<(), JsValue> {
         }
 
         // Over all the UI stuff
-        paint_mouse_cursor(&context, &mouse_state);
+        paint_mouse_cursor(&context, &factory, &mouse_state);
         // When dragging make sure that stays on top of bouncers
         paint_mouse_action(&options, &state, &config, &factory, &context, &mouse_state, &cell_selection);
 
@@ -1125,7 +1142,7 @@ fn update_mouse_state(
   mouse_state.over_zone = coord_to_zone(options, state, config, mouse_state.world_x, mouse_state.world_y, is_machine_selected, factory, cell_selection.coord);
   match mouse_state.over_zone {
     Zone::None => panic!("cant be over on no zone"),
-    ZONE_MANUAL => {}
+    ZONE_MANUAL => {} // popup
     ZONE_CRAFT => {
       if options.enable_craft_menu_interact {
         if !mouse_state.is_dragging {
@@ -1143,11 +1160,6 @@ fn update_mouse_state(
         log!("Mouse over on craft is ignored because options.enable_craft_menu_interact = false")
       }
     }
-    ZONE_HELP => {
-      if hit_test_help_button(mouse_state.world_x, mouse_state.world_y) {
-        mouse_state.help_hover = true;
-      }
-    }
     ZONE_QUOTES => {
       mouse_state.over_quest =
         mouse_state.world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUEST_WIDTH &&
@@ -1163,6 +1175,14 @@ fn update_mouse_state(
       }
     }
     Zone::BottomBottomLeft => {}
+    Zone::TopLeft => {
+      if hit_test_help_button(mouse_state.world_x, mouse_state.world_y) {
+        mouse_state.help_hover = true;
+      }
+      else if bounds_check(mouse_state.world_x, mouse_state.world_y, UI_AUTO_BUILD_X, UI_AUTO_BUILD_Y, UI_AUTO_BUILD_X + UI_AUTO_BUILD_W, UI_AUTO_BUILD_Y + UI_AUTO_BUILD_H) {
+        mouse_state.over_menu_button = MenuButton::AutoBuildButton;
+      }
+    }
     Zone::Top => {
       if hit_test_undo(mouse_state.world_x, mouse_state.world_y) {
         mouse_state.over_menu_button = MenuButton::UndoButton;
@@ -1261,7 +1281,6 @@ fn update_mouse_state(
 
     match mouse_state.down_zone {
       Zone::None => panic!("cant be down on no zone"),
-      ZONE_MANUAL => {}
       ZONE_CRAFT => {
         if options.enable_craft_menu_interact {
           let ( what, wx, wy, ww, wh, icon, part_kind, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
@@ -1284,11 +1303,7 @@ fn update_mouse_state(
           log!("down on craft is ignored because options.enable_craft_menu_interact = false")
         }
       }
-      ZONE_HELP => {
-        if mouse_state.help_hover {
-          mouse_state.help_down = true;
-        }
-      }
+      ZONE_MANUAL => {} // popup
       ZONE_QUOTES => {
         mouse_state.down_quest =
           mouse_state.last_down_world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.last_down_world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUEST_WIDTH &&
@@ -1306,6 +1321,17 @@ fn update_mouse_state(
         }
       }
       Zone::BottomBottomLeft => {}
+      Zone::TopLeft => {
+        if mouse_state.help_hover {
+          mouse_state.help_down = true;
+        }
+        else if bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, UI_AUTO_BUILD_X, UI_AUTO_BUILD_Y, UI_AUTO_BUILD_X + UI_AUTO_BUILD_W, UI_AUTO_BUILD_Y + UI_AUTO_BUILD_H) {
+          mouse_state.down_menu_button = MenuButton::AutoBuildButton;
+        }
+        else {
+          log!("missed buttons on down in top-left")
+        }
+      }
       Zone::Top => {
         if hit_test_undo(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
           mouse_state.down_menu_button = MenuButton::UndoButton;
@@ -1383,6 +1409,7 @@ fn update_mouse_state(
       Zone::BottomBottomRight => {}
       Zone::Margin => {}
     }
+    log!("DOWN menu button: {:?}", mouse_state.down_menu_button);
   }
 
   // on drag start (maybe)
@@ -1448,7 +1475,6 @@ fn update_mouse_state(
 
     match mouse_state.up_zone {
       Zone::None => panic!("cant be up on no zone"),
-      ZONE_MANUAL => {}
       ZONE_CRAFT => {
         let ( what, wx, wy, ww, wh, icon, part_kind, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_up_world_x, mouse_state.last_up_world_y);
         if mouse_state.is_dragging {
@@ -1469,8 +1495,7 @@ fn update_mouse_state(
           log!("up non-drag on craft is ignored because options.enable_craft_menu_interact = false");
         }
       }
-      ZONE_HELP => {
-      }
+      ZONE_MANUAL => {} // the popup
       ZONE_QUOTES => {
         mouse_state.up_quote =
           mouse_state.last_up_world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.last_up_world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUEST_WIDTH &&
@@ -1488,6 +1513,14 @@ fn update_mouse_state(
         }
       }
       Zone::BottomBottomLeft => {}
+      Zone::TopLeft => {
+        if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_AUTO_BUILD_X, UI_AUTO_BUILD_Y, UI_AUTO_BUILD_X + UI_AUTO_BUILD_W, UI_AUTO_BUILD_Y + UI_AUTO_BUILD_H) {
+          mouse_state.up_menu_button = MenuButton::AutoBuildButton;
+        }
+        else {
+          log!("missed buttons on down in top-left")
+        }
+      }
       Zone::Top => {
         if hit_test_undo(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
           mouse_state.up_menu_button = MenuButton::UndoButton;
@@ -1555,6 +1588,8 @@ fn update_mouse_state(
       Zone::BottomBottomRight => {}
       Zone::Margin => {}
     }
+
+    log!("UP menu button: {:?}", mouse_state.up_menu_button);
   }
 }
 fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, quick_saves: &mut [Option<QuickSave>; 9]) {
@@ -1682,6 +1717,13 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
       }
     } else {
       match mouse_state.up_zone {
+        Zone::TopLeft => {
+          if mouse_state.help_down {
+            on_click_help(options, state, config);
+          } else {
+            on_up_menu(cell_selection, mouse_state, options, state, config, factory);
+          }
+        }
         Zone::Top => {
           on_up_menu(cell_selection, mouse_state, options, state, config, factory);
         }
@@ -1705,11 +1747,6 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         ZONE_SAVE_MAP => {
           if mouse_state.up_save_map {
             on_up_save_map(options, state, config, factory, mouse_state, quick_saves);
-          }
-        }
-        ZONE_HELP => {
-          if mouse_state.help_down {
-            on_click_help(options, state, config);
           }
         }
         ZONE_FLOOR => {
@@ -1774,7 +1811,6 @@ fn on_drag_floor(options: &Options, state: &mut State, config: &Config, factory:
           cell_y1,
           cell_x2,
           cell_y2,
-          false
         );
 
         for i in 1..track.len() {
@@ -2024,23 +2060,17 @@ fn on_up_quest(options: &Options, state: &State, config: &Config, factory: &mut 
 
   if options.dbg_clickable_quests && mouse_state.down_quest && mouse_state.down_quest_visible_index == mouse_state.up_quest_visible_index {
     log!("  clicked on this quest (down=up). Completing it now...");
-    let mut visible_index = 0;
-    for quest_index in 0..factory.quests.len() {
-      if factory.quests[quest_index].status != QuestStatus::Active && factory.quests[quest_index].status != QuestStatus::FadingAndBouncing {
-        continue;
-      }
-      if visible_index == mouse_state.up_quest_visible_index {
-        log!("  quest_update_status: satisfying quest {} to production target", quest_index);
-        factory.quests[quest_index].production_progress = factory.quests[quest_index].production_target;
-        quest_update_status(factory, quest_index, QuestStatus::FadingAndBouncing, factory.ticks);
-        factory.quests[quest_index].bouncer.bounce_from_index = visible_index;
-        factory.quests[quest_index].bouncer.bouncing_at = factory.ticks;
-        return;
-      }
-      visible_index += 1;
-    }
 
-    log!("Clicked on a quest index that doesnt exist right now. mouse_state.down_quest_visible_index={}, mouse_state.up_quest_visible_index={}", mouse_state.down_quest_visible_index, mouse_state.up_quest_visible_index);
+    let quest_index = quest_visible_index_to_quest_index(options, state, config, factory, mouse_state.up_quest_visible_index);
+    if let Some(quest_index) = quest_index {
+      log!("  quest_update_status: satisfying quest {} to production target", quest_index);
+      factory.quests[quest_index].production_progress = factory.quests[quest_index].production_target;
+      quest_update_status(factory, quest_index, QuestStatus::FadingAndBouncing, factory.ticks);
+      factory.quests[quest_index].bouncer.bounce_from_index = mouse_state.up_quest_visible_index;
+      factory.quests[quest_index].bouncer.bouncing_at = factory.ticks;
+    } else {
+      log!("Clicked on a quest index that doesnt exist right now. mouse_state.down_quest_visible_index={}, mouse_state.up_quest_visible_index={}", mouse_state.down_quest_visible_index, mouse_state.up_quest_visible_index);
+    }
   }
 }
 fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, quick_saves: &mut [Option<QuickSave>; 9]) {
@@ -2188,101 +2218,7 @@ fn on_drag_end_machine_over_floor(options: &mut Options, state: &mut State, conf
   let cy = world_y_to_top_left_cell_y_while_dragging_offer_machine(mouse_state.last_up_cell_y, machine_cell_height);
   // Make sure the entire machine fits, not just the center or topleft cell
   if bounds_check(cx, cy, 1.0, 1.0, FLOOR_CELLS_W as f64 - (machine_cell_width as f64), FLOOR_CELLS_H as f64 - (machine_cell_height as f64)) {
-    let ccoord = to_coord(cx as usize, cy as usize);
-
-    // Get all machines and then get the first unused ID. First we round up all the existing
-    // machine ids into a vector and then we iterate through the vector incrementally until
-    // an ID is not used. This is O(n^2) but realistically worst case O(63^2) and good luck.
-
-    let mut ids = vec!();
-    for coord in 0..FLOOR_CELLS_WH {
-      if factory.floor[coord].kind == CellKind::Machine && factory.floor[coord].machine.main_coord == coord {
-        ids.push(factory.floor[coord].machine.id);
-      }
-    }
-
-    // Now iterate through all valid IDs, that is: 0-9a-zA-Z. I guess bail if we exhaust that.
-    // TODO: gracefully handle too many machines
-    let mut found = '!';
-    // Note: machine ids offset at 1 (because m0 is just too confusing for comfort)
-    for id in 1..62 {
-      let c =
-        if id >= 36 {
-          (('A' as u8) + (id - 36)) as char // A-Z
-        } else if id > 9 {
-          (('a' as u8) + (id - 10)) as char // a-z
-        } else {
-          (('0' as u8) + id) as char // 1-9
-        };
-      if !ids.contains(&c) {
-        found = c;
-        break;
-      }
-    }
-    if found == '!' {
-      panic!("Unable to find a fresh ID. Either there are too many machines on the floor or there is a bug with reclaiming them. Or d: something else.");
-    }
-
-    // Fill the rest with sub machine cells
-    for i in 0..machine_cell_width {
-      for j in 0..machine_cell_height {
-        let x = cx as usize + i;
-        let y = cy as usize + j;
-        let coord = to_coord(x, y);
-
-        // Meh. But we want to remember this state for checks below.
-        let ( mut port_u, mut port_r, mut port_d, mut port_l, coord_u, coord_r, coord_d, coord_l ) = match factory.floor[coord] {
-          super::cell::Cell { port_u, port_r, port_d, port_l, coord_u, coord_r, coord_d, coord_l, .. } => ( port_u, port_r, port_d, port_l, coord_u, coord_r, coord_d, coord_l )
-        };
-
-        // If the neighbor was a machine then reset the port
-        if let Some(c) = coord_u { if factory.floor[c].kind == CellKind::Machine { port_u = Port::None; } };
-        if let Some(c) = coord_r { if factory.floor[c].kind == CellKind::Machine { port_r = Port::None; } };
-        if let Some(c) = coord_d { if factory.floor[c].kind == CellKind::Machine { port_d = Port::None; } };
-        if let Some(c) = coord_l { if factory.floor[c].kind == CellKind::Machine { port_l = Port::None; } };
-
-        // Make sure to drop machines properly. Belts are 1x1 so no problem. Empty are fine.
-        if factory.floor[coord].kind == CellKind::Machine {
-          floor_delete_cell_at_partial(options, state, config, factory, coord);
-        }
-
-        if i == 0 && j == 0 {
-          // Top-left cell is the main_coord here
-          factory.floor[coord] = machine_main_cell(
-            options,
-            state,
-            config,
-            found,
-            x, y,
-            machine_cell_width, machine_cell_height,
-            vec!(), // Could fill with trash but no need I guess
-            part_c(config, 't'),
-            2000,
-            1, 1
-          );
-        } else {
-          factory.floor[coord] = machine_sub_cell(options, state, config, found, x, y, ccoord, machine_cell_width, machine_cell_height);
-        }
-        factory.floor[ccoord].machine.coords.push(coord);
-
-        factory.floor[coord].port_u = if j == 0 { port_u } else { Port::None };
-        factory.floor[coord].port_r = if i == machine_cell_width - 1 { port_r } else { Port::None };
-        factory.floor[coord].port_d = if j == machine_cell_height - 1 { port_d } else { Port::None };
-        factory.floor[coord].port_l = if i == 0 { port_l } else { Port::None };
-      }
-    }
-
-    log!("Attaching machine to neighbor dead ending belts");
-    for i in 0..factory.floor[ccoord].machine.coords.len() {
-      let coord = factory.floor[ccoord].machine.coords[i];
-      connect_to_neighbor_dead_end_belts(options, state, config, factory, coord);
-    }
-
-    machine_discover_ins_and_outs(factory, ccoord);
-
-    factory.machines.push(ccoord);
-
-    factory.changed = true;
+    machine_add_to_factory(options, state, config, factory, cx as usize, cy as usize, machine_cell_width, machine_cell_height);
   } else {
     log!("Dropped a machine on the edge. Ignoring. {} {}", mouse_state.last_up_cell_x, mouse_state.last_up_cell_y);
   }
@@ -2347,29 +2283,7 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
     log!("Dropped a supply on an edge cell that is not corner. Deploying... {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
     log!("Drag started from offer {} ({:?})", mouse_state.offer_down_offer_index, dragged_part_kind);
 
-    let dir = match (
-      last_mouse_up_cell_x == 0.0, // left
-      last_mouse_up_cell_y == 0.0, // up
-      last_mouse_up_cell_x as usize == FLOOR_CELLS_W - 1, // right
-      last_mouse_up_cell_y as usize == FLOOR_CELLS_H - 1 // down
-    ) {
-      ( false, true, false, false ) => Direction::Left,
-      ( false, false, true, false ) => Direction::Up,
-      ( false, false, false, true ) => Direction::Right,
-      ( true, false, false, false ) => Direction::Down,
-      _ => panic!("Should always ever be one side"),
-    };
-
-    // If there's already something on this cell then we need to remove it first
-    if factory.floor[last_mouse_up_cell_coord].kind != CellKind::Empty {
-      // Must be supply or demand
-      // We should be able to replace this one with the new tile without having to update
-      // the neighbors (if any). We do have to update the prio list (in case demand->supply).
-      log!(" - Removing old edge cell...");
-      floor_delete_cell_at_partial(options, state, config, factory, last_mouse_up_cell_coord);
-    }
-
-    set_empty_edge_to_supplier(options, state, config, factory, dragged_part_kind, last_mouse_up_cell_coord, dir);
+    set_edge_to_part(options, state, config, factory, last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, dragged_part_kind);
   }
   else if is_middle(last_mouse_up_cell_x, last_mouse_up_cell_y) {
     // Figure out whether it was dropped on a machine
@@ -2430,7 +2344,6 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
     mouse_state.last_down_cell_y_floored,
     mouse_state.cell_x_floored,
     mouse_state.cell_y_floored,
-    false
   );
 
   log!("track to solidify: {:?}, button {}", track, mouse_state.last_down_button);
@@ -2502,99 +2415,6 @@ fn on_drag_end_floor_two_cells(state: &State, options: &Options, config: &Config
   return apply_action_between_two_cells(state, options, config, factory, action, cell_x1, cell_y1, belt_type1, cell_x2, cell_y2, belt_type2);
 }
 
-fn apply_action_between_two_cells(state: &State, options: &Options, config: &Config, factory: &mut Factory, add_or_remove: Action, cell_x1: usize, cell_y1: usize, belt_type1: BeltType, cell_x2: usize, cell_y2: usize, belt_type2: BeltType) {
-  let coord1 = to_coord(cell_x1, cell_y1);
-  let coord2 = to_coord(cell_x2, cell_y2);
-
-  let dx = (cell_x2 as i8) - (cell_x1 as i8);
-  let dy = (cell_y2 as i8) - (cell_y1 as i8);
-  assert!((dx == 0) != (dy == 0), "one and only one of dx or dy is zero");
-  assert!(dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1, "since they are adjacent they must be -1, 0, or 1");
-
-  if add_or_remove == Action::Add {
-    log!(" - Connecting the two cells");
-
-    // Convert empty cells to belt cells.
-    // Create a port between these two cells, but none of the other cells.
-
-    if is_edge(cell_x1 as f64, cell_y1 as f64) && is_edge(cell_x2 as f64, cell_y2 as f64) {
-      // Noop. Just don't.
-    }
-    else {
-      if factory.floor[coord1].kind == CellKind::Empty {
-        if is_edge_not_corner(cell_x1 as f64, cell_y1 as f64) {
-          // Cell is empty so place a trash supplier here as a placeholder
-          factory.floor[coord1] = supply_cell(config, cell_x1, cell_y1, part_c(config, 't'), 2000, 0, 0);
-        }
-        else if is_middle(cell_x1 as f64, cell_y1 as f64) {
-          factory.floor[coord1] = belt_cell(config, cell_x1, cell_y1, belt_type_to_belt_meta(belt_type1));
-        }
-      }
-      if factory.floor[coord2].kind == CellKind::Empty {
-        if is_edge_not_corner(cell_x2 as f64, cell_y2 as f64) {
-          // Cell is empty so place a demander here
-          factory.floor[coord2] = demand_cell(config, cell_x2, cell_y2, options.default_demand_speed, options.default_demand_cooldown);
-        }
-        else if is_middle(cell_x2 as f64, cell_y2 as f64) {
-          factory.floor[coord2] = belt_cell(config, cell_x2, cell_y2, belt_type_to_belt_meta(belt_type2));
-        }
-      }
-
-      cell_connect_if_possible(options, state, config, factory, coord1, coord2, dx, dy);
-    }
-  }
-  else if add_or_remove == Action::Remove {
-    log!(" - Disconnecting the two cells");
-
-    // Delete the port between the two cells but leave everything else alone.
-    // The coords must be adjacent to one side.
-
-    let ( dir1, dir2) = match ( dx, dy ) {
-      ( 0 , -1 ) => {
-        // x1 was bigger so xy1 is under xy2
-        (Direction::Up, Direction::Down)
-      }
-      ( 1 , 0 ) => {
-        // x2 was bigger so xy1 is left of xy2
-        (Direction::Right, Direction::Left)
-      }
-      ( 0 , 1 ) => {
-        // y2 was bigger so xy1 is above xy2
-        (Direction::Down, Direction::Up)
-      }
-      ( -1 , 0 ) => {
-        // x1 was bigger so xy1 is right of xy2
-        (Direction::Left, Direction::Right)
-      }
-      _ => panic!("already asserted the range of x and y"),
-    };
-
-    port_disconnect_cells(options, state, config, factory, coord1, dir1, coord2, dir2);
-  }
-  else {
-    // Other mouse button or multi-button. ignore for now / ever.
-    // (Remember: this was a drag of two cells)
-    log!(" - Not left or right button; ignoring unknown button click");
-  }
-
-  fix_belt_meta(options, state, config, factory, coord1);
-  fix_belt_meta(options, state, config, factory, coord2);
-
-  if add_or_remove == Action::Remove {
-    if factory.floor[coord1].kind == CellKind::Belt && factory.floor[coord1].port_u == Port::None && factory.floor[coord1].port_r == Port::None && factory.floor[coord1].port_d == Port::None && factory.floor[coord1].port_l == Port::None {
-      floor_delete_cell_at_partial(options, state, config, factory, coord1);
-    } else {
-      clear_part_from_cell(options, state, config, factory, coord1);
-    }
-    if factory.floor[coord2].kind == CellKind::Belt && factory.floor[coord2].port_u == Port::None && factory.floor[coord2].port_r == Port::None && factory.floor[coord2].port_d == Port::None && factory.floor[coord2].port_l == Port::None {
-      floor_delete_cell_at_partial(options, state, config, factory, coord2);
-    } else {
-      clear_part_from_cell(options, state, config, factory, coord2);
-    }
-  }
-
-  factory.changed = true;
-}
 fn on_drag_end_floor_multi_cells(state: &State, options: &Options, config: &Config, factory: &mut Factory, mouse_state: &MouseState, track: Vec<((usize, usize), BeltType, Direction, Direction)>) {
   log!("Multi cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_mirrored);
 
@@ -2725,6 +2545,14 @@ fn on_up_machine2x2_button() {
 fn on_up_machine3x3_button() {
   log!("on_up_machine3x3_button()");
 }
+fn on_up_auto_build_button(options: &Options, state: &State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
+  log!("on_up_auto_build_button");
+  factory.auto_build_phase = AutoBuildPhase::Startup;
+  factory.auto_build_mouse_offset_x = mouse_state.world_x;
+  factory.auto_build_mouse_offset_y = mouse_state.world_y;
+  auto_build_init(options, state, config, factory);
+}
+
 fn on_drag_start_machine1x2_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
   log!("is_drag_start from machine1x2");
   mouse_state.dragging_machine1x2 = true;
@@ -2779,6 +2607,10 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
 
   match mouse_state.up_menu_button {
     MenuButton::None => {}
+
+    MenuButton::AutoBuildButton => {
+      on_up_auto_build_button(options, state, config, factory, mouse_state);
+    }
 
     MenuButton::Machine1x2Button => {
       on_up_machine1x2_button();
@@ -2948,7 +2780,114 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
       }
     }
     MenuButton::Row3Button3 => {
-      log!("(no button here)");
+      log!("(Test button)");
+
+      factory.auto_build_machine_w = 2;
+      factory.auto_build_machine_h = 2;
+
+
+      // Create a mirror of the floor but just with empty or non-empty
+      let mut fake = vec!();
+      factory.floor.iter().enumerate().for_each(|(i, cell)| fake.push(if cell.kind != CellKind::Empty { 1000 } else if cell.is_edge { 1000 } else { 900 }));
+
+      print_fake(&fake);
+
+      for x in factory.auto_build_machine_x..factory.auto_build_machine_x+factory.auto_build_machine_w {
+        for y in factory.auto_build_machine_y..factory.auto_build_machine_y+factory.auto_build_machine_h {
+          fake[x + y * FLOOR_CELLS_W] = 1;
+        }
+      }
+
+      print_fake(&fake);
+
+      for lop in 0..100 {
+        let mut changed = false;
+        // Flood fill starting with the machine cell neighbors
+        for i in 0..fake.len() {
+          let n = fake[i];
+          if n >= 999 {
+            continue;
+          }
+          let mut m = n;
+
+          // Note: Can't be edge cell because they are all 1000 and we bail above
+          //       As such we don't need to do range safety checks.
+          //       We do need to confirm that the cell is visited before (!=900)
+
+          let p = fake[i - FLOOR_CELLS_W];
+          if p != 900 && m > p {
+            m = p;
+          }
+          let p = fake[i - 1];
+          if p != 900 && m > p {
+            m = p;
+          }
+          let p = fake[i + FLOOR_CELLS_W];
+          if p != 900 && m > p {
+            m = p;
+          }
+          let p = fake[i + 1];
+          if p != 900 && m > p {
+            m = p;
+          }
+          if m+1 < n {
+            fake[i] = m + 1;
+            changed = true;
+          }
+        }
+        if !changed {
+          log!("Breaking after {} iterations", lop+1);
+          break;
+        }
+      }
+
+      print_fake(&fake);
+
+      fn print_fake(fake: &Vec<i32>) {
+        fn b62(n: i32) -> String {
+          if n == 900 {
+            return format!("{}", ' ');
+          }
+          if n == 1000 {
+            return format!("{}", '#');
+          }
+          if n < 10 {
+            return format!("{}", n);
+          }
+          if n < 36 {
+            return format!("{}", ('a' as u8 + (n - 10) as u8) as char);
+          }
+          if n < 62 {
+            return format!("{}", ('A' as u8 + (n - 36) as u8) as char);
+          }
+          if n >= 62 {
+            return format!("{}", '?');
+          }
+          return format!("{}", '#');
+        }
+
+        log!("floor print:");
+        log!(
+          "\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n",
+          b62(fake[0]),     b62(fake[1]),   b62(fake[2]),   b62(fake[3]),   b62(fake[4]),   b62(fake[5]),   b62(fake[6]),   b62(fake[7]),   b62(fake[8]),   b62(fake[9]),  b62(fake[10]),  b62(fake[11]),  b62(fake[12]),  b62(fake[13]),  b62(fake[14]),  b62(fake[15]),  b62(fake[16]),
+          b62(fake[17]),   b62(fake[18]),  b62(fake[19]),  b62(fake[20]),  b62(fake[21]),  b62(fake[22]),  b62(fake[23]),  b62(fake[24]),  b62(fake[25]),  b62(fake[26]),  b62(fake[27]),  b62(fake[28]),  b62(fake[29]),  b62(fake[30]),  b62(fake[31]),  b62(fake[32]),  b62(fake[33]),
+          b62(fake[34]),   b62(fake[35]),  b62(fake[36]),  b62(fake[37]),  b62(fake[38]),  b62(fake[39]),  b62(fake[40]),  b62(fake[41]),  b62(fake[42]),  b62(fake[43]),  b62(fake[44]),  b62(fake[45]),  b62(fake[46]),  b62(fake[47]),  b62(fake[48]),  b62(fake[49]),  b62(fake[50]),
+          b62(fake[51]),   b62(fake[52]),  b62(fake[53]),  b62(fake[54]),  b62(fake[55]),  b62(fake[56]),  b62(fake[57]),  b62(fake[58]),  b62(fake[59]),  b62(fake[60]),  b62(fake[61]),  b62(fake[62]),  b62(fake[63]),  b62(fake[64]),  b62(fake[65]),  b62(fake[66]),  b62(fake[67]),
+          b62(fake[68]),   b62(fake[69]),  b62(fake[70]),  b62(fake[71]),  b62(fake[72]),  b62(fake[73]),  b62(fake[74]), b62(fake[75]),   b62(fake[76]),  b62(fake[77]),  b62(fake[78]),  b62(fake[79]),  b62(fake[80]),  b62(fake[81]),  b62(fake[82]),  b62(fake[83]),  b62(fake[84]),
+          b62(fake[85]),   b62(fake[86]),  b62(fake[87]),  b62(fake[88]),  b62(fake[89]), b62(fake[90]),   b62(fake[91]),  b62(fake[92]),  b62(fake[93]),  b62(fake[94]),  b62(fake[95]),  b62(fake[96]),  b62(fake[97]),  b62(fake[98]),  b62(fake[99]), b62(fake[100]), b62(fake[101]),
+          b62(fake[102]), b62(fake[103]), b62(fake[104]), b62(fake[105]), b62(fake[106]), b62(fake[107]), b62(fake[108]), b62(fake[109]), b62(fake[110]), b62(fake[111]), b62(fake[112]), b62(fake[113]), b62(fake[114]), b62(fake[115]), b62(fake[116]), b62(fake[117]), b62(fake[118]),
+          b62(fake[119]), b62(fake[120]), b62(fake[121]), b62(fake[122]), b62(fake[123]), b62(fake[124]), b62(fake[125]), b62(fake[126]), b62(fake[127]), b62(fake[128]), b62(fake[129]), b62(fake[130]), b62(fake[131]), b62(fake[132]), b62(fake[133]), b62(fake[134]), b62(fake[135]),
+          b62(fake[136]), b62(fake[137]), b62(fake[138]), b62(fake[139]), b62(fake[140]), b62(fake[141]), b62(fake[142]), b62(fake[143]), b62(fake[144]), b62(fake[145]), b62(fake[146]), b62(fake[147]), b62(fake[148]), b62(fake[149]), b62(fake[150]), b62(fake[151]), b62(fake[152]),
+          b62(fake[153]), b62(fake[154]), b62(fake[155]), b62(fake[156]), b62(fake[157]), b62(fake[158]), b62(fake[159]), b62(fake[160]), b62(fake[161]), b62(fake[162]), b62(fake[163]), b62(fake[164]), b62(fake[165]), b62(fake[166]), b62(fake[167]), b62(fake[168]), b62(fake[169]),
+          b62(fake[170]), b62(fake[171]), b62(fake[172]), b62(fake[173]), b62(fake[174]), b62(fake[175]), b62(fake[176]), b62(fake[177]), b62(fake[178]), b62(fake[179]), b62(fake[180]), b62(fake[181]), b62(fake[182]), b62(fake[183]), b62(fake[184]), b62(fake[185]), b62(fake[186]),
+          b62(fake[187]), b62(fake[188]), b62(fake[189]), b62(fake[190]), b62(fake[191]), b62(fake[192]), b62(fake[193]), b62(fake[194]), b62(fake[195]), b62(fake[196]), b62(fake[197]), b62(fake[198]), b62(fake[199]), b62(fake[200]), b62(fake[201]), b62(fake[202]), b62(fake[203]),
+          b62(fake[204]), b62(fake[205]), b62(fake[206]), b62(fake[207]), b62(fake[208]), b62(fake[209]), b62(fake[210]), b62(fake[211]), b62(fake[212]), b62(fake[213]), b62(fake[214]), b62(fake[215]), b62(fake[216]), b62(fake[217]), b62(fake[218]), b62(fake[219]), b62(fake[220]),
+          b62(fake[221]), b62(fake[222]), b62(fake[223]), b62(fake[224]), b62(fake[225]), b62(fake[226]), b62(fake[227]), b62(fake[228]), b62(fake[229]), b62(fake[230]), b62(fake[231]), b62(fake[232]), b62(fake[233]), b62(fake[234]), b62(fake[235]), b62(fake[236]), b62(fake[237]),
+          b62(fake[238]), b62(fake[239]), b62(fake[240]), b62(fake[241]), b62(fake[242]), b62(fake[243]), b62(fake[244]), b62(fake[245]), b62(fake[246]), b62(fake[247]), b62(fake[248]), b62(fake[249]), b62(fake[250]), b62(fake[251]), b62(fake[252]), b62(fake[253]), b62(fake[254]),
+          b62(fake[255]), b62(fake[256]), b62(fake[257]), b62(fake[258]), b62(fake[259]), b62(fake[260]), b62(fake[261]), b62(fake[262]), b62(fake[263]), b62(fake[264]), b62(fake[265]), b62(fake[266]), b62(fake[267]), b62(fake[268]), b62(fake[269]), b62(fake[270]), b62(fake[271]),
+          b62(fake[272]), b62(fake[273]), b62(fake[274]), b62(fake[275]), b62(fake[276]), b62(fake[277]), b62(fake[278]), b62(fake[279]), b62(fake[280]), b62(fake[281]), b62(fake[282]), b62(fake[283]), b62(fake[284]), b62(fake[285]), b62(fake[286]), b62(fake[287]), b62(fake[288])
+        );
+      }
     }
     MenuButton::Row3Button4 => {
       log!("Clearing the unlock status so you can start again");
@@ -3239,141 +3178,6 @@ fn hit_test_machine2x2_button(x: f64, y: f64) -> bool {
 fn hit_test_help_button(mx: f64, my: f64) -> bool {
   return bounds_check(mx, my, UI_HELP_X, UI_HELP_Y, UI_HELP_X + UI_HELP_WIDTH, UI_HELP_Y + UI_HELP_HEIGHT);
 }
-fn ray_trace_dragged_line_expensive(factory: &Factory, ix0: f64, iy0: f64, ix1: f64, iy1: f64, for_preview: bool) -> Vec<((usize, usize), BeltType, Direction, Direction)> {
-  // We raytracing
-  // The dragged line becomes a ray that we trace through cells of the floor
-  // We then generate a belt track such that it fits in with the existing belts, if any
-  // - Figure out which cells the ray passes through
-  // - If the ray crosses existing belts, generate the belt type as if the original was modified to support the new path (the pathing would not destroy existing ports)
-  // - If the ray only spans one cell, force it to be invalid
-  // - The first and last cells in the ray also auto-connect to any neighbor belts. Sections in the middle of the ray do not.
-  // - Special case: if the line starts on an edge but finishes away from that same edge, force the second step to be away from that edge. there's some manual logic to make that work.
-
-  // Check start of path and compensate if on edge
-  let x_left0 = ix0 == 0.0 && ix1 != 0.0;
-  let y_top0 = iy0 == 0.0 && iy1 != 0.0;
-  let x_right0 = ix0 == ((FLOOR_CELLS_W - 1) as f64) && ix1 != ((FLOOR_CELLS_W - 1) as f64);
-  let y_bottom0 = iy0 == ((FLOOR_CELLS_H - 1) as f64) && iy1 != ((FLOOR_CELLS_H - 1) as f64);
-  let x0 = if x_left0 { ix0 + 1.0 } else if x_right0 { ix0 - 1.0 } else { ix0 };
-  let y0 = if y_top0 { iy0 + 1.0 } else if y_bottom0 { iy0 - 1.0 } else { iy0 };
-
-  // Check end of path and compensate if on edge
-  let x_left1 = ix1 == 0.0 && x0 != 0.0;
-  let y_top1 = iy1 == 0.0 && y0 != 0.0;
-  let x_right1 = ix1 == ((FLOOR_CELLS_W - 1) as f64) && x0 != ((FLOOR_CELLS_W - 1) as f64);
-  let y_bottom1 = iy1 == ((FLOOR_CELLS_H - 1) as f64) && y0 != ((FLOOR_CELLS_H - 1) as f64);
-  let x1 = if x_left1 { ix1 + 1.0 } else if x_right1 { ix1 - 1.0 } else { ix1 };
-  let y1 = if y_top1 { iy1 + 1.0 } else if y_bottom1 { iy1 - 1.0 } else { iy1 };
-
-  let mut covered = get_cells_from_a_to_b(x0, y0, x1, y1);
-  assert!(covered.len() >= 1, "Should always record at least one cell coord");
-
-  // Now put the start/end of path back if it was moved. This way the path will never have more than one edge cell on the same side
-  if x_left0 || y_top0 || x_right0 || y_bottom0 {
-    // "push_front"
-    let mut t = vec!((ix0 as usize, iy0 as usize));
-    t.append(&mut covered);
-    covered = t;
-  }
-  if x_left1 || y_top1 || x_right1 || y_bottom1 {
-    covered.push((ix1 as usize, iy1 as usize));
-  }
-
-  if covered.len() == 1 {
-    return vec!((covered[0], BeltType::INVALID, Direction::Up, Direction::Up));
-  }
-
-  // Note: in order of (dragging) appearance
-  let mut track: Vec<((usize, usize), BeltType, Direction, Direction)> = vec!(); // ((x, y), new_bt)
-
-  let (mut lx, mut ly) = covered[0];
-  let mut last_from = Direction::Up; // first one ignores this value
-
-  // Draw example tiles of the path you're drawing.
-  // Take the existing cell and add one (first/last segment) or two ports to it;
-  // - first one only gets the "to" port added to it
-  // - last one only gets the "from" port added to it
-  // - middle parts get the "from" and "to" port added to them
-  for index in 1..covered.len() {
-    let (x, y) = covered[index];
-    // Always set the previous one.
-    let new_from = get_from_dir_between_xy(lx, ly, x, y);
-    let last_to = direction_reverse(new_from);
-    let bt =
-      if track.len() == 0 {
-        add_unknown_port_to_cell(factory, to_coord(lx, ly), last_to)
-      } else {
-        add_two_ports_to_cell(factory, to_coord(lx, ly), last_from, last_to)
-      };
-    track.push(((lx, ly), bt, last_from, last_to)); // Note: first segment has undefined "from"
-
-    lx = x;
-    ly = y;
-    last_from = new_from;
-  }
-  // Final step. Only has a from port.
-  let bt = add_unknown_port_to_cell(factory, to_coord(lx, ly), last_from);
-  track.push(((lx, ly), bt, last_from, last_from)); // Note: last segment has undefined "from"
-
-  return track;
-}
-fn get_cells_from_a_to_b(x0: f64, y0: f64, x1: f64, y1: f64) -> Vec<(usize, usize)>{
-  // https://playtechs.blogspot.com/2007/03/raytracing-on-grid.html
-  // Super cover int algo, ported from:
-  //
-  // void raytrace(int x0, int y0, int x1, int y1)
-  // {
-  //   int dx = abs(x1 - x0);
-  //   int dy = abs(y1 - y0);
-  //   int x = x0;
-  //   int y = y0;
-  //   int n = 1 + dx + dy;
-  //   int x_inc = (x1 > x0) ? 1 : -1;
-  //   int y_inc = (y1 > y0) ? 1 : -1;
-  //   int error = dx - dy;
-  //   dx *= 2;
-  //   dy *= 2;
-  //
-  //   for (; n > 0; --n)
-  //   {
-  //     visit(x, y);
-  //
-  //     if (error > 0)
-  //     {
-  //       x += x_inc;
-  //       error -= dy;
-  //     }
-  //     else
-  //     {
-  //       y += y_inc;
-  //       error += dx;
-  //     }
-  //   }
-  // }
-
-  let dx = (x1 - x0).abs();
-  let dy = (y1 - y0).abs();
-  let mut x = x0;
-  let mut y = y0;
-  let n = 1.0 + dx + dy;
-  let x_inc = if x1 > x0 { 1.0 } else { -1.0 };
-  let y_inc = if y1 > y0 { 1.0 } else { -1.0 };
-  let mut error = dx - dy;
-
-  let mut covered = vec!();
-  for n in 0..n as u64 {
-    covered.push((x as usize, y as usize));
-    if error > 0.0 {
-      x += x_inc;
-      error -= dy;
-    } else {
-      y += y_inc;
-      error += dx;
-    }
-  }
-
-  return covered;
-}
 fn hit_check_speed_bubble_x(x: f64, y: f64, index: usize) -> bool {
   let diameter = 2.0 * UI_SPEED_BUBBLE_RADIUS;
   let ox = UI_SPEED_BUBBLE_OFFSET_X + (index as f64) * (diameter + UI_SPEED_BUBBLE_SPACING);
@@ -3458,6 +3262,47 @@ fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::Canva
   context.fill_text(format!("down event type: {}", if mouse_state.last_down_event_type == EventSourceType::Mouse { "Mouse" } else { "Touch" }).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   assert_eq!(ui_lines, UI_DEBUG_LINES, "keep these in sync for simplicity");
+}
+fn paint_debug_auto_build(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState) {
+
+  if !state.showing_debug_bottom {
+    return;
+  }
+
+  let auto_build_mouse_x = (factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x) * factory.auto_build_phase_progress;
+  let auto_build_mouse_y = (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y) * factory.auto_build_phase_progress;
+
+  let mut ui_lines = 0.0;
+
+  context.set_fill_style(&"lightgreen".into());
+  context.fill_rect(UI_DEBUG_AUTO_BUILD_OFFSET_X, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (UI_DEBUG_AUTO_BUILD_LINE_H * ui_lines), UI_DEBUG_AUTO_BUILD_WIDTH, (UI_DEBUG_AUTO_BUILD_LINES + 1.0) * UI_DEBUG_AUTO_BUILD_LINE_H);
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(UI_DEBUG_AUTO_BUILD_OFFSET_X, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (UI_DEBUG_AUTO_BUILD_LINE_H * ui_lines), UI_DEBUG_AUTO_BUILD_WIDTH, (UI_DEBUG_AUTO_BUILD_LINES + 1.0) * UI_DEBUG_AUTO_BUILD_LINE_H);
+
+  context.set_fill_style(&"black".into());
+  context.fill_text(format!("phase        : {:?} ({})", factory.auto_build_phase, factory.ticks - factory.auto_build_phase_at).as_str(), UI_DEBUG_AUTO_BUILD_OFFSET_X + UI_DEBUG_AUTO_BUILD_SPACING, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (ui_lines * UI_DEBUG_AUTO_BUILD_LINE_H) + UI_DEBUG_AUTO_BUILD_FONT_H).expect("something error fill_text");
+
+  ui_lines += 1.0;
+  context.set_fill_style(&"black".into());
+  context.fill_text(format!("mouse offset : {} x {}", factory.auto_build_mouse_offset_x, factory.auto_build_mouse_offset_y).as_str(), UI_DEBUG_AUTO_BUILD_OFFSET_X + UI_DEBUG_AUTO_BUILD_SPACING, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (ui_lines * UI_DEBUG_AUTO_BUILD_LINE_H) + UI_DEBUG_AUTO_BUILD_FONT_H).expect("something error fill_text");
+
+  ui_lines += 1.0;
+  context.set_fill_style(&"black".into());
+  context.fill_text(format!("mouse target : {} x {}", factory.auto_build_mouse_target_x, factory.auto_build_mouse_target_y).as_str(), UI_DEBUG_AUTO_BUILD_OFFSET_X + UI_DEBUG_AUTO_BUILD_SPACING, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (ui_lines * UI_DEBUG_AUTO_BUILD_LINE_H) + UI_DEBUG_AUTO_BUILD_FONT_H).expect("something error fill_text");
+
+  ui_lines += 1.0;
+  context.set_fill_style(&"black".into());
+  context.fill_text(format!("mouse now    : {} x {}", factory.auto_build_mouse_offset_x + auto_build_mouse_x.floor(), factory.auto_build_mouse_offset_y + auto_build_mouse_y.floor()).as_str(), UI_DEBUG_AUTO_BUILD_OFFSET_X + UI_DEBUG_AUTO_BUILD_SPACING, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (ui_lines * UI_DEBUG_AUTO_BUILD_LINE_H) + UI_DEBUG_AUTO_BUILD_FONT_H).expect("something error fill_text");
+
+  ui_lines += 1.0;
+  context.set_fill_style(&"black".into());
+  context.fill_text(format!("duration     : {} (left: {})", factory.auto_build_phase_duration, factory.auto_build_phase_duration - (factory.ticks - factory.auto_build_phase_at).min(factory.auto_build_phase_duration)).as_str(), UI_DEBUG_AUTO_BUILD_OFFSET_X + UI_DEBUG_AUTO_BUILD_SPACING, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (ui_lines * UI_DEBUG_AUTO_BUILD_LINE_H) + UI_DEBUG_AUTO_BUILD_FONT_H).expect("something error fill_text");
+
+  ui_lines += 1.0;
+  context.set_fill_style(&"black".into());
+  context.fill_text(format!("progress     : {}", (factory.auto_build_phase_progress * 100.0).floor() / 100.0).as_str(), UI_DEBUG_AUTO_BUILD_OFFSET_X + UI_DEBUG_AUTO_BUILD_SPACING, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (ui_lines * UI_DEBUG_AUTO_BUILD_LINE_H) + UI_DEBUG_AUTO_BUILD_FONT_H).expect("something error fill_text");
+
+  assert_eq!(ui_lines, UI_DEBUG_AUTO_BUILD_LINES, "keep these in sync for simplicity");
 }
 fn paint_world_cli(context: &Rc<web_sys::CanvasRenderingContext2d>, options: &mut Options, state: &mut State, factory: &Factory) {
   // Clear world
@@ -4265,10 +4110,23 @@ fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, c
     }
   }
 }
-fn paint_mouse_cursor(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  context.set_fill_style(&"#ff00ff7f".into()); // Semi transparent circles
+fn paint_mouse_cursor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState) {
+
+  let mut color = "#ff00ff7f";
+  let mut x = mouse_state.world_x;
+  let mut y = mouse_state.world_y;
+  if factory.auto_build_phase != AutoBuildPhase::None {
+    let auto_build_mouse_x = (factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x) * factory.auto_build_phase_progress;
+    let auto_build_mouse_y = (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y) * factory.auto_build_phase_progress;
+
+    x = factory.auto_build_mouse_offset_x + auto_build_mouse_x.floor();
+    y = factory.auto_build_mouse_offset_y + auto_build_mouse_y.floor();
+    color = "orange";
+  }
+
+  context.set_fill_style(&color.into()); // Semi transparent circles
   context.begin_path();
-  context.ellipse(mouse_state.world_x, mouse_state.world_y, PART_W / 2.0, PART_H / 2.0, 3.14, 0.0, 6.28).expect("to paint a circle");
+  context.ellipse(x.floor() + 0.5, y.floor() + 0.5, PART_W / 2.0, PART_H / 2.0, 3.14, 0.0, 6.28).expect("to paint a circle");
   context.fill();
 }
 fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, cell_selection: &CellSelection) {
@@ -4510,7 +4368,6 @@ fn paint_belt_drag_preview(options: &Options, state: &State, config: &Config, co
     mouse_state.last_down_cell_y_floored,
     mouse_state.cell_x_floored,
     mouse_state.cell_y_floored,
-    true, // if we dont then the preview will show only broken belt cells
   );
 
   let action = mouse_button_to_action(state, mouse_state);
@@ -4908,10 +4765,22 @@ fn paint_top_stats(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Fa
   context.fill_text(format!("Ticks: {}, Supplied: {}, Produced: {}, Received: {}, Trashed: {}", factory.ticks, factory.supplied, factory.produced, factory.accepted, factory.trashed).as_str(), 20.0, 20.0).expect("to paint");
   context.fill_text(format!("Current time: {}", factory.ticks).as_str(), 20.0, 40.0).expect("to paint");
 }
-fn paint_corner_help_icon(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, hovering: bool) {
+fn paint_corner_help_icon(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, hovering: bool, over_auto_draw: bool) {
   paint_asset(options, state, config, context, if hovering { CONFIG_NODE_ASSET_HELP_RED } else { CONFIG_NODE_ASSET_HELP_BLACK }, factory.ticks,
     UI_HELP_X, UI_HELP_Y, UI_HELP_WIDTH, UI_HELP_HEIGHT
   );
+
+  context.save();
+  context.set_fill_style(&"yellow".into());
+  context.fill_rect(UI_AUTO_BUILD_X, UI_AUTO_BUILD_Y, UI_AUTO_BUILD_W, UI_AUTO_BUILD_H);
+  if over_auto_draw {
+    context.set_fill_style(&"red".into());
+  } else {
+    context.set_fill_style(&"black".into());
+  }
+  context.set_font(&"48px monospace");
+  context.fill_text(format!("?").as_str(), UI_AUTO_BUILD_X + 10.0, UI_AUTO_BUILD_Y + 40.0).expect("yes");
+  context.restore();
 }
 
 fn paint_quests(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState) {
@@ -5494,7 +5363,7 @@ fn paint_ui_buttons2(options: &Options, state: &State, context: &Rc<web_sys::Can
   paint_ui_button2(context, mouse_state, 0.0, if state.event_type_swapped { "Touch" } else { "Mouse" }, state.event_type_swapped, true, MenuButton::Row3Button0);
   paint_ui_button2(context, mouse_state, 1.0, "Select", state.mouse_mode_selecting, true, MenuButton::Row3Button1);
   paint_ui_button2(context, mouse_state, 2.0, if state.selected_area_copy.len() > 0{ "Stamp" } else { "Copy" }, state.selected_area_copy.len() > 0, state.mouse_mode_selecting, MenuButton::Row3Button2);
-  // paint_ui_button2(context, mouse_state, 3.0, "Undo", false, state.snapshot_undo_pointer > 0, MenuButton::Row3Button3); // should it be 1 for initial map? or dont car, MenuButton::Row3Button3e?
+  paint_ui_button2(context, mouse_state, 3.0, "Test", false, true, MenuButton::Row3Button3);
   paint_ui_button2(context, mouse_state, 4.0, "Again", false, true, MenuButton::Row3Button4);
   paint_ui_button2(context, mouse_state, 5.0, "Panic", false, true, MenuButton::Row3Button5);
   // paint_ui_button2(context, mouse_state, 6.0, "Panic");
@@ -5574,12 +5443,6 @@ fn paint_ui_speed_bubble(button: MenuButton, options: &Options, state: &State, c
   context.stroke();
   context.set_fill_style(&"black".into());
   context.fill_text(text, cx - 4.0, cy + 4.0).expect("to paint");
-}
-fn get_offer_xy(index: usize) -> (f64, f64 ) {
-  let x = UI_OFFERS_OFFSET_X + (index as f64 % UI_OFFERS_PER_ROW).floor() * UI_OFFER_WIDTH_PLUS_MARGIN;
-  let y = UI_OFFERS_OFFSET_Y + (index as f64 / UI_OFFERS_PER_ROW).floor() * UI_OFFER_HEIGHT_PLUS_MARGIN;
-
-  return ( x, y );
 }
 fn paint_segment_part_from_config(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, part_kind: PartKind, dx: f64, dy: f64, dw: f64, dh: f64) -> bool {
   return paint_segment_part_from_config_bug(options, state, config, context, part_kind, dx, dy, dw, dh, false);
@@ -6070,6 +5933,48 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
       let cy = oy + (volume_y - oy) * fuel_progress;
       context.fill_rect(cx, cy, 10.0, 10.0);
       context.stroke_rect(cx, cy, 10.0, 10.0);
+    }
+  }
+}
+
+fn paint_auto_build(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>) {
+  match factory.auto_build_phase {
+    AutoBuildPhase::None => {
+    }
+    AutoBuildPhase::Startup => {
+    }
+    AutoBuildPhase::PickQuest => {
+    }
+    AutoBuildPhase::PickMachine => {
+    }
+    AutoBuildPhase::DragMachine => {
+    }
+    AutoBuildPhase::PlaceMachine => {
+    }
+    AutoBuildPhase::MoveToTargetPart => {}
+    AutoBuildPhase::DragTargetPart => {}
+    AutoBuildPhase::ReleaseTargetPart => {
+    }
+    AutoBuildPhase::MoveToInputPart => {}
+    AutoBuildPhase::MoveToEdge => {
+    }
+    AutoBuildPhase::CreateSupplier => {
+    }
+    AutoBuildPhase::TrackToMachine => {
+    }
+    AutoBuildPhase::UndoTrackToMachine => {
+    }
+    AutoBuildPhase::TrackFromMachineStep => {
+    }
+    AutoBuildPhase::TrackFromMachine => {
+    }
+    AutoBuildPhase::TrackToMachineStep => {
+    }
+    AutoBuildPhase::UndoTrackFromMachine => {
+    }
+    AutoBuildPhase::Finishing => {
+    }
+    AutoBuildPhase::Finished => {
     }
   }
 }

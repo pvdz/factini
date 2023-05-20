@@ -1,4 +1,5 @@
 use super::config::*;
+use super::factory::*;
 use super::options::*;
 use super::utils::*;
 use super::log;
@@ -56,4 +57,16 @@ pub fn part_to_sprite_coord_from_config<'x>(config: &'x Config, options: &Option
   assert!(part_kind < config.nodes.len(), "part kind should be a node index: {} < {}", part_kind, config.nodes.len());
 
   return config_get_sprite_details(config, options, part_kind, 0, 0);
+}
+
+pub fn part_kind_to_visible_offer_index(config: &Config, factory: &Factory, part_kind: PartKind) -> Option<usize> {
+  for i in 0..factory.available_parts_rhs_menu.len() {
+    if factory.available_parts_rhs_menu[i].0 == part_kind {
+      return Some(i);
+    }
+  }
+
+  log!("part_kind_to_visible_offer_index: could not find {} ({:?}) in {:?}", part_kind, config.nodes[part_kind].raw_name, factory.available_parts_rhs_menu);
+
+  return None;
 }

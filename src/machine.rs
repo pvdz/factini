@@ -82,7 +82,7 @@ pub fn machine_none(config: &Config, main_coord: usize) -> Machine {
   };
 }
 
-pub fn machine_new(options: &Options, state: &mut State, config: &Config, kind: MachineKind, cell_width: usize, cell_height: usize, id: char, main_coord: usize, in_wants: Vec<Part>, output: Part, speed: u64) -> Machine {
+pub fn machine_new(options: &Options, state: &State, config: &Config, kind: MachineKind, cell_width: usize, cell_height: usize, id: char, main_coord: usize, in_wants: Vec<Part>, output: Part, speed: u64) -> Machine {
   // Note: this is also called for each machine sub cell once
   let mut wants = in_wants.clone();
   let mut haves = vec!();
@@ -533,4 +533,111 @@ pub fn get_machine_ui_config(w: usize, h: usize) -> MachineUIConfig {
     return MACHINE_3X3_UI;
   }
   return MACHINE_1X1_UI;
+}
+
+pub fn machine_add_to_factory(options: &Options, state: &State, config: &Config, factory: &mut Factory, cx: usize, cy: usize, machine_cell_width: usize, machine_cell_height: usize) {
+  let ccoord = to_coord(cx, cy);
+
+  // Get all machines and then get the first unused ID. First we round up all the existing
+  // machine ids into a vector and then we iterate through the vector incrementally until
+  // an ID is not used. This is O(n^2) but realistically worst case O(63^2) and good luck.
+
+  let mut ids = vec!();
+  for coord in 0..FLOOR_CELLS_WH {
+    if factory.floor[coord].kind == CellKind::Machine && factory.floor[coord].machine.main_coord == coord {
+      ids.push(factory.floor[coord].machine.id);
+    }
+  }
+
+  // Now iterate through all valid IDs, that is: 0-9a-zA-Z. I guess bail if we exhaust that.
+  // TODO: gracefully handle too many machines
+  let mut found = '!';
+  // Note: machine ids offset at 1 (because m0 is just too confusing for comfort)
+  for id in 1..62 {
+    let c =
+      if id >= 36 {
+        (('A' as u8) + (id - 36)) as char // A-Z
+      } else if id > 9 {
+        (('a' as u8) + (id - 10)) as char // a-z
+      } else {
+        (('0' as u8) + id) as char // 1-9
+      };
+    if !ids.contains(&c) {
+      found = c;
+      break;
+    }
+  }
+  if found == '!' {
+    panic!("Unable to find a fresh ID. Either there are too many machines on the floor or there is a bug with reclaiming them. Or d: something else.");
+  }
+
+  // Fill the rest with sub machine cells
+  for i in 0..machine_cell_width {
+    for j in 0..machine_cell_height {
+      let x = cx + i;
+      let y = cy + j;
+      let coord = to_coord(x, y);
+
+      // Meh. But we want to remember this state for checks below.
+      let ( mut port_u, mut port_r, mut port_d, mut port_l, coord_u, coord_r, coord_d, coord_l ) = match factory.floor[coord] {
+        super::cell::Cell { port_u, port_r, port_d, port_l, coord_u, coord_r, coord_d, coord_l, .. } => ( port_u, port_r, port_d, port_l, coord_u, coord_r, coord_d, coord_l )
+      };
+
+      // If the neighbor was a machine then reset the port
+      if let Some(c) = coord_u { if factory.floor[c].kind == CellKind::Machine { port_u = Port::None; } };
+      if let Some(c) = coord_r { if factory.floor[c].kind == CellKind::Machine { port_r = Port::None; } };
+      if let Some(c) = coord_d { if factory.floor[c].kind == CellKind::Machine { port_d = Port::None; } };
+      if let Some(c) = coord_l { if factory.floor[c].kind == CellKind::Machine { port_l = Port::None; } };
+
+      // Make sure to drop machines properly. Belts are 1x1 so no problem. Empty are fine.
+      if factory.floor[coord].kind == CellKind::Machine {
+        floor_delete_cell_at_partial(options, state, config, factory, coord);
+      }
+
+      if i == 0 && j == 0 {
+        // Top-left cell is the main_coord here
+        factory.floor[coord] = machine_main_cell(
+          options,
+          state,
+          config,
+          found,
+          x, y,
+          machine_cell_width, machine_cell_height,
+          vec!(), // Could fill with trash but no need I guess
+          part_c(config, 't'),
+          2000,
+          1, 1
+        );
+      } else {
+        factory.floor[coord] = machine_sub_cell(options, state, config, found, x, y, ccoord, machine_cell_width, machine_cell_height);
+      }
+      factory.floor[ccoord].machine.coords.push(coord);
+
+      factory.floor[coord].port_u = if j == 0 { port_u } else { Port::None };
+      factory.floor[coord].port_r = if i == machine_cell_width - 1 { port_r } else { Port::None };
+      factory.floor[coord].port_d = if j == machine_cell_height - 1 { port_d } else { Port::None };
+      factory.floor[coord].port_l = if i == 0 { port_l } else { Port::None };
+    }
+  }
+
+  log!("Attaching machine to neighbor dead ending belts");
+  for i in 0..factory.floor[ccoord].machine.coords.len() {
+    let coord = factory.floor[ccoord].machine.coords[i];
+    connect_to_neighbor_dead_end_belts(options, state, config, factory, coord);
+  }
+
+  machine_discover_ins_and_outs(factory, ccoord);
+
+  factory.machines.push(ccoord);
+
+  factory.changed = true;
+}
+
+pub fn machine_set_target_part_kind(options: &Options, state: &State, config: &Config, factory: &mut Factory, main_coord: usize, target_part_kind: PartKind) {
+  for want_index in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
+    let part_kind = config.nodes[target_part_kind].pattern_by_index.get(want_index).unwrap_or(&CONFIG_NODE_PART_NONE);
+    machine_change_want_kind(options, state, config, factory, main_coord, want_index, *part_kind);
+    // Make sure the haves are cleared as well
+    factory.floor[main_coord].machine.haves[want_index] = part_none(config);
+  }
 }

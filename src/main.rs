@@ -9,6 +9,7 @@ use std::collections::VecDeque;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod _cli;
 
+pub mod auto;
 pub mod belt;
 pub mod belt_codes;
 pub mod belt_frame;
@@ -29,6 +30,7 @@ pub mod init;
 pub mod machine;
 pub mod maze;
 pub mod options;
+pub mod offer;
 pub mod part;
 pub mod paste;
 pub mod port;
