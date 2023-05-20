@@ -42,12 +42,12 @@ pub enum AutoBuildPhase {
   MoveToInputPart,
   MoveToEdge,
   CreateSupplier,
+  TrackToMachineStart,
   TrackToMachine,
   TrackToMachineStep,
-  UndoTrackToMachine,
-  TrackFromMachineStep,
+  TrackFromMachineStart,
   TrackFromMachine,
-  UndoTrackFromMachine,
+  TrackFromMachineStep,
   Finishing,
   Finished,
 }
@@ -67,16 +67,23 @@ pub fn auto_build_next_step(options: &Options, state: &State, config: &Config, f
     AutoBuildPhase::ReleaseTargetPart => factory.auto_build_phase = AutoBuildPhase::MoveToInputPart,
     AutoBuildPhase::MoveToInputPart => factory.auto_build_phase = AutoBuildPhase::MoveToEdge,
     AutoBuildPhase::MoveToEdge  => factory.auto_build_phase = AutoBuildPhase::CreateSupplier,
-    AutoBuildPhase::CreateSupplier => factory.auto_build_phase = AutoBuildPhase::TrackToMachine,
+    AutoBuildPhase::CreateSupplier => factory.auto_build_phase = AutoBuildPhase::TrackToMachineStart,
+    AutoBuildPhase::TrackToMachineStart => factory.auto_build_phase = AutoBuildPhase::TrackToMachine,
     AutoBuildPhase::TrackToMachine => factory.auto_build_phase = AutoBuildPhase::TrackToMachineStep,
     AutoBuildPhase::TrackToMachineStep => factory.auto_build_phase = AutoBuildPhase::TrackToMachine, // loop
-    AutoBuildPhase::UndoTrackToMachine => factory.auto_build_phase = AutoBuildPhase::TrackToMachine,
-    AutoBuildPhase::TrackFromMachine => factory.auto_build_phase = AutoBuildPhase::TrackFromMachineStep,
+    AutoBuildPhase::TrackFromMachineStart => factory.auto_build_phase = AutoBuildPhase::TrackFromMachine,
+    AutoBuildPhase::TrackFromMachine => factory.auto_build_phase = AutoBuildPhase::TrackFromMachineStep, // loop
     AutoBuildPhase::TrackFromMachineStep => factory.auto_build_phase = AutoBuildPhase::TrackFromMachine,
-    AutoBuildPhase::UndoTrackFromMachine => factory.auto_build_phase = AutoBuildPhase::TrackFromMachine,
     AutoBuildPhase::Finishing => factory.auto_build_phase = AutoBuildPhase::Finished,
     AutoBuildPhase::Finished => factory.auto_build_phase = AutoBuildPhase::None,
   }
+
+  // By default, pause briefly between steps
+  let wait = 2000.0;
+  let pause = wait / (ONE_MS as f64 * options.speed_modifier_ui);
+  factory.auto_build_phase_pause = pause as u64;
+  // Each step should set their own duration
+  factory.auto_build_phase_duration = 0;
 
   factory.auto_build_phase_at = factory.ticks;
   factory.auto_build_mouse_offset_x = factory.auto_build_mouse_target_x;
@@ -91,553 +98,655 @@ pub fn auto_build_init(options: &Options, state: &State, config: &Config, factor
     AutoBuildPhase::None => {
     }
     AutoBuildPhase::Startup => {
-      // mouse_offset_x/y are initialized
-      factory.auto_build_phase = AutoBuildPhase::Startup;
-      factory.auto_build_phase_at = factory.ticks; // Only for this phase. Assume "next_step" sets it in other phases.
-      factory.auto_build_seed = factory.ticks;
-      factory.auto_build_quest_visible_index = 0;
-      factory.auto_build_machine_w = 2;
-      factory.auto_build_machine_h = 2;
-      factory.auto_build_step_counter = 0;
-
-      factory.auto_build_quest_index = quest_visible_index_to_quest_index(options, state, config, factory, factory.auto_build_quest_visible_index).unwrap();
-
-      // Determine position of machine
-      let mut rng = factory.ticks as usize;
-      let mut rng_coords = factory.floor.iter().enumerate().map(|(i, _)| i).collect::<Vec<usize>>();
-      let len = rng_coords.len();
-      // Randomize the cells. TODO: prioritize by using segments of cell rings etc
-      for i in 0..len {
-        rng = xorshift(rng);
-        let n = rng % len;
-        // swap i and n
-        let t = rng_coords[i];
-        rng_coords[i] = rng_coords[n];
-        rng_coords[n] = t;
-      }
-      log!("The cells: {:?}", rng_coords);
-
-      // Now walk the cells in fixed randomized order.
-      // This way we can guarantee to test each cell at least and at most once.
-      let mut target = 0; // 0 is invalid because that's the unused corner edge piece
-      let mut ok = true;
-      for i in 0..len {
-        let coord = rng_coords[i];
-        let (mx, my) = to_xy(coord);
-        let mut end = false;
-        ok = true;
-        log!("coord {} ({}x{})", coord, mx, my);
-        for x in mx..mx+factory.auto_build_machine_w {
-          for y in my..my+factory.auto_build_machine_h {
-            log!("testing {}x{}", x, y);
-            let coord = to_coord(x, y);
-            if factory.floor[coord].kind != CellKind::Empty {
-              // Machine would overlap with existing cell
-              end = true;
-              ok = false;
-              log!("- {}x{} is not empty", x, y);
-              break;
-            }
-            if x == 0 || y == 0 || x == FLOOR_CELLS_W-1 || y == FLOOR_CELLS_H - 1 {
-              // Edge cell. Part of machine can't be here
-              end = true;
-              ok = false;
-              log!("- {}x{} is edge", x, y);
-              break;
-            }
-            log!("- {}x{} is ok.", x, y);
-          }
-          if end {
-            break;
-          }
-        }
-        if ok {
-          log!("- offset {}x{} is ok. now testing path finding.", mx, my);
-          let fake = flood_fill_get_flooded_floor(options, state, config, factory, mx, my, factory.auto_build_machine_w, factory.auto_build_machine_h, false);
-          print_fake(&fake);
-          log!("- checking sides {}x{} ~ {}x{}", mx, my, mx+factory.auto_build_machine_w-1, my+factory.auto_build_machine_h-1);
-          // Check if there are at least three sides to the machine that can reach the edge.
-          // This may be the same edge cell. If that's the case then it will bail or backtrack.
-          let mut counter = 0;
-          for x in mx..mx+factory.auto_build_machine_w {
-            // top and bottom
-            log!("?: {}x{} : {}          {}x{} : {}", x, my - 1, fake[x + (my - 1) * FLOOR_CELLS_W], x, my + factory.auto_build_machine_h, fake[x + (my + factory.auto_build_machine_h) * FLOOR_CELLS_W]);
-            if fake[x + (my - 1) * FLOOR_CELLS_W] < FLOOD_FILL_EMPTY_FRESH { counter += 1; }
-            if fake[x + (my + factory.auto_build_machine_h) * FLOOR_CELLS_W] < FLOOD_FILL_EMPTY_FRESH { counter += 1; }
-          }
-          for y in my..my+factory.auto_build_machine_h {
-            // left and right
-            log!("?: {}x{} : {}          {}x{} : {}", mx - 1, y, fake[(mx - 1) + y * FLOOR_CELLS_W], mx + factory.auto_build_machine_w, y, fake[(mx + factory.auto_build_machine_w) + y * FLOOR_CELLS_W]);
-            if fake[(mx - 1) + y * FLOOR_CELLS_W] < FLOOD_FILL_EMPTY_FRESH { counter += 1; }
-            if fake[(mx + factory.auto_build_machine_w) + y * FLOOR_CELLS_W] < FLOOD_FILL_EMPTY_FRESH { counter += 1; }
-          }
-          if counter >= 3 {
-            log!("Found {} machine sides with paths to edge. Found target! {}x{}", counter, mx, my);
-            ok = true;
-            target = to_coord(mx, my);
-            break;
-          } else {
-            log!("Found {} machine sides with paths to edge. Not enough at {}x{}", counter, mx, my);
-          }
-        }
-      }
-      if ok {
-        let (x, y) = to_xy(target);
-        log!("Going to place machine at @{}, {}x{}", target, x, y);
-        factory.auto_build_machine_x = x;
-        factory.auto_build_machine_y = y;
-      } else {
-        log!("Was unable to find a suitable location for the machine. Bailing");
-        factory.auto_build_phase = AutoBuildPhase::Finishing;
-        auto_build_init(options, state, config, factory);
-        return;
-      }
-
-      // factory.auto_build_phase = AutoBuildPhase::Finishing;
-      // auto_build_init(options, state, config, factory);
-      // return;
-
-
-      // We want to move the cursor to selected quest
-      let quest_xy = get_quest_xy(0, 0.0);
-      factory.auto_build_mouse_target_x = quest_xy.0 + 100.0;
-      factory.auto_build_mouse_target_y = quest_xy.1 + 10.0;
-
-      // Determine duration based on a desired mouse speed constant
-      let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
-      let ms = distance / MOUSE_SPEED_MODIFIER_PX_P_MS;
-      let duration = ms / (ONE_MS as f64 * options.speed_modifier_ui);
-      factory.auto_build_phase_duration = duration as u64;
-
-      log!("AutoBuild: Moving from {}x{} to {}x{} (distance {} px) in {} ticks", factory.auto_build_mouse_offset_x, factory.auto_build_mouse_offset_y, factory.auto_build_mouse_target_x, factory.auto_build_mouse_target_y, distance.floor(), duration.floor());
+      auto_build_init_startup(options, state, config, factory);
     }
     AutoBuildPhase::PickQuest => {
-      // Pause here briefly
-      let wait = 5000.0;
-      let duration = wait / (ONE_MS as f64 * options.speed_modifier_ui);
-      factory.auto_build_phase_duration = duration as u64;
-
-      log!("AutoBuild: Pausing for {} ms ({} ticks) at quest {}", wait, factory.auto_build_phase_duration, factory.auto_build_quest_visible_index);
+      auto_build_init_pick_quest(options, state, config, factory);
     }
     AutoBuildPhase::PickMachine => {
-      // Move to the target machine
-      factory.auto_build_mouse_target_x = UI_MENU_MACHINE_BUTTON_2X2_X;
-      factory.auto_build_mouse_target_y = UI_MENU_MACHINE_BUTTON_2X2_Y;
-
-      // Determine duration based on a desired mouse speed constant
-      let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
-      let ms = distance / MOUSE_SPEED_MODIFIER_PX_P_MS;
-      let duration = ms / (ONE_MS as f64 * options.speed_modifier_ui);
-      factory.auto_build_phase_duration = duration as u64;
-
-      log!("AutoBuild: Moving from {}x{} to machine {}x{} (distance {} px) in {} ticks", factory.auto_build_mouse_offset_x, factory.auto_build_mouse_offset_y, factory.auto_build_mouse_target_x, factory.auto_build_mouse_target_y, distance.floor(), duration.floor());
+      auto_build_init_pick_machine(options, state, config, factory);
     }
     AutoBuildPhase::DragMachine => {
-      // Move to the target machine
-      factory.auto_build_mouse_target_x = UI_FLOOR_OFFSET_X + factory.auto_build_machine_x as f64 * CELL_W;
-      factory.auto_build_mouse_target_y = UI_FLOOR_OFFSET_Y + factory.auto_build_machine_y as f64 * CELL_H;
-
-      // Determine duration based on a desired mouse speed constant
-      let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
-      let ms = distance / MOUSE_SPEED_MODIFIER_PX_P_MS;
-      let duration = ms / (ONE_MS as f64 * options.speed_modifier_ui);
-      factory.auto_build_phase_duration = duration as u64;
-
-      log!("AutoBuild: Moving from {}x{} to machine {}x{} ({}x{}) (distance {} px) in {} ticks", factory.auto_build_mouse_offset_x, factory.auto_build_mouse_offset_y, factory.auto_build_machine_x, factory.auto_build_machine_y, factory.auto_build_mouse_target_x, factory.auto_build_mouse_target_y, distance.floor(), duration.floor());
+      auto_build_init_drag_machine(options, state, config, factory);
     }
     AutoBuildPhase::PlaceMachine => {
-      machine_add_to_factory(options, state, config, factory, factory.auto_build_machine_x, factory.auto_build_machine_y, factory.auto_build_machine_w, factory.auto_build_machine_h);
-
-      log!("AutoBuild: Put the {}x{} machine down at {}x{}", factory.auto_build_machine_w, factory.auto_build_machine_h, factory.auto_build_machine_x, factory.auto_build_machine_y);
+      auto_build_init_place_machine(options, state, config, factory);
     }
     AutoBuildPhase::MoveToTargetPart => {
-      // Figure out which quest it picked
-      // Figure out what the target is
-      // Figure out where the offer for that target is located
-      // Move to it
-
-      let part_kind: PartKind = factory.quests[factory.auto_build_quest_index.min(factory.quests.len() - 1)].production_part_kind;
-      let visible_offer_index = part_kind_to_visible_offer_index(config, factory, part_kind).unwrap();
-      let part_xy = get_offer_xy(visible_offer_index);
-
-      factory.auto_build_mouse_target_x = part_xy.0;
-      factory.auto_build_mouse_target_y = part_xy.1;
-
-      // Determine duration based on a desired mouse speed constant
-      let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
-      let ms = distance / MOUSE_SPEED_MODIFIER_PX_P_MS;
-      let duration = ms / (ONE_MS as f64 * options.speed_modifier_ui);
-      factory.auto_build_phase_duration = duration as u64;
-
-      log!("AutoBuild: Moving from {}x{} to offer {} at {}x{} (distance {} px) in {} ticks", factory.auto_build_mouse_offset_x, factory.auto_build_mouse_offset_y, visible_offer_index, factory.auto_build_mouse_target_x, factory.auto_build_mouse_target_y, distance.floor(), duration.floor());
+      auto_build_init_move_to_target_part(options, state, config, factory);
     }
     AutoBuildPhase::DragTargetPart => {
-      // Move to the machine while dragging that part
-      factory.auto_build_mouse_target_x = UI_FLOOR_OFFSET_X + factory.auto_build_machine_x as f64 * CELL_W;
-      factory.auto_build_mouse_target_y = UI_FLOOR_OFFSET_Y + factory.auto_build_machine_y as f64 * CELL_H;
-
-      // Determine duration based on a desired mouse speed constant
-      let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
-      let ms = distance / MOUSE_SPEED_MODIFIER_PX_P_MS;
-      let duration = ms / (ONE_MS as f64 * options.speed_modifier_ui);
-      factory.auto_build_phase_duration = duration as u64;
-
-      log!("AutoBuild: Moving from offer {}x{} back to machine at {}x{} (distance {} px) in {} ticks", factory.auto_build_mouse_offset_x, factory.auto_build_mouse_offset_y, factory.auto_build_mouse_target_x, factory.auto_build_mouse_target_y, distance.floor(), duration.floor());
+      auto_build_init_drag_target_part(options, state, config, factory);
     }
     AutoBuildPhase::ReleaseTargetPart => {
-      // Update machine to the pattern of the dragged part
-
-      let dragged_part_kind: PartKind = factory.quests[factory.auto_build_quest_index.min(factory.quests.len() - 1)].production_part_kind;
-      let main_coord = to_coord(factory.auto_build_machine_x, factory.auto_build_machine_y);
-      machine_set_target_part_kind(options, state, config, factory, main_coord, dragged_part_kind);
-
-      // Prepare for next step
-      factory.auto_build_step_counter = 0;
-
-      log!("AutoBuild: Updated the target output of the machine to {}", dragged_part_kind);
+      auto_build_init_release_target_part(options, state, config, factory);
     }
     AutoBuildPhase::MoveToInputPart => {
-      log!("AutoBuildPhase::MoveToInputPart: {}", factory.auto_build_step_counter);
-      // Pick the next input required for the current target part.
-
-      // From the machine, find a path to an edge cell then use that
-      // cell as the offset to generate a path towards the machine
-
-      // Then schedule to move to the part and drag it to that cell.
-
-      let current_step_index = factory.auto_build_step_counter;
-
-      let target_part_kind: PartKind = factory.quests[factory.auto_build_quest_index.min(factory.quests.len() - 1)].production_part_kind;
-      let inputs = &config.nodes[target_part_kind].pattern_unique_kinds;
-
-      if current_step_index >= inputs.len() {
-        log!("Processed all inputs. Now to create an outward path...");
-        factory.auto_build_current_path = vec!();
-        factory.auto_build_phase = AutoBuildPhase::TrackFromMachine;
-        auto_build_init(options, state, config, factory);
-        return;
-      }
-
-      let input_part_kind = inputs[current_step_index];
-
-      let visible_offer_index = part_kind_to_visible_offer_index(config, factory, input_part_kind).unwrap();
-      let part_xy = get_offer_xy(visible_offer_index);
-
-      factory.auto_build_mouse_target_x = part_xy.0;
-      factory.auto_build_mouse_target_y = part_xy.1;
-
-      // Determine duration based on a desired mouse speed constant
-      let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
-      let ms = distance / MOUSE_SPEED_MODIFIER_PX_P_MS;
-      let duration = ms / (ONE_MS as f64 * options.speed_modifier_ui);
-      factory.auto_build_phase_duration = duration as u64;
+      auto_build_init_move_to_input_part(options, state, config, factory);
     }
     AutoBuildPhase::MoveToEdge => {
-      // Assume we're now at the current input part offer.
-      // Find an edge cell with at least one available path to the machine.
-      // Move to it and create a demander with this input part
-
-      let current_step_index = factory.auto_build_step_counter;
-
-      // - Start at the machine coord. Any.
-      // - Try to find a path from any cell neighboring the machine to the edge of the floor
-      // - Can only traverse empty cells this way. Doesn't matter how.
-      // - Once a path was found, use that edge cell.
-      // - To simplify this, we can "flood fill" over empty cells the machine. First edge cell we touch is our target.
-
-      let nearest_edge = flood_fill_find_reachable_edge_from_machine(options, state, config, factory);
-      if nearest_edge == None {
-        // TODO: we could blink red or something
-        log!("Unable to plot a path to the edge ... bailing.");
-
-        factory.auto_build_phase = AutoBuildPhase::Finishing;
-        auto_build_init(options, state, config, factory);
-        return;
-      }
-      let (nearest_edge_x, nearest_edge_y) = nearest_edge.unwrap();
-      factory.auto_build_target_edge_x = nearest_edge_x;
-      factory.auto_build_target_edge_y = nearest_edge_y;
-
-      let target_part_kind: PartKind = factory.quests[factory.auto_build_quest_index.min(factory.quests.len() - 1)].production_part_kind;
-      let inputs = &config.nodes[target_part_kind].pattern_unique_kinds;
-      let input_part_kind = inputs[current_step_index];
-
-      let visible_offer_index = part_kind_to_visible_offer_index(config, factory, input_part_kind).unwrap();
-      let part_xy = get_offer_xy(visible_offer_index);
-
-      factory.auto_build_mouse_target_x = UI_FLOOR_OFFSET_X + nearest_edge_x as f64 * CELL_W;
-      factory.auto_build_mouse_target_y = UI_FLOOR_OFFSET_Y + nearest_edge_y as f64 * CELL_H;
-
-      // Determine duration based on a desired mouse speed constant
-      let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
-      let ms = distance / MOUSE_SPEED_MODIFIER_PX_P_MS;
-      let duration = ms / (ONE_MS as f64 * options.speed_modifier_ui);
-      factory.auto_build_phase_duration = duration as u64;
+      auto_build_init_move_to_edge(options, state, config, factory);
     }
     AutoBuildPhase::CreateSupplier => {
-      // Create it on auto_build_target_edge_x/y
-
-      let current_step_index = factory.auto_build_step_counter;
-      let target_part_kind: PartKind = factory.quests[factory.auto_build_quest_index.min(factory.quests.len() - 1)].production_part_kind;
-      let inputs = &config.nodes[target_part_kind].pattern_unique_kinds;
-      let input_part_kind = inputs[current_step_index];
-
-      set_edge_to_part(options, state, config, factory, factory.auto_build_target_edge_x, factory.auto_build_target_edge_y, input_part_kind);
-
-      factory.auto_build_current_path = vec!((factory.auto_build_target_edge_x, factory.auto_build_target_edge_y));
+      auto_build_init_create_supplier(options, state, config, factory);
+    }
+    AutoBuildPhase::TrackToMachineStart => {
+      auto_build_init_track_to_machine_start(options, state, config, factory);
     }
     AutoBuildPhase::TrackToMachine => {
-      // Flood fill path finding and generate a path from the current point to the machine
-      // We need to remember previously placed path parts in case we have to backtrack.
-
-      if factory.auto_build_current_path.len() == 0 {
-        log!("Path is empty. Unable to craft path. Bailing.");
-        factory.auto_build_phase = AutoBuildPhase::Finishing;
-        auto_build_init(options, state, config, factory);
-        return;
-      }
-
-      let (current_end_x, current_end_y) = factory.auto_build_current_path[factory.auto_build_current_path.len() - 1];
-      if
-        current_end_x >= factory.auto_build_machine_x && current_end_x <= factory.auto_build_machine_x + factory.auto_build_machine_w - 1 &&
-        current_end_y >= factory.auto_build_machine_y && current_end_y <= factory.auto_build_machine_y + factory.auto_build_machine_h - 1
-      {
-        // Reached a machine. TODO: or a corner of it.
-        log!("Reached the machine. Path is finished! Machine is at {}x{} {}x{}, and {}x{} is within {}x{} {}x{}", factory.auto_build_machine_x, factory.auto_build_machine_y, factory.auto_build_machine_x + factory.auto_build_machine_w - 1, factory.auto_build_machine_y + factory.auto_build_machine_h - 1, current_end_x, current_end_y, factory.auto_build_machine_x - 1, factory.auto_build_machine_y - 1, factory.auto_build_machine_x + factory.auto_build_machine_w, factory.auto_build_machine_y + factory.auto_build_machine_h);
-
-        factory.auto_build_step_counter += 1;
-        factory.auto_build_phase = AutoBuildPhase::MoveToInputPart;
-        auto_build_init(options, state, config, factory);
-        return;
-      }
-
-      let (last_x, last_y) = factory.auto_build_current_path[factory.auto_build_current_path.len() - 1];
-      let next = flood_fill_next_step_to_connect_machine(options, state, config, factory, last_x, last_y);
-
-      if next == None {
-        // TODO: backtrack
-        log!("Unable to create path. Should backtrack but will bail now");
-        factory.auto_build_phase = AutoBuildPhase::Finishing;
-        auto_build_init(options, state, config, factory);
-        return;
-      }
-
-      let (next_x, next_y) = next.unwrap();
-      factory.auto_build_mouse_target_x = UI_FLOOR_OFFSET_X + next_x as f64 * CELL_W;
-      factory.auto_build_mouse_target_y = UI_FLOOR_OFFSET_Y + next_y as f64 * CELL_H;
-      factory.auto_build_current_path.push((next_x, next_y));
-
-      // TODO: show track preview like you're dragging
-
-      // Determine duration based on a desired mouse speed constant
-      let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
-      let ms = distance / MOUSE_SPEED_MODIFIER_PX_P_MS;
-      let duration = ms / (ONE_MS as f64 * options.speed_modifier_ui);
-      factory.auto_build_phase_duration = duration as u64;
+      auto_build_init_track_to_machine(options, state, config, factory);
     }
     AutoBuildPhase::TrackToMachineStep => {
-      log!("Now create the track...");
-
-      let (prev_x, prev_y) = factory.auto_build_current_path[factory.auto_build_current_path.len() - 2];
-      let (next_x, next_y) = factory.auto_build_current_path[factory.auto_build_current_path.len() - 1];
-
-      let prev_coord = to_coord(prev_x, prev_y);
-      let next_coord = to_coord(next_x, next_y);
-
-      belt_connect_cells_expensive(options, state, config, factory, prev_x, prev_y, next_x, next_y);
+      auto_build_init_track_to_machine_step(options, state, config, factory);
     }
-    AutoBuildPhase::UndoTrackToMachine => {
+    AutoBuildPhase::TrackFromMachineStart => {
+      auto_build_init_track_from_machine_start(options, state, config, factory);
     }
     AutoBuildPhase::TrackFromMachine => {
-      // Starting at the machine, plot a track to an edge,
-      // step by step, until you reach an edge or get stuck.
-
-      let next_step =
-        if factory.auto_build_current_path.len() == 0 {
-          log!("TrackFromMachine: First step...");
-          // Start of path. Flood fill from machine and pick the first cell
-          // next to the machine that has a path to the edge.
-          // We currently can't be too picky here, though we could improve
-          // that with a reverse flood such that we know the side with the
-          // shortest route to an available edge. TODO
-
-          let fake = flood_fill_get_flooded_floor(
-            options, state, config, factory,
-            factory.auto_build_machine_x, factory.auto_build_machine_y, factory.auto_build_machine_w, factory.auto_build_machine_h,
-            true
-          );
-
-          // Find the neighbor cell that has a path. When found,
-          // add it and the machine cell next to it to the path.
-
-          fn find(factory: &mut Factory, fake: &Vec<i32>) -> Option<(usize, usize)> {
-            let mut best_from = 0;
-            let mut best_coord = 0;
-            let mut best_score = FLOOD_FILL_EMPTY_FRESH;
-
-            for x in factory.auto_build_machine_x..factory.auto_build_machine_x+factory.auto_build_machine_w {
-              // top and bottom
-              let c = x + (factory.auto_build_machine_y - 1) * FLOOR_CELLS_W;
-              let p = fake[c];
-              if p > 1 && p < best_score {
-                best_from = to_coord(x, factory.auto_build_machine_y);
-                best_score = p;
-                best_coord = c;
-              }
-              let c = x + (factory.auto_build_machine_y + factory.auto_build_machine_h) * FLOOR_CELLS_W;
-              let p = fake[c];
-              if p > 1 && p < best_score {
-                best_from = to_coord(x, factory.auto_build_machine_y + factory.auto_build_machine_h - 1);
-                best_score = p;
-                best_coord = c;
-              }
-            }
-            for y in factory.auto_build_machine_y..factory.auto_build_machine_y+factory.auto_build_machine_h {
-              // left and right
-              let c = (factory.auto_build_machine_x - 1) + y * FLOOR_CELLS_W;
-              let p = fake[c];
-              if p > 1 && p < best_score {
-                best_from = to_coord(factory.auto_build_machine_x, y);
-                best_score = p;
-                best_coord = c;
-              }
-              let c = (factory.auto_build_machine_x + factory.auto_build_machine_w) + y * FLOOR_CELLS_W;
-              let p = fake[c];
-              if p > 1 && p < best_score {
-                best_from = to_coord(factory.auto_build_machine_x + factory.auto_build_machine_w - 1, y);
-                best_score = p;
-                best_coord = c;
-              }
-            }
-
-            if best_score == FLOOD_FILL_EMPTY_FRESH {
-              return None;
-            }
-
-            factory.auto_build_current_path = vec!(to_xy(best_from));
-            return Some(to_xy(best_coord));
-          }
-
-          // TODO: should actually first move the mouse to the machine part that we found...
-          find(factory, &fake)
-        } else {
-          log!("TrackFromMachine: Next step... {}", factory.auto_build_current_path.len());
-
-          fn find(options: &Options, state: &State, config: &Config, factory: &mut Factory) -> Option<(usize, usize)> {
-            let (last_x, last_y) = factory.auto_build_current_path[factory.auto_build_current_path.len() - 1];
-            let coord = to_coord(last_x, last_y);
-
-            let nc = to_coord_up(coord);
-            let (nx, ny) = to_xy(nc);
-            if is_edge(nx as f64, ny as f64) && factory.floor[nc].kind == CellKind::Empty {
-              return Some((nx, ny))
-            }
-
-            let nc = to_coord_right(coord);
-            let (nx, ny) = to_xy(nc);
-            if is_edge(nx as f64, ny as f64) && factory.floor[nc].kind == CellKind::Empty {
-              return Some((nx, ny))
-            }
-
-            let nc = to_coord_down(coord);
-            let (nx, ny) = to_xy(nc);
-            if is_edge(nx as f64, ny as f64) && factory.floor[nc].kind == CellKind::Empty {
-              return Some((nx, ny))
-            }
-
-            let nc = to_coord_left(coord);
-            let (nx, ny) = to_xy(nc);
-            if is_edge(nx as f64, ny as f64) && factory.floor[nc].kind == CellKind::Empty {
-              return Some((nx, ny))
-            }
-
-            let fake = flood_fill_get_flooded_floor(options, state, config, factory, last_x, last_y, 1, 1, true);
-
-            let mut best_coord = 0;
-            let mut best_score = FLOOD_FILL_EMPTY_FRESH;
-
-            let p = fake[coord - FLOOR_CELLS_W];
-            if p > 1 && p < best_score {
-              best_score = p;
-              best_coord = coord - FLOOR_CELLS_W;
-            }
-
-            let p = fake[coord - 1];
-            if p > 1 && p < best_score {
-              best_score = p;
-              best_coord = coord - 1;
-            }
-
-            let p = fake[coord + FLOOR_CELLS_W];
-            if p < best_score {
-              best_score = p;
-              best_coord = coord + FLOOR_CELLS_W;
-            }
-
-            let p = fake[coord + 1];
-            if p < best_score {
-              best_score = p;
-              best_coord = coord + 1;
-            }
-
-            if best_score == FLOOD_FILL_EMPTY_FRESH {
-              return None
-            }
-
-            return Some(to_xy(best_coord));
-          }
-
-          find(options, state, config, factory)
-        };
-
-      log!("next step: {:?}", next_step);
-      if next_step == None {
-        // TODO: we could blink red or something
-        log!("Unable to plot a path to the edge from this point ... bailing.");
-
-        factory.auto_build_phase = AutoBuildPhase::Finishing;
-        auto_build_init(options, state, config, factory);
-        return;
-      }
-
-      let (next_x, next_y) = next_step.unwrap();
-
-      factory.auto_build_current_path.push((next_x, next_y));
-
-      factory.auto_build_mouse_target_x = UI_FLOOR_OFFSET_X + next_x as f64 * CELL_W;
-      factory.auto_build_mouse_target_y = UI_FLOOR_OFFSET_Y + next_y as f64 * CELL_H;
-
-      // Determine duration based on a desired mouse speed constant
-      let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
-      let ms = distance / MOUSE_SPEED_MODIFIER_PX_P_MS;
-      let duration = ms / (ONE_MS as f64 * options.speed_modifier_ui);
-      factory.auto_build_phase_duration = duration as u64;
+      auto_build_init_track_from_machine(options, state, config, factory);
     }
     AutoBuildPhase::TrackFromMachineStep => {
-      log!("Now create the track...");
-
-      let (prev_x, prev_y) = factory.auto_build_current_path[factory.auto_build_current_path.len() - 2];
-      let (next_x, next_y) = factory.auto_build_current_path[factory.auto_build_current_path.len() - 1];
-
-      let prev_coord = to_coord(prev_x, prev_y);
-      let next_coord = to_coord(next_x, next_y);
-
-      belt_connect_cells_expensive(options, state, config, factory, prev_x, prev_y, next_x, next_y);
-
-      if is_edge(next_x as f64, next_y as f64) {
-        log!("this connected to an edge so this is the end, right?");
-        factory.auto_build_phase = AutoBuildPhase::Finishing;
-        auto_build_init(options, state, config, factory);
-        return;
-      }
-    }
-    AutoBuildPhase::UndoTrackFromMachine => {
+      auto_build_init_track_from_machine_step(options, state, config, factory);
     }
     AutoBuildPhase::Finishing => {
+      auto_build_init_finishing(options, state, config, factory);
     }
     AutoBuildPhase::Finished => {
+      auto_build_init_finished(options, state, config, factory);
     }
   }
+}
+
+fn auto_build_init_startup(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+  // mouse_offset_x/y are initialized
+  factory.auto_build_phase = AutoBuildPhase::Startup;
+  factory.auto_build_phase_at = factory.ticks; // Only for this phase. Assume "next_step" sets it in other phases.
+  factory.auto_build_seed = factory.ticks;
+  factory.auto_build_quest_visible_index = 0;
+  factory.auto_build_machine_w = 2;
+  factory.auto_build_machine_h = 2;
+  factory.auto_build_step_counter = 0;
+
+  factory.auto_build_quest_index = quest_visible_index_to_quest_index(options, state, config, factory, factory.auto_build_quest_visible_index).unwrap();
+
+  // Determine position of machine
+  let mut rng = factory.ticks as usize;
+  let mut rng_coords = factory.floor.iter().enumerate().map(|(i, _)| i).collect::<Vec<usize>>();
+  let len = rng_coords.len();
+  // Randomize the cells. TODO: prioritize by using segments of cell rings etc
+  for i in 0..len {
+    rng = xorshift(rng);
+    let n = rng % len;
+    // swap i and n
+    let t = rng_coords[i];
+    rng_coords[i] = rng_coords[n];
+    rng_coords[n] = t;
+  }
+  log!("The cells: {:?}", rng_coords);
+
+  // Now walk the cells in fixed randomized order.
+  // This way we can guarantee to test each cell at least and at most once.
+  let mut target = 0; // 0 is invalid because that's the unused corner edge piece
+  let mut ok = true;
+  for i in 0..len {
+    let coord = rng_coords[i];
+    let (mx, my) = to_xy(coord);
+    let mut end = false;
+    ok = true;
+    log!("coord {} ({}x{})", coord, mx, my);
+    for x in mx..mx+factory.auto_build_machine_w {
+      for y in my..my+factory.auto_build_machine_h {
+        log!("testing {}x{}", x, y);
+        let coord = to_coord(x, y);
+        if factory.floor[coord].kind != CellKind::Empty {
+          // Machine would overlap with existing cell
+          end = true;
+          ok = false;
+          log!("- {}x{} is not empty", x, y);
+          break;
+        }
+        if x == 0 || y == 0 || x == FLOOR_CELLS_W-1 || y == FLOOR_CELLS_H - 1 {
+          // Edge cell. Part of machine can't be here
+          end = true;
+          ok = false;
+          log!("- {}x{} is edge", x, y);
+          break;
+        }
+        log!("- {}x{} is ok.", x, y);
+      }
+      if end {
+        break;
+      }
+    }
+    if ok {
+      log!("- offset {}x{} is ok. now testing path finding.", mx, my);
+      let fake = flood_fill_get_flooded_floor(options, state, config, factory, mx, my, factory.auto_build_machine_w, factory.auto_build_machine_h, false);
+      print_fake(&fake);
+      log!("- checking sides {}x{} ~ {}x{}", mx, my, mx+factory.auto_build_machine_w-1, my+factory.auto_build_machine_h-1);
+      // Check if there are at least three sides to the machine that can reach the edge.
+      // This may be the same edge cell. If that's the case then it will bail or backtrack.
+      let mut counter = 0;
+      for x in mx..mx+factory.auto_build_machine_w {
+        // top and bottom
+        log!("?: {}x{} : {}          {}x{} : {}", x, my - 1, fake[x + (my - 1) * FLOOR_CELLS_W], x, my + factory.auto_build_machine_h, fake[x + (my + factory.auto_build_machine_h) * FLOOR_CELLS_W]);
+        if fake[x + (my - 1) * FLOOR_CELLS_W] < FLOOD_FILL_EMPTY_FRESH { counter += 1; }
+        if fake[x + (my + factory.auto_build_machine_h) * FLOOR_CELLS_W] < FLOOD_FILL_EMPTY_FRESH { counter += 1; }
+      }
+      for y in my..my+factory.auto_build_machine_h {
+        // left and right
+        log!("?: {}x{} : {}          {}x{} : {}", mx - 1, y, fake[(mx - 1) + y * FLOOR_CELLS_W], mx + factory.auto_build_machine_w, y, fake[(mx + factory.auto_build_machine_w) + y * FLOOR_CELLS_W]);
+        if fake[(mx - 1) + y * FLOOR_CELLS_W] < FLOOD_FILL_EMPTY_FRESH { counter += 1; }
+        if fake[(mx + factory.auto_build_machine_w) + y * FLOOR_CELLS_W] < FLOOD_FILL_EMPTY_FRESH { counter += 1; }
+      }
+      if counter >= 3 {
+        log!("Found {} machine sides with paths to edge. Found target! {}x{}", counter, mx, my);
+        ok = true;
+        target = to_coord(mx, my);
+        break;
+      } else {
+        log!("Found {} machine sides with paths to edge. Not enough at {}x{}", counter, mx, my);
+      }
+    }
+  }
+  if ok {
+    let (x, y) = to_xy(target);
+    log!("Going to place machine at @{}, {}x{}", target, x, y);
+    factory.auto_build_machine_x = x;
+    factory.auto_build_machine_y = y;
+  } else {
+    log!("Was unable to find a suitable location for the machine. Bailing");
+    factory.auto_build_phase = AutoBuildPhase::Finishing;
+    auto_build_init(options, state, config, factory);
+    return;
+  }
+
+  // factory.auto_build_phase = AutoBuildPhase::Finishing;
+  // auto_build_init(options, state, config, factory);
+  // return;
+
+
+  // We want to move the cursor to selected quest
+  let quest_xy = get_quest_xy(0, 0.0);
+  factory.auto_build_mouse_target_x = quest_xy.0 + 100.0;
+  factory.auto_build_mouse_target_y = quest_xy.1 + 10.0;
+
+  // Determine duration based on a desired mouse speed constant
+  let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
+  let ms = distance / MOUSE_SPEED_MODIFIER_PX_P_MS;
+  let duration = ms / (ONE_MS as f64 * options.speed_modifier_ui);
+  factory.auto_build_phase_duration = duration as u64;
+
+  log!("AutoBuild: Moving from {}x{} to {}x{} (distance {} px) in {} ticks", factory.auto_build_mouse_offset_x, factory.auto_build_mouse_offset_y, factory.auto_build_mouse_target_x, factory.auto_build_mouse_target_y, distance.floor(), duration.floor());
+}
+
+fn auto_build_init_pick_quest(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+}
+
+fn auto_build_init_pick_machine(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+  // Move to the target machine
+  factory.auto_build_mouse_target_x = UI_MENU_MACHINE_BUTTON_2X2_X;
+  factory.auto_build_mouse_target_y = UI_MENU_MACHINE_BUTTON_2X2_Y;
+
+  // Determine duration based on a desired mouse speed constant
+  let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
+  let ms = distance / MOUSE_SPEED_MODIFIER_PX_P_MS;
+  let duration = ms / (ONE_MS as f64 * options.speed_modifier_ui);
+  factory.auto_build_phase_duration = duration as u64;
+
+  log!("AutoBuild: Moving from {}x{} to machine {}x{} (distance {} px) in {} ticks", factory.auto_build_mouse_offset_x, factory.auto_build_mouse_offset_y, factory.auto_build_mouse_target_x, factory.auto_build_mouse_target_y, distance.floor(), duration.floor());
+}
+
+fn auto_build_init_drag_machine(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+  // Move to the target machine
+  factory.auto_build_mouse_target_x = UI_FLOOR_OFFSET_X + factory.auto_build_machine_x as f64 * CELL_W;
+  factory.auto_build_mouse_target_y = UI_FLOOR_OFFSET_Y + factory.auto_build_machine_y as f64 * CELL_H;
+
+  // Determine duration based on a desired mouse speed constant
+  let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
+  let ms = distance / MOUSE_SPEED_MODIFIER_PX_P_MS;
+  let duration = ms / (ONE_MS as f64 * options.speed_modifier_ui);
+  factory.auto_build_phase_duration = duration as u64;
+
+  log!("AutoBuild: Moving from {}x{} to machine {}x{} ({}x{}) (distance {} px) in {} ticks", factory.auto_build_mouse_offset_x, factory.auto_build_mouse_offset_y, factory.auto_build_machine_x, factory.auto_build_machine_y, factory.auto_build_mouse_target_x, factory.auto_build_mouse_target_y, distance.floor(), duration.floor());
+}
+
+fn auto_build_init_place_machine(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+  factory.auto_build_phase_pause = 0;
+
+  machine_add_to_factory(options, state, config, factory, factory.auto_build_machine_x, factory.auto_build_machine_y, factory.auto_build_machine_w, factory.auto_build_machine_h);
+
+  log!("AutoBuild: Put the {}x{} machine down at {}x{}", factory.auto_build_machine_w, factory.auto_build_machine_h, factory.auto_build_machine_x, factory.auto_build_machine_y);
+}
+
+fn auto_build_init_move_to_target_part(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+  // Figure out which quest it picked
+  // Figure out what the target is
+  // Figure out where the offer for that target is located
+  // Move to it
+
+  let part_kind: PartKind = factory.quests[factory.auto_build_quest_index.min(factory.quests.len() - 1)].production_part_kind;
+  let visible_offer_index = part_kind_to_visible_offer_index(config, factory, part_kind).unwrap();
+  let part_xy = get_offer_xy(visible_offer_index);
+
+  factory.auto_build_mouse_target_x = part_xy.0;
+  factory.auto_build_mouse_target_y = part_xy.1;
+
+  // Determine duration based on a desired mouse speed constant
+  let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
+  let ms = distance / MOUSE_SPEED_MODIFIER_PX_P_MS;
+  let duration = ms / (ONE_MS as f64 * options.speed_modifier_ui);
+  factory.auto_build_phase_duration = duration as u64;
+
+  log!("AutoBuild: Moving from {}x{} to offer {} at {}x{} (distance {} px) in {} ticks", factory.auto_build_mouse_offset_x, factory.auto_build_mouse_offset_y, visible_offer_index, factory.auto_build_mouse_target_x, factory.auto_build_mouse_target_y, distance.floor(), duration.floor());
+
+}
+
+fn auto_build_init_drag_target_part(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+// Move to the machine while dragging that part
+  factory.auto_build_mouse_target_x = UI_FLOOR_OFFSET_X + factory.auto_build_machine_x as f64 * CELL_W;
+  factory.auto_build_mouse_target_y = UI_FLOOR_OFFSET_Y + factory.auto_build_machine_y as f64 * CELL_H;
+
+  // Determine duration based on a desired mouse speed constant
+  let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
+  let ms = distance / MOUSE_SPEED_MODIFIER_PX_P_MS;
+  let duration = ms / (ONE_MS as f64 * options.speed_modifier_ui);
+  factory.auto_build_phase_duration = duration as u64;
+
+  log!("AutoBuild: Moving from offer {}x{} back to machine at {}x{} (distance {} px) in {} ticks", factory.auto_build_mouse_offset_x, factory.auto_build_mouse_offset_y, factory.auto_build_mouse_target_x, factory.auto_build_mouse_target_y, distance.floor(), duration.floor());
+}
+
+fn auto_build_init_release_target_part(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+  factory.auto_build_phase_pause = 0;
+
+  // Update machine to the pattern of the dragged part
+
+  let dragged_part_kind: PartKind = factory.quests[factory.auto_build_quest_index.min(factory.quests.len() - 1)].production_part_kind;
+  let main_coord = to_coord(factory.auto_build_machine_x, factory.auto_build_machine_y);
+  machine_set_target_part_kind(options, state, config, factory, main_coord, dragged_part_kind);
+
+  // Prepare for next step
+  factory.auto_build_step_counter = 0;
+
+  log!("AutoBuild: Updated the target output of the machine to {}", dragged_part_kind);
+}
+
+fn auto_build_init_move_to_input_part(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+  log!("AutoBuildPhase::MoveToInputPart: {}", factory.auto_build_step_counter);
+  // Pick the next input required for the current target part.
+
+  // From the machine, find a path to an edge cell then use that
+  // cell as the offset to generate a path towards the machine
+
+  // Then schedule to move to the part and drag it to that cell.
+
+  let current_step_index = factory.auto_build_step_counter;
+
+  let target_part_kind: PartKind = factory.quests[factory.auto_build_quest_index.min(factory.quests.len() - 1)].production_part_kind;
+  let inputs = &config.nodes[target_part_kind].pattern_unique_kinds;
+
+  if current_step_index >= inputs.len() {
+    log!("Processed all inputs. Now to create an outward path...");
+    factory.auto_build_current_path = vec!();
+    factory.auto_build_phase = AutoBuildPhase::TrackFromMachineStart;
+    auto_build_init(options, state, config, factory);
+    return;
+  }
+
+  let input_part_kind = inputs[current_step_index];
+
+  let visible_offer_index = part_kind_to_visible_offer_index(config, factory, input_part_kind).unwrap();
+  let part_xy = get_offer_xy(visible_offer_index);
+
+  factory.auto_build_mouse_target_x = part_xy.0;
+  factory.auto_build_mouse_target_y = part_xy.1;
+
+  // Determine duration based on a desired mouse speed constant
+  let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
+  let ms = distance / MOUSE_SPEED_MODIFIER_PX_P_MS;
+  let duration = ms / (ONE_MS as f64 * options.speed_modifier_ui);
+  factory.auto_build_phase_duration = duration as u64;
+}
+
+fn auto_build_init_move_to_edge(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+  // Assume we're now at the current input part offer.
+  // Find an edge cell with at least one available path to the machine.
+  // Move to it and create a demander with this input part
+
+  let current_step_index = factory.auto_build_step_counter;
+
+  // - Start at the machine coord. Any.
+  // - Try to find a path from any cell neighboring the machine to the edge of the floor
+  // - Can only traverse empty cells this way. Doesn't matter how.
+  // - Once a path was found, use that edge cell.
+  // - To simplify this, we can "flood fill" over empty cells the machine. First edge cell we touch is our target.
+
+  let nearest_edge = flood_fill_find_reachable_edge_from_machine(options, state, config, factory);
+  if nearest_edge == None {
+    // TODO: we could blink red or something
+    log!("Unable to plot a path to the edge ... bailing.");
+
+    factory.auto_build_phase = AutoBuildPhase::Finishing;
+    auto_build_init(options, state, config, factory);
+    return;
+  }
+  let (nearest_edge_x, nearest_edge_y) = nearest_edge.unwrap();
+  factory.auto_build_target_edge_x = nearest_edge_x;
+  factory.auto_build_target_edge_y = nearest_edge_y;
+
+  let target_part_kind: PartKind = factory.quests[factory.auto_build_quest_index.min(factory.quests.len() - 1)].production_part_kind;
+  let inputs = &config.nodes[target_part_kind].pattern_unique_kinds;
+  let input_part_kind = inputs[current_step_index];
+
+  let visible_offer_index = part_kind_to_visible_offer_index(config, factory, input_part_kind).unwrap();
+  let part_xy = get_offer_xy(visible_offer_index);
+
+  factory.auto_build_mouse_target_x = UI_FLOOR_OFFSET_X + nearest_edge_x as f64 * CELL_W;
+  factory.auto_build_mouse_target_y = UI_FLOOR_OFFSET_Y + nearest_edge_y as f64 * CELL_H;
+
+  // Determine duration based on a desired mouse speed constant
+  let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
+  let ms = distance / MOUSE_SPEED_MODIFIER_PX_P_MS;
+  let duration = ms / (ONE_MS as f64 * options.speed_modifier_ui);
+  factory.auto_build_phase_duration = duration as u64;
+}
+
+fn auto_build_init_create_supplier(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+  factory.auto_build_phase_pause = 0;
+
+  // Create it on auto_build_target_edge_x/y
+
+  let current_step_index = factory.auto_build_step_counter;
+  let target_part_kind: PartKind = factory.quests[factory.auto_build_quest_index.min(factory.quests.len() - 1)].production_part_kind;
+  let inputs = &config.nodes[target_part_kind].pattern_unique_kinds;
+  let input_part_kind = inputs[current_step_index];
+
+  set_edge_to_part(options, state, config, factory, factory.auto_build_target_edge_x, factory.auto_build_target_edge_y, input_part_kind);
+
+  factory.auto_build_current_path = vec!((factory.auto_build_target_edge_x, factory.auto_build_target_edge_y));
+}
+
+fn auto_build_init_track_to_machine_start(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+  // Pause here briefly
+  let wait = 1000.0;
+  let duration = wait / (ONE_MS as f64 * options.speed_modifier_ui);
+  factory.auto_build_phase_pause = duration as u64;
+}
+
+fn auto_build_init_track_to_machine(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+  // Pause here briefly
+  let wait = 1000.0;
+  let duration = wait / (ONE_MS as f64 * options.speed_modifier_ui);
+  factory.auto_build_phase_pause = duration as u64;
+
+  // Flood fill path finding and generate a path from the current point to the machine
+  // We need to remember previously placed path parts in case we have to backtrack.
+
+  if factory.auto_build_current_path.len() == 0 {
+    log!("Path is empty. Unable to craft path. Bailing.");
+    factory.auto_build_phase = AutoBuildPhase::Finishing;
+    auto_build_init(options, state, config, factory);
+    return;
+  }
+
+  let (current_end_x, current_end_y) = factory.auto_build_current_path[factory.auto_build_current_path.len() - 1];
+  if
+    current_end_x >= factory.auto_build_machine_x && current_end_x <= factory.auto_build_machine_x + factory.auto_build_machine_w - 1 &&
+    current_end_y >= factory.auto_build_machine_y && current_end_y <= factory.auto_build_machine_y + factory.auto_build_machine_h - 1
+  {
+    // Reached a machine. TODO: or a corner of it.
+    log!("Reached the machine. Path is finished! Machine is at {}x{} {}x{}, and {}x{} is within {}x{} {}x{}", factory.auto_build_machine_x, factory.auto_build_machine_y, factory.auto_build_machine_x + factory.auto_build_machine_w - 1, factory.auto_build_machine_y + factory.auto_build_machine_h - 1, current_end_x, current_end_y, factory.auto_build_machine_x - 1, factory.auto_build_machine_y - 1, factory.auto_build_machine_x + factory.auto_build_machine_w, factory.auto_build_machine_y + factory.auto_build_machine_h);
+
+    factory.auto_build_step_counter += 1;
+    factory.auto_build_phase = AutoBuildPhase::MoveToInputPart;
+    auto_build_init(options, state, config, factory);
+    return;
+  }
+
+  let (last_x, last_y) = factory.auto_build_current_path[factory.auto_build_current_path.len() - 1];
+  let next = flood_fill_next_step_to_connect_machine(options, state, config, factory, last_x, last_y);
+
+  if next == None {
+    // TODO: backtrack
+    log!("Unable to create path. Should backtrack but will bail now");
+    factory.auto_build_phase = AutoBuildPhase::Finishing;
+    auto_build_init(options, state, config, factory);
+    return;
+  }
+
+  let (next_x, next_y) = next.unwrap();
+  factory.auto_build_mouse_target_x = UI_FLOOR_OFFSET_X + next_x as f64 * CELL_W;
+  factory.auto_build_mouse_target_y = UI_FLOOR_OFFSET_Y + next_y as f64 * CELL_H;
+  factory.auto_build_current_path.push((next_x, next_y));
+
+  // TODO: show track preview like you're dragging
+
+  // Determine duration based on a desired mouse speed constant
+  let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
+  let ms = distance / MOUSE_SPEED_MODIFIER_PX_P_MS;
+  let duration = ms / (ONE_MS as f64 * options.speed_modifier_ui);
+  factory.auto_build_phase_duration = duration as u64;
+}
+
+fn auto_build_init_track_to_machine_step(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+  factory.auto_build_phase_pause = 0;
+
+  log!("Now create the track...");
+
+  let (prev_x, prev_y) = factory.auto_build_current_path[factory.auto_build_current_path.len() - 2];
+  let (next_x, next_y) = factory.auto_build_current_path[factory.auto_build_current_path.len() - 1];
+
+  let prev_coord = to_coord(prev_x, prev_y);
+  let next_coord = to_coord(next_x, next_y);
+
+  belt_connect_cells_expensive(options, state, config, factory, prev_x, prev_y, next_x, next_y);
+}
+
+fn auto_build_init_track_from_machine_start(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+  // Pause here briefly
+  let wait = 1000.0;
+  let duration = wait / (ONE_MS as f64 * options.speed_modifier_ui);
+  factory.auto_build_phase_pause = duration as u64;
+}
+
+fn auto_build_init_track_from_machine(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+  // Pause here briefly
+  let wait = 1000.0;
+  let duration = wait / (ONE_MS as f64 * options.speed_modifier_ui);
+  factory.auto_build_phase_pause = duration as u64;
+
+
+  // Starting at the machine, plot a track to an edge,
+  // step by step, until you reach an edge or get stuck.
+
+  let next_step =
+    if factory.auto_build_current_path.len() == 0 {
+      log!("TrackFromMachine: First step...");
+      // Start of path. Flood fill from machine and pick the first cell
+      // next to the machine that has a path to the edge.
+      // We currently can't be too picky here, though we could improve
+      // that with a reverse flood such that we know the side with the
+      // shortest route to an available edge. TODO
+
+      let fake = flood_fill_get_flooded_floor(
+        options, state, config, factory,
+        factory.auto_build_machine_x, factory.auto_build_machine_y, factory.auto_build_machine_w, factory.auto_build_machine_h,
+        true
+      );
+
+      // Find the neighbor cell that has a path. When found,
+      // add it and the machine cell next to it to the path.
+
+      fn find(factory: &mut Factory, fake: &Vec<i32>) -> Option<(usize, usize)> {
+        let mut best_from = 0;
+        let mut best_coord = 0;
+        let mut best_score = FLOOD_FILL_EMPTY_FRESH;
+
+        for x in factory.auto_build_machine_x..factory.auto_build_machine_x+factory.auto_build_machine_w {
+          // top and bottom
+          let c = x + (factory.auto_build_machine_y - 1) * FLOOR_CELLS_W;
+          let p = fake[c];
+          if p > 1 && p < best_score {
+            best_from = to_coord(x, factory.auto_build_machine_y);
+            best_score = p;
+            best_coord = c;
+          }
+          let c = x + (factory.auto_build_machine_y + factory.auto_build_machine_h) * FLOOR_CELLS_W;
+          let p = fake[c];
+          if p > 1 && p < best_score {
+            best_from = to_coord(x, factory.auto_build_machine_y + factory.auto_build_machine_h - 1);
+            best_score = p;
+            best_coord = c;
+          }
+        }
+        for y in factory.auto_build_machine_y..factory.auto_build_machine_y+factory.auto_build_machine_h {
+          // left and right
+          let c = (factory.auto_build_machine_x - 1) + y * FLOOR_CELLS_W;
+          let p = fake[c];
+          if p > 1 && p < best_score {
+            best_from = to_coord(factory.auto_build_machine_x, y);
+            best_score = p;
+            best_coord = c;
+          }
+          let c = (factory.auto_build_machine_x + factory.auto_build_machine_w) + y * FLOOR_CELLS_W;
+          let p = fake[c];
+          if p > 1 && p < best_score {
+            best_from = to_coord(factory.auto_build_machine_x + factory.auto_build_machine_w - 1, y);
+            best_score = p;
+            best_coord = c;
+          }
+        }
+
+        if best_score == FLOOD_FILL_EMPTY_FRESH {
+          return None;
+        }
+
+        factory.auto_build_current_path = vec!(to_xy(best_from));
+        return Some(to_xy(best_coord));
+      }
+
+      // TODO: should actually first move the mouse to the machine part that we found...
+      find(factory, &fake)
+    } else {
+      log!("TrackFromMachine: Next step... {}", factory.auto_build_current_path.len());
+
+      fn find(options: &Options, state: &State, config: &Config, factory: &mut Factory) -> Option<(usize, usize)> {
+        let (last_x, last_y) = factory.auto_build_current_path[factory.auto_build_current_path.len() - 1];
+        let coord = to_coord(last_x, last_y);
+
+        let nc = to_coord_up(coord);
+        let (nx, ny) = to_xy(nc);
+        if is_edge(nx as f64, ny as f64) && factory.floor[nc].kind == CellKind::Empty {
+          return Some((nx, ny))
+        }
+
+        let nc = to_coord_right(coord);
+        let (nx, ny) = to_xy(nc);
+        if is_edge(nx as f64, ny as f64) && factory.floor[nc].kind == CellKind::Empty {
+          return Some((nx, ny))
+        }
+
+        let nc = to_coord_down(coord);
+        let (nx, ny) = to_xy(nc);
+        if is_edge(nx as f64, ny as f64) && factory.floor[nc].kind == CellKind::Empty {
+          return Some((nx, ny))
+        }
+
+        let nc = to_coord_left(coord);
+        let (nx, ny) = to_xy(nc);
+        if is_edge(nx as f64, ny as f64) && factory.floor[nc].kind == CellKind::Empty {
+          return Some((nx, ny))
+        }
+
+        let fake = flood_fill_get_flooded_floor(options, state, config, factory, last_x, last_y, 1, 1, true);
+
+        let mut best_coord = 0;
+        let mut best_score = FLOOD_FILL_EMPTY_FRESH;
+
+        let p = fake[coord - FLOOR_CELLS_W];
+        if p > 1 && p < best_score {
+          best_score = p;
+          best_coord = coord - FLOOR_CELLS_W;
+        }
+
+        let p = fake[coord - 1];
+        if p > 1 && p < best_score {
+          best_score = p;
+          best_coord = coord - 1;
+        }
+
+        let p = fake[coord + FLOOR_CELLS_W];
+        if p < best_score {
+          best_score = p;
+          best_coord = coord + FLOOR_CELLS_W;
+        }
+
+        let p = fake[coord + 1];
+        if p < best_score {
+          best_score = p;
+          best_coord = coord + 1;
+        }
+
+        if best_score == FLOOD_FILL_EMPTY_FRESH {
+          return None
+        }
+
+        return Some(to_xy(best_coord));
+      }
+
+      find(options, state, config, factory)
+    };
+
+  log!("next step: {:?}", next_step);
+  if next_step == None {
+    // TODO: we could blink red or something
+    log!("Unable to plot a path to the edge from this point ... bailing.");
+
+    factory.auto_build_phase = AutoBuildPhase::Finishing;
+    auto_build_init(options, state, config, factory);
+    return;
+  }
+
+  let (next_x, next_y) = next_step.unwrap();
+
+  factory.auto_build_current_path.push((next_x, next_y));
+
+  factory.auto_build_mouse_target_x = UI_FLOOR_OFFSET_X + next_x as f64 * CELL_W;
+  factory.auto_build_mouse_target_y = UI_FLOOR_OFFSET_Y + next_y as f64 * CELL_H;
+
+  // Determine duration based on a desired mouse speed constant
+  let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
+  let ms = distance / MOUSE_SPEED_MODIFIER_PX_P_MS;
+  let duration = ms / (ONE_MS as f64 * options.speed_modifier_ui);
+  factory.auto_build_phase_duration = duration as u64;
+}
+
+fn auto_build_init_track_from_machine_step(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+  factory.auto_build_phase_pause = 0;
+
+  log!("Now create the track...");
+
+  let (prev_x, prev_y) = factory.auto_build_current_path[factory.auto_build_current_path.len() - 2];
+  let (next_x, next_y) = factory.auto_build_current_path[factory.auto_build_current_path.len() - 1];
+
+  let prev_coord = to_coord(prev_x, prev_y);
+  let next_coord = to_coord(next_x, next_y);
+
+  belt_connect_cells_expensive(options, state, config, factory, prev_x, prev_y, next_x, next_y);
+
+  if is_edge(next_x as f64, next_y as f64) {
+    log!("this connected to an edge so this is the end, right?");
+    factory.auto_build_phase = AutoBuildPhase::Finishing;
+    auto_build_init(options, state, config, factory);
+    return;
+  }
+}
+
+fn auto_build_init_finishing(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+
+}
+
+fn auto_build_init_finished(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+
 }
 
 fn flood_fill_find_reachable_edge_from_machine(options: &Options, state: &State, config: &Config, factory: &Factory) -> Option<(usize, usize)> {
@@ -909,7 +1018,15 @@ pub fn auto_build_tick(options: &Options, state: &State, config: &Config, factor
     return;
   }
 
-  let progress = ((factory.ticks - factory.auto_build_phase_at).min(factory.auto_build_phase_duration) as f64 / factory.auto_build_phase_duration as f64).max(0.0);
+  let since = factory.ticks - factory.auto_build_phase_at;
+  let progress =
+    if since < factory.auto_build_phase_pause {
+      0.0
+    } else {
+      (since - factory.auto_build_phase_pause) as f64 / factory.auto_build_phase_duration as f64
+    }
+    .max(0.0).min(1.0);
+
   factory.auto_build_phase_progress = progress;
 
   if progress >= 1.0 {

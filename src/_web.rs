@@ -63,6 +63,7 @@
 //   - clean die paint_auto_build or throw it away
 //   - move factory autoBuild state into its own state object. and related code as well.
 //   - can we prevent undo/redo stack changes until the end?
+//   - add pause option to auto builder rather than separate states
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -3296,7 +3297,11 @@ fn paint_debug_auto_build(options: &Options, state: &State, context: &Rc<web_sys
 
   ui_lines += 1.0;
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("duration     : {} (left: {})", factory.auto_build_phase_duration, factory.auto_build_phase_duration - (factory.ticks - factory.auto_build_phase_at).min(factory.auto_build_phase_duration)).as_str(), UI_DEBUG_AUTO_BUILD_OFFSET_X + UI_DEBUG_AUTO_BUILD_SPACING, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (ui_lines * UI_DEBUG_AUTO_BUILD_LINE_H) + UI_DEBUG_AUTO_BUILD_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("pause        : {} (left: {})", factory.auto_build_phase_pause, factory.auto_build_phase_pause - (factory.ticks - factory.auto_build_phase_at).min(factory.auto_build_phase_pause)).as_str(), UI_DEBUG_AUTO_BUILD_OFFSET_X + UI_DEBUG_AUTO_BUILD_SPACING, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (ui_lines * UI_DEBUG_AUTO_BUILD_LINE_H) + UI_DEBUG_AUTO_BUILD_FONT_H).expect("something error fill_text");
+
+  ui_lines += 1.0;
+  context.set_fill_style(&"black".into());
+  context.fill_text(format!("duration     : {} (left: {})", factory.auto_build_phase_duration, factory.auto_build_phase_duration - (factory.ticks - factory.auto_build_phase_pause - factory.auto_build_phase_at).min(factory.auto_build_phase_duration)).as_str(), UI_DEBUG_AUTO_BUILD_OFFSET_X + UI_DEBUG_AUTO_BUILD_SPACING, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (ui_lines * UI_DEBUG_AUTO_BUILD_LINE_H) + UI_DEBUG_AUTO_BUILD_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"black".into());
@@ -5960,17 +5965,17 @@ fn paint_auto_build(options: &Options, state: &State, config: &Config, factory: 
     }
     AutoBuildPhase::CreateSupplier => {
     }
+    AutoBuildPhase::TrackToMachineStart => {
+    }
     AutoBuildPhase::TrackToMachine => {
-    }
-    AutoBuildPhase::UndoTrackToMachine => {
-    }
-    AutoBuildPhase::TrackFromMachineStep => {
-    }
-    AutoBuildPhase::TrackFromMachine => {
     }
     AutoBuildPhase::TrackToMachineStep => {
     }
-    AutoBuildPhase::UndoTrackFromMachine => {
+    AutoBuildPhase::TrackFromMachineStart => {
+    }
+    AutoBuildPhase::TrackFromMachine => {
+    }
+    AutoBuildPhase::TrackFromMachineStep => {
     }
     AutoBuildPhase::Finishing => {
     }

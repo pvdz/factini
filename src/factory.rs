@@ -77,6 +77,7 @@ pub struct Factory {
   pub auto_build_phase_at: u64,
   pub auto_build_phase_duration: u64,
   pub auto_build_phase_progress: f64,
+  pub auto_build_phase_pause: u64, // Set and done at the start of a phase
   pub auto_build_seed: u64,
   pub auto_build_quest_visible_index: usize,
   pub auto_build_quest_index: usize,
@@ -150,6 +151,7 @@ pub fn create_factory(options: &Options, state: &mut State, config: &Config, flo
     auto_build_mouse_target_y: 0.0,
     auto_build_phase_duration: 0,
     auto_build_phase_progress: 0.0,
+    auto_build_phase_pause: 0,
     auto_build_machine_x: 0,
     auto_build_machine_y: 0,
     auto_build_machine_w: 0,
