@@ -51,8 +51,7 @@
 // - once the partial is enabled, wait until the four bars all have at least one cell and then start the maze. preferably animated
 // - auto build
 //   - debug panel always on should be fixed
-//   - prettier button
-//   - animated button? error case
+//   - prettier auto build button
 //   - disable user while auto build is busy?
 //   - allow to cancel auto build. and to let it run continuously.
 //   - clean up auto build states
@@ -916,6 +915,11 @@ pub fn start() -> Result<(), JsValue> {
 
         // Handle drag-end or click
         handle_input(&mut cell_selection, &mut mouse_state, &mut options, &mut state, &config, &mut factory, &mut quick_saves);
+
+        if factory.auto_build_phase == AutoBuildPhase::Finishing {
+          factory.auto_build_mouse_target_x = mouse_state.world_x;
+          factory.auto_build_mouse_target_y = mouse_state.world_y;
+        }
 
         if factory.changed {
           // If currently looking at a historic snapshot, then now copy that
@@ -4120,17 +4124,15 @@ fn paint_mouse_cursor(options: &Options, state: &State, config: &Config, factory
 
     x = factory.auto_build_mouse_offset_x + auto_build_mouse_x.floor();
     y = factory.auto_build_mouse_offset_y + auto_build_mouse_y.floor();
-    if
-      factory.auto_build_phase == AutoBuildPhase::DragMachine ||
-      factory.auto_build_phase == AutoBuildPhase::DragTargetPart ||
-      factory.auto_build_phase == AutoBuildPhase::TrackToMachine ||
-      factory.auto_build_phase == AutoBuildPhase::TrackFromMachine ||
-      factory.auto_build_phase == AutoBuildPhase::MoveToEdge
-    {
-      color = "lightgreen";
-    }
-    else {
-      color = "orange";
+    match factory.auto_build_phase {
+      | AutoBuildPhase::DragMachine
+      | AutoBuildPhase::DragTargetPart
+      | AutoBuildPhase::TrackToMachine
+      | AutoBuildPhase::TrackFromMachine
+      | AutoBuildPhase::MoveToEdge
+      => color = "lightgreen",
+      AutoBuildPhase::Blocked => color = "red",
+      _ => color = "orange",
     }
   }
   else if mouse_state.is_down {
@@ -5990,6 +5992,7 @@ fn paint_auto_build(options: &Options, state: &State, config: &Config, factory: 
     }
     AutoBuildPhase::TrackFromMachineStep => {
     }
+    AutoBuildPhase::Blocked => {}
     AutoBuildPhase::Finishing => {
     }
     AutoBuildPhase::Finished => {

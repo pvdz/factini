@@ -48,6 +48,7 @@ pub enum AutoBuildPhase {
   TrackFromMachineStart,
   TrackFromMachine,
   TrackFromMachineStep,
+  Blocked,
   Finishing,
   Finished,
 }
@@ -78,6 +79,7 @@ pub fn auto_build_next_step(options: &Options, state: &State, config: &Config, f
     AutoBuildPhase::TrackFromMachineStart => factory.auto_build_phase = AutoBuildPhase::TrackFromMachine,
     AutoBuildPhase::TrackFromMachine => factory.auto_build_phase = AutoBuildPhase::TrackFromMachineStep, // loop
     AutoBuildPhase::TrackFromMachineStep => factory.auto_build_phase = AutoBuildPhase::TrackFromMachine,
+    AutoBuildPhase::Blocked => factory.auto_build_phase = AutoBuildPhase::Finishing,
     AutoBuildPhase::Finishing => factory.auto_build_phase = AutoBuildPhase::Finished,
     AutoBuildPhase::Finished => factory.auto_build_phase = AutoBuildPhase::None,
   }
@@ -99,8 +101,12 @@ pub fn auto_build_start(options: &Options, state: &State, config: &Config, facto
   log!("auto_build_start(options.trace_auto_builder={})", options.trace_auto_builder);
 
   factory.auto_build_phase = AutoBuildPhase::Startup;
+  // Hold the cursor in place. It's no longer controlled by the player.
   factory.auto_build_mouse_offset_x = ox;
   factory.auto_build_mouse_offset_y = oy;
+  // Setting target here ensures a proper snap back in case of immediate error
+  factory.auto_build_mouse_target_x = ox;
+  factory.auto_build_mouse_target_y = oy;
   auto_build_init(options, state, config, factory);
 }
 
@@ -160,6 +166,9 @@ pub fn auto_build_init(options: &Options, state: &State, config: &Config, factor
     }
     AutoBuildPhase::TrackFromMachineStep => {
       auto_build_init_track_from_machine_step(options, state, config, factory);
+    }
+    AutoBuildPhase::Blocked => {
+      auto_build_init_blocked(options, state, config, factory);
     }
     AutoBuildPhase::Finishing => {
       auto_build_init_finishing(options, state, config, factory);
@@ -268,15 +277,10 @@ fn auto_build_init_startup(options: &Options, state: &State, config: &Config, fa
     factory.auto_build_machine_y = y;
   } else {
     if options.trace_auto_builder { log!("Was unable to find a suitable location for the machine. Bailing"); }
-    factory.auto_build_phase = AutoBuildPhase::Finishing;
+    factory.auto_build_phase = AutoBuildPhase::Blocked;
     auto_build_init(options, state, config, factory);
     return;
   }
-
-  // factory.auto_build_phase = AutoBuildPhase::Finishing;
-  // auto_build_init(options, state, config, factory);
-  // return;
-
 
   // We want to move the cursor to selected quest
   let quest_xy = get_quest_xy(0, 0.0);
@@ -434,10 +438,9 @@ fn auto_build_init_move_to_edge(options: &Options, state: &State, config: &Confi
 
   let nearest_edge = flood_fill_find_reachable_edge_from_machine(options, state, config, factory);
   if nearest_edge == None {
-    // TODO: we could blink red or something
     if options.trace_auto_builder { log!("Unable to plot a path to the edge ... bailing."); }
 
-    factory.auto_build_phase = AutoBuildPhase::Finishing;
+    factory.auto_build_phase = AutoBuildPhase::Blocked;
     auto_build_init(options, state, config, factory);
     return;
   }
@@ -495,7 +498,7 @@ fn auto_build_init_track_to_machine(options: &Options, state: &State, config: &C
 
   if factory.auto_build_current_path.len() == 0 {
     if options.trace_auto_builder { log!("Path is empty. Unable to craft path. Bailing."); }
-    factory.auto_build_phase = AutoBuildPhase::Finishing;
+    factory.auto_build_phase = AutoBuildPhase::Blocked;
     auto_build_init(options, state, config, factory);
     return;
   }
@@ -520,7 +523,7 @@ fn auto_build_init_track_to_machine(options: &Options, state: &State, config: &C
   if next == None {
     // TODO: backtrack
     if options.trace_auto_builder { log!("Unable to create path. Should backtrack but will bail now"); }
-    factory.auto_build_phase = AutoBuildPhase::Finishing;
+    factory.auto_build_phase = AutoBuildPhase::Blocked;
     auto_build_init(options, state, config, factory);
     return;
   }
@@ -710,10 +713,9 @@ fn auto_build_init_track_from_machine(options: &Options, state: &State, config: 
 
   if options.trace_auto_builder { log!("next step: {:?}", next_step); }
   if next_step == None {
-    // TODO: we could blink red or something
     if options.trace_auto_builder { log!("Unable to plot a path to the edge from this point ... bailing."); }
 
-    factory.auto_build_phase = AutoBuildPhase::Finishing;
+    factory.auto_build_phase = AutoBuildPhase::Blocked;
     auto_build_init(options, state, config, factory);
     return;
   }
@@ -753,8 +755,15 @@ fn auto_build_init_track_from_machine_step(options: &Options, state: &State, con
   }
 }
 
-fn auto_build_init_finishing(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+fn auto_build_init_blocked(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+  factory.auto_build_phase_pause = 4000;
+}
 
+fn auto_build_init_finishing(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+  // Set to zero to signal web.rs to update it with the mouse coord
+  // First step of finishing
+  let duration = 5000.0 / (ONE_MS as f64 * options.speed_modifier_ui);
+  factory.auto_build_phase_duration = duration as u64;
 }
 
 fn auto_build_init_finished(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
