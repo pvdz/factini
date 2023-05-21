@@ -32,7 +32,6 @@ use super::log;
 pub enum AutoBuildPhase {
   None,
   Startup,
-  PickQuest,
   PickMachine,
   DragMachine,
   PlaceMachine,
@@ -50,7 +49,6 @@ pub enum AutoBuildPhase {
   TrackFromMachineStep,
   Blocked,
   Finishing,
-  Finished,
 }
 
 #[derive(Debug)]
@@ -113,8 +111,7 @@ pub fn auto_build_create() -> AutoBuild {
 pub fn auto_build_next_step(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
   match factory.auto_build.phase {
     AutoBuildPhase::None => {}
-    AutoBuildPhase::Startup => factory.auto_build.phase = AutoBuildPhase::PickQuest,
-    AutoBuildPhase::PickQuest => factory.auto_build.phase = AutoBuildPhase::PickMachine,
+    AutoBuildPhase::Startup => factory.auto_build.phase = AutoBuildPhase::PickMachine,
     AutoBuildPhase::PickMachine => factory.auto_build.phase = AutoBuildPhase::DragMachine,
     AutoBuildPhase::DragMachine => factory.auto_build.phase = AutoBuildPhase::PlaceMachine,
     AutoBuildPhase::PlaceMachine => factory.auto_build.phase = AutoBuildPhase::MoveToTargetPart,
@@ -131,8 +128,7 @@ pub fn auto_build_next_step(options: &Options, state: &State, config: &Config, f
     AutoBuildPhase::TrackFromMachine => factory.auto_build.phase = AutoBuildPhase::TrackFromMachineStep, // loop
     AutoBuildPhase::TrackFromMachineStep => factory.auto_build.phase = AutoBuildPhase::TrackFromMachine,
     AutoBuildPhase::Blocked => factory.auto_build.phase = AutoBuildPhase::Finishing,
-    AutoBuildPhase::Finishing => factory.auto_build.phase = AutoBuildPhase::Finished,
-    AutoBuildPhase::Finished => factory.auto_build.phase = AutoBuildPhase::None,
+    AutoBuildPhase::Finishing => factory.auto_build.phase = AutoBuildPhase::None,
   }
 
   // By default, pause briefly between steps
@@ -169,9 +165,6 @@ pub fn auto_build_init(options: &Options, state: &State, config: &Config, factor
     }
     AutoBuildPhase::Startup => {
       auto_build_init_startup(options, state, config, factory);
-    }
-    AutoBuildPhase::PickQuest => {
-      auto_build_init_pick_quest(options, state, config, factory);
     }
     AutoBuildPhase::PickMachine => {
       auto_build_init_pick_machine(options, state, config, factory);
@@ -223,9 +216,6 @@ pub fn auto_build_init(options: &Options, state: &State, config: &Config, factor
     }
     AutoBuildPhase::Finishing => {
       auto_build_init_finishing(options, state, config, factory);
-    }
-    AutoBuildPhase::Finished => {
-      auto_build_init_finished(options, state, config, factory);
     }
   }
 }
@@ -349,9 +339,6 @@ fn auto_build_init_startup(options: &Options, state: &State, config: &Config, fa
   factory.auto_build.phase_duration = duration as u64;
 
   if options.trace_auto_builder { log!("AutoBuild: Moving from {}x{} to {}x{} (distance {} px) in {} ticks", factory.auto_build.mouse_offset_x, factory.auto_build.mouse_offset_y, factory.auto_build.mouse_target_x, factory.auto_build.mouse_target_y, distance.floor(), duration.floor()); }
-}
-
-fn auto_build_init_pick_quest(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
 }
 
 fn auto_build_init_pick_machine(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
@@ -820,10 +807,6 @@ fn auto_build_init_finishing(options: &Options, state: &State, config: &Config, 
   // First step of finishing
   let duration = 5000.0 / (ONE_MS as f64 * options.speed_modifier_ui);
   factory.auto_build.phase_duration = duration as u64;
-}
-
-fn auto_build_init_finished(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
-
 }
 
 fn flood_fill_find_reachable_edge_from_machine(options: &Options, state: &State, config: &Config, factory: &Factory) -> Option<(usize, usize)> {
