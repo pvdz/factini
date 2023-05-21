@@ -194,3 +194,14 @@ pub fn quest_visible_index_to_quest_index(options: &Options, state: &State, conf
   }
   return None;
 }
+
+pub fn quest_get_active_indexes(options: &Options, state: &State, config: &Config, factory: &Factory) -> Vec<usize> {
+  let mut visible = vec!();
+  for quest_index in 0..factory.quests.len() {
+    if factory.quests[quest_index].status != QuestStatus::Active && factory.quests[quest_index].status != QuestStatus::FadingAndBouncing {
+      continue;
+    }
+    visible.push(quest_index);
+  }
+  return visible;
+}

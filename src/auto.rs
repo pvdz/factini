@@ -234,11 +234,16 @@ fn auto_build_init_startup(options: &Options, state: &State, config: &Config, fa
   // mouse_offset_x/y are initialized
   factory.auto_build.phase = AutoBuildPhase::Startup;
   factory.auto_build.phase_at = factory.ticks; // Only for this phase. Assume "next_step" sets it in other phases.
-  factory.auto_build.quest_visible_index = 0;
   factory.auto_build.machine_w = 2;
   factory.auto_build.machine_h = 2;
   factory.auto_build.step_counter = 0;
 
+
+  let rng = xorshift(factory.ticks as usize);
+  let active_quest_indexes = quest_get_active_indexes(options, state, config, factory);
+  let n = rng % active_quest_indexes.len();
+  log!("have {:?} picking {} ({})", active_quest_indexes, n, rng);
+  factory.auto_build.quest_visible_index = n;
   factory.auto_build.quest_index = quest_visible_index_to_quest_index(options, state, config, factory, factory.auto_build.quest_visible_index).unwrap();
 
   // Determine position of machine
@@ -333,9 +338,9 @@ fn auto_build_init_startup(options: &Options, state: &State, config: &Config, fa
   }
 
   // We want to move the cursor to selected quest
-  let quest_xy = get_quest_xy(0, 0.0);
-  factory.auto_build.mouse_target_x = quest_xy.0 + 100.0;
-  factory.auto_build.mouse_target_y = quest_xy.1 + 10.0;
+  let (quest_x, quest_y) = get_quest_xy(factory.auto_build.quest_visible_index, 0.0);
+  factory.auto_build.mouse_target_x = quest_x + UI_QUEST_WIDTH * 0.5 - MOUSE_POINTER_RADIUS_AUTO_BUILD * 0.5;
+  factory.auto_build.mouse_target_y = quest_y + UI_QUEST_HEIGHT * 0.5 - MOUSE_POINTER_RADIUS_AUTO_BUILD * 0.5;
 
   // Determine duration based on a desired mouse speed constant
   let distance = ((factory.auto_build.mouse_target_x - factory.auto_build.mouse_offset_x).abs().powf(2.0) + (factory.auto_build.mouse_target_y - factory.auto_build.mouse_offset_y).abs().powf(2.0)).sqrt();
