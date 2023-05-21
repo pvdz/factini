@@ -50,7 +50,6 @@
 // - when next ui-phase unlocks, use an animation where ui elements drift into their place
 // - once the partial is enabled, wait until the four bars all have at least one cell and then start the maze. preferably animated
 // - auto build
-//   - debug panel always on should be fixed
 //   - prettier auto build button
 //   - disable user while auto build is busy?
 //   - allow to cancel auto build. and to let it run continuously.
@@ -3153,6 +3152,10 @@ fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::Canva
   assert_eq!(ui_lines, UI_DEBUG_LINES, "keep these in sync for simplicity");
 }
 fn paint_debug_auto_build(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState) {
+
+  if factory.auto_build.phase == AutoBuildPhase::None {
+    return;
+  }
 
   if !state.showing_debug_bottom {
     return;
