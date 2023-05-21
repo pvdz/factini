@@ -55,7 +55,6 @@
 //   - disable user while auto build is busy?
 //   - allow to cancel auto build. and to let it run continuously.
 //   - should pick machine suitable for the quest
-//   - clean die paint_auto_build or throw it away
 //   - move factory autoBuild state into its own state object. and related code as well.
 //   - can we prevent undo/redo stack changes until the end?
 
@@ -6026,49 +6025,6 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
       let cy = oy + (volume_y - oy) * fuel_progress;
       context.fill_rect(cx, cy, 10.0, 10.0);
       context.stroke_rect(cx, cy, 10.0, 10.0);
-    }
-  }
-}
-
-fn paint_auto_build(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>) {
-  match factory.auto_build_phase {
-    AutoBuildPhase::None => {
-    }
-    AutoBuildPhase::Startup => {
-    }
-    AutoBuildPhase::PickQuest => {
-    }
-    AutoBuildPhase::PickMachine => {
-    }
-    AutoBuildPhase::DragMachine => {
-    }
-    AutoBuildPhase::PlaceMachine => {
-    }
-    AutoBuildPhase::MoveToTargetPart => {}
-    AutoBuildPhase::DragTargetPartToMachine => {}
-    AutoBuildPhase::ReleaseTargetPart => {
-    }
-    AutoBuildPhase::MoveToInputPart => {}
-    AutoBuildPhase::DragInputPartToEdge => {
-    }
-    AutoBuildPhase::CreateSupplier => {
-    }
-    AutoBuildPhase::TrackToMachineStart => {
-    }
-    AutoBuildPhase::TrackToMachine => {
-    }
-    AutoBuildPhase::TrackToMachineStep => {
-    }
-    AutoBuildPhase::TrackFromMachineStart => {
-    }
-    AutoBuildPhase::TrackFromMachine => {
-    }
-    AutoBuildPhase::TrackFromMachineStep => {
-    }
-    AutoBuildPhase::Blocked => {}
-    AutoBuildPhase::Finishing => {
-    }
-    AutoBuildPhase::Finished => {
     }
   }
 }
