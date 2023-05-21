@@ -284,8 +284,8 @@ fn auto_build_init_pick_quest(options: &Options, state: &State, config: &Config,
 
 fn auto_build_init_pick_machine(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
   // Move to the target machine
-  factory.auto_build_mouse_target_x = UI_MENU_MACHINE_BUTTON_2X2_X + UI_MENU_MACHINE_BUTTON_2X2_WIDTH * 0.5;
-  factory.auto_build_mouse_target_y = UI_MENU_MACHINE_BUTTON_2X2_Y + UI_MENU_MACHINE_BUTTON_2X2_HEIGHT * 0.5;
+  factory.auto_build_mouse_target_x = UI_MENU_MACHINE_BUTTON_2X2_X + factory.auto_build_machine_w as f64 * CELL_W * 0.5;
+  factory.auto_build_mouse_target_y = UI_MENU_MACHINE_BUTTON_2X2_Y + factory.auto_build_machine_h as f64 * CELL_H * 0.5;
 
   // Determine duration based on a desired mouse speed constant
   let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
@@ -298,8 +298,8 @@ fn auto_build_init_pick_machine(options: &Options, state: &State, config: &Confi
 
 fn auto_build_init_drag_machine(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
   // Move to the target machine
-  factory.auto_build_mouse_target_x = UI_FLOOR_OFFSET_X + factory.auto_build_machine_x as f64 * CELL_W + UI_MENU_MACHINE_BUTTON_2X2_WIDTH * 0.5;
-  factory.auto_build_mouse_target_y = UI_FLOOR_OFFSET_Y + factory.auto_build_machine_y as f64 * CELL_H + UI_MENU_MACHINE_BUTTON_2X2_HEIGHT * 0.5;
+  factory.auto_build_mouse_target_x = UI_FLOOR_OFFSET_X + factory.auto_build_machine_x as f64 * CELL_W + factory.auto_build_machine_w as f64 * CELL_W * 0.5;
+  factory.auto_build_mouse_target_y = UI_FLOOR_OFFSET_Y + factory.auto_build_machine_y as f64 * CELL_H + factory.auto_build_machine_h as f64 * CELL_H * 0.5;
 
   // Determine duration based on a desired mouse speed constant
   let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
@@ -342,9 +342,9 @@ fn auto_build_init_move_to_target_part(options: &Options, state: &State, config:
 }
 
 fn auto_build_init_drag_target_part(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
-// Move to the machine while dragging that part
-  factory.auto_build_mouse_target_x = UI_FLOOR_OFFSET_X + factory.auto_build_machine_x as f64 * CELL_W + UI_MENU_MACHINE_BUTTON_2X2_WIDTH * 0.5;
-  factory.auto_build_mouse_target_y = UI_FLOOR_OFFSET_Y + factory.auto_build_machine_y as f64 * CELL_H + UI_MENU_MACHINE_BUTTON_2X2_HEIGHT * 0.5;
+  // Move to the machine while dragging that part
+  factory.auto_build_mouse_target_x = UI_FLOOR_OFFSET_X + factory.auto_build_machine_x as f64 * CELL_W + factory.auto_build_machine_w as f64 * CELL_W * 0.5;
+  factory.auto_build_mouse_target_y = UI_FLOOR_OFFSET_Y + factory.auto_build_machine_y as f64 * CELL_H + factory.auto_build_machine_h as f64 * CELL_H * 0.5;
 
   // Determine duration based on a desired mouse speed constant
   let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
