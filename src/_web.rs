@@ -55,7 +55,6 @@
 //   - disable user while auto build is busy?
 //   - allow to cancel auto build. and to let it run continuously.
 //   - should pick machine suitable for the quest
-//   - move factory autoBuild state into its own state object. and related code as well.
 //   - can we prevent undo/redo stack changes until the end?
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
@@ -2777,113 +2776,7 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
     }
     MenuButton::Row3Button3 => {
       log!("(Test button)");
-
-      factory.auto_build.machine_w = 2;
-      factory.auto_build.machine_h = 2;
-
-
-      // Create a mirror of the floor but just with empty or non-empty
-      let mut fake = vec!();
-      factory.floor.iter().enumerate().for_each(|(i, cell)| fake.push(if cell.kind != CellKind::Empty { 1000 } else if cell.is_edge { 1000 } else { 900 }));
-
-      print_fake(&fake);
-
-      for x in factory.auto_build.machine_x..factory.auto_build.machine_x+factory.auto_build.machine_w {
-        for y in factory.auto_build.machine_y..factory.auto_build.machine_y+factory.auto_build.machine_h {
-          fake[x + y * FLOOR_CELLS_W] = 1;
-        }
-      }
-
-      print_fake(&fake);
-
-      for lop in 0..100 {
-        let mut changed = false;
-        // Flood fill starting with the machine cell neighbors
-        for i in 0..fake.len() {
-          let n = fake[i];
-          if n >= 999 {
-            continue;
-          }
-          let mut m = n;
-
-          // Note: Can't be edge cell because they are all 1000 and we bail above
-          //       As such we don't need to do range safety checks.
-          //       We do need to confirm that the cell is visited before (!=900)
-
-          let p = fake[i - FLOOR_CELLS_W];
-          if p != 900 && m > p {
-            m = p;
-          }
-          let p = fake[i - 1];
-          if p != 900 && m > p {
-            m = p;
-          }
-          let p = fake[i + FLOOR_CELLS_W];
-          if p != 900 && m > p {
-            m = p;
-          }
-          let p = fake[i + 1];
-          if p != 900 && m > p {
-            m = p;
-          }
-          if m+1 < n {
-            fake[i] = m + 1;
-            changed = true;
-          }
-        }
-        if !changed {
-          log!("Breaking after {} iterations", lop+1);
-          break;
-        }
-      }
-
-      print_fake(&fake);
-
-      fn print_fake(fake: &Vec<i32>) {
-        fn b62(n: i32) -> String {
-          if n == 900 {
-            return format!("{}", ' ');
-          }
-          if n == 1000 {
-            return format!("{}", '#');
-          }
-          if n < 10 {
-            return format!("{}", n);
-          }
-          if n < 36 {
-            return format!("{}", ('a' as u8 + (n - 10) as u8) as char);
-          }
-          if n < 62 {
-            return format!("{}", ('A' as u8 + (n - 36) as u8) as char);
-          }
-          if n >= 62 {
-            return format!("{}", '?');
-          }
-          return format!("{}", '#');
-        }
-
-        log!("floor print:");
-        log!(
-          "\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}\n",
-          b62(fake[0]),     b62(fake[1]),   b62(fake[2]),   b62(fake[3]),   b62(fake[4]),   b62(fake[5]),   b62(fake[6]),   b62(fake[7]),   b62(fake[8]),   b62(fake[9]),  b62(fake[10]),  b62(fake[11]),  b62(fake[12]),  b62(fake[13]),  b62(fake[14]),  b62(fake[15]),  b62(fake[16]),
-          b62(fake[17]),   b62(fake[18]),  b62(fake[19]),  b62(fake[20]),  b62(fake[21]),  b62(fake[22]),  b62(fake[23]),  b62(fake[24]),  b62(fake[25]),  b62(fake[26]),  b62(fake[27]),  b62(fake[28]),  b62(fake[29]),  b62(fake[30]),  b62(fake[31]),  b62(fake[32]),  b62(fake[33]),
-          b62(fake[34]),   b62(fake[35]),  b62(fake[36]),  b62(fake[37]),  b62(fake[38]),  b62(fake[39]),  b62(fake[40]),  b62(fake[41]),  b62(fake[42]),  b62(fake[43]),  b62(fake[44]),  b62(fake[45]),  b62(fake[46]),  b62(fake[47]),  b62(fake[48]),  b62(fake[49]),  b62(fake[50]),
-          b62(fake[51]),   b62(fake[52]),  b62(fake[53]),  b62(fake[54]),  b62(fake[55]),  b62(fake[56]),  b62(fake[57]),  b62(fake[58]),  b62(fake[59]),  b62(fake[60]),  b62(fake[61]),  b62(fake[62]),  b62(fake[63]),  b62(fake[64]),  b62(fake[65]),  b62(fake[66]),  b62(fake[67]),
-          b62(fake[68]),   b62(fake[69]),  b62(fake[70]),  b62(fake[71]),  b62(fake[72]),  b62(fake[73]),  b62(fake[74]), b62(fake[75]),   b62(fake[76]),  b62(fake[77]),  b62(fake[78]),  b62(fake[79]),  b62(fake[80]),  b62(fake[81]),  b62(fake[82]),  b62(fake[83]),  b62(fake[84]),
-          b62(fake[85]),   b62(fake[86]),  b62(fake[87]),  b62(fake[88]),  b62(fake[89]), b62(fake[90]),   b62(fake[91]),  b62(fake[92]),  b62(fake[93]),  b62(fake[94]),  b62(fake[95]),  b62(fake[96]),  b62(fake[97]),  b62(fake[98]),  b62(fake[99]), b62(fake[100]), b62(fake[101]),
-          b62(fake[102]), b62(fake[103]), b62(fake[104]), b62(fake[105]), b62(fake[106]), b62(fake[107]), b62(fake[108]), b62(fake[109]), b62(fake[110]), b62(fake[111]), b62(fake[112]), b62(fake[113]), b62(fake[114]), b62(fake[115]), b62(fake[116]), b62(fake[117]), b62(fake[118]),
-          b62(fake[119]), b62(fake[120]), b62(fake[121]), b62(fake[122]), b62(fake[123]), b62(fake[124]), b62(fake[125]), b62(fake[126]), b62(fake[127]), b62(fake[128]), b62(fake[129]), b62(fake[130]), b62(fake[131]), b62(fake[132]), b62(fake[133]), b62(fake[134]), b62(fake[135]),
-          b62(fake[136]), b62(fake[137]), b62(fake[138]), b62(fake[139]), b62(fake[140]), b62(fake[141]), b62(fake[142]), b62(fake[143]), b62(fake[144]), b62(fake[145]), b62(fake[146]), b62(fake[147]), b62(fake[148]), b62(fake[149]), b62(fake[150]), b62(fake[151]), b62(fake[152]),
-          b62(fake[153]), b62(fake[154]), b62(fake[155]), b62(fake[156]), b62(fake[157]), b62(fake[158]), b62(fake[159]), b62(fake[160]), b62(fake[161]), b62(fake[162]), b62(fake[163]), b62(fake[164]), b62(fake[165]), b62(fake[166]), b62(fake[167]), b62(fake[168]), b62(fake[169]),
-          b62(fake[170]), b62(fake[171]), b62(fake[172]), b62(fake[173]), b62(fake[174]), b62(fake[175]), b62(fake[176]), b62(fake[177]), b62(fake[178]), b62(fake[179]), b62(fake[180]), b62(fake[181]), b62(fake[182]), b62(fake[183]), b62(fake[184]), b62(fake[185]), b62(fake[186]),
-          b62(fake[187]), b62(fake[188]), b62(fake[189]), b62(fake[190]), b62(fake[191]), b62(fake[192]), b62(fake[193]), b62(fake[194]), b62(fake[195]), b62(fake[196]), b62(fake[197]), b62(fake[198]), b62(fake[199]), b62(fake[200]), b62(fake[201]), b62(fake[202]), b62(fake[203]),
-          b62(fake[204]), b62(fake[205]), b62(fake[206]), b62(fake[207]), b62(fake[208]), b62(fake[209]), b62(fake[210]), b62(fake[211]), b62(fake[212]), b62(fake[213]), b62(fake[214]), b62(fake[215]), b62(fake[216]), b62(fake[217]), b62(fake[218]), b62(fake[219]), b62(fake[220]),
-          b62(fake[221]), b62(fake[222]), b62(fake[223]), b62(fake[224]), b62(fake[225]), b62(fake[226]), b62(fake[227]), b62(fake[228]), b62(fake[229]), b62(fake[230]), b62(fake[231]), b62(fake[232]), b62(fake[233]), b62(fake[234]), b62(fake[235]), b62(fake[236]), b62(fake[237]),
-          b62(fake[238]), b62(fake[239]), b62(fake[240]), b62(fake[241]), b62(fake[242]), b62(fake[243]), b62(fake[244]), b62(fake[245]), b62(fake[246]), b62(fake[247]), b62(fake[248]), b62(fake[249]), b62(fake[250]), b62(fake[251]), b62(fake[252]), b62(fake[253]), b62(fake[254]),
-          b62(fake[255]), b62(fake[256]), b62(fake[257]), b62(fake[258]), b62(fake[259]), b62(fake[260]), b62(fake[261]), b62(fake[262]), b62(fake[263]), b62(fake[264]), b62(fake[265]), b62(fake[266]), b62(fake[267]), b62(fake[268]), b62(fake[269]), b62(fake[270]), b62(fake[271]),
-          b62(fake[272]), b62(fake[273]), b62(fake[274]), b62(fake[275]), b62(fake[276]), b62(fake[277]), b62(fake[278]), b62(fake[279]), b62(fake[280]), b62(fake[281]), b62(fake[282]), b62(fake[283]), b62(fake[284]), b62(fake[285]), b62(fake[286]), b62(fake[287]), b62(fake[288])
-        );
-      }
+      log!("noop");
     }
     MenuButton::Row3Button4 => {
       log!("Clearing the unlock status so you can start again");
