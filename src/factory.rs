@@ -64,29 +64,8 @@ pub struct Factory {
   // Prepared stats for the next maze runner
   // TODO: maybe this should be a vec of parts that contribute to the total current value? So we can paint them in order received etc
   pub maze_prep: ( u16, u16, u16, u16 ),
-
-  pub auto_build_phase: AutoBuildPhase,
-  pub auto_build_mouse_offset_x: f64,
-  pub auto_build_mouse_offset_y: f64,
-  pub auto_build_mouse_target_x: f64,
-  pub auto_build_mouse_target_y: f64,
-  pub auto_build_machine_x: usize,
-  pub auto_build_machine_y: usize,
-  pub auto_build_machine_w: usize,
-  pub auto_build_machine_h: usize,
-  pub auto_build_machine_draggin_part_kind: PartKind,
-  pub auto_build_phase_at: u64,
-  pub auto_build_phase_duration: u64,
-  pub auto_build_phase_progress: f64,
-  pub auto_build_phase_pause: u64, // Set and done at the start of a phase
-  pub auto_build_seed: u64,
-  pub auto_build_quest_visible_index: usize,
-  pub auto_build_quest_index: usize,
-  pub auto_build_target_edge_x: usize,
-  pub auto_build_target_edge_y: usize,
-  pub auto_build_current_path: Vec<(usize, usize)>,
-  // This is used for phases that require multiple steps, like connecting multiple inputs
-  pub auto_build_step_counter: usize,
+  // State for automatic builder code
+  pub auto_build: AutoBuild,
 }
 
 fn dnow() -> u64 {
@@ -145,27 +124,7 @@ pub fn create_factory(options: &Options, state: &mut State, config: &Config, flo
     maze_seed,
     maze_runner: create_maze_runner(0, 0),
     maze_prep: (0, 0, 0, 0),
-    auto_build_phase: AutoBuildPhase::None,
-    auto_build_mouse_offset_x: 0.0,
-    auto_build_mouse_offset_y: 0.0,
-    auto_build_mouse_target_x: 0.0,
-    auto_build_mouse_target_y: 0.0,
-    auto_build_phase_duration: 0,
-    auto_build_phase_progress: 0.0,
-    auto_build_phase_pause: 0,
-    auto_build_machine_x: 0,
-    auto_build_machine_y: 0,
-    auto_build_machine_w: 0,
-    auto_build_machine_h: 0,
-    auto_build_phase_at: 0,
-    auto_build_machine_draggin_part_kind: CONFIG_NODE_PART_NONE,
-    auto_build_seed: 0,
-    auto_build_quest_visible_index: 0,
-    auto_build_quest_index: 0,
-    auto_build_target_edge_x: 0,
-    auto_build_target_edge_y: 0,
-    auto_build_current_path: vec!(),
-    auto_build_step_counter: 0,
+    auto_build: auto_build_create(),
   };
 
   // log!("The maze: {:?}", factory.maze);

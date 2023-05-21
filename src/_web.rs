@@ -913,9 +913,9 @@ pub fn start() -> Result<(), JsValue> {
         // Handle drag-end or click
         handle_input(&mut cell_selection, &mut mouse_state, &mut options, &mut state, &config, &mut factory, &mut quick_saves);
 
-        if factory.auto_build_phase == AutoBuildPhase::Finishing {
-          factory.auto_build_mouse_target_x = mouse_state.world_x;
-          factory.auto_build_mouse_target_y = mouse_state.world_y;
+        if factory.auto_build.phase == AutoBuildPhase::Finishing {
+          factory.auto_build.mouse_target_x = mouse_state.world_x;
+          factory.auto_build.mouse_target_y = mouse_state.world_y;
         }
 
         if factory.changed {
@@ -2778,8 +2778,8 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
     MenuButton::Row3Button3 => {
       log!("(Test button)");
 
-      factory.auto_build_machine_w = 2;
-      factory.auto_build_machine_h = 2;
+      factory.auto_build.machine_w = 2;
+      factory.auto_build.machine_h = 2;
 
 
       // Create a mirror of the floor but just with empty or non-empty
@@ -2788,8 +2788,8 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
 
       print_fake(&fake);
 
-      for x in factory.auto_build_machine_x..factory.auto_build_machine_x+factory.auto_build_machine_w {
-        for y in factory.auto_build_machine_y..factory.auto_build_machine_y+factory.auto_build_machine_h {
+      for x in factory.auto_build.machine_x..factory.auto_build.machine_x+factory.auto_build.machine_w {
+        for y in factory.auto_build.machine_y..factory.auto_build.machine_y+factory.auto_build.machine_h {
           fake[x + y * FLOOR_CELLS_W] = 1;
         }
       }
@@ -3265,8 +3265,8 @@ fn paint_debug_auto_build(options: &Options, state: &State, context: &Rc<web_sys
     return;
   }
 
-  let auto_build_mouse_x = (factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x) * factory.auto_build_phase_progress;
-  let auto_build_mouse_y = (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y) * factory.auto_build_phase_progress;
+  let auto_build_mouse_x = (factory.auto_build.mouse_target_x - factory.auto_build.mouse_offset_x) * factory.auto_build.phase_progress;
+  let auto_build_mouse_y = (factory.auto_build.mouse_target_y - factory.auto_build.mouse_offset_y) * factory.auto_build.phase_progress;
 
   let mut ui_lines = 0.0;
 
@@ -3276,31 +3276,31 @@ fn paint_debug_auto_build(options: &Options, state: &State, context: &Rc<web_sys
   context.stroke_rect(UI_DEBUG_AUTO_BUILD_OFFSET_X, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (UI_DEBUG_AUTO_BUILD_LINE_H * ui_lines), UI_DEBUG_AUTO_BUILD_WIDTH, (UI_DEBUG_AUTO_BUILD_LINES + 1.0) * UI_DEBUG_AUTO_BUILD_LINE_H);
 
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("phase        : {:?} ({})", factory.auto_build_phase, factory.ticks - factory.auto_build_phase_at).as_str(), UI_DEBUG_AUTO_BUILD_OFFSET_X + UI_DEBUG_AUTO_BUILD_SPACING, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (ui_lines * UI_DEBUG_AUTO_BUILD_LINE_H) + UI_DEBUG_AUTO_BUILD_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("phase        : {:?} ({})", factory.auto_build.phase, factory.ticks - factory.auto_build.phase_at).as_str(), UI_DEBUG_AUTO_BUILD_OFFSET_X + UI_DEBUG_AUTO_BUILD_SPACING, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (ui_lines * UI_DEBUG_AUTO_BUILD_LINE_H) + UI_DEBUG_AUTO_BUILD_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("mouse offset : {} x {}", factory.auto_build_mouse_offset_x, factory.auto_build_mouse_offset_y).as_str(), UI_DEBUG_AUTO_BUILD_OFFSET_X + UI_DEBUG_AUTO_BUILD_SPACING, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (ui_lines * UI_DEBUG_AUTO_BUILD_LINE_H) + UI_DEBUG_AUTO_BUILD_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("mouse offset : {} x {}", factory.auto_build.mouse_offset_x, factory.auto_build.mouse_offset_y).as_str(), UI_DEBUG_AUTO_BUILD_OFFSET_X + UI_DEBUG_AUTO_BUILD_SPACING, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (ui_lines * UI_DEBUG_AUTO_BUILD_LINE_H) + UI_DEBUG_AUTO_BUILD_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("mouse target : {} x {}", factory.auto_build_mouse_target_x, factory.auto_build_mouse_target_y).as_str(), UI_DEBUG_AUTO_BUILD_OFFSET_X + UI_DEBUG_AUTO_BUILD_SPACING, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (ui_lines * UI_DEBUG_AUTO_BUILD_LINE_H) + UI_DEBUG_AUTO_BUILD_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("mouse target : {} x {}", factory.auto_build.mouse_target_x, factory.auto_build.mouse_target_y).as_str(), UI_DEBUG_AUTO_BUILD_OFFSET_X + UI_DEBUG_AUTO_BUILD_SPACING, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (ui_lines * UI_DEBUG_AUTO_BUILD_LINE_H) + UI_DEBUG_AUTO_BUILD_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("mouse now    : {} x {}", factory.auto_build_mouse_offset_x + auto_build_mouse_x.floor(), factory.auto_build_mouse_offset_y + auto_build_mouse_y.floor()).as_str(), UI_DEBUG_AUTO_BUILD_OFFSET_X + UI_DEBUG_AUTO_BUILD_SPACING, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (ui_lines * UI_DEBUG_AUTO_BUILD_LINE_H) + UI_DEBUG_AUTO_BUILD_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("mouse now    : {} x {}", factory.auto_build.mouse_offset_x + auto_build_mouse_x.floor(), factory.auto_build.mouse_offset_y + auto_build_mouse_y.floor()).as_str(), UI_DEBUG_AUTO_BUILD_OFFSET_X + UI_DEBUG_AUTO_BUILD_SPACING, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (ui_lines * UI_DEBUG_AUTO_BUILD_LINE_H) + UI_DEBUG_AUTO_BUILD_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("pause        : {} (left: {})", factory.auto_build_phase_pause, factory.auto_build_phase_pause - (factory.ticks - factory.auto_build_phase_at).min(factory.auto_build_phase_pause)).as_str(), UI_DEBUG_AUTO_BUILD_OFFSET_X + UI_DEBUG_AUTO_BUILD_SPACING, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (ui_lines * UI_DEBUG_AUTO_BUILD_LINE_H) + UI_DEBUG_AUTO_BUILD_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("pause        : {} (left: {})", factory.auto_build.phase_pause, factory.auto_build.phase_pause - (factory.ticks - factory.auto_build.phase_at).min(factory.auto_build.phase_pause)).as_str(), UI_DEBUG_AUTO_BUILD_OFFSET_X + UI_DEBUG_AUTO_BUILD_SPACING, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (ui_lines * UI_DEBUG_AUTO_BUILD_LINE_H) + UI_DEBUG_AUTO_BUILD_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("duration     : {} (left: {})", factory.auto_build_phase_duration, factory.auto_build_phase_duration - (factory.ticks - factory.auto_build_phase_pause - factory.auto_build_phase_at).min(factory.auto_build_phase_duration)).as_str(), UI_DEBUG_AUTO_BUILD_OFFSET_X + UI_DEBUG_AUTO_BUILD_SPACING, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (ui_lines * UI_DEBUG_AUTO_BUILD_LINE_H) + UI_DEBUG_AUTO_BUILD_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("duration     : {} (left: {})", factory.auto_build.phase_duration, factory.auto_build.phase_duration - (factory.ticks - factory.auto_build.phase_pause - factory.auto_build.phase_at).min(factory.auto_build.phase_duration)).as_str(), UI_DEBUG_AUTO_BUILD_OFFSET_X + UI_DEBUG_AUTO_BUILD_SPACING, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (ui_lines * UI_DEBUG_AUTO_BUILD_LINE_H) + UI_DEBUG_AUTO_BUILD_FONT_H).expect("something error fill_text");
 
   ui_lines += 1.0;
   context.set_fill_style(&"black".into());
-  context.fill_text(format!("progress     : {}", (factory.auto_build_phase_progress * 100.0).floor() / 100.0).as_str(), UI_DEBUG_AUTO_BUILD_OFFSET_X + UI_DEBUG_AUTO_BUILD_SPACING, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (ui_lines * UI_DEBUG_AUTO_BUILD_LINE_H) + UI_DEBUG_AUTO_BUILD_FONT_H).expect("something error fill_text");
+  context.fill_text(format!("progress     : {}", (factory.auto_build.phase_progress * 100.0).floor() / 100.0).as_str(), UI_DEBUG_AUTO_BUILD_OFFSET_X + UI_DEBUG_AUTO_BUILD_SPACING, UI_DEBUG_AUTO_BUILD_OFFSET_Y + (ui_lines * UI_DEBUG_AUTO_BUILD_LINE_H) + UI_DEBUG_AUTO_BUILD_FONT_H).expect("something error fill_text");
 
   assert_eq!(ui_lines, UI_DEBUG_AUTO_BUILD_LINES, "keep these in sync for simplicity");
 }
@@ -4116,23 +4116,23 @@ fn paint_mouse_cursor(options: &Options, state: &State, config: &Config, factory
 
   let mut x = mouse_state.world_x;
   let mut y = mouse_state.world_y;
-  if factory.auto_build_phase != AutoBuildPhase::None {
+  if factory.auto_build.phase != AutoBuildPhase::None {
     diameter = MOUSE_POINTER_RADIUS_AUTO_BUILD * 2.0;
 
-    let auto_build_mouse_x = (factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x) * factory.auto_build_phase_progress;
-    let auto_build_mouse_y = (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y) * factory.auto_build_phase_progress;
+    let auto_build_mouse_x = (factory.auto_build.mouse_target_x - factory.auto_build.mouse_offset_x) * factory.auto_build.phase_progress;
+    let auto_build_mouse_y = (factory.auto_build.mouse_target_y - factory.auto_build.mouse_offset_y) * factory.auto_build.phase_progress;
 
-    x = factory.auto_build_mouse_offset_x + auto_build_mouse_x.floor();
-    y = factory.auto_build_mouse_offset_y + auto_build_mouse_y.floor();
+    x = factory.auto_build.mouse_offset_x + auto_build_mouse_x.floor();
+    y = factory.auto_build.mouse_offset_y + auto_build_mouse_y.floor();
 
-    match factory.auto_build_phase {
+    match factory.auto_build.phase {
       | AutoBuildPhase::DragTargetPartToMachine
       | AutoBuildPhase::DragInputPartToEdge
       | AutoBuildPhase::DragMachine
       | AutoBuildPhase::TrackToMachine
       | AutoBuildPhase::TrackFromMachine
       => {
-        if factory.ticks - factory.auto_build_phase_at < factory.auto_build_phase_pause {
+        if factory.ticks - factory.auto_build.phase_at < factory.auto_build.phase_pause {
           // Do not show cursor as "pressing" while pausing the phase
           color = "#ffa500cc";
         } else {
@@ -4163,20 +4163,20 @@ fn paint_mouse_cursor(options: &Options, state: &State, config: &Config, factory
   context.fill();
 }
 fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, cell_selection: &CellSelection) {
-  if factory.auto_build_phase != AutoBuildPhase::None {
-    match factory.auto_build_phase {
+  if factory.auto_build.phase != AutoBuildPhase::None {
+    match factory.auto_build.phase {
       | AutoBuildPhase::DragTargetPartToMachine
       | AutoBuildPhase::DragInputPartToEdge
       => {
-        if factory.ticks - factory.auto_build_phase_at < factory.auto_build_phase_pause {
+        if factory.ticks - factory.auto_build.phase_at < factory.auto_build.phase_pause {
           // Do not draw as dragging while paused at the start of a phase
         } else {
-          let auto_build_mouse_x = (factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x) * factory.auto_build_phase_progress;
-          let auto_build_mouse_y = (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y) * factory.auto_build_phase_progress;
-          let x = factory.auto_build_mouse_offset_x + auto_build_mouse_x.floor();
-          let y = factory.auto_build_mouse_offset_y + auto_build_mouse_y.floor();
+          let auto_build_mouse_x = (factory.auto_build.mouse_target_x - factory.auto_build.mouse_offset_x) * factory.auto_build.phase_progress;
+          let auto_build_mouse_y = (factory.auto_build.mouse_target_y - factory.auto_build.mouse_offset_y) * factory.auto_build.phase_progress;
+          let x = factory.auto_build.mouse_offset_x + auto_build_mouse_x.floor();
+          let y = factory.auto_build.mouse_offset_y + auto_build_mouse_y.floor();
 
-          let part_kind = factory.auto_build_machine_draggin_part_kind;
+          let part_kind = factory.auto_build.machine_draggin_part_kind;
           paint_ui_offer_hover_droptarget_hint(options, state, config, context, factory, part_kind);
 
           let len = config.nodes[part_kind].pattern_unique_kinds.len();
@@ -4206,14 +4206,14 @@ fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory
         }
       }
       AutoBuildPhase::DragMachine => {
-        if factory.ticks - factory.auto_build_phase_at < factory.auto_build_phase_pause {
+        if factory.ticks - factory.auto_build.phase_at < factory.auto_build.phase_pause {
           // Do not draw as dragging while paused at the start of a phase
         } else {
-          let auto_build_mouse_x = (factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x) * factory.auto_build_phase_progress;
-          let auto_build_mouse_y = (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y) * factory.auto_build_phase_progress;
-          let x = factory.auto_build_mouse_offset_x + auto_build_mouse_x.floor();
-          let y = factory.auto_build_mouse_offset_y + auto_build_mouse_y.floor();
-          paint_mouse_while_dragging_machine_at_cell(options, state, factory, context, x, y, factory.auto_build_machine_w, factory.auto_build_machine_h);
+          let auto_build_mouse_x = (factory.auto_build.mouse_target_x - factory.auto_build.mouse_offset_x) * factory.auto_build.phase_progress;
+          let auto_build_mouse_y = (factory.auto_build.mouse_target_y - factory.auto_build.mouse_offset_y) * factory.auto_build.phase_progress;
+          let x = factory.auto_build.mouse_offset_x + auto_build_mouse_x.floor();
+          let y = factory.auto_build.mouse_offset_y + auto_build_mouse_y.floor();
+          paint_mouse_while_dragging_machine_at_cell(options, state, factory, context, x, y, factory.auto_build.machine_w, factory.auto_build.machine_h);
         }
       }
       _ => {}
