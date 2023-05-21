@@ -37,10 +37,10 @@ pub enum AutoBuildPhase {
   DragMachine,
   PlaceMachine,
   MoveToTargetPart,
-  DragTargetPart,
+  DragTargetPartToMachine,
   ReleaseTargetPart,
   MoveToInputPart,
-  MoveToEdge,
+  DragInputPartToEdge,
   CreateSupplier,
   TrackToMachineStart,
   TrackToMachine,
@@ -54,6 +54,7 @@ pub enum AutoBuildPhase {
 }
 
 const MOUSE_SPEED_MODIFIER_PX_P_MS: f64 = 0.1;
+pub const MOUSE_POINTER_RADIUS_AUTO_BUILD: f64 = PART_W / 2.0; // radius = half the circle width
 
 const FLOOD_FILL_EMPTY_FRESH: i32 = 900;
 const FLOOD_FILL_EDGE: i32 = 950;
@@ -67,11 +68,11 @@ pub fn auto_build_next_step(options: &Options, state: &State, config: &Config, f
     AutoBuildPhase::PickMachine => factory.auto_build_phase = AutoBuildPhase::DragMachine,
     AutoBuildPhase::DragMachine => factory.auto_build_phase = AutoBuildPhase::PlaceMachine,
     AutoBuildPhase::PlaceMachine => factory.auto_build_phase = AutoBuildPhase::MoveToTargetPart,
-    AutoBuildPhase::MoveToTargetPart => factory.auto_build_phase = AutoBuildPhase::DragTargetPart,
-    AutoBuildPhase::DragTargetPart => factory.auto_build_phase = AutoBuildPhase::ReleaseTargetPart,
+    AutoBuildPhase::MoveToTargetPart => factory.auto_build_phase = AutoBuildPhase::DragTargetPartToMachine,
+    AutoBuildPhase::DragTargetPartToMachine => factory.auto_build_phase = AutoBuildPhase::ReleaseTargetPart,
     AutoBuildPhase::ReleaseTargetPart => factory.auto_build_phase = AutoBuildPhase::MoveToInputPart,
-    AutoBuildPhase::MoveToInputPart => factory.auto_build_phase = AutoBuildPhase::MoveToEdge,
-    AutoBuildPhase::MoveToEdge  => factory.auto_build_phase = AutoBuildPhase::CreateSupplier,
+    AutoBuildPhase::MoveToInputPart => factory.auto_build_phase = AutoBuildPhase::DragInputPartToEdge,
+    AutoBuildPhase::DragInputPartToEdge => factory.auto_build_phase = AutoBuildPhase::CreateSupplier,
     AutoBuildPhase::CreateSupplier => factory.auto_build_phase = AutoBuildPhase::TrackToMachineStart,
     AutoBuildPhase::TrackToMachineStart => factory.auto_build_phase = AutoBuildPhase::TrackToMachine,
     AutoBuildPhase::TrackToMachine => factory.auto_build_phase = AutoBuildPhase::TrackToMachineStep,
@@ -134,8 +135,8 @@ pub fn auto_build_init(options: &Options, state: &State, config: &Config, factor
     AutoBuildPhase::MoveToTargetPart => {
       auto_build_init_move_to_target_part(options, state, config, factory);
     }
-    AutoBuildPhase::DragTargetPart => {
-      auto_build_init_drag_target_part(options, state, config, factory);
+    AutoBuildPhase::DragTargetPartToMachine => {
+      auto_build_init_drag_target_part_to_machine(options, state, config, factory);
     }
     AutoBuildPhase::ReleaseTargetPart => {
       auto_build_init_release_target_part(options, state, config, factory);
@@ -143,8 +144,8 @@ pub fn auto_build_init(options: &Options, state: &State, config: &Config, factor
     AutoBuildPhase::MoveToInputPart => {
       auto_build_init_move_to_input_part(options, state, config, factory);
     }
-    AutoBuildPhase::MoveToEdge => {
-      auto_build_init_move_to_edge(options, state, config, factory);
+    AutoBuildPhase::DragInputPartToEdge => {
+      auto_build_init_drag_input_part_to_edge(options, state, config, factory);
     }
     AutoBuildPhase::CreateSupplier => {
       auto_build_init_create_supplier(options, state, config, factory);
@@ -301,8 +302,8 @@ fn auto_build_init_pick_quest(options: &Options, state: &State, config: &Config,
 
 fn auto_build_init_pick_machine(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
   // Move to the target machine
-  factory.auto_build_mouse_target_x = UI_MENU_MACHINE_BUTTON_2X2_X + factory.auto_build_machine_w as f64 * CELL_W * 0.5;
-  factory.auto_build_mouse_target_y = UI_MENU_MACHINE_BUTTON_2X2_Y + factory.auto_build_machine_h as f64 * CELL_H * 0.5;
+  factory.auto_build_mouse_target_x = UI_MENU_MACHINE_BUTTON_2X2_X + factory.auto_build_machine_w as f64 * CELL_W * 0.5 - MOUSE_POINTER_RADIUS_AUTO_BUILD;
+  factory.auto_build_mouse_target_y = UI_MENU_MACHINE_BUTTON_2X2_Y + factory.auto_build_machine_h as f64 * CELL_H * 0.5 - MOUSE_POINTER_RADIUS_AUTO_BUILD;
 
   // Determine duration based on a desired mouse speed constant
   let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
@@ -342,11 +343,12 @@ fn auto_build_init_move_to_target_part(options: &Options, state: &State, config:
   // Move to it
 
   let part_kind: PartKind = factory.quests[factory.auto_build_quest_index.min(factory.quests.len() - 1)].production_part_kind;
+  factory.auto_build_machine_draggin_part_kind = part_kind;
   let visible_offer_index = part_kind_to_visible_offer_index(config, factory, part_kind).unwrap();
-  let part_xy = get_offer_xy(visible_offer_index);
+  let (offer_x, offer_y) = get_offer_xy(visible_offer_index);
 
-  factory.auto_build_mouse_target_x = part_xy.0 + CELL_W * 0.5;
-  factory.auto_build_mouse_target_y = part_xy.1 + CELL_H * 0.5;
+  factory.auto_build_mouse_target_x = offer_x + UI_OFFER_WIDTH * 0.5 - MOUSE_POINTER_RADIUS_AUTO_BUILD * 0.5;
+  factory.auto_build_mouse_target_y = offer_y + UI_OFFER_WIDTH * 0.5 - MOUSE_POINTER_RADIUS_AUTO_BUILD * 0.5;
 
   // Determine duration based on a desired mouse speed constant
   let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
@@ -357,7 +359,7 @@ fn auto_build_init_move_to_target_part(options: &Options, state: &State, config:
   if options.trace_auto_builder { log!("AutoBuild: Moving from {}x{} to offer {} at {}x{} (distance {} px) in {} ticks", factory.auto_build_mouse_offset_x, factory.auto_build_mouse_offset_y, visible_offer_index, factory.auto_build_mouse_target_x, factory.auto_build_mouse_target_y, distance.floor(), duration.floor()); }
 }
 
-fn auto_build_init_drag_target_part(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+fn auto_build_init_drag_target_part_to_machine(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
   // Move to the machine while dragging that part
   factory.auto_build_mouse_target_x = UI_FLOOR_OFFSET_X + factory.auto_build_machine_x as f64 * CELL_W + factory.auto_build_machine_w as f64 * CELL_W * 0.5;
   factory.auto_build_mouse_target_y = UI_FLOOR_OFFSET_Y + factory.auto_build_machine_y as f64 * CELL_H + factory.auto_build_machine_h as f64 * CELL_H * 0.5;
@@ -409,12 +411,12 @@ fn auto_build_init_move_to_input_part(options: &Options, state: &State, config: 
   }
 
   let input_part_kind = inputs[current_step_index];
-
+  factory.auto_build_machine_draggin_part_kind = input_part_kind;
   let visible_offer_index = part_kind_to_visible_offer_index(config, factory, input_part_kind).unwrap();
-  let part_xy = get_offer_xy(visible_offer_index);
+  let (offer_x, offer_y) = get_offer_xy(visible_offer_index);
 
-  factory.auto_build_mouse_target_x = part_xy.0 + CELL_W * 0.5;
-  factory.auto_build_mouse_target_y = part_xy.1 + CELL_H * 0.5;
+  factory.auto_build_mouse_target_x = offer_x + UI_OFFER_WIDTH * 0.5 - MOUSE_POINTER_RADIUS_AUTO_BUILD * 0.5;
+  factory.auto_build_mouse_target_y = offer_y + UI_OFFER_WIDTH * 0.5 - MOUSE_POINTER_RADIUS_AUTO_BUILD * 0.5;
 
   // Determine duration based on a desired mouse speed constant
   let distance = ((factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x).abs().powf(2.0) + (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y).abs().powf(2.0)).sqrt();
@@ -423,7 +425,7 @@ fn auto_build_init_move_to_input_part(options: &Options, state: &State, config: 
   factory.auto_build_phase_duration = duration as u64;
 }
 
-fn auto_build_init_move_to_edge(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+fn auto_build_init_drag_input_part_to_edge(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
   // Assume we're now at the current input part offer.
   // Find an edge cell with at least one available path to the machine.
   // Move to it and create a demander with this input part

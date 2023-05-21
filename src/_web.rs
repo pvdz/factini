@@ -54,9 +54,7 @@
 //   - prettier auto build button
 //   - disable user while auto build is busy?
 //   - allow to cancel auto build. and to let it run continuously.
-//   - clean up auto build states
 //   - should pick machine suitable for the quest
-//   - sort-of animate cursor (red/green). errors. button press. indicator dot?
 //   - clean die paint_auto_build or throw it away
 //   - move factory autoBuild state into its own state object. and related code as well.
 //   - can we prevent undo/redo stack changes until the end?
@@ -1063,7 +1061,7 @@ fn get_x_while_dragging_offer_machine(cell_x: f64, offer_width: usize) -> f64 {
   let ox = (cell_x + compx).floor() - (offer_width / 2) as f64;
   return ox;
 }
-fn world_y_to_top_left_cell_y_while_dragging_offer_machine(cell_y: f64, offer_height: usize) -> f64 {
+fn get_y_while_dragging_offer_machine(cell_y: f64, offer_height: usize) -> f64 {
   let compy = if offer_height % 2 == 1 { 0.0 } else { 0.5 };
   let oy = (cell_y + compy).floor() - (offer_height / 2) as f64;
   return oy;
@@ -2217,7 +2215,7 @@ fn on_drag_end_machine_over_floor(options: &mut Options, state: &mut State, conf
   // First check eligibility: Would every part of the machine be on a middle cell, not edge?
 
   let cx = get_x_while_dragging_offer_machine(mouse_state.last_up_cell_x, machine_cell_width);
-  let cy = world_y_to_top_left_cell_y_while_dragging_offer_machine(mouse_state.last_up_cell_y, machine_cell_height);
+  let cy = get_y_while_dragging_offer_machine(mouse_state.last_up_cell_y, machine_cell_height);
   // Make sure the entire machine fits, not just the center or topleft cell
   if bounds_check(cx, cy, 1.0, 1.0, FLOOR_CELLS_W as f64 - (machine_cell_width as f64), FLOOR_CELLS_H as f64 - (machine_cell_height as f64)) {
     machine_add_to_factory(options, state, config, factory, cx as usize, cy as usize, machine_cell_width, machine_cell_height);
@@ -4115,30 +4113,46 @@ fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, c
 }
 fn paint_mouse_cursor(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   let mut color = "#ff00ff7f";
+  let mut diameter = PART_W / 2.0;
 
   let mut x = mouse_state.world_x;
   let mut y = mouse_state.world_y;
   if factory.auto_build_phase != AutoBuildPhase::None {
+    diameter = MOUSE_POINTER_RADIUS_AUTO_BUILD * 2.0;
+
     let auto_build_mouse_x = (factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x) * factory.auto_build_phase_progress;
     let auto_build_mouse_y = (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y) * factory.auto_build_phase_progress;
 
     x = factory.auto_build_mouse_offset_x + auto_build_mouse_x.floor();
     y = factory.auto_build_mouse_offset_y + auto_build_mouse_y.floor();
+
     match factory.auto_build_phase {
+      | AutoBuildPhase::DragTargetPartToMachine
+      | AutoBuildPhase::DragInputPartToEdge
       | AutoBuildPhase::DragMachine
-      | AutoBuildPhase::DragTargetPart
       | AutoBuildPhase::TrackToMachine
       | AutoBuildPhase::TrackFromMachine
-      | AutoBuildPhase::MoveToEdge
-      => color = "lightgreen",
-      AutoBuildPhase::Blocked => color = "red",
-      _ => color = "orange",
+      => {
+        if factory.ticks - factory.auto_build_phase_at < factory.auto_build_phase_pause {
+          // Do not show cursor as "pressing" while pausing the phase
+          color = "#ffa500cc";
+        } else {
+          color = "#90ee90cc";
+        }
+      },
+      AutoBuildPhase::Blocked => {
+        // Hard red
+        color = "red";
+      },
+      _ => {
+        color = "#ffa500cc";
+      },
     }
   }
   else if mouse_state.is_down {
     let action = mouse_button_to_action(state, mouse_state);
     if action == Action::Add {
-      color = "lightgreen";
+      color = "#90ee90cc";
     } else {
       color = "tomato";
     }
@@ -4146,11 +4160,67 @@ fn paint_mouse_cursor(options: &Options, state: &State, config: &Config, factory
 
   context.set_fill_style(&color.into()); // Semi transparent circles
   context.begin_path();
-  context.ellipse(x.floor() + 0.5, y.floor() + 0.5, PART_W / 2.0, PART_H / 2.0, 3.14, 0.0, 6.28).expect("to paint a circle");
+  context.ellipse(x.floor() + 0.5, y.floor() + 0.5, diameter, diameter, 3.14, 0.0, 6.28).expect("to paint a circle");
   context.fill();
 }
 fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, cell_selection: &CellSelection) {
-  if mouse_state.craft_dragging_ci {
+  if factory.auto_build_phase != AutoBuildPhase::None {
+    match factory.auto_build_phase {
+      | AutoBuildPhase::DragTargetPartToMachine
+      | AutoBuildPhase::DragInputPartToEdge
+      => {
+        if factory.ticks - factory.auto_build_phase_at < factory.auto_build_phase_pause {
+          // Do not draw as dragging while paused at the start of a phase
+        } else {
+          let auto_build_mouse_x = (factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x) * factory.auto_build_phase_progress;
+          let auto_build_mouse_y = (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y) * factory.auto_build_phase_progress;
+          let x = factory.auto_build_mouse_offset_x + auto_build_mouse_x.floor();
+          let y = factory.auto_build_mouse_offset_y + auto_build_mouse_y.floor();
+
+          let part_kind = factory.auto_build_machine_draggin_part_kind;
+          paint_ui_offer_hover_droptarget_hint(options, state, config, context, factory, part_kind);
+
+          let len = config.nodes[part_kind].pattern_unique_kinds.len();
+          if len > 0 {
+            // Only machines unless debug setting is enabled
+            // When over a machine, preview the pattern over the machine? Or snap the offer to its center?
+
+            // Mouse position determines actual cell that we check
+            let coord = to_coord(x as usize, y as usize);
+            if is_middle(x, y) && factory.floor[coord].kind == CellKind::Machine {
+              // If a craft menu is open and the hover is over a craft then only show it if the machine is
+              // the current selection (dont hint for other machines under the craft menu because it wont work)
+              let main_coord = factory.floor[coord].machine.main_coord;
+              paint_part_and_pattern_at_middle(options, state, config, context, factory, main_coord, part_kind);
+            } else {
+              paint_supply_and_part_not_floor(options, state, config, context, x - ((CELL_W as f64) / 2.0), y - ((CELL_H as f64) / 2.0), part_kind);
+            }
+          }
+          else {
+            // Only edge. No point in dumping into machine, I guess? Maybe as an expensive supply? Who cares?
+            if is_edge_not_corner(x, y) {
+              paint_supply_and_part_for_edge(options, state, config, factory, context, x as usize, y as usize, part_kind);
+            } else {
+              paint_supply_and_part_not_edge(options, state, config, context, x - ((CELL_W as f64) / 2.0), y - ((CELL_H as f64) / 2.0), part_kind);
+            }
+          }
+        }
+      }
+      AutoBuildPhase::DragMachine => {
+        if factory.ticks - factory.auto_build_phase_at < factory.auto_build_phase_pause {
+          // Do not draw as dragging while paused at the start of a phase
+        } else {
+          let auto_build_mouse_x = (factory.auto_build_mouse_target_x - factory.auto_build_mouse_offset_x) * factory.auto_build_phase_progress;
+          let auto_build_mouse_y = (factory.auto_build_mouse_target_y - factory.auto_build_mouse_offset_y) * factory.auto_build_phase_progress;
+          let x = factory.auto_build_mouse_offset_x + auto_build_mouse_x.floor();
+          let y = factory.auto_build_mouse_offset_y + auto_build_mouse_y.floor();
+          paint_mouse_while_dragging_machine_at_cell(options, state, factory, context, x, y, factory.auto_build_machine_w, factory.auto_build_machine_h);
+        }
+      }
+      _ => {}
+    }
+  }
+  else if mouse_state.craft_dragging_ci {
     paint_mouse_dragging_craft_interactable(options, state, config, factory, context, mouse_state, cell_selection);
   }
   else if state.mouse_mode_selecting {
@@ -4175,7 +4245,7 @@ fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory
     paint_mouse_cell_location_on_floor(&context, &factory, &cell_selection, &mouse_state);
     if mouse_state.was_dragging || mouse_state.is_dragging {
       if mouse_state.down_zone == ZONE_CRAFT {
-        // This drag stated in a craft popup so do not show a track preview; we're not doing that.
+        // This drag started in a craft popup so do not show a track preview; we're not doing that.
       }
       else if mouse_state.down_floor_not_corner {
         if mouse_state.last_down_event_type == EventSourceType::Mouse {
@@ -4266,6 +4336,9 @@ fn paint_mouse_while_dragging_machine3x3(options: &Options, state: &State, facto
   paint_mouse_while_dragging_machine(options, state, factory, context, mouse_state, 3, 3);
 }
 fn paint_mouse_while_dragging_machine(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, machine_cells_width: usize, machine_cells_height: usize) {
+  paint_mouse_while_dragging_machine_at_cell(options, state, factory, context, mouse_state.world_x, mouse_state.world_y, machine_cells_width, machine_cells_height);
+}
+fn paint_mouse_while_dragging_machine_at_cell(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, world_x: f64, world_y: f64, machine_cells_width: usize, machine_cells_height: usize) {
   // Paint drop zone over the edge cells
   context.set_fill_style(&"#00004444".into());
 
@@ -4276,8 +4349,8 @@ fn paint_mouse_while_dragging_machine(options: &Options, state: &State, factory:
   context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT - CELL_H, FLOOR_WIDTH - CELL_W, CELL_H);
 
   // Note that mouse cell x is not where the top-left most cell of the machine would be
-  let top_left_machine_cell_x = get_x_while_dragging_offer_machine(mouse_state.cell_x, machine_cells_width);
-  let top_left_machine_cell_y = world_y_to_top_left_cell_y_while_dragging_offer_machine(mouse_state.cell_y, machine_cells_height);
+  let top_left_machine_cell_x = get_x_while_dragging_offer_machine((world_x - UI_FLOOR_OFFSET_X) / CELL_W, machine_cells_width);
+  let top_left_machine_cell_y = get_y_while_dragging_offer_machine((world_y - UI_FLOOR_OFFSET_Y) / CELL_H, machine_cells_height);
 
   // Make sure the entire machine fits, not just the center or topleft cell
   let legal = bounds_check(top_left_machine_cell_x, top_left_machine_cell_y, 1.0, 1.0, FLOOR_CELLS_W as f64 - (machine_cells_width as f64), FLOOR_CELLS_H as f64 - (machine_cells_height as f64));
@@ -4288,8 +4361,8 @@ fn paint_mouse_while_dragging_machine(options: &Options, state: &State, factory:
       ( UI_FLOOR_OFFSET_X + top_left_machine_cell_x.round() * CELL_W, UI_FLOOR_OFFSET_Y + top_left_machine_cell_y.round() * CELL_H )
     } else {
       // Do not snap if machine would cover the edge
-      let ox = mouse_state.world_x - ((machine_cells_width as f64) * (CELL_W as f64) / 2.0 );
-      let oy = mouse_state.world_y - ((machine_cells_height as f64) * (CELL_H as f64) / 2.0 );
+      let ox = world_x - ((machine_cells_width as f64) * (CELL_W as f64) / 2.0 );
+      let oy = world_y - ((machine_cells_height as f64) * (CELL_H as f64) / 2.0 );
       ( ox, oy )
     };
 
@@ -5972,11 +6045,11 @@ fn paint_auto_build(options: &Options, state: &State, config: &Config, factory: 
     AutoBuildPhase::PlaceMachine => {
     }
     AutoBuildPhase::MoveToTargetPart => {}
-    AutoBuildPhase::DragTargetPart => {}
+    AutoBuildPhase::DragTargetPartToMachine => {}
     AutoBuildPhase::ReleaseTargetPart => {
     }
     AutoBuildPhase::MoveToInputPart => {}
-    AutoBuildPhase::MoveToEdge => {
+    AutoBuildPhase::DragInputPartToEdge => {
     }
     AutoBuildPhase::CreateSupplier => {
     }
