@@ -27,6 +27,7 @@ const GAME_OPTIONS = `
 - trace_map_parsing: false
 - print_priority_tile_order: false
 - print_initial_table: false
+- trace_auto_builder: false
 - show_drm: true
 - draw_part_borders: false
 - draw_part_char_icon: false
@@ -72,6 +73,8 @@ const GAME_OPTIONS = `
 - dbg_machine_produce_trash: true
 - dbg_clickable_quotes: true
 - dbg_print_quest_states: false
+- dbg_auto_builder_zero_pause: false
+- dbg_auto_builder_zero_duration: false
 - default_demand_speed: 1000
 - default_demand_cooldown: 0
 - enable_quick_save_menu: true

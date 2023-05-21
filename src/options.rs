@@ -54,6 +54,7 @@ pub struct Options {
   pub trace_map_parsing: bool,
   pub print_priority_tile_order: bool, // Print the prio index of a tile in the game (debug, web)
   pub print_initial_table: bool, // Print the CLI version of the floor after generating it initially?
+  pub trace_auto_builder: bool,
 
   pub show_drm: bool, // Draw media where configNode.drm == true ?
   pub draw_part_borders: bool, // Draw a border around Parts? Helps debugging invisible parts due to sprite problems
@@ -114,6 +115,8 @@ pub struct Options {
   pub dbg_machine_produce_trash: bool, // If a machine trashes a part and expects no inputs, should it output trash instead of discarding it?
   pub dbg_clickable_quests: bool,
   pub dbg_print_quest_states: bool,
+  pub dbg_auto_builder_zero_pause: bool,
+  pub dbg_auto_builder_zero_duration: bool,
 
   pub default_demand_speed: u64,
   pub default_demand_cooldown: u64,
@@ -159,6 +162,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     trace_map_parsing: false,
     print_priority_tile_order: false,
     print_initial_table: false,
+    trace_auto_builder: false,
     show_drm: true,
     draw_part_borders: false,
     draw_part_char_icon: false,
@@ -204,6 +208,9 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     dbg_machine_produce_trash: true,
     dbg_clickable_quests: true,
     dbg_print_quest_states: false,
+    dbg_auto_builder_zero_pause: false,
+    dbg_auto_builder_zero_duration: false,
+
     default_demand_speed: 1000,
     default_demand_cooldown: 500,
     enable_quick_save_menu: true,
@@ -348,6 +355,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "trace_map_parsing" => options.trace_map_parsing = parse_bool(value, name, strict, options.trace_map_parsing, verbose),
             "print_priority_tile_order" => options.print_priority_tile_order = parse_bool(value, name, strict, options.print_priority_tile_order, verbose),
             "print_initial_table" => options.print_initial_table = parse_bool(value, name, strict, options.print_initial_table, verbose),
+            "trace_auto_builder" => options.trace_auto_builder = parse_bool(value, name, strict, options.trace_auto_builder, verbose),
             "show_drm" => options.show_drm = parse_bool(value, name, strict, options.show_drm, verbose),
             "draw_part_borders" => options.draw_part_borders = parse_bool(value, name, strict, options.draw_part_borders, verbose),
             "draw_part_char_icon" => options.draw_part_char_icon = parse_bool(value, name, strict, options.draw_part_char_icon, verbose),
@@ -393,6 +401,8 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "dbg_machine_produce_trash" => options.dbg_machine_produce_trash = parse_bool(value, name, strict, options.dbg_machine_produce_trash, verbose),
             "dbg_clickable_quotes" => options.dbg_clickable_quests = parse_bool(value, name, strict, options.dbg_clickable_quests, verbose),
             "dbg_print_quest_states" => options.dbg_print_quest_states = parse_bool(value, name, strict, options.dbg_print_quest_states, verbose),
+            "dbg_auto_builder_zero_pause" => options.dbg_auto_builder_zero_pause = parse_bool(value, name, strict, options.dbg_auto_builder_zero_pause, verbose),
+            "dbg_auto_builder_zero_duration" => options.dbg_auto_builder_zero_duration = parse_bool(value, name, strict, options.dbg_auto_builder_zero_duration, verbose),
             "default_demand_speed" => options.default_demand_speed = parse_u64(value, name, strict, options.default_demand_speed, verbose),
             "default_demand_cooldown" => options.default_demand_cooldown = parse_u64(value, name, strict, options.default_demand_cooldown, verbose),
             "enable_quick_save_menu" => options.enable_quick_save_menu = parse_bool(value, name, strict, options.enable_quick_save_menu, verbose),
@@ -445,6 +455,7 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- trace_map_parsing: {}", options.trace_map_parsing));
   arr.push(format!("- print_priority_tile_order: {}", options.print_priority_tile_order));
   arr.push(format!("- print_initial_table: {}", options.print_initial_table));
+  arr.push(format!("- trace_auto_builder: {}", options.trace_auto_builder));
   arr.push(format!("- show_drm: {}", options.show_drm));
   arr.push(format!("- draw_part_borders: {}", options.draw_part_borders));
   arr.push(format!("- draw_part_char_icon: {}", options.draw_part_char_icon));
@@ -490,6 +501,8 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- dbg_machine_produce_trash: {}", options.dbg_machine_produce_trash));
   arr.push(format!("- dbg_clickable_quotes: {}", options.dbg_clickable_quests));
   arr.push(format!("- dbg_print_quest_states: {}", options.dbg_print_quest_states));
+  arr.push(format!("- dbg_auto_builder_zero_pause: {}", options.dbg_auto_builder_zero_pause));
+  arr.push(format!("- dbg_auto_builder_zero_duration: {}", options.dbg_auto_builder_zero_duration));
   arr.push(format!("- default_demand_speed: {}", options.default_demand_speed));
   arr.push(format!("- default_demand_cooldown: {}", options.default_demand_cooldown));
   arr.push(format!("- enable_quick_save_menu: {}", options.enable_quick_save_menu));

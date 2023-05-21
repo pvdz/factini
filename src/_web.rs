@@ -52,18 +52,15 @@
 // - auto build
 //   - debug panel always on should be fixed
 //   - prettier button
-//   - animated button? state indicator etc
+//   - animated button? error case
 //   - disable user while auto build is busy?
 //   - allow to cancel auto build. and to let it run continuously.
-//   - add auto build speed option
 //   - clean up auto build states
-//   - clean up auto build output
 //   - should pick machine suitable for the quest
 //   - sort-of animate cursor (red/green). errors. button press. indicator dot?
 //   - clean die paint_auto_build or throw it away
 //   - move factory autoBuild state into its own state object. and related code as well.
 //   - can we prevent undo/redo stack changes until the end?
-//   - add pause option to auto builder rather than separate states
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -1038,7 +1035,7 @@ pub fn start() -> Result<(), JsValue> {
         }
 
         // Over all the UI stuff
-        paint_mouse_cursor(&context, &factory, &mouse_state);
+        paint_mouse_cursor(&options, &state, &config, &factory, &context, &mouse_state);
         // When dragging make sure that stays on top of bouncers
         paint_mouse_action(&options, &state, &config, &factory, &context, &mouse_state, &cell_selection);
 
@@ -2548,10 +2545,7 @@ fn on_up_machine3x3_button() {
 }
 fn on_up_auto_build_button(options: &Options, state: &State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
   log!("on_up_auto_build_button");
-  factory.auto_build_phase = AutoBuildPhase::Startup;
-  factory.auto_build_mouse_offset_x = mouse_state.world_x;
-  factory.auto_build_mouse_offset_y = mouse_state.world_y;
-  auto_build_init(options, state, config, factory);
+  auto_build_start(options, state, config, factory, mouse_state.world_x, mouse_state.world_y);
 }
 
 fn on_drag_start_machine1x2_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
@@ -4115,9 +4109,9 @@ fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, c
     }
   }
 }
-fn paint_mouse_cursor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState) {
-
+fn paint_mouse_cursor(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   let mut color = "#ff00ff7f";
+
   let mut x = mouse_state.world_x;
   let mut y = mouse_state.world_y;
   if factory.auto_build_phase != AutoBuildPhase::None {
@@ -4126,7 +4120,26 @@ fn paint_mouse_cursor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: 
 
     x = factory.auto_build_mouse_offset_x + auto_build_mouse_x.floor();
     y = factory.auto_build_mouse_offset_y + auto_build_mouse_y.floor();
-    color = "orange";
+    if
+      factory.auto_build_phase == AutoBuildPhase::DragMachine ||
+      factory.auto_build_phase == AutoBuildPhase::DragTargetPart ||
+      factory.auto_build_phase == AutoBuildPhase::TrackToMachine ||
+      factory.auto_build_phase == AutoBuildPhase::TrackFromMachine ||
+      factory.auto_build_phase == AutoBuildPhase::MoveToEdge
+    {
+      color = "lightgreen";
+    }
+    else {
+      color = "orange";
+    }
+  }
+  else if mouse_state.is_down {
+    let action = mouse_button_to_action(state, mouse_state);
+    if action == Action::Add {
+      color = "lightgreen";
+    } else {
+      color = "tomato";
+    }
   }
 
   context.set_fill_style(&color.into()); // Semi transparent circles
