@@ -69,7 +69,6 @@ pub struct AutoBuild {
   pub phase_duration: u64,
   pub phase_progress: f64,
   pub phase_pause: u64, // Set and done at the start of a phase
-  pub seed: u64,
   pub quest_visible_index: usize,
   pub quest_index: usize,
   pub target_edge_x: usize,
@@ -102,7 +101,6 @@ pub fn auto_build_create() -> AutoBuild {
     phase_duration: 0,
     phase_progress: 0.0,
     phase_pause: 0,
-    seed: 0,
     quest_visible_index: 0,
     quest_index: 0,
     target_edge_x: 0,
@@ -236,7 +234,6 @@ fn auto_build_init_startup(options: &Options, state: &State, config: &Config, fa
   // mouse_offset_x/y are initialized
   factory.auto_build.phase = AutoBuildPhase::Startup;
   factory.auto_build.phase_at = factory.ticks; // Only for this phase. Assume "next_step" sets it in other phases.
-  factory.auto_build.seed = factory.ticks;
   factory.auto_build.quest_visible_index = 0;
   factory.auto_build.machine_w = 2;
   factory.auto_build.machine_h = 2;
