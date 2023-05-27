@@ -239,14 +239,35 @@ fn auto_build_init_startup(options: &Options, state: &State, config: &Config, fa
   let mut rng = factory.ticks as usize;
   let mut rng_coords = factory.floor.iter().enumerate().map(|(i, _)| i).collect::<Vec<usize>>();
   let len = rng_coords.len();
-  // Randomize the cells. TODO: prioritize by using segments of cell rings etc
-  for i in 0..len {
+  // Randomize the cells
+  // Prioritize the center 3x3
+  let mut rng9 = [126, 127, 128, 143, 144, 145, 160, 161, 162];
+  // Set those coords to 0..9
+  for i in 0..9 {
+    rng_coords[rng9[i]] = i;
+  }
+  // Randomize those coords
+  for i in 0..9 {
     rng = xorshift(rng);
-    let n = rng % len;
+    let n = rng % 9;
+    // swap i and n
+    let t = rng9[i];
+    rng9[i] = rng9[n];
+    rng9[n] = t;
+  }
+  // Swap the first 9 elements of the output list with the rngs
+  for i in 0..9 {
+    rng_coords[i] = rng9[i];
+  }
+  // Now mix the rest, but leave the first 9 alone
+  let len9= len - 9;
+  for i in 9..len9 {
+    rng = xorshift(rng);
+    let n = rng % len9;
     // swap i and n
     let t = rng_coords[i];
-    rng_coords[i] = rng_coords[n];
-    rng_coords[n] = t;
+    rng_coords[i] = rng_coords[9 + n];
+    rng_coords[9 + n] = t;
   }
   if options.trace_auto_builder { log!("The cells: {:?}", rng_coords); }
 
