@@ -4,7 +4,6 @@ use super::belt::*;
 use super::cell::*;
 use super::cli_serialize::*;
 use super::config::*;
-use crate::craft::*;
 use super::direction::*;
 use super::factory::*;
 use super::floor::*;

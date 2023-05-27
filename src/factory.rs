@@ -32,11 +32,12 @@ pub struct Factory {
   pub floor: [Cell; FLOOR_CELLS_WH],
   pub prio: Vec<usize>,
   /**
-   * Current available parts to use as supply or craft in machine.
-   * These are painted in the right hand menu. The bool tells us whether to actually paint it.
+   * Current available parts to use as supply ("atoms") or craft in machine ("woops")
+   * These are painted in the menu. The bool tells us whether to actually paint it.
    * ( icon, available )
    */
-  pub available_parts_rhs_menu: Vec< (PartKind, bool ) >, // Which part and whether the player can use it yet
+  pub available_atoms: Vec< (PartKind, bool ) >, // Which part (with pattern) and whether the player can use it yet
+  pub available_woops: Vec< (PartKind, bool ) >, // Which part (without pattern) and whether the player can use it yet
 
   pub changed: bool, // Was any part of the factory changed since last tick? Resets counters and (p)recomputes tracks.
 
@@ -52,7 +53,7 @@ pub struct Factory {
   pub quest_updated: bool,
   pub parts_in_transit: Vec<(PartKind, f64, f64, u8)>,
 
-  // mouse xy, offer xy, tick start, tick duration
+  // mouse xy, atom or woop xy, tick start, tick duration
   pub edge_hint: (PartKind, (f64, f64), (f64, f64), u64, u64),
 
   // Maze. Each index tells us whether that cell is connected to the up and left, then a visited count, where 255 means dead end. then a "last direction" flag.
@@ -74,8 +75,8 @@ fn dnow() -> u64 {
 
 pub fn create_factory(options: &Options, state: &mut State, config: &Config, floor_str: String) -> Factory {
   let ( floor, unlocked_part_icons ) = floor_from_str(options, state, config, &floor_str);
-  let available_parts: Vec<PartKind> = unlocked_part_icons.iter().map(|icon| part_icon_to_kind(config,*icon)).collect();
-  let available_parts_rhs_menu_before: Vec<(PartKind, bool)> = available_parts.iter().filter(|part| {
+  let available_parts_all: Vec<PartKind> = unlocked_part_icons.iter().map(|icon| part_icon_to_kind(config,*icon)).collect();
+  let available_parts_before: Vec<(PartKind, bool)> = available_parts_all.iter().filter(|part| {
     // Search for this part in the default story (system nodes) and the current active story.
     // If it is part of the node list for either story then include it, otherwise exclude it.
     for (story_index, story) in config.stories.iter().enumerate() {
@@ -87,17 +88,17 @@ pub fn create_factory(options: &Options, state: &mut State, config: &Config, flo
     }
     return false;
   }).map(|kind| ( *kind, true )).collect();
-  let mut available_parts_rhs_menu= available_parts_rhs_menu_before.clone();
-  for (part_kind, _viz) in available_parts_rhs_menu_before.iter() {
+  let mut available_parts_active_story = available_parts_before.clone();
+  for (part_kind, _viz) in available_parts_before.iter() {
     for p2 in &config.nodes[*part_kind].pattern_by_index {
-      if !available_parts_rhs_menu.iter().any(|(p, _v)| *p == *p2) {
-        available_parts_rhs_menu.push((*p2, true));
+      if !available_parts_active_story.iter().any(|(p, _v)| *p == *p2) {
+        available_parts_active_story.push((*p2, true));
       }
     }
   }
-  let quests = get_fresh_quest_states(options, state, config, 0, &available_parts);
-  log!("initial available_parts (all): {:?}", available_parts.iter().map(|index| (index, config.nodes[*index].name.clone())).collect::<Vec<_>>());
-  log!("initial available_parts (active story): {:?}", available_parts_rhs_menu.iter().map(|(index, _)| config.nodes[*index].name.clone()).collect::<Vec<_>>());
+  let quests = get_fresh_quest_states(options, state, config, 0, &available_parts_all);
+  log!("initial available_parts (all): {:?}", available_parts_all.iter().map(|index| (index, config.nodes[*index].name.clone())).collect::<Vec<_>>());
+  log!("initial available_parts (active story): {:?}", available_parts_active_story.iter().map(|(index, _)| config.nodes[*index].name.clone()).collect::<Vec<_>>());
   log!("active story {} nodes: {:?}", state.active_story_index, config.stories[state.active_story_index].part_nodes);
   log!("available quests: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| quest.name.clone()).collect::<Vec<_>>());
   log!("target quest parts: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| config.nodes[quest.production_part_kind].name.clone()).collect::<Vec<_>>());
@@ -108,7 +109,8 @@ pub fn create_factory(options: &Options, state: &mut State, config: &Config, flo
     ticks: 0,
     floor,
     prio: vec!(),
-    available_parts_rhs_menu,
+    available_atoms: available_parts_active_story.iter().filter(|(part, _)| is_atom(config, *part)).map(|(p, b)| (*p, *b)).collect::<Vec<(PartKind, bool)>>(),
+    available_woops: available_parts_active_story.iter().filter(|(part, _)| is_woop(config, *part)).map(|(p, b)| (*p, *b)).collect::<Vec<(PartKind, bool)>>(),
     changed: true,
     machines: vec!(),
     supplied: 0,
@@ -476,17 +478,22 @@ pub fn factory_load_map(options: &mut Options, state: &mut State, config: &Confi
       return false;
     })
     .collect();
-  let available_parts_rhs_menu_before: Vec<(PartKind,bool)> = available_parts.iter().map(|kind| (*kind, true)).collect();
-  let mut available_parts_rhs_menu = available_parts_rhs_menu_before.clone();
-  for (part_kind, _viz) in available_parts_rhs_menu_before.iter() {
+  let available_parts_before: Vec<(PartKind, bool)> = available_parts.iter().map(|kind| (*kind, true)).collect();
+  let mut available_parts_after = available_parts_before.clone();
+  for (part_kind, _viz) in available_parts_before.iter() {
     for p2 in &config.nodes[*part_kind].pattern_by_index {
-      if !available_parts_rhs_menu.iter().any(|(p, _v)| *p == *p2) {
-        available_parts_rhs_menu.push((*p2, true));
+      if !available_parts_after.iter().any(|(p, _v)| *p == *p2) {
+        available_parts_after.push((*p2, true));
       }
     }
   }
-  factory.available_parts_rhs_menu = available_parts_rhs_menu;
-  log!("available_parts_rhs_menu (1): {:?}", factory.available_parts_rhs_menu);
+
+  log!("available_parts_before (1): {:?}", available_parts_before);
+  log!("available_parts_after (1): {:?}", available_parts_after);
+  factory.available_atoms = available_parts_after.iter().filter(|(part, _)| is_atom(config, *part)).map(|(p, _)| (*p, true)).collect::<Vec<(PartKind, bool)>>();
+  log!("available_atoms: {:?}", factory.available_atoms);
+  factory.available_woops = available_parts_after.iter().filter(|(part, _)| is_woop(config, *part)).map(|(p, _)| (*p, true)).collect::<Vec<(PartKind, bool)>>();
+  log!("available_woops: {:?}", factory.available_woops);
   factory.quests = get_fresh_quest_states(options, state, config, factory.ticks, &available_parts);
   factory.quest_updated = true;
   log!("new current_active_quests: {:?}", factory.quests.iter().map(|quest| config.nodes[quest.config_node_index as usize].name.clone()).collect::<Vec<String>>().join(", "));
@@ -566,22 +573,26 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
                 for i in 0..config.nodes[factory.quests[quest_unlock_search_index].config_node_index].production_target_by_index.len() {
                   let part = config.nodes[factory.quests[quest_unlock_search_index].config_node_index].production_target_by_index[i].1;
                   // Confirm the part isn't already unlocked before starting the process to unlock it
-                  if !factory.available_parts_rhs_menu.iter().any(|p| {
-                    return part == p.0
-                  }) && !new_parts.iter().any(|&p| {
-                    p as usize == part as usize
-                  }) {
+                  if
+                    (
+                      (is_atom(config, part) && !factory.available_atoms.iter().any(|(p, b)| *p == part)) ||
+                      (is_woop(config, part) && !factory.available_woops.iter().any(|(p, b)| *p == part))
+                    ) &&
+                    !new_parts.iter().any(|&p| { p as usize == part as usize })
+                  {
                     new_parts.push(part);
                     // Resolve and add their components to the unlocks
                     let pattern = &config.nodes[part].pattern_unique_kinds;
                     for i in 0..pattern.len() {
                       let part = pattern[i];
                       // Confirm the part isn't already unlocked before starting the process to unlock it
-                      if !factory.available_parts_rhs_menu.iter().any(|p| {
-                        return part == p.0
-                      }) && !new_parts.iter().any(|&p| {
-                        p as usize == part as usize
-                      }) {
+                      if
+                        (
+                          (is_atom(config, part) && !factory.available_atoms.iter().any(|(p, b)| *p == part)) ||
+                            (is_woop(config, part) && !factory.available_woops.iter().any(|(p, b)| *p == part))
+                        ) &&
+                        !new_parts.iter().any(|&p| { p as usize == part as usize })
+                      {
                         new_parts.push(part);
                         // We don't also resolve this (we could) and instead rely on quest structure to never need to do this ...
                       }
@@ -592,11 +603,13 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
                 for i in 0..config.nodes[factory.quests[quest_unlock_search_index].config_node_index].starting_part_by_index.len() {
                   let part = config.nodes[factory.quests[quest_unlock_search_index].config_node_index].starting_part_by_index[i];
                   // Confirm the part isn't already unlocked before starting the process to unlock it
-                  if !factory.available_parts_rhs_menu.iter().any(|p| {
-                    return part == p.0 as usize
-                  }) && !new_parts.iter().any(|&p| {
-                    return p as usize == part as usize
-                  }) {
+                  if
+                    (
+                      (is_atom(config, part) && !factory.available_atoms.iter().any(|(p, b)| *p == part)) ||
+                      (is_woop(config, part) && !factory.available_woops.iter().any(|(p, b)| *p == part))
+                    ) &&
+                    !new_parts.iter().any(|&p| { p as usize == part as usize })
+                  {
                     new_parts.push(part);
                   }
                 }
@@ -611,16 +624,21 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
 
         // We now have a set of available quests and any starting parts that they enabled.
         // Let's create quotes and trucks for them and add them to the lists.
-        new_parts.iter().enumerate().for_each(|(index, &part_kind)| {
-          log!("Adding truck {} for {}", index, part_kind);
+        new_parts.iter().enumerate().for_each(|(index, &new_part_kind)| {
+          log!("Adding truck {} for {}", index, new_part_kind);
           factory.trucks.push(truck_create(
             factory.ticks,
             (((index + 1) as f64 * ONE_SECOND as f64) * options.speed_modifier_floor) as u64,
-            part_kind,
-            factory.available_parts_rhs_menu.len(),
+            new_part_kind,
+            if is_atom(config, new_part_kind) { factory.available_atoms.len() } else { factory.available_woops.len() },
+            is_woop(config, new_part_kind)
           ));
           // Add the part as a placeholder. Do not paint it yet. The truck will drive there first.
-          factory.available_parts_rhs_menu.push( (part_kind, false ) );
+          if is_atom(config, new_part_kind) {
+            factory.available_atoms.push( (new_part_kind, false ) );
+          } else {
+            factory.available_woops.push( (new_part_kind, false ) );
+          }
         });
       }
     }

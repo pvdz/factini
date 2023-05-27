@@ -5,7 +5,6 @@ use super::canvas::*;
 use super::cell::*;
 use super::cli_serialize::*;
 use super::config::*;
-use super::craft::*;
 use super::direction::*;
 use super::factory::*;
 use super::floor::*;

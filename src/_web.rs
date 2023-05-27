@@ -84,7 +84,6 @@ use super::cell::*;
 use super::canvas::*;
 use super::cli_serialize::*;
 use super::config::*;
-use super::craft::*;
 use super::direction::*;
 use super::factory::*;
 use super::floor::*;
@@ -595,7 +594,7 @@ pub fn start() -> Result<(), JsValue> {
       is_dragging: false,
       is_drag_start: false,
 
-      over_floor_area: false,
+      over_floor_zone: false,
       over_floor_not_corner: false,
       down_floor_area: false,
       down_floor_not_corner: false,
@@ -614,43 +613,27 @@ pub fn start() -> Result<(), JsValue> {
       help_hover: false,
       help_down: false,
 
-      offer_down: false,
-      offer_down_offer_index: 0,
-      offer_hover: false,
-      offer_hover_offer_index: 0,
-      offer_selected: false,
-      offer_selected_index: 0, // Offer index, not part index
-      dragging_offer: false,
+      // woop: previously named "offer". But I don't have a proper short word for this. So it's woop now.
+      woop_down: false,
+      woop_down_woop_index: 0,
+      woop_hover: false,
+      woop_hover_woop_index: 0,
+      woop_selected: false,
+      woop_selected_index: 0, // woop index, not part index
+      dragging_woop: false,
+
+      atom_down: false,
+      atom_down_atom_index: 0,
+      atom_hover: false,
+      atom_hover_atom_index: 0,
+      atom_selected: false,
+      atom_selected_index: 0, // Atom index, not part index
+      dragging_atom: false,
+
       dragging_machine1x2: false,
       dragging_machine2x1: false,
       dragging_machine2x2: false,
       dragging_machine3x3: false,
-
-      craft_over_ci: CraftInteractable::None,
-      craft_over_ci_wx: 0.0,
-      craft_over_ci_wy: 0.0,
-      craft_over_ci_ww: 0.0,
-      craft_over_ci_wh: 0.0,
-      craft_over_ci_icon: '#',
-      craft_over_ci_index: 99, // <99 means circle button index. >99 means machine cell index -100.
-      craft_over_ci_part_kind: CONFIG_NODE_PART_NONE,
-      craft_down_ci: CraftInteractable::None,
-      craft_down_ci_wx: 0.0,
-      craft_down_ci_wy: 0.0,
-      craft_down_ci_ww: 0.0,
-      craft_down_ci_wh: 0.0,
-      craft_down_ci_icon: '#',
-      craft_down_ci_part_kind: CONFIG_NODE_PART_NONE,
-      craft_down_ci_index: 99, // <99 means circle button index. >99 means machine cell index -100.
-      craft_up_ci: CraftInteractable::None,
-      craft_up_ci_wx: 0.0,
-      craft_up_ci_wy: 0.0,
-      craft_up_ci_ww: 0.0,
-      craft_up_ci_wh: 0.0,
-      craft_up_ci_icon: '#',
-      craft_up_ci_index: 99, // <99 means circle button index. >99 means machine cell index -100.
-      craft_up_ci_part_kind: CONFIG_NODE_PART_NONE,
-      craft_dragging_ci: false,
 
       was_dragging: false,
       is_up: false,
@@ -990,7 +973,8 @@ pub fn start() -> Result<(), JsValue> {
         // paint_top_stats(&context, &mut factory);
         paint_corner_help_icon(&options, &state, &config, &factory, &context, mouse_state.help_hover, mouse_state.over_menu_button == MenuButton::AutoBuildButton);
         paint_quests(&options, &state, &config, &context, &factory, &mouse_state);
-        let highlight_index = paint_offers(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
+        paint_atoms(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
+        let highlight_index = paint_woops(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
         paint_lasers(&options, &mut state, &config, &context);
         paint_trucks(&options, &state, &config, &context, &mut factory);
         paint_ui_time_control(&options, &state, &context, &mouse_state);
@@ -1003,7 +987,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_port_arrows(&options, &state, &config, &context, &factory);
         paint_belt_dbg_id(&options, &state, &config, &context, &factory);
         paint_machine_craft_menu(&options, &state, &config, &context, &factory, &cell_selection, &mouse_state);
-        paint_ui_offer_hover_droptarget_hint_conditionally(&options, &state, &config, &context, &mut factory, &mouse_state, &cell_selection);
+        paint_ui_atom_woop_hover_droptarget_hint_conditionally(&options, &state, &config, &context, &mut factory, &mouse_state, &cell_selection);
         paint_debug_app(&options, &state, &context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
         paint_debug_auto_build(&options, &state, &context, &factory, &mouse_state);
         paint_debug_selected_belt_cell(&context, &factory, &cell_selection, &mouse_state);
@@ -1028,9 +1012,9 @@ pub fn start() -> Result<(), JsValue> {
         // Paint 3x3 machine button now so bouncers go behind it
         paint_machine3x3(&options, &state, &config, &factory, &context, &mouse_state);
 
-        // Paint offer tooltip above bouncers and trucks, but under mouse cursor
+        // Paint woop tooltip above bouncers and trucks, but under mouse cursor
         if highlight_index > 0 {
-          paint_ui_offer_tooltip(&options, &state, &config, &factory, &context, highlight_index - 1);
+          paint_ui_woop_tooltip(&options, &state, &config, &factory, &context, highlight_index - 1);
         }
 
         // Over all the UI stuff
@@ -1053,7 +1037,6 @@ pub fn start() -> Result<(), JsValue> {
 }
 
 fn get_x_while_dragging_offer_machine(cell_x: f64, offer_width: usize) -> f64 {
-  // Abstracted this to make sure the preview and actual action use the same computation
   let compx = if offer_width % 2 == 1 { 0.0 } else { 0.5 };
   let ox = (cell_x + compx).floor() - (offer_width / 2) as f64;
   return ox;
@@ -1088,15 +1071,15 @@ fn update_mouse_state(
   mouse_state.is_drag_start = false;
   if mouse_state.is_up { // Note: this was the state in the previous frame
     mouse_state.down_zone = Zone::None;
-    mouse_state.craft_down_ci = CraftInteractable::None;
-    mouse_state.craft_dragging_ci = false;
-    mouse_state.offer_down = false;
+    mouse_state.atom_down = false;
+    mouse_state.woop_down = false;
     mouse_state.help_down = false;
     mouse_state.is_down = false;
     mouse_state.down_floor_not_corner = false;
     mouse_state.down_menu_button = MenuButton::None;
     mouse_state.up_menu_button = MenuButton::None;
-    mouse_state.dragging_offer = false;
+    mouse_state.dragging_atom = false;
+    mouse_state.dragging_woop = false;
     mouse_state.dragging_machine1x2 = false;
     mouse_state.dragging_machine2x1 = false;
     mouse_state.dragging_machine2x2 = false;
@@ -1110,7 +1093,8 @@ fn update_mouse_state(
   mouse_state.is_up = false;
   mouse_state.was_up = false;
   mouse_state.was_dragging = false;
-  mouse_state.offer_hover = false;
+  mouse_state.atom_hover = false;
+  mouse_state.woop_hover = false;
   mouse_state.over_quest = false;
   mouse_state.over_menu_button = MenuButton::None;
   mouse_state.help_hover = false;
@@ -1120,8 +1104,6 @@ fn update_mouse_state(
   mouse_state.over_zone = Zone::None;
 
   mouse_state.over_floor_not_corner = false;
-  mouse_state.craft_over_ci = CraftInteractable::None;
-  mouse_state.craft_up_ci = CraftInteractable::None;
 
   // Mouse coords
   // Note: mouse2world coord is determined by _css_ size, not _canvas_ size
@@ -1140,23 +1122,6 @@ fn update_mouse_state(
   match mouse_state.over_zone {
     Zone::None => panic!("cant be over on no zone"),
     ZONE_MANUAL => {} // popup
-    ZONE_CRAFT => {
-      if options.enable_craft_menu_interact {
-        if !mouse_state.is_dragging {
-          let ( what, wx, wy, ww, wh, icon, part_kind, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.world_x, mouse_state.world_y);
-          mouse_state.craft_over_ci = what;
-          mouse_state.craft_over_ci_wx = wx;
-          mouse_state.craft_over_ci_wy = wy;
-          mouse_state.craft_over_ci_wx = ww;
-          mouse_state.craft_over_ci_wy = wh;
-          mouse_state.craft_over_ci_icon = icon;
-          mouse_state.craft_over_ci_part_kind = part_kind;
-          mouse_state.craft_over_ci_index = craft_index;
-        }
-      } else {
-        log!("Mouse over on craft is ignored because options.enable_craft_menu_interact = false")
-      }
-    }
     ZONE_QUOTES => {
       mouse_state.over_quest =
         mouse_state.world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUEST_WIDTH &&
@@ -1211,7 +1176,7 @@ fn update_mouse_state(
       }
     }
     ZONE_FLOOR => {
-      mouse_state.over_floor_area = true;
+      mouse_state.over_floor_zone = true;
       mouse_state.over_floor_not_corner =
         // Over floor cells
         mouse_state.cell_x >= 0.0 && mouse_state.cell_x < (FLOOR_CELLS_W as f64) && mouse_state.cell_y >= 0.0 && mouse_state.cell_y < (FLOOR_CELLS_H as f64) &&
@@ -1235,18 +1200,31 @@ fn update_mouse_state(
         // the big machine button
         mouse_state.over_menu_button = MenuButton::Machine3x3Button;
       }
+      else if !mouse_state.is_dragging {
+        // Check if atom is hit
+        // When already dragging do not update atom visual state, do not record the "over" state at all
+        // When dragging an atom, the atom_down_atom_index will be set to the initial atom index (keep it!)
+        let (atom_hover, atom_hover_atom_index) = hit_test_atoms(factory, mouse_state.world_x, mouse_state.world_y);
+        if atom_hover {
+          // Do not consider atoms that are not visible / interactive to be hoverable either
+          if factory.available_atoms[atom_hover_atom_index].1 {
+            mouse_state.atom_hover = true;
+            mouse_state.atom_hover_atom_index = atom_hover_atom_index;
+          }
+        }
+      }
     }
     Zone::BottomBottom => {}
-    ZONE_OFFERS => {
+    Zone::Right => {
       if !mouse_state.is_dragging {
-        // When already dragging do not update offer visual state, do not record the "over" state at all
-        // When dragging an offer, the offer_down_offer_index will be set to the initial offer index (keep it!)
-        let (offer_hover, offer_hover_offer_index) = hit_test_offers(factory, mouse_state.world_x, mouse_state.world_y);
-        if offer_hover {
-          // Do not consider offers that are not visible / interactive to be hoverable either
-          if factory.available_parts_rhs_menu[offer_hover_offer_index].1 {
-            mouse_state.offer_hover = true;
-            mouse_state.offer_hover_offer_index = offer_hover_offer_index;
+        // When already dragging do not update woop visual state, do not record the "over" state at all
+        // When dragging a woop, the woop_down_woop_index will be set to the initial woop index (keep it!)
+        let (woop_hover, woop_hover_woop_index) = hit_test_woops(factory, mouse_state.world_x, mouse_state.world_y);
+        if woop_hover {
+          // Do not consider woops that are not visible / interactive to be hoverable either
+          if factory.available_woops[woop_hover_woop_index].1 {
+            mouse_state.woop_hover = true;
+            mouse_state.woop_hover_woop_index = woop_hover_woop_index;
           }
         }
       }
@@ -1278,28 +1256,6 @@ fn update_mouse_state(
 
     match mouse_state.down_zone {
       Zone::None => panic!("cant be down on no zone"),
-      ZONE_CRAFT => {
-        if options.enable_craft_menu_interact {
-          let ( what, wx, wy, ww, wh, icon, part_kind, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_down_world_x, mouse_state.last_down_world_y);
-          log!("down inside craft selection -> {:?} {:?} {} at craft index {}", what, part_kind, config.nodes[part_kind].raw_name, craft_index);
-          if part_kind == CONFIG_NODE_PART_NONE {
-            log!("  started dragging from an empty input, ignoring...");
-            mouse_state.craft_down_ci = CraftInteractable::None;
-          } else {
-            log!("  started dragging from a {:?}", what);
-            mouse_state.craft_down_ci = what;
-            mouse_state.craft_down_ci_wx = wx;
-            mouse_state.craft_down_ci_wy = wy;
-            mouse_state.craft_down_ci_wx = ww;
-            mouse_state.craft_down_ci_wy = wh;
-            mouse_state.craft_down_ci_icon = icon;
-            mouse_state.craft_down_ci_part_kind = part_kind;
-            mouse_state.craft_down_ci_index = craft_index;
-          }
-        } else {
-          log!("down on craft is ignored because options.enable_craft_menu_interact = false")
-        }
-      }
       ZONE_MANUAL => {} // popup
       ZONE_QUOTES => {
         mouse_state.down_quest =
@@ -1390,16 +1346,19 @@ fn update_mouse_state(
         else if hit_test_machine3x3_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
           // the big machine button
           mouse_state.down_menu_button = MenuButton::Machine3x3Button;
+        } else if mouse_state.atom_hover {
+          mouse_state.atom_down = true;
+          mouse_state.atom_down_atom_index = mouse_state.atom_hover_atom_index;
         } else {
           log!("Ignored down event in bottom");
         }
         log!("Bottom menu button down: {:?}", mouse_state.down_menu_button);
       }
       Zone::BottomBottom => {}
-      ZONE_OFFERS => {
-        if mouse_state.offer_hover {
-          mouse_state.offer_down = true;
-          mouse_state.offer_down_offer_index = mouse_state.offer_hover_offer_index;
+      Zone::Right => {
+        if mouse_state.woop_hover {
+          mouse_state.woop_down = true;
+          mouse_state.woop_down_woop_index = mouse_state.woop_hover_woop_index;
         }
       }
       Zone::BottomRight => {}
@@ -1420,24 +1379,9 @@ fn update_mouse_state(
     mouse_state.is_dragging = true;
 
     match mouse_state.down_zone {
-      ZONE_CRAFT => {
-        if options.enable_craft_menu_interact {
-          // Prevent any other interaction to the floor regardless of whether an interactable was hit
-          if mouse_state.craft_down_ci != CraftInteractable::None && mouse_state.craft_down_ci != CraftInteractable::BackClose {
-            log!("drag start, craft interactable; {}-{} and {}-{}; dragging a {} at index {}", mouse_state.last_down_world_x, mouse_state.world_x, mouse_state.last_down_world_y, mouse_state.world_y, mouse_state.craft_down_ci_part_kind, mouse_state.craft_down_ci_index);
-            mouse_state.craft_dragging_ci = true;
-          }
-          else {
-            log!("drag start, craft, but not interactable; ignoring");
-          }
-        } else {
-          log!("drag start on craft is ignored because options.enable_craft_menu_interact = false")
-        }
-      }
       ZONE_FLOOR => {
         let is_machine_selected = cell_selection.on && factory.floor[cell_selection.coord].kind == CellKind::Machine;
         if is_machine_selected {
-          log!("Closing craft menu because drag start on floor");
           cell_selection.on = false;
         }
       }
@@ -1472,26 +1416,6 @@ fn update_mouse_state(
 
     match mouse_state.up_zone {
       Zone::None => panic!("cant be up on no zone"),
-      ZONE_CRAFT => {
-        let ( what, wx, wy, ww, wh, icon, part_kind, craft_index) = hit_test_get_craft_interactable_machine_at(options, state, factory, cell_selection, mouse_state.last_up_world_x, mouse_state.last_up_world_y);
-        if mouse_state.is_dragging {
-          log!("up / drag end inside craft selection -> {:?} -> dropping {} ({:?})", what, mouse_state.craft_down_ci_part_kind, config.nodes[mouse_state.craft_down_ci_part_kind].raw_name);
-        } else {
-          log!("up inside craft selection -> {:?}", what);
-        }
-        if mouse_state.is_dragging || options.enable_craft_menu_interact {
-          mouse_state.craft_up_ci = what;
-          mouse_state.craft_up_ci_wx = wx;
-          mouse_state.craft_up_ci_wy = wy;
-          mouse_state.craft_up_ci_wx = ww;
-          mouse_state.craft_up_ci_wy = wh;
-          mouse_state.craft_up_ci_icon = icon;
-          mouse_state.craft_up_ci_part_kind = part_kind;
-          mouse_state.craft_up_ci_index = craft_index;
-        } else {
-          log!("up non-drag on craft is ignored because options.enable_craft_menu_interact = false");
-        }
-      }
       ZONE_MANUAL => {} // the popup
       ZONE_QUOTES => {
         mouse_state.up_quote =
@@ -1580,7 +1504,7 @@ fn update_mouse_state(
         log!("Bottom menu button up: {:?}", mouse_state.up_menu_button);
       }
       Zone::BottomBottom => {}
-      ZONE_OFFERS => {}
+      Zone::Right => {}
       Zone::BottomRight => {}
       Zone::BottomBottomRight => {}
       Zone::Margin => {}
@@ -1601,16 +1525,9 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
 
   if mouse_state.is_drag_start {
     match mouse_state.down_zone {
-      ZONE_CRAFT => {
-        if options.enable_craft_menu_interact {
-          on_drag_start_craft(options, state, config, factory, mouse_state, cell_selection);
-        } else {
-          log!("ignoring drag start on craft menu");
-        }
-      }
-      ZONE_OFFERS => {
-        if mouse_state.offer_down {
-          on_drag_start_offer(options, state, config, factory, mouse_state, cell_selection);
+      Zone::Right => {
+        if mouse_state.woop_down {
+          on_drag_start_woop(options, state, config, factory, mouse_state, cell_selection);
         }
       }
       Zone::Bottom => {
@@ -1625,6 +1542,8 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         }
         else if mouse_state.down_menu_button == MenuButton::Machine3x3Button {
           on_drag_start_machine3x3_button(options, state, config, mouse_state, cell_selection);
+        } else if mouse_state.atom_down {
+          on_drag_start_atom(options, state, config, factory, mouse_state, cell_selection);
         }
       }
       _ => {}
@@ -1663,17 +1582,12 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
 
     if mouse_state.was_dragging {
       match mouse_state.up_zone {
-        ZONE_CRAFT => {
-          if mouse_state.dragging_offer {
-            on_drag_end_offer_over_craft(options, state, config, factory, mouse_state, cell_selection);
-          }
-          else {
-            on_drag_end_craft(options, state, config, factory, cell_selection, mouse_state);
-          }
-        }
         ZONE_FLOOR => {
-          if mouse_state.dragging_offer {
-            on_drag_end_offer_over_floor(options, state, config, factory, mouse_state, cell_selection);
+          if mouse_state.dragging_atom {
+            on_drag_end_atom_over_floor(options, state, config, factory, mouse_state, cell_selection);
+          }
+          else if mouse_state.dragging_woop {
+            on_drag_end_woop_over_floor(options, state, config, factory, mouse_state, cell_selection);
           }
           else if mouse_state.down_menu_button == MenuButton::Machine1x2Button {
             if mouse_state.dragging_machine1x2 {
@@ -1703,9 +1617,6 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
               log!("drag end 3x3 on floor but was not dragging 3x3?");
             }
           }
-          else if mouse_state.down_zone == ZONE_CRAFT {
-            on_drag_end_craft_over_floor(options, state, config, factory, cell_selection, mouse_state);
-          }
           else {
             on_drag_end_floor(options, state, config, factory, cell_selection, mouse_state);
           }
@@ -1728,12 +1639,14 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
           // For options etc
           on_up_menu(cell_selection, mouse_state, options, state, config, factory);
         }
-        ZONE_CRAFT => {
-          on_up_craft(options, state, config, factory, cell_selection, mouse_state);
+        Zone::Bottom => {
+          if mouse_state.atom_down {
+            on_up_atom(options, state, config, factory, mouse_state);
+          }
         }
-        ZONE_OFFERS => {
-          if mouse_state.offer_down {
-            on_up_offer(options, state, config, factory, mouse_state);
+        Zone::Right => {
+          if mouse_state.woop_down {
+            on_up_woop(options, state, config, factory, mouse_state);
           }
         }
         ZONE_QUOTES => {
@@ -1836,37 +1749,70 @@ fn on_drag_end_floor(options: &mut Options, state: &mut State, config: &Config, 
   // Is the mouse currently on the floor?
   on_drag_end_floor_other(options, state, config, factory, cell_selection, mouse_state);
 }
-fn on_drag_start_offer(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
-  // Is that offer visible / interactive yet?
-  if factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].1 {
-    // Need to remember which offer we are currently dragging (-> offer_down_offer_index).
-    log!("is_drag_start from offer {} ({:?})", mouse_state.offer_down_offer_index, factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0);
-    mouse_state.dragging_offer = true;
+fn on_drag_start_atom(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
+  // Is that atom visible / interactive yet?
+  if factory.available_atoms[mouse_state.atom_down_atom_index].1 {
+    // Need to remember which atom we are currently dragging (-> atom_down_atom_index).
+    log!("is_drag_start from atom {} ({:?})", mouse_state.atom_down_atom_index, factory.available_atoms[mouse_state.atom_down_atom_index].0);
+    mouse_state.dragging_atom = true;
     state.mouse_mode_selecting = false;
-
     log!("not closing machine while dragging atomic part");
   }
 }
-fn on_up_offer(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
-  log!("on_up_offer({} -> {})", mouse_state.offer_down_offer_index, mouse_state.offer_hover_offer_index);
+fn on_drag_start_woop(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
+  // Is that woop visible / interactive yet?
+  if factory.available_woops[mouse_state.woop_down_woop_index].1 {
+    // Need to remember which woop we are currently dragging (-> woop_down_woop_index).
+    log!("is_drag_start from woop {} ({:?})", mouse_state.woop_down_woop_index, factory.available_woops[mouse_state.woop_down_woop_index].0);
+    mouse_state.dragging_woop = true;
+    state.mouse_mode_selecting = false;
+    log!("not closing machine while dragging atomic part");
+  }
+}
+fn on_up_atom(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
+  log!("on_up_atom({} -> {})", mouse_state.atom_down_atom_index, mouse_state.atom_hover_atom_index);
 
-  let ( _part_kind, visible ) = factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index];
+  let ( _part_kind, visible ) = factory.available_atoms[mouse_state.atom_down_atom_index];
   if !visible {
-    // Invisible offers are not interactive
+    // Invisible atoms are not interactive
     return;
   }
-  if mouse_state.offer_down_offer_index != mouse_state.offer_hover_offer_index {
-    // Did not pointer up on the same offer as we did the pointer down
+  if mouse_state.atom_down_atom_index != mouse_state.atom_hover_atom_index {
+    // Did not pointer up on the same atom as we did the pointer down
     return;
   }
 
-  if mouse_state.offer_selected && mouse_state.offer_selected_index == mouse_state.offer_hover_offer_index {
-    log!("Deselecting offer {}", mouse_state.offer_hover_offer_index);
-    mouse_state.offer_selected = false;
+  if mouse_state.atom_selected && mouse_state.atom_selected_index == mouse_state.atom_hover_atom_index {
+    log!("Deselecting atom {}", mouse_state.atom_hover_atom_index);
+    mouse_state.atom_selected = false;
   } else {
-    log!("Selecting offer {}", mouse_state.offer_hover_offer_index);
-    mouse_state.offer_selected = true;
-    mouse_state.offer_selected_index = mouse_state.offer_hover_offer_index;
+    log!("Selecting atom {}", mouse_state.atom_hover_atom_index);
+    mouse_state.woop_selected = false;
+    mouse_state.atom_selected = true;
+    mouse_state.atom_selected_index = mouse_state.atom_hover_atom_index;
+  }
+}
+fn on_up_woop(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
+  log!("on_up_woopwoop({} -> {})", mouse_state.woop_down_woop_index, mouse_state.woop_hover_woop_index);
+
+  let ( _part_kind, visible ) = factory.available_woops[mouse_state.woop_down_woop_index];
+  if !visible {
+    // Invisible woops are not interactive
+    return;
+  }
+  if mouse_state.woop_down_woop_index != mouse_state.woop_hover_woop_index {
+    // Did not pointer up on the same woop as we did the pointer down
+    return;
+  }
+
+  if mouse_state.woop_selected && mouse_state.woop_selected_index == mouse_state.woop_hover_woop_index {
+    log!("Deselecting woop {}", mouse_state.woop_hover_woop_index);
+    mouse_state.woop_selected = false;
+  } else {
+    log!("Selecting woop {}", mouse_state.woop_hover_woop_index);
+    mouse_state.atom_selected = false;
+    mouse_state.woop_selected = true;
+    mouse_state.woop_selected_index = mouse_state.woop_hover_woop_index;
   }
 }
 fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
@@ -1916,14 +1862,14 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
       // For suppliers we will cycle rather than toggle.
       // For anything else we will toggle the selection.
       if factory.floor[coord].kind == CellKind::Supply {
-
-        let len = factory.available_parts_rhs_menu.len();
+        // Let's assume that we only place atoms in the edge
+        let len = factory.available_atoms.len();
         // - Find the index of the current part
         // - Loop through available parts to find next part
         let current_part = factory.floor[coord].supply.gives.kind;
         let mut current_index = 0;
         for i in 0..len {
-          if factory.available_parts_rhs_menu[i].1 && factory.available_parts_rhs_menu[i].0 == current_part {
+          if factory.available_atoms[i].1 && factory.available_atoms[i].0 == current_part {
             current_index = i;
             break;
           }
@@ -1932,8 +1878,8 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
         for i in 1..len {
           // First check if the part is actually visible in menu
           let new_index = (current_index + i) % len;
-          if factory.available_parts_rhs_menu[new_index].1 {
-            let t_part = factory.available_parts_rhs_menu[new_index].0;
+          if factory.available_atoms[new_index].1 {
+            let t_part = factory.available_atoms[new_index].0;
             if config.nodes[t_part].pattern_unique_kinds.len() == 0 {
               new_part = t_part;
               break;
@@ -1953,21 +1899,21 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
         log!("Clicked on empty edge. Not selecting it. Removing current selection. Showing user edge drag hint.");
         cell_selection.on = false;
 
-        // - find the first visible unlocked part that has no pattern
-        // - find the coord of its offer
+        // - find the first visible unlocked part that has no pattern (an atom)
+        // - find the coord of its atom offer
         // - record the current mouse coordinate
         // - record the start time and compute the time it should take to move to the current coordinate
-        // - every frame while the animation is active, paint a shadow of the offer at the progress
+        // - every frame while the animation is active, paint a shadow of the atom at the progress
 
         // Find the first craftable part config node index
         let mut part_kind = CONFIG_NODE_PART_NONE;
-        let mut offer_index = 0;
-        factory.available_parts_rhs_menu.iter().enumerate().any(|(i, (kind, visible))| {
+        let mut atom_index = 0;
+        factory.available_atoms.iter().enumerate().any(|(i, (kind, visible))| {
           if !visible { return false; }
 
           if config.nodes[*kind].pattern_unique_kinds.len() == 0 {
             part_kind = *kind;
-            offer_index = i;
+            atom_index = i;
             return true;
           }
           return false;
@@ -1976,7 +1922,7 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
         factory.edge_hint = (
           part_kind,
           (UI_FLOOR_OFFSET_X + last_mouse_up_cell_x * CELL_W, UI_FLOOR_OFFSET_Y + last_mouse_up_cell_y * CELL_H),
-          get_offer_xy(offer_index),
+          get_atom_xy(atom_index),
           factory.ticks,
           2 * (ONE_SECOND as f64 * options.speed_modifier_ui) as u64
         );
@@ -2163,34 +2109,6 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
     quick_saves[mouse_state.up_save_map_index] = Some(quick_save_create(mouse_state.up_save_map_index, &document, map_snapshot, png));
   }
 }
-fn on_up_craft(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
-  log!("on_up_craft()");
-
-  log!("Clicked in the selection bubble of a machine");
-  // Figure out whether any of the interactables were clicked
-
-  match mouse_state.craft_up_ci {
-    CraftInteractable::BackClose => {
-      log!("Clicked the close button");
-      cell_selection.on = false;
-    }
-    CraftInteractable::Resource => {
-      log!("Clicked a resource: {}", mouse_state.craft_up_ci_icon);
-    }
-    CraftInteractable::InputCell => {
-      log!("Clicked an input cell: {}", mouse_state.craft_up_ci_icon);
-
-      // Force-clear this cell of the machine
-      machine_change_want_kind(options, state, config, factory, factory.floor[cell_selection.coord].machine.main_coord, mouse_state.craft_up_ci_index as usize - 100, CONFIG_NODE_PART_NONE);
-    }
-    CraftInteractable::None => {
-      log!("Clicked inside selection craft menu but not on an interactable; ignoring");
-    }
-  }
-}
-fn on_drag_end_craft_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
-  log!("on_drag_end_craft_over_floor() dropping a craft icon on the floor does nothing, action ignored.");
-}
 fn on_drag_end_machine1x2_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
   on_drag_end_machine_over_floor(options, state, config, factory, mouse_state, 1, 2);
 }
@@ -2220,65 +2138,41 @@ fn on_drag_end_machine_over_floor(options: &mut Options, state: &mut State, conf
     log!("Dropped a machine on the edge. Ignoring. {} {}", mouse_state.last_up_cell_x, mouse_state.last_up_cell_y);
   }
 }
-fn on_drag_end_offer_over_craft(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState, cell_selection: &CellSelection) {
-  log!("on_drag_end_offer_over_craft()");
-
-  let dragged_part_kind = factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0;
-
-  let coord = to_coord(mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize);
-  let main_coord = factory.floor[coord].machine.main_coord;
-  // Figure out whether it was dropped on the machine itself and if it was the selected machine
-  if factory.floor[coord].kind == CellKind::Machine && factory.floor[cell_selection.coord].machine.main_coord == main_coord {
-    if config.nodes[dragged_part_kind].pattern_unique_kinds.len() > 0 {
-      log!("Dropped an offer _with_ pattern on a machine");
-      if factory.floor[factory.floor[coord].machine.main_coord].machine.wants.len() < config.nodes[dragged_part_kind].pattern_unique_kinds.len() {
-        log!("- Machine can hold {} but pattern requires {} parts, not updating machine.", factory.floor[factory.floor[coord].machine.main_coord].machine.wants.len(), config.nodes[dragged_part_kind].pattern_unique_kinds.len());
-      }
-      else {
-        log!("- Update the machine!");
-
-        log!("Dropped an offer with pattern in the middle on a craft menu. Update the machine!");
-        for i in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
-          let part_kind = config.nodes[dragged_part_kind].pattern_by_index.get(i).unwrap_or(&CONFIG_NODE_PART_NONE);
-          machine_change_want_kind(options, state, config, factory, main_coord, i, *part_kind);
-          // Make sure the haves are cleared as well
-          factory.floor[main_coord].machine.haves[i] = part_none(config);
-        }
-      }
-    }
-    else if options.enable_craft_menu_circle {
-      log!("Dropped an offer without pattern in the middle on a craft menu. Update the machine!");
-      // Add dragged offer pattern to machine want list. We know the actual cell. Clobber it with
-      // the part of the dragged offer.
-
-      assert!(mouse_state.craft_up_ci_index > 99, "This should now be the machine index + 100");
-
-      // Get the machine index and blitz them
-      let target_cell_index = (mouse_state.craft_up_ci_index - 100) as usize;
-
-      machine_change_want_kind(options, state, config, factory, main_coord, target_cell_index, dragged_part_kind);
-      // Make sure the haves are cleared as well
-      factory.floor[main_coord].machine.haves[target_cell_index] = part_none(config);
-    }
-    else {
-      log!("Ignoring drop of offer without pattern because options.enable_craft_menu_circle = false");
-    }
-  } else {
-    log!("Dropped an offer in the middle on a craft menu but not on the machine. Ignoring...");
-  }
-}
-fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState, cell_selection: &mut CellSelection) {
-  log!("on_drag_end_offer_over_floor()");
+fn on_drag_end_atom_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState, cell_selection: &mut CellSelection) {
+  log!("on_drag_end_atom_over_floor()");
 
   let last_mouse_up_cell_x = mouse_state.last_up_cell_x.floor();
   let last_mouse_up_cell_y = mouse_state.last_up_cell_y.floor();
   let last_mouse_up_cell_coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
 
-  let dragged_part_kind = factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0;
+  let dragged_part_kind = factory.available_atoms[mouse_state.atom_down_atom_index].0;
 
   if is_edge_not_corner(last_mouse_up_cell_x, last_mouse_up_cell_y) {
-    log!("Dropped a supply on an edge cell that is not corner. Deploying... {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
-    log!("Drag started from offer {} ({:?})", mouse_state.offer_down_offer_index, dragged_part_kind);
+    log!("Dropped an atom as supply on an edge cell that is not corner. Deploying... {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
+    log!("Drag started from atom {} ({:?})", mouse_state.atom_down_atom_index, dragged_part_kind);
+
+    set_edge_to_part(options, state, config, factory, last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, dragged_part_kind);
+  }
+  else if is_middle(last_mouse_up_cell_x, last_mouse_up_cell_y) {
+    // There's currently no reason to drop atoms on machines
+    log!("Dropped an atom in the middle of the floor. Ignoring");
+  }
+  else {
+    log!("Dropped an atom on an edge corner. Ignoring");
+  }
+}
+fn on_drag_end_woop_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState, cell_selection: &mut CellSelection) {
+  log!("on_drag_end_woop_over_floor()");
+
+  let last_mouse_up_cell_x = mouse_state.last_up_cell_x.floor();
+  let last_mouse_up_cell_y = mouse_state.last_up_cell_y.floor();
+  let last_mouse_up_cell_coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
+
+  let dragged_part_kind = factory.available_woops[mouse_state.woop_down_woop_index].0;
+
+  if is_edge_not_corner(last_mouse_up_cell_x, last_mouse_up_cell_y) {
+    log!("Dropped a woop on an edge. That should be illegal! (TODO)"); // TODO: make this illegal or under option
+    log!("Drag started from woop {} ({:?})", mouse_state.woop_down_woop_index, dragged_part_kind);
 
     set_edge_to_part(options, state, config, factory, last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, dragged_part_kind);
   }
@@ -2286,36 +2180,32 @@ fn on_drag_end_offer_over_floor(options: &mut Options, state: &mut State, config
     // Figure out whether it was dropped on a machine
     if factory.floor[last_mouse_up_cell_coord].kind == CellKind::Machine {
       let main_coord = factory.floor[last_mouse_up_cell_coord].machine.main_coord;
-      if config.nodes[dragged_part_kind].pattern_unique_kinds.len() > 0 {
-        log!("Dropped an offer _with_ pattern on a machine");
-        if factory.floor[factory.floor[last_mouse_up_cell_coord].machine.main_coord].machine.wants.len() < config.nodes[dragged_part_kind].pattern_unique_kinds.len() {
-          log!("- Machine can hold {} but pattern requires {} parts, not updating machine.", factory.floor[factory.floor[main_coord].machine.main_coord].machine.wants.len(), config.nodes[dragged_part_kind].pattern_unique_kinds.len());
-        }
-        else {
-          log!("- Update the machine!");
-          // Update machine to the pattern of the dragged part
-          for want_index in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
-            let part_kind = config.nodes[dragged_part_kind].pattern_by_index.get(want_index).unwrap_or(&CONFIG_NODE_PART_NONE);
-            machine_change_want_kind(options, state, config, factory, main_coord, want_index, *part_kind);
-            // Make sure the haves are cleared as well
-            factory.floor[main_coord].machine.haves[want_index] = part_none(config);
-          }
-          cell_selection.on = true;
-          cell_selection.area = false;
-          cell_selection.x = last_mouse_up_cell_x;
-          cell_selection.y = last_mouse_up_cell_y;
-          cell_selection.coord = last_mouse_up_cell_coord;
-        }
+      assert!(config.nodes[dragged_part_kind].pattern_unique_kinds.len() > 0, "woops should have patterns, by definition");
+      log!("Dropped a woop on a machine");
+      if factory.floor[factory.floor[last_mouse_up_cell_coord].machine.main_coord].machine.wants.len() < config.nodes[dragged_part_kind].pattern_unique_kinds.len() {
+        log!("- Machine can hold {} but pattern requires {} parts, not updating machine.", factory.floor[factory.floor[main_coord].machine.main_coord].machine.wants.len(), config.nodes[dragged_part_kind].pattern_unique_kinds.len());
       }
       else {
-        log!("Dropped an offer without pattern on a machine. Ignoring.");
+        log!("- Update the machine!");
+        // Update machine to the pattern of the dragged part
+        for want_index in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
+          let part_kind = config.nodes[dragged_part_kind].pattern_by_index.get(want_index).unwrap_or(&CONFIG_NODE_PART_NONE);
+          machine_change_want_kind(options, state, config, factory, main_coord, want_index, *part_kind);
+          // Make sure the haves are cleared as well
+          factory.floor[main_coord].machine.haves[want_index] = part_none(config);
+        }
+        cell_selection.on = true;
+        cell_selection.area = false;
+        cell_selection.x = last_mouse_up_cell_x;
+        cell_selection.y = last_mouse_up_cell_y;
+        cell_selection.coord = last_mouse_up_cell_coord;
       }
     } else {
-      log!("Dropped an offer in the floor but not on a machine. Ignoring...");
+      log!("Dropped a woop in the floor but not on a machine. Ignoring...");
     }
   }
   else {
-    log!("Dropped a supply offer ({:?}) without pattern on the floor but not machine, or a supply offer on a corner. Ignoring. {} {}", dragged_part_kind, last_mouse_up_cell_x, last_mouse_up_cell_y);
+    log!("Dropped a woop on the corner of the edge. Ignoring...");
   }
 }
 fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
@@ -2554,7 +2444,8 @@ fn on_drag_start_machine1x2_button(options: &mut Options, state: &mut State, con
   mouse_state.dragging_machine2x2 = false;
   mouse_state.dragging_machine3x3 = false;
   state.mouse_mode_selecting = false;
-  mouse_state.offer_selected = false;
+  mouse_state.atom_selected = false;
+  mouse_state.woop_selected = false;
   cell_selection.on = false;
 }
 fn on_drag_start_machine2x1_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
@@ -2564,7 +2455,8 @@ fn on_drag_start_machine2x1_button(options: &mut Options, state: &mut State, con
   mouse_state.dragging_machine2x2 = true;
   mouse_state.dragging_machine3x3 = false;
   state.mouse_mode_selecting = false;
-  mouse_state.offer_selected = false;
+  mouse_state.atom_selected = false;
+  mouse_state.woop_selected = false;
   cell_selection.on = false;
 }
 fn on_drag_start_machine2x2_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
@@ -2574,7 +2466,8 @@ fn on_drag_start_machine2x2_button(options: &mut Options, state: &mut State, con
   mouse_state.dragging_machine2x2 = true;
   mouse_state.dragging_machine3x3 = false;
   state.mouse_mode_selecting = false;
-  mouse_state.offer_selected = false;
+  mouse_state.atom_selected = false;
+  mouse_state.woop_selected = false;
   cell_selection.on = false;
 }
 fn on_drag_start_machine3x3_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
@@ -2584,7 +2477,8 @@ fn on_drag_start_machine3x3_button(options: &mut Options, state: &mut State, con
   mouse_state.dragging_machine2x2 = false;
   mouse_state.dragging_machine3x3 = true;
   state.mouse_mode_selecting = false;
-  mouse_state.offer_selected = false;
+  mouse_state.atom_selected = false;
+  mouse_state.woop_selected = false;
   cell_selection.on = false;
 }
 fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
@@ -2780,7 +2674,7 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
     MenuButton::Row3Button4 => {
       log!("Clearing the unlock status so you can start again");
       let available_parts = config_get_initial_unlocks(options, state, config);
-      factory.available_parts_rhs_menu = available_parts.iter().map(|icon| ( part_icon_to_kind(config,*icon), true ) ).filter(|(part, _visible)| {
+      let all_available_in_this_story = available_parts.iter().map(|icon| ( part_icon_to_kind(config,*icon), true ) ).filter(|(part, _visible)| {
         // Search for this part in the default story (system nodes) and the current active story.
         // If it is part of the node list for either story then include it, otherwise exclude it.
         for (story_index, story) in config.stories.iter().enumerate() {
@@ -2791,9 +2685,11 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
           }
         }
         return false;
-      }).collect();
+      }).collect::<Vec<_>>();
+      factory.available_atoms = all_available_in_this_story.iter().filter(|(part, _)| is_atom(config, *part)).map(|(p,b)|(*p,*b)).collect::<Vec<_>>();
+      factory.available_woops = all_available_in_this_story.iter().filter(|(part, _)| is_woop(config, *part)).map(|(p,b)|(*p,*b)).collect::<Vec<_>>();
       factory.trucks = vec!();
-      factory.quests = get_fresh_quest_states(options, state, config, 0, &factory.available_parts_rhs_menu.iter().map(|(kind, _visible)| *kind).collect());
+      factory.quests = get_fresh_quest_states(options, state, config, 0, &all_available_in_this_story.iter().map(|(kind, _visible)| *kind).collect());
       factory.quest_updated = true;
       factory.changed = true;
     }
@@ -2806,45 +2702,6 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
   }
 }
 
-fn on_down_craft_menu() {
-
-}
-fn on_drag_start_craft(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState, cell_selection: &CellSelection) {
-  log!("is_drag_start from craft popup (before erase/selection check); kind={:?}", mouse_state.craft_down_ci_part_kind);
-
-  // If this was dragging from a machine cell, clear that machine input at this index
-  if mouse_state.craft_down_ci == CraftInteractable::InputCell {
-    let selected_main_coord = factory.floor[cell_selection.coord].machine.main_coord;
-    let index = mouse_state.craft_down_ci_index as usize - 100;
-    log!("Clearing input @{} from machine @{} because drag start; has {} wants and {} haves", index, selected_main_coord, factory.floor[selected_main_coord].machine.wants.len(), factory.floor[selected_main_coord].machine.haves.len());
-
-    machine_change_want_kind(options, state, config, factory, selected_main_coord, index, CONFIG_NODE_PART_NONE);
-    // Make sure the haves are cleared as well
-    factory.floor[selected_main_coord].machine.haves[index] = part_none(config);
-  }
-}
-fn on_drag_end_craft(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
-  log!("on_drag_end_craft()");
-
-  // If this was dragging from a machine cell or resource button and dropped on a machine
-  // cell then set that machine cell. Otherwise ignore it. This may cause an input to stay clear
-  if mouse_state.craft_down_ci == CraftInteractable::InputCell || mouse_state.craft_down_ci == CraftInteractable::Resource {
-    if mouse_state.craft_up_ci == CraftInteractable::InputCell {
-      let selected_main_coord = factory.floor[cell_selection.coord].machine.main_coord;
-      let index = mouse_state.craft_up_ci_index as usize - 100;
-      log!("Setting input @{} from machine @{} because drag start; has {} wants and {} haves", index, selected_main_coord, factory.floor[selected_main_coord].machine.wants.len(), factory.floor[selected_main_coord].machine.haves.len());
-      machine_change_want_kind(options, state, config, factory, selected_main_coord, index, mouse_state.craft_down_ci_part_kind);
-      // Clear the haves to make sure it doesn't contain an incompatible part now
-      factory.floor[selected_main_coord].machine.haves[index] = part_from_part_kind(config, mouse_state.craft_down_ci_part_kind);
-    }
-    else {
-      log!("  Did not end on an input cell, ignoring");
-    }
-  }
-  else {
-    log!("  Did not start dragging from an input cell or resource, ignoring");
-  }
-}
 fn on_up_selecting(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
   log!("mouse up on floor with selection mode enabled...");
   if mouse_state.down_zone == ZONE_FLOOR {
@@ -2944,102 +2801,56 @@ fn hit_test_menu_buttons(x: f64, y: f64) -> MenuButton {
     MenuButton::None
   }
 }
-fn hit_test_get_craft_interactable_machine_at(options: &Options, state: &State, factory: &Factory, cell_selection: &CellSelection, mwx: f64, mwy: f64) -> ( CraftInteractable, f64, f64, f64, f64, char, PartKind, u8 ) {
-  // Figure out whether any of the interactables were clicked
 
-  let selected_coord = cell_selection.coord;
-  assert!(factory.floor[selected_coord].kind == CellKind::Machine, "should be checked earlier");
-
-  // Each cell consolidates much of its information into the main coord, the top-left cell
-  let selected_main_coord = factory.floor[selected_coord].machine.main_coord;
-  let (selected_main_x, selected_main_y) = to_xy(selected_main_coord);
-
-  let machine_wx = UI_FLOOR_OFFSET_X + (selected_main_x as f64) * CELL_W;
-  let machine_wy = UI_FLOOR_OFFSET_Y + (selected_main_y as f64) * CELL_H;
-
-  let machine_cw = factory.floor[selected_main_coord].machine.cell_width as f64;
-  let machine_ch = factory.floor[selected_main_coord].machine.cell_height as f64;
-  let machine_ww = machine_cw * CELL_W;
-  let machine_wh = machine_ch * CELL_H;
-
-  // Find the center of the machine because .arc() requires the center x,y
-  let ( center_wx, center_wy, cr ) = get_machine_selection_circle_params(factory, selected_main_coord);
-
-  if mwx >= machine_wx && mwx < machine_wx + machine_ww && mwy >= machine_wy && mwy < machine_wy + machine_wh {
-    // log!("testing {} {} {}", machine_wy, mwy, ((machine_wy - mwy) / CELL_H));
-    // Bit of a hack but we convert the in-machine coordinate to a linear index and set the icon to that number.
-    let index = ((((mwy - machine_wy) / CELL_H).floor() * machine_cw) + ((mwx - machine_wx) / CELL_W).floor()) as usize;
-
-    // Clicked inside machine. Determine cell and delete it.
-    // log!("Clicked on a cell of the actual machine. Now determine the input cell and clear it. (TODO)");
-    return ( CraftInteractable::InputCell, machine_wx, machine_wy, CELL_W, CELL_H, factory.floor[selected_main_coord].machine.wants[index].icon, factory.floor[selected_main_coord].machine.wants[index].kind, 100 + (index as u8) );
-  }
-
-  // Minimal distance of painting interactbles is the distance from the center to the furthest
-  // angle (any machine corner) plus a small buffer. a^2+b^2=c^2
-  // This radius determines the distance from the center of the circle to the _center_ of the cell.
-  let minr = ((center_wx - machine_wx).powf(2.0) + (center_wy - machine_wy).powf(2.0)).powf(0.5) + 30.0;
-
-  // The back/close button should always be under the machine, centered. Same size (one cell).
-  let close_wx = center_wx - CELL_W / 2.0;
-  let close_wy = center_wy + minr - CELL_H / 2.0;
-  if bounds_check(mwx, mwy, close_wx, close_wy, close_wx + CELL_W, close_wy + CELL_H) {
-    // log!("Clicked the back/close button. (TODO)");
-    return ( CraftInteractable::BackClose, close_wx, close_wy, CELL_W, CELL_H, '#', CONFIG_NODE_PART_NONE, 99 );
-  }
-
-  // Actual number of seen inputs
-  let len = factory.floor[selected_main_coord].machine.last_received.len();
-  // Make sure that we always show something. If there aren't any elements, show trash as the only icon.
-  let count = len.max(1);
-
-  let angle_step = 5.5 - (count as f64 / 2.0).ceil() + (0.5 * ((count % 2) as f64));
-  for i in 0..count {
-    let r = hit_test_get_craft_interactable_machine_at_index(angle_step, minr, center_wx, center_wy, mwx, mwy, i, if len == 0 { 't' } else { factory.floor[selected_main_coord].machine.last_received[i].0.icon }, if len == 0 { CONFIG_NODE_PART_TRASH } else { factory.floor[selected_main_coord].machine.last_received[i].0.kind });
-    if let Some(x) = r {
-      return x;
-    }
-  }
-
-  // log!("Clicked inside machine circle but did not hit any interactables");
-  return ( CraftInteractable::None, 0.0, 0.0, 0.0, 0.0, '#', CONFIG_NODE_PART_NONE, 99 );
-}
-fn hit_test_get_craft_interactable_machine_at_index(angle_step: f64, minr: f64, center_wx: f64, center_wy: f64, mwx: f64, mwy: f64, craft_index: usize, icon: char, part_part: PartKind) -> Option< (CraftInteractable, f64, f64, f64, f64, char, PartKind, u8 ) > {
-  let angle: f64 = (angle_step + craft_index as f64) * 0.1 * std::f64::consts::TAU;
-
-  // TODO: could pre-compute these coords per factory and read the coords from a vec
-  let btn_c_wx = angle.sin() * minr;
-  let btn_c_wy = angle.cos() * minr;
-  let wx = center_wx + btn_c_wx - CELL_W / 2.0;
-  let wy = center_wy + btn_c_wy - CELL_H / 2.0;
-
-  if bounds_check(mwx, mwy, wx, wy, wx + CELL_W, wy + CELL_H) {
-    // log!("Clicked resource box {}. (TODO)", i);
-    return Some( ( CraftInteractable::Resource, btn_c_wx, btn_c_wy, CELL_W, CELL_H, icon, part_part, craft_index as u8 ) );
-  }
-
-  return None;
-}
-
-fn hit_test_offers(factory: &Factory, mx: f64, my: f64) -> (bool, usize ) {
-  if bounds_check(mx, my, UI_OFFERS_OFFSET_X, UI_OFFERS_OFFSET_Y, UI_OFFERS_OFFSET_X + UI_OFFER_WIDTH_PLUS_MARGIN * UI_OFFERS_PER_ROW, UI_OFFERS_OFFSET_Y + UI_OFFER_HEIGHT_PLUS_MARGIN * (factory.available_parts_rhs_menu.len() as f64 / UI_OFFERS_PER_ROW).ceil()) {
-    let inside_offer_and_margin_x = (mx - UI_OFFERS_OFFSET_X) / UI_OFFER_WIDTH_PLUS_MARGIN;
-    if (mx - UI_OFFERS_OFFSET_X) - (inside_offer_and_margin_x.floor() * UI_OFFER_WIDTH_PLUS_MARGIN) > UI_OFFER_WIDTH {
+fn hit_test_atoms(factory: &Factory, mx: f64, my: f64) -> (bool, usize) {
+  if bounds_check(mx, my, UI_ATOMS_OFFSET_X, UI_ATOMS_OFFSET_Y, UI_ATOMS_OFFSET_X + UI_WOTOM_WIDTH_PLUS_MARGIN * UI_ATOMS_PER_ROW, UI_ATOMS_OFFSET_Y + UI_WOTOM_HEIGHT_PLUS_MARGIN * (factory.available_atoms.len() as f64 / UI_ATOMS_PER_ROW).ceil()) {
+    let inside_atom_and_margin_x = (mx - UI_ATOMS_OFFSET_X) / UI_WOTOM_WIDTH_PLUS_MARGIN;
+    if (mx - UI_ATOMS_OFFSET_X) - (inside_atom_and_margin_x.floor() * UI_WOTOM_WIDTH_PLUS_MARGIN) > UI_WOTOM_WIDTH {
       // In the horizontal margin. Miss.
       return ( false, 0 );
     }
-    let inside_offer_and_margin_y = (my - UI_OFFERS_OFFSET_Y) / UI_OFFER_HEIGHT_PLUS_MARGIN;
-    if (my - UI_OFFERS_OFFSET_Y) - (inside_offer_and_margin_y.floor() * UI_OFFER_HEIGHT_PLUS_MARGIN) > UI_OFFER_HEIGHT {
+    let inside_atom_and_margin_y = (my - UI_ATOMS_OFFSET_Y) / UI_WOTOM_HEIGHT_PLUS_MARGIN;
+    if (my - UI_ATOMS_OFFSET_Y) - (inside_atom_and_margin_y.floor() * UI_WOTOM_HEIGHT_PLUS_MARGIN) > UI_WOTOM_HEIGHT {
       // In the vertical margin. Miss.
       return ( false, 0 );
     }
 
-    let inside_offer_and_margin_index = (inside_offer_and_margin_x.floor() + inside_offer_and_margin_y.floor() * UI_OFFERS_PER_ROW) as usize;
+    let inside_atom_and_margin_index = (inside_atom_and_margin_x.floor() + inside_atom_and_margin_y.floor() * UI_ATOMS_PER_ROW) as usize;
 
     let mut count = 0;
-    for i in 0..factory.available_parts_rhs_menu.len() {
-      if factory.available_parts_rhs_menu[i].1 {
-        if count == inside_offer_and_margin_index {
+    for i in 0..factory.available_atoms.len() {
+      if factory.available_atoms[i].1 {
+        if count == inside_atom_and_margin_index {
+          return ( true, i );
+        }
+        count += 1;
+      }
+    }
+
+    return ( false, 0 );
+  } else {
+    return ( false, 0 );
+  };
+}
+fn hit_test_woops(factory: &Factory, mx: f64, my: f64) -> (bool, usize) {
+  if bounds_check(mx, my, UI_WOOPS_OFFSET_X, UI_WOOPS_OFFSET_Y, UI_WOOPS_OFFSET_X + UI_WOTOM_WIDTH_PLUS_MARGIN * UI_WOOPS_PER_ROW, UI_WOOPS_OFFSET_Y + UI_WOTOM_HEIGHT_PLUS_MARGIN * (factory.available_woops.len() as f64 / UI_WOOPS_PER_ROW).ceil()) {
+    let inside_woop_and_margin_x = (mx - UI_WOOPS_OFFSET_X) / UI_WOTOM_WIDTH_PLUS_MARGIN;
+    if (mx - UI_WOOPS_OFFSET_X) - (inside_woop_and_margin_x.floor() * UI_WOTOM_WIDTH_PLUS_MARGIN) > UI_WOTOM_WIDTH {
+      // In the horizontal margin. Miss.
+      return ( false, 0 );
+    }
+    let inside_woop_and_margin_y = (my - UI_WOOPS_OFFSET_Y) / UI_WOTOM_HEIGHT_PLUS_MARGIN;
+    if (my - UI_WOOPS_OFFSET_Y) - (inside_woop_and_margin_y.floor() * UI_WOTOM_HEIGHT_PLUS_MARGIN) > UI_WOTOM_HEIGHT {
+      // In the vertical margin. Miss.
+      return ( false, 0 );
+    }
+
+    let inside_woop_and_margin_index = (inside_woop_and_margin_x.floor() + inside_woop_and_margin_y.floor() * UI_WOOPS_PER_ROW) as usize;
+
+    let mut count = 0;
+    for i in 0..factory.available_woops.len() {
+      if factory.available_woops[i].1 {
+        if count == inside_woop_and_margin_index {
           return ( true, i );
         }
         count += 1;
@@ -3079,6 +2890,65 @@ fn hit_check_speed_bubble_x(x: f64, y: f64, index: usize) -> bool {
   );
 }
 
+fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
+
+  let hover_coord = to_coord(mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize);
+  let hovering = mouse_state.over_floor_not_corner && factory.floor[hover_coord].kind == CellKind::Machine;
+  let selected_coord = cell_selection.coord;
+  let show = hovering || (state.mouse_mode_selecting && cell_selection.on && factory.floor[selected_coord].kind == CellKind::Machine);
+
+  if !show {
+    return;
+  }
+
+  let focus_coord = if hovering { hover_coord } else { selected_coord };
+  let main_coord = factory.floor[focus_coord].machine.main_coord;
+  let (main_x, main_y) = to_xy(main_coord);
+  let main_wx = UI_FLOOR_OFFSET_X + (main_x as f64) * CELL_W;
+  let main_wy = UI_FLOOR_OFFSET_Y + (main_y as f64) * CELL_H;
+
+  // Find the center of the machine because .arc() requires the center x,y
+  let machine_cw = factory.floor[main_coord].machine.cell_width as f64;
+  let machine_ch = factory.floor[main_coord].machine.cell_height as f64;
+  let machine_ww = machine_cw * CELL_W;
+  let machine_wh = machine_ch * CELL_H;
+
+  context.set_fill_style(&"#ffffff7f".into());
+  context.fill_rect(main_wx, main_wy, machine_ww, machine_wh);
+
+  context.set_stroke_style(&"purple".into());
+  for i in 0..machine_cw as usize {
+    for j in 0..machine_ch as usize {
+      let fi = i as f64;
+      let fj = j as f64;
+
+      context.begin_path();
+      context.move_to(main_wx,                main_wy + fj * CELL_H);
+      context.line_to(main_wx + machine_ww,   main_wy + fj * CELL_H);
+      context.stroke();
+
+      context.begin_path();
+      context.move_to(main_wx + fi * CELL_W,  main_wy);
+      context.line_to(main_wx + fi * CELL_W,  main_wy + machine_wh);
+      context.stroke();
+    }
+  }
+
+  // Draw the wants in the right spots
+  let none = part_none(config);
+  for i in 0..(machine_cw * machine_ch) as usize {
+    if let Some(part) = factory.floor[main_coord].machine.wants.get(i).or(Some(&none)) {
+      paint_segment_part_from_config(options, state, config, context, part.kind, main_wx + CELL_W * (i as f64 % machine_cw).floor(), main_wy + CELL_H * (i as f64 / machine_cw).floor(), CELL_W, CELL_H);
+
+      // Draw an indicator that tells you if this machine has received the part "recently"
+      // TODO: starting with "has part" because "recent" is annoying
+      if part.kind != CONFIG_NODE_PART_NONE && factory.floor[main_coord].machine.haves.iter().any(|p| p.kind == part.kind) {
+        context.set_fill_style(&"green".into());
+        context.fill_rect(main_wx + CELL_W * (i as f64 % machine_cw).floor() + CELL_W - 8.0, main_wy + CELL_H * (i as f64 / machine_cw).floor() + CELL_H - 8.0, 5.0, 5.0);
+      }
+    }
+  }
+}
 fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, fps: &VecDeque<f64>, now: f64, since_prev: f64, ticks_todo: u64, estimated_fps: f64, rounded_fps: u64, factory: &Factory, mouse_state: &MouseState) {
 
   if !state.showing_debug_bottom {
@@ -3853,159 +3723,6 @@ fn paint_belt_dbg_id(options: &Options, state: &State, config: &Config, context:
     }
   }
 }
-fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
-  if !cell_selection.on {
-    // No cell selected.
-    return;
-  }
-
-  if state.mouse_mode_selecting {
-    // Do not show craft menu while mouse selection is enabled
-    return;
-  }
-
-  let selected_coord = cell_selection.coord;
-  if factory.floor[selected_coord].kind != CellKind::Machine {
-    // Not selected a machine.
-    // log!("No machine selected");
-    return;
-  }
-
-  // Each cell consolidates much of its information into the main coord, the top-left cell
-  let selected_main_coord = factory.floor[selected_coord].machine.main_coord;
-  let ( main_x, main_y ) = to_xy(selected_main_coord);
-
-  let main_wx = UI_FLOOR_OFFSET_X + (main_x as f64) * CELL_W;
-  let main_wy = UI_FLOOR_OFFSET_Y + (main_y as f64) * CELL_H;
-
-  // Find the center of the machine because .arc() requires the center x,y
-  let machine_cw = factory.floor[selected_main_coord].machine.cell_width as f64;
-  let machine_ch = factory.floor[selected_main_coord].machine.cell_height as f64;
-  let machine_ww = machine_cw * CELL_W;
-  let machine_wh = machine_ch * CELL_H;
-  let ( center_wx, center_wy, cr ) = get_machine_selection_circle_params(factory, selected_main_coord);
-
-  // Only paint the craft menu when opt-in. It was an early design attempt but it was not intuitive enough.
-  if options.enable_craft_menu_circle {
-    // We'll draw a semi-transparent circle over the factory with a radius big enough to fit
-    // input-type bubbles equally distributed in the ring around the factory. Those should be
-    // interactable so their position must be fully predictable.
-    // Perhaps they should be squares to make hitboxes easier, but that's tbd.
-
-    // Cheat by using rgba for semi trans
-    context.set_fill_style(&"#0000007f".into());
-    // context.set_fill_style(&"red".into());
-    // log!("arc({}, {}, {}) machine({},{})", center_wx, center_wy, cr, machine_cw, machine_ch);
-    context.begin_path();
-    context.arc(center_wx, center_wy, cr, 0.0, 2.0 * 3.14).expect("to paint");
-    context.fill();
-  }
-
-  context.set_fill_style(&"#ffffff7f".into());
-  context.fill_rect(main_wx, main_wy, machine_ww, machine_wh);
-
-  if mouse_state.craft_over_ci_index > 99 { // This means it's over the machine index + 100
-    let hover_cell_index = mouse_state.craft_over_ci_index - 100;
-    let x = hover_cell_index % machine_cw as u8;
-    let y = hover_cell_index / machine_cw as u8;
-    // This should be an index. Color the appropriate index as indicator.
-    context.set_fill_style(&"#00ff0040".into());
-    context.fill_rect(main_wx + x as f64 * CELL_W, main_wy + y as f64 * CELL_H, CELL_W, CELL_H);
-  }
-
-  context.set_stroke_style(&"purple".into());
-  for i in 0..machine_cw as usize {
-    for j in 0..machine_ch as usize {
-      let fi = i as f64;
-      let fj = j as f64;
-
-      context.begin_path();
-      context.move_to(main_wx,                main_wy + fj * CELL_H);
-      context.line_to(main_wx + machine_ww,   main_wy + fj * CELL_H);
-      context.stroke();
-
-      context.begin_path();
-      context.move_to(main_wx + fi * CELL_W,  main_wy);
-      context.line_to(main_wx + fi * CELL_W,  main_wy + machine_wh);
-      context.stroke();
-    }
-  }
-
-  // Draw the wants in the right spots
-  let none = part_none(config);
-  for i in 0..(machine_cw * machine_ch) as usize {
-    if let Some(part) = factory.floor[selected_main_coord].machine.wants.get(i).or(Some(&none)) {
-      paint_segment_part_from_config(options, state, config, context, part.kind, main_wx + CELL_W * (i as f64 % machine_cw).floor(), main_wy + CELL_H * (i as f64 / machine_cw).floor(), CELL_W, CELL_H);
-
-      // Draw an indicator that tells you if this machine has received the part "recently"
-      // TODO: starting with "has part" because "recent" is annoying
-      if part.kind != CONFIG_NODE_PART_NONE && factory.floor[selected_main_coord].machine.haves.iter().any(|p| p.kind == part.kind) {
-        context.set_fill_style(&"green".into());
-        context.fill_rect(main_wx + CELL_W * (i as f64 % machine_cw).floor() + CELL_W - 8.0, main_wy + CELL_H * (i as f64 / machine_cw).floor() + CELL_H - 8.0, 5.0, 5.0);
-      }
-    }
-  }
-
-  if options.enable_craft_menu_circle {
-    // Minimal distance of painting interactbles is the distance from the center to the furthest
-    // angle (any machine corner) plus a small buffer. a^2+b^2=c^2
-    // This radius determines the distance from the center of the circle to the _center_ of the cell.
-    let minr = ((center_wx - main_wx).powf(2.0) + (center_wy - main_wy).powf(2.0)).powf(0.5) + 30.0;
-
-    fn btn(context: &Rc<web_sys::CanvasRenderingContext2d>, wx: f64, wy: f64, text: char, is_over: bool) {
-      if is_over {
-        context.set_fill_style(&"grey".into());
-      } else {
-        context.set_fill_style(&"white".into());
-      }
-      context.fill_rect(wx, wy, CELL_W, CELL_H);
-      context.set_stroke_style(&"black".into());
-      context.stroke_rect(wx, wy, CELL_W, CELL_H);
-      context.set_fill_style(&"black".into());
-      context.set_font(&"48px monospace");
-      context.fill_text(format!("{}", text).as_str(), wx + 4.0, wy + 34.0).expect("oopsie fill_text"); // This would be a sprite, anyways
-      context.set_font(&"12px monospace");
-    }
-
-    fn btn_img(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, wx: f64, wy: f64, part_part: PartKind, is_over: bool) {
-      if is_over {
-        context.set_fill_style(&"grey".into());
-      } else {
-        context.set_fill_style(&"white".into());
-      }
-      context.fill_rect(wx, wy, CELL_W, CELL_H);
-      context.set_stroke_style(&"black".into());
-      context.stroke_rect(wx, wy, CELL_W, CELL_H);
-
-      paint_segment_part_from_config(options, state, config, context, part_part, wx, wy, CELL_W, CELL_H);
-    }
-
-    // The back/close button should always be under the machine, centered. Same size (one cell).
-    let close_wx = center_wx - CELL_W / 2.0;
-    let close_wy = center_wy + minr - CELL_H / 2.0;
-    btn(context, close_wx, close_wy, '↩', mouse_state.craft_over_ci == CraftInteractable::BackClose);
-
-    // Actual number of seen inputs
-    let len = factory.floor[selected_main_coord].machine.last_received.len();
-    // Make sure that we always show something. If there aren't any elements, show trash as the only icon.
-    let count = len.max(1);
-
-    let angle_step = 5.5 - (count as f64 / 2.0).ceil() + (0.5 * ((count % 2) as f64));
-    for i in 0..count {
-      let angle: f64 = (angle_step + i as f64) * 0.1 * std::f64::consts::TAU;
-
-      // TODO: could pre-compute these coords per factory and read the coords from a vec
-      let btn_c_wx = angle.sin() * minr;
-      let btn_c_wy = angle.cos() * minr;
-      let wx = center_wx + btn_c_wx - CELL_W / 2.0;
-      let wy = center_wy + btn_c_wy - CELL_H / 2.0;
-
-      // When hovering over the index, the _c is set to the char of the digit of that index.
-      // If there are no last seen elements, show a trash icon
-      btn_img(options, state, config, context, wx, wy, if len == 0 { CONFIG_NODE_PART_TRASH } else { factory.floor[selected_main_coord].machine.last_received[i].0.kind }, mouse_state.craft_over_ci_index == (i as u8));
-    }
-  }
-}
 fn paint_mouse_cursor(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   let mut color = "#ff00ff7f";
   let mut diameter = PART_W / 2.0;
@@ -4073,18 +3790,17 @@ fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory
           let y = factory.auto_build.mouse_offset_y + auto_build_mouse_y.floor();
 
           let part_kind = factory.auto_build.machine_draggin_part_kind;
-          paint_ui_offer_hover_droptarget_hint(options, state, config, context, factory, part_kind);
 
-          let len = config.nodes[part_kind].pattern_unique_kinds.len();
-          if len > 0 {
+          if is_woop(config, part_kind) {
+            // TODO: verify that this call is necessary here
+            paint_ui_hover_droptarget_hint(options, state, config, context, factory, part_kind);
+
             // Only machines unless debug setting is enabled
             // When over a machine, preview the pattern over the machine? Or snap the offer to its center?
 
             // Mouse position determines actual cell that we check
             let coord = to_coord(x as usize, y as usize);
             if is_middle(x, y) && factory.floor[coord].kind == CellKind::Machine {
-              // If a craft menu is open and the hover is over a craft then only show it if the machine is
-              // the current selection (dont hint for other machines under the craft menu because it wont work)
               let main_coord = factory.floor[coord].machine.main_coord;
               paint_part_and_pattern_at_middle(options, state, config, context, factory, main_coord, part_kind);
             } else {
@@ -4115,14 +3831,14 @@ fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory
       _ => {}
     }
   }
-  else if mouse_state.craft_dragging_ci {
-    paint_mouse_dragging_craft_interactable(options, state, config, factory, context, mouse_state, cell_selection);
-  }
   else if state.mouse_mode_selecting {
     paint_mouse_in_selection_mode(options, state, config, factory, context, mouse_state, cell_selection);
   }
-  else if mouse_state.dragging_offer {
-    paint_mouse_while_dragging_offer(options, state, config, factory, context, mouse_state, cell_selection);
+  else if mouse_state.dragging_atom {
+    paint_mouse_while_dragging_atom(options, state, config, factory, context, mouse_state, cell_selection);
+  }
+  else if mouse_state.dragging_woop {
+    paint_mouse_while_dragging_woop(options, state, config, factory, context, mouse_state, cell_selection);
   }
   else if mouse_state.dragging_machine1x2 {
     paint_mouse_while_dragging_machine1x2(options, state, factory, context, mouse_state);
@@ -4139,33 +3855,12 @@ fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory
   else if mouse_state.over_floor_not_corner {
     paint_mouse_cell_location_on_floor(&context, &factory, &cell_selection, &mouse_state);
     if mouse_state.was_dragging || mouse_state.is_dragging {
-      if mouse_state.down_zone == ZONE_CRAFT {
-        // This drag started in a craft popup so do not show a track preview; we're not doing that.
-      }
-      else if mouse_state.down_floor_not_corner {
+      if mouse_state.down_floor_not_corner {
         if mouse_state.last_down_event_type == EventSourceType::Mouse {
           paint_belt_drag_preview(options, state, config, context, factory, cell_selection, mouse_state);
         }
       }
     }
-  }
-}
-fn paint_mouse_dragging_craft_interactable(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, cell_selection: &CellSelection) {
-  // Support up to 9 elements in the craft menu
-  // If something is is dragged, ignore it.
-  if mouse_state.craft_down_ci_index != 99 { // <99 means circle button, >99 means machine cell
-    let w = PART_W;
-    let h = PART_H;
-
-    let mwx = mouse_state.world_x - (w / 2.0);
-    let mwy  = mouse_state.world_y - (h / 2.0);
-    // fn btn(context: &Rc<web_sys::CanvasRenderingContext2d>, wx: f64, wy: f64, text: char, is_over: bool) {
-    context.set_fill_style(&"white".into());
-    context.fill_rect(mwx, mwy, w, h);
-    context.set_stroke_style(&"black".into());
-    context.stroke_rect(mwx, mwy, w, h);
-
-    paint_segment_part_from_config(options, state, config, context, mouse_state.craft_down_ci_part_kind, mwx, mwy, w, h);
   }
 }
 fn paint_mouse_in_selection_mode(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, cell_selection: &CellSelection) {
@@ -4295,40 +3990,40 @@ fn paint_mouse_while_dragging_machine_at_cell(options: &Options, state: &State, 
   context.set_fill_style(&"black".into());
   context.fill_text("M", paint_at_x + (machine_cells_width as f64) * CELL_W / 2.0 - 5.0, paint_at_y + (machine_cells_height as f64) * CELL_H / 2.0 + 2.0).expect("no error")
 }
-fn paint_mouse_while_dragging_offer(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, cell_selection: &CellSelection) {
-  // Two cases:
-  // - the offer has a pattern; only allow to drag to machines. with debug setting can be both?
-  // - the offer has no pattern; only allow to edge as supply
+fn paint_mouse_while_dragging_atom(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, cell_selection: &CellSelection) {
+  // the atom has no pattern; only allow to edge as supply
 
-  let part_kind = factory.available_parts_rhs_menu[mouse_state.offer_down_offer_index].0;
-  paint_ui_offer_hover_droptarget_hint(options, state, config, context, factory, part_kind);
+  let part_kind = factory.available_atoms[mouse_state.atom_down_atom_index].0;
+  // TODO: should this work? should we copy from woop?
+  paint_ui_hover_droptarget_hint(options, state, config, context, factory, part_kind);
+
+  // Only edge. No point in dumping into machine, I guess? Maybe as an expensive supply? Who cares?
+  if is_edge_not_corner(mouse_state.cell_x_floored, mouse_state.cell_y_floored) {
+    paint_supply_and_part_for_edge(options, state, config, factory, context, mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize, part_kind);
+  } else {
+    paint_supply_and_part_not_edge(options, state, config, context, mouse_state.world_x - ((CELL_W as f64) / 2.0), mouse_state.world_y - ((CELL_H as f64) / 2.0), part_kind);
+  }
+}
+fn paint_mouse_while_dragging_woop(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, cell_selection: &CellSelection) {
+  // the woop has a pattern; only allow to drag to machines. with debug setting can be both?
+
+  let part_kind = factory.available_woops[mouse_state.woop_down_woop_index].0;
+  paint_ui_hover_droptarget_hint(options, state, config, context, factory, part_kind);
 
   let len = config.nodes[part_kind].pattern_unique_kinds.len();
-  if len > 0 {
-    // Only machines unless debug setting is enabled
-    // When over a machine, preview the pattern over the machine? Or snap the offer to its center?
+  // Only machines unless debug setting is enabled
+  // When over a machine, preview the pattern over the machine? Or snap the woop to its center?
 
-    // Mouse position determines actual cell that we check
-    let coord = to_coord(mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize);
-    if is_middle(mouse_state.cell_x_floored, mouse_state.cell_y_floored) && factory.floor[coord].kind == CellKind::Machine {
-      // If a craft menu is open and the hover is over a craft then only show it if the machine is
-      // the current selection (dont hint for other machines under the craft menu because it wont work)
-      let main_coord = factory.floor[coord].machine.main_coord;
-      let selected_main_coord = factory.floor[cell_selection.coord].machine.main_coord;
-      if mouse_state.over_zone != ZONE_CRAFT || selected_main_coord == main_coord {
-        paint_part_and_pattern_at_middle(options, state, config, context, factory, main_coord, part_kind);
-      }
-    } else {
-      paint_supply_and_part_not_floor(options, state, config, context, mouse_state.world_x - ((CELL_W as f64) / 2.0), mouse_state.world_y - ((CELL_H as f64) / 2.0), part_kind);
+  // Mouse position determines actual cell that we check
+  let coord = to_coord(mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize);
+  if is_middle(mouse_state.cell_x_floored, mouse_state.cell_y_floored) && factory.floor[coord].kind == CellKind::Machine {
+    let main_coord = factory.floor[coord].machine.main_coord;
+    let selected_main_coord = factory.floor[cell_selection.coord].machine.main_coord;
+    if selected_main_coord == main_coord {
+      paint_part_and_pattern_at_middle(options, state, config, context, factory, main_coord, part_kind);
     }
-  }
-  else {
-    // Only edge. No point in dumping into machine, I guess? Maybe as an expensive supply? Who cares?
-    if is_edge_not_corner(mouse_state.cell_x_floored, mouse_state.cell_y_floored) {
-      paint_supply_and_part_for_edge(options, state, config, factory, context, mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize, part_kind);
-    } else {
-      paint_supply_and_part_not_edge(options, state, config, context, mouse_state.world_x - ((CELL_W as f64) / 2.0), mouse_state.world_y - ((CELL_H as f64) / 2.0), part_kind);
-    }
+  } else {
+    paint_supply_and_part_not_floor(options, state, config, context, mouse_state.world_x - ((CELL_W as f64) / 2.0), mouse_state.world_y - ((CELL_H as f64) / 2.0), part_kind);
   }
 }
 fn paint_mouse_cell_location_on_floor(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, cell_selection: &CellSelection, mouse_state: &MouseState) {
@@ -4685,12 +4380,12 @@ fn paint_border_hint(options: &Options, state: &State, config: &Config, factory:
   let x = mx + (factory.edge_hint.2.0 - mx) * progress;
   let y = my + (factory.edge_hint.2.1 - my) * progress;
 
-  paint_dock_stripes(options, state, config, factory, context, CONFIG_NODE_DOCK_UP, x, y, UI_OFFER_WIDTH, UI_OFFER_HEIGHT);
-  let px = x + (UI_OFFER_WIDTH / 2.0) - (CELL_W / 2.0);
-  let py = y + (UI_OFFER_HEIGHT / 2.0) - (CELL_H / 2.0);
+  paint_dock_stripes(options, state, config, factory, context, CONFIG_NODE_DOCK_UP, x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
+  let px = x + (UI_WOTOM_WIDTH / 2.0) - (CELL_W / 2.0);
+  let py = y + (UI_WOTOM_HEIGHT / 2.0) - (CELL_H / 2.0);
   paint_segment_part_from_config(options, state, config, context, factory.edge_hint.0, px, py, CELL_W, CELL_H);
   context.set_stroke_style(&"white".into());
-  context.stroke_rect(x, y, UI_OFFER_WIDTH, UI_OFFER_HEIGHT);
+  context.stroke_rect(x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
 }
 fn paint_bouncers(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory) {
   let f_one_second = ONE_SECOND as f64 ;
@@ -4742,7 +4437,6 @@ fn paint_zone_hovers(options: &Options, state: &State, context: &Rc<web_sys::Can
       Zone::BottomBottomLeft =>   context.fill_rect(GRID_X0, GRID_Y3, GRID_LEFT_WIDTH, GRID_BOTTOM_DEBUG_HEIGHT),
       Zone::BottomBottom =>       context.fill_rect(GRID_X1, GRID_Y3, UI_FLOOR_WIDTH, GRID_BOTTOM_DEBUG_HEIGHT),
       Zone::BottomBottomRight =>  context.fill_rect(GRID_X2, GRID_Y3, GRID_RIGHT_WIDTH, GRID_BOTTOM_DEBUG_HEIGHT),
-      Zone::Craft => {}
       Zone::Manual => {}
       Zone::Margin => {}
     }
@@ -4855,62 +4549,111 @@ fn paint_quests(options: &Options, state: &State, config: &Config, context: &Rc<
     }
   }
 }
-fn paint_offers(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) -> usize {
-  let ( is_mouse_over_offer, offer_hover_index ) =
-    if mouse_state.is_dragging || mouse_state.was_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight offers
-    else { ( mouse_state.offer_hover, mouse_state.offer_hover_offer_index ) };
+
+fn paint_atoms(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) -> usize {
+  let ( is_mouse_over_atom, atom_hover_index ) =
+    if mouse_state.is_dragging || mouse_state.was_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight atoms
+    else { ( mouse_state.atom_hover, mouse_state.atom_hover_atom_index ) };
 
   let mut highlight_index = 0;
 
   let mut inc = 0;
-  for offer_index in 0..factory.available_parts_rhs_menu.len() {
-    let (part_kind, part_interactable ) = factory.available_parts_rhs_menu[offer_index];
+  for atom_index in 0..factory.available_atoms.len() {
+    let (part_kind, part_interactable ) = factory.available_atoms[atom_index];
     if part_interactable {
-      let highlight = if is_mouse_over_offer { is_mouse_over_offer && offer_index == offer_hover_index } else { mouse_state.offer_selected && mouse_state.offer_selected_index == offer_index };
+      let highlight = if is_mouse_over_atom { is_mouse_over_atom && atom_index == atom_hover_index } else { mouse_state.atom_selected && mouse_state.atom_selected_index == atom_index };
       if highlight {
-        highlight_index = offer_index + 1;
+        highlight_index = atom_index + 1;
       }
-      paint_offer(options, state, config, context, factory, mouse_state, cell_selection, offer_index, part_kind, inc, highlight, config.nodes[part_kind].pattern_unique_kinds.len() > 0);
+      paint_atom(options, state, config, context, factory, mouse_state, cell_selection, atom_index, part_kind, inc, highlight, config.nodes[part_kind].pattern_unique_kinds.len() > 0);
       inc += 1;
     }
   }
 
   return highlight_index;
 }
-fn paint_offer(
+fn paint_atom(
   options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection,
-  offer_index: usize, part_kind: PartKind, inc: usize, highlight: bool, is_machine_part: bool
+  atom_index: usize, part_kind: PartKind, inc: usize, highlight: bool, is_machine_part: bool
 ) {
-  let ( x, y ) = get_offer_xy(inc);
+  let ( x, y ) = get_atom_xy(inc);
 
   if is_machine_part {
     context.set_fill_style(&"#c99110".into());
-    context.fill_rect(x, y, UI_OFFER_WIDTH, UI_OFFER_HEIGHT);
+    context.fill_rect(x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
   } else {
-    paint_dock_stripes(options, state, config, factory, context, CONFIG_NODE_DOCK_UP, x, y, UI_OFFER_WIDTH, UI_OFFER_HEIGHT);
+    paint_dock_stripes(options, state, config, factory, context, CONFIG_NODE_DOCK_UP, x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
   }
 
-  let px = x + (UI_OFFER_WIDTH / 2.0) - (CELL_W / 2.0);
-  let py = y + (UI_OFFER_HEIGHT / 2.0) - (CELL_H / 2.0);
+  let px = x + (UI_WOTOM_WIDTH / 2.0) - (CELL_W / 2.0);
+  let py = y + (UI_WOTOM_HEIGHT / 2.0) - (CELL_H / 2.0);
   paint_segment_part_from_config(options, state, config, context, part_kind, px, py, CELL_W, CELL_H);
 
   if highlight {
     // Popup is drawn in parent function
     context.set_stroke_style(&"black".into());
-    context.stroke_rect(x - 1.0, y - 1.0, UI_OFFER_WIDTH + 2.0, UI_OFFER_HEIGHT + 2.0);
-    context.stroke_rect(x, y, UI_OFFER_WIDTH, UI_OFFER_HEIGHT);
+    context.stroke_rect(x - 1.0, y - 1.0, UI_WOTOM_WIDTH + 2.0, UI_WOTOM_HEIGHT + 2.0);
+    context.stroke_rect(x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
   } else {
     context.set_stroke_style(&"white".into());
-    context.stroke_rect(x, y, UI_OFFER_WIDTH, UI_OFFER_HEIGHT);
+    context.stroke_rect(x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
+  }
+}
+
+fn paint_woops(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) -> usize {
+  let ( is_mouse_over_woop, woop_hover_index ) =
+    if mouse_state.is_dragging || mouse_state.was_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight woops
+    else { ( mouse_state.woop_hover, mouse_state.woop_hover_woop_index ) };
+
+  let mut highlight_index = 0;
+
+  let mut inc = 0;
+  for woop_index in 0..factory.available_woops.len() {
+    let (part_kind, part_interactable ) = factory.available_woops[woop_index];
+    if part_interactable {
+      let highlight = if is_mouse_over_woop { is_mouse_over_woop && woop_index == woop_hover_index } else { mouse_state.woop_selected && mouse_state.woop_selected_index == woop_index };
+      if highlight {
+        highlight_index = woop_index + 1;
+      }
+      paint_woop(options, state, config, context, factory, mouse_state, cell_selection, woop_index, part_kind, inc, highlight, config.nodes[part_kind].pattern_unique_kinds.len() > 0);
+      inc += 1;
+    }
   }
 
-  let div = 50;
+  return highlight_index;
+}
+fn paint_woop(
+  options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection,
+  woop_index: usize, part_kind: PartKind, inc: usize, highlight: bool, is_machine_part: bool
+) {
+  let ( x, y ) = get_woop_xy(inc);
 
-  // If current selected machine can create this offer, paint some green rotating pixel around it
+  if is_machine_part {
+    context.set_fill_style(&"#c99110".into());
+    context.fill_rect(x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
+  } else {
+    paint_dock_stripes(options, state, config, factory, context, CONFIG_NODE_DOCK_UP, x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
+  }
+
+  let px = x + (UI_WOTOM_WIDTH / 2.0) - (CELL_W / 2.0);
+  let py = y + (UI_WOTOM_HEIGHT / 2.0) - (CELL_H / 2.0);
+  paint_segment_part_from_config(options, state, config, context, part_kind, px, py, CELL_W, CELL_H);
+
+  if highlight {
+    // Popup is drawn in parent function
+    context.set_stroke_style(&"black".into());
+    context.stroke_rect(x - 1.0, y - 1.0, UI_WOTOM_WIDTH + 2.0, UI_WOTOM_HEIGHT + 2.0);
+    context.stroke_rect(x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
+  } else {
+    context.set_stroke_style(&"white".into());
+    context.stroke_rect(x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
+  }
+
+  // If current selected machine can create this woop, paint some green rotating pixel around it
   let selected_coord = cell_selection.coord;
   let selected_main_coord = factory.floor[selected_coord].machine.main_coord;
-  let craftable = config.nodes[part_kind].pattern_unique_kinds.len() > 0;
-  let mut highlight_offer =
+  let craftable = is_woop(config, part_kind);
+  let mut highlight_woop =
     cell_selection.on &&
     craftable &&
     factory.floor[selected_coord].kind == CellKind::Machine &&
@@ -4919,7 +4662,7 @@ fn paint_offer(
     });
   // Check against current machine that you're hovering over (but not dragging)
   if
-    !highlight_offer &&
+    !highlight_woop &&
     !cell_selection.on &&
     craftable &&
     mouse_state.over_zone == ZONE_FLOOR &&
@@ -4931,16 +4674,16 @@ fn paint_offer(
     let hover_coord = to_coord(mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize);
     let hover_main_coord = factory.floor[hover_coord].machine.main_coord;
     if
-      factory.floor[hover_main_coord].kind == CellKind::Machine &&
+    factory.floor[hover_main_coord].kind == CellKind::Machine &&
       config.nodes[part_kind].pattern_unique_kinds.iter().all(|part_kind| {
         return factory.floor[hover_main_coord].machine.last_received_parts.contains(part_kind);
       })
     {
-      highlight_offer = true;
+      highlight_woop = true;
     }
   }
 
-  if highlight_offer {
+  if highlight_woop {
     context.set_stroke_style(&"#008800ff".into());
     context.save();
     context.set_line_width(5.0);
@@ -4960,8 +4703,9 @@ fn paint_offer(
     paint_green_pixel(context, progress, 9.0, x, y, "#368f27");
   }
 }
-fn paint_ui_offer_tooltip(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, offer_index: usize) {
-  let (part_kind, _part_interactable ) = factory.available_parts_rhs_menu[offer_index];
+
+fn paint_ui_woop_tooltip(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, woop_index: usize) {
+  let (part_kind, _part_interactable ) = factory.available_woops[woop_index];
   let required_parts = &config.nodes[part_kind].pattern_unique_kinds;
 
   if required_parts.len() == 0 {
@@ -4969,9 +4713,9 @@ fn paint_ui_offer_tooltip(options: &Options, state: &State, config: &Config, fac
     return;
   }
 
-  let (part_kind, _part_interactable ) = factory.available_parts_rhs_menu[offer_index];
+  let (part_kind, _part_interactable ) = factory.available_woops[woop_index];
 
-  let ttox = UI_OFFERS_OFFSET_X + (UI_OFFERS_WIDTH / 2.0) - (UI_OFFER_TOOLTIP_WIDTH / 2.0) - 3.0;
+  let ttox = UI_WOOPS_OFFSET_X + (UI_WOOPS_WIDTH / 2.0) - (UI_OFFER_TOOLTIP_WIDTH / 2.0) - 3.0;
   let ttoy = GRID_Y2 + 10.0;
 
   let machine_ox = ttox + 3.0 + (CELL_W * 0.75 + 5.0) * 2.0 + 20.0;
@@ -4983,7 +4727,7 @@ fn paint_ui_offer_tooltip(options: &Options, state: &State, config: &Config, fac
   context.set_stroke_style(&"#000000ee".into());
   context.stroke();
 
-  // Paint tiny parts as input. If there's more than 8 then eh, die and catch fire?
+  // Paint tiny parts as input. If there's more than 8 then eh, halt and catch fire?
   // Special model for 1, 2, or 3 inputs.
   match required_parts.len() {
     1 => {
@@ -5166,7 +4910,7 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
       context.restore();
     } else if time_since_truck < (truck_dur_1 + truck_dur_2 + truck_dur_3) {
       // Get target coordinate where this part will be permanently drawn so we know where the truck has to move to
-      let ( target_x, target_y ) = get_offer_xy(factory.trucks[t].target_menu_part_position);
+      let ( target_x, target_y ) = if factory.trucks[t].for_woop { get_woop_xy(factory.trucks[t].target_menu_part_position) } else { get_atom_xy(factory.trucks[t].target_menu_part_position) };
 
       let progress = ((time_since_truck - (truck_dur_1 + truck_dur_2)) / truck_dur_3).min(1.0).max(0.0);
       let truck_x = end_x + 20.0;
@@ -5185,21 +4929,30 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
       // Truck reached its destiny.
       // - Enable the button
       // - Drop the truck
-      factory.available_parts_rhs_menu[factory.trucks[t].target_menu_part_position].1 = true;
+      if factory.trucks[t].for_woop {
+        factory.available_woops[factory.trucks[t].target_menu_part_position].1 = true;
+      } else {
+        factory.available_atoms[factory.trucks[t].target_menu_part_position].1 = true;
+      }
     }
   }
 }
-fn paint_ui_offer_hover_droptarget_hint_conditionally(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) {
-  let ( is_mouse_over_offer, offer_hover_index ) =
-    if mouse_state.is_dragging || mouse_state.was_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight offers
-    else { ( mouse_state.offer_hover, mouse_state.offer_hover_offer_index ) };
+fn paint_ui_atom_woop_hover_droptarget_hint_conditionally(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) {
+  let ( is_mouse_over_woop, woop_hover_index ) =
+    if mouse_state.is_dragging || mouse_state.was_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight woops
+    else { ( mouse_state.woop_hover, mouse_state.woop_hover_woop_index ) };
+
+  let ( is_mouse_over_atom, atom_hover_index ) =
+    if mouse_state.is_dragging || mouse_state.was_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight atoms
+    else { ( mouse_state.atom_hover, mouse_state.atom_hover_atom_index ) };
+
 
   // While not dragging, paint colored overlays over machines to indicate current eligibility.
   // For example, if a part a requires part b a nd c in its pattern, mark only those machines
   // eligible who have received parts b and c already. For now, red/green will have to do, even
   // though that's not very color blind friendly. TODO: work around that.
 
-  if !is_mouse_over_offer && (!mouse_state.offer_selected || mouse_state.is_dragging) {
+  if mouse_state.is_dragging || (!is_mouse_over_atom && !is_mouse_over_woop && !mouse_state.atom_selected && !mouse_state.woop_selected) {
     return;
   }
 
@@ -5208,10 +4961,26 @@ fn paint_ui_offer_hover_droptarget_hint_conditionally(options: &Options, state: 
     return;
   }
 
-  let hover_part_kind: PartKind = if is_mouse_over_offer { factory.available_parts_rhs_menu[mouse_state.offer_hover_offer_index].0 } else { factory.available_parts_rhs_menu[mouse_state.offer_selected_index].0 };
-  paint_ui_offer_hover_droptarget_hint(options, state, config, context, factory, hover_part_kind);
+  let hover_part_kind: PartKind =
+    if is_mouse_over_atom {
+      factory.available_atoms[mouse_state.atom_hover_atom_index].0
+    }
+    else if is_mouse_over_woop {
+      factory.available_woops[mouse_state.woop_hover_woop_index].0
+    }
+    else if mouse_state.atom_selected {
+      factory.available_atoms[mouse_state.atom_selected_index].0
+    }
+    else if mouse_state.woop_selected {
+      factory.available_woops[mouse_state.woop_selected_index].0
+    }
+    else {
+      panic!("should have checked that at least an atom or woop is hovered or selected");
+    };
+
+  paint_ui_hover_droptarget_hint(options, state, config, context, factory, hover_part_kind);
 }
-fn paint_ui_offer_hover_droptarget_hint(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, part_kind: PartKind) {
+fn paint_ui_hover_droptarget_hint(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, part_kind: PartKind) {
   // Parts with patterns go to machines. Parts without patterns (or empty patterns) are suppliers.
   // Machines will accept in both cases (one case adds the part, the other sets the pattern)
   paint_machines_droptarget_green(options, state, config, context, factory, config.nodes[part_kind].pattern_by_index.len());
@@ -5224,7 +4993,7 @@ fn paint_machines_droptarget_green(options: &Options, state: &State, config: &Co
     if (!for_pattern && is_edge_not_corner(x as f64, y as f64)) || (for_pattern && factory.floor[coord].kind == CellKind::Machine) {
       let mut drop_color = get_drop_color(options, factory.ticks).to_string();
       if factory.floor[factory.floor[coord].machine.main_coord].machine.wants.len() < pattern_len {
-        // Offer won't fit in this machine so omit it
+        // Woop won't fit in this machine so omit it
         drop_color = "#ff000055".into();
       }
       context.set_fill_style(&drop_color.into());
@@ -5247,18 +5016,18 @@ fn get_drop_color(options: &Options, ticks: u64) -> String {
 }
 fn paint_green_pixel(context: &Rc<web_sys::CanvasRenderingContext2d>, progress: f64, delta: f64, x: f64, y: f64, color: &str) {
   context.set_stroke_style(&color.into());
-  let border_len = UI_OFFER_WIDTH + UI_OFFER_HEIGHT + UI_OFFER_WIDTH + UI_OFFER_HEIGHT;
+  let border_len = UI_WOTOM_WIDTH + UI_WOTOM_HEIGHT + UI_WOTOM_WIDTH + UI_WOTOM_HEIGHT;
   let pos = (progress * border_len + delta) % border_len;
   let fx = x as f64;
   let fy = y as f64;
-  if pos < UI_OFFER_WIDTH {
+  if pos < UI_WOTOM_WIDTH {
     context.stroke_rect(fx + pos, fy, 1.0, 1.0);
-  } else if pos < UI_OFFER_WIDTH + UI_OFFER_HEIGHT {
-    context.stroke_rect(fx + UI_OFFER_WIDTH, fy + (pos - UI_OFFER_WIDTH), 1.0, 1.0);
-  } else if pos < UI_OFFER_WIDTH + UI_OFFER_HEIGHT + UI_OFFER_WIDTH {
-    context.stroke_rect(fx + UI_OFFER_WIDTH - (pos - (UI_OFFER_WIDTH + UI_OFFER_HEIGHT)), fy + UI_OFFER_HEIGHT, 1.0, 1.0);
+  } else if pos < UI_WOTOM_WIDTH + UI_WOTOM_HEIGHT {
+    context.stroke_rect(fx + UI_WOTOM_WIDTH, fy + (pos - UI_WOTOM_WIDTH), 1.0, 1.0);
+  } else if pos < UI_WOTOM_WIDTH + UI_WOTOM_HEIGHT + UI_WOTOM_WIDTH {
+    context.stroke_rect(fx + UI_WOTOM_WIDTH - (pos - (UI_WOTOM_WIDTH + UI_WOTOM_HEIGHT)), fy + UI_WOTOM_HEIGHT, 1.0, 1.0);
   } else {
-    context.stroke_rect(fx, fy + UI_OFFER_HEIGHT - (pos - (UI_OFFER_WIDTH + UI_OFFER_HEIGHT + UI_OFFER_WIDTH)), 1.0, 1.0);
+    context.stroke_rect(fx, fy + UI_WOTOM_HEIGHT - (pos - (UI_WOTOM_WIDTH + UI_WOTOM_HEIGHT + UI_WOTOM_WIDTH)), 1.0, 1.0);
   }
 }
 fn paint_button_menu_ui(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {

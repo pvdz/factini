@@ -64,9 +64,6 @@ pub struct Options {
   pub paint_belts: bool, // Paint the belt background tiles?
   pub draw_belt_dbg_id: bool, // Draw the belt id on top of each belt? "dl_r" etc
 
-  pub enable_craft_menu_circle: bool, // When you select a machine, should a craft menu open up for it? This used to be a thing but then I changed my mind. It was too confusing. Otherwise it just shows the cells to drag offers onto.
-  pub enable_craft_menu_interact: bool, // Can you interact with items in a machine? This used to be the default but I simplified it which includes disabling this interaction. This option would enable it again.
-
   pub draw_zone_hovers: bool, // Draw a rect on the area where the mouse is detected
   pub draw_zone_borders: bool, // Draw a guide around each grid section of the ui?
   pub zone_borders_color: String, // the color of this border
@@ -170,8 +167,6 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     draw_port_arrows: false,
     paint_belts: true,
     draw_belt_dbg_id: false,
-    enable_craft_menu_circle: false,
-    enable_craft_menu_interact: false,
     draw_zone_hovers: false,
     draw_zone_borders: false,
     zone_borders_color: "white".to_string(),
@@ -363,8 +358,6 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "draw_port_arrows" => options.draw_port_arrows = parse_bool(value, name, strict, options.draw_port_arrows, verbose),
             "paint_belts" => options.paint_belts = parse_bool(value, name, strict, options.paint_belts, verbose),
             "draw_belt_dbg_id" => options.draw_belt_dbg_id = parse_bool(value, name, strict, options.draw_belt_dbg_id, verbose),
-            "enable_craft_menu_circle" => options.enable_craft_menu_circle = parse_bool(value, name, strict, options.enable_craft_menu_circle, verbose),
-            "enable_craft_menu_interact" => options.enable_craft_menu_interact = parse_bool(value, name, strict, options.enable_craft_menu_interact, verbose),
             "draw_zone_hovers" => options.draw_zone_hovers = parse_bool(value, name, strict, options.draw_zone_hovers, verbose),
             "draw_zone_borders" => options.draw_zone_borders = parse_bool(value, name, strict, options.draw_zone_borders, verbose),
             "zone_borders_color" => options.zone_borders_color = parse_string(value.to_string(), name, strict, options.zone_borders_color.clone(), verbose),
@@ -463,8 +456,6 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- draw_port_arrows: {}", options.draw_port_arrows));
   arr.push(format!("- paint_belts: {}", options.paint_belts));
   arr.push(format!("- draw_belt_dbg_id: {}", options.draw_belt_dbg_id));
-  arr.push(format!("- enable_craft_menu_circle: {}", options.enable_craft_menu_circle));
-  arr.push(format!("- enable_craft_menu_interact: {}", options.enable_craft_menu_interact));
   arr.push(format!("- draw_zone_hovers: {}", options.draw_zone_hovers));
   arr.push(format!("- draw_zone_borders: {}", options.draw_zone_borders));
   arr.push(format!("- zone_borders_color: '{}'", options.zone_borders_color));

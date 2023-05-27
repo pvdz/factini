@@ -35,8 +35,6 @@ const GAME_OPTIONS = `
 - draw_port_arrows: false
 - paint_belts: true
 - draw_belt_dbg_id: false
-- enable_craft_menu_circle: false
-- enable_craft_menu_interact: false
 - draw_zone_hovers: false
 - draw_zone_borders: false
 - zone_borders_color: "white"

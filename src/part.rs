@@ -59,14 +59,34 @@ pub fn part_to_sprite_coord_from_config<'x>(config: &'x Config, options: &Option
   return config_get_sprite_details(config, options, part_kind, 0, 0);
 }
 
-pub fn part_kind_to_visible_offer_index(config: &Config, factory: &Factory, part_kind: PartKind) -> Option<usize> {
-  for i in 0..factory.available_parts_rhs_menu.len() {
-    if factory.available_parts_rhs_menu[i].0 == part_kind {
+pub fn part_kind_to_visible_woop_index(config: &Config, factory: &Factory, part_kind: PartKind) -> Option<usize> {
+  for i in 0..factory.available_woops.len() {
+    if factory.available_woops[i].0 == part_kind {
       return Some(i);
     }
   }
 
-  log!("part_kind_to_visible_offer_index: could not find {} ({:?}) in {:?}", part_kind, config.nodes[part_kind].raw_name, factory.available_parts_rhs_menu);
+  log!("part_kind_to_visible_woop_index: could not find {} ({:?}) in {:?}", part_kind, config.nodes[part_kind].raw_name, factory.available_woops);
 
   return None;
+}
+
+pub fn part_kind_to_visible_atom_index(config: &Config, factory: &Factory, part_kind: PartKind) -> Option<usize> {
+  for i in 0..factory.available_atoms.len() {
+    if factory.available_atoms[i].0 == part_kind {
+      return Some(i);
+    }
+  }
+
+  log!("part_kind_to_visible_atom_index: could not find {} ({:?}) in {:?}", part_kind, config.nodes[part_kind].raw_name, factory.available_atoms);
+
+  return None;
+}
+
+pub fn is_atom(config: &Config, part: PartKind) -> bool {
+  return config.nodes[part].pattern_unique_kinds.len() == 0;
+}
+
+pub fn is_woop(config: &Config, part: PartKind) -> bool {
+  return config.nodes[part].pattern_unique_kinds.len() > 0;
 }

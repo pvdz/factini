@@ -5,7 +5,6 @@ use super::cell::*;
 use super::canvas::*;
 use super::cli_serialize::*;
 use super::config::*;
-use super::craft::*;
 use super::direction::*;
 use super::factory::*;
 use super::floor::*;
@@ -380,16 +379,16 @@ fn auto_build_init_place_machine(options: &Options, state: &State, config: &Conf
 fn auto_build_init_move_to_target_part(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
   // Figure out which quest it picked
   // Figure out what the target is
-  // Figure out where the offer for that target is located
+  // Figure out where the woop for that target is located
   // Move to it
 
   let part_kind: PartKind = factory.quests[factory.auto_build.quest_index.min(factory.quests.len() - 1)].production_part_kind;
   factory.auto_build.machine_draggin_part_kind = part_kind;
-  let visible_offer_index = part_kind_to_visible_offer_index(config, factory, part_kind).unwrap();
-  let (offer_x, offer_y) = get_offer_xy(visible_offer_index);
+  let visible_woop_index = part_kind_to_visible_woop_index(config, factory, part_kind).unwrap();
+  let (woop_x, woop_y) = get_woop_xy(visible_woop_index);
 
-  factory.auto_build.mouse_target_x = offer_x + UI_OFFER_WIDTH * 0.5 - MOUSE_POINTER_RADIUS_AUTO_BUILD * 0.5;
-  factory.auto_build.mouse_target_y = offer_y + UI_OFFER_WIDTH * 0.5 - MOUSE_POINTER_RADIUS_AUTO_BUILD * 0.5;
+  factory.auto_build.mouse_target_x = woop_x + UI_WOTOM_WIDTH * 0.5 - MOUSE_POINTER_RADIUS_AUTO_BUILD * 0.5;
+  factory.auto_build.mouse_target_y = woop_y + UI_WOTOM_WIDTH * 0.5 - MOUSE_POINTER_RADIUS_AUTO_BUILD * 0.5;
 
   // Determine duration based on a desired mouse speed constant
   let distance = ((factory.auto_build.mouse_target_x - factory.auto_build.mouse_offset_x).abs().powf(2.0) + (factory.auto_build.mouse_target_y - factory.auto_build.mouse_offset_y).abs().powf(2.0)).sqrt();
@@ -397,7 +396,7 @@ fn auto_build_init_move_to_target_part(options: &Options, state: &State, config:
   let duration = ms / (ONE_MS as f64 * options.speed_modifier_ui);
   factory.auto_build.phase_duration = duration as u64;
 
-  if options.trace_auto_builder { log!("AutoBuild: Moving from {}x{} to offer {} at {}x{} (distance {} px) in {} ticks", factory.auto_build.mouse_offset_x, factory.auto_build.mouse_offset_y, visible_offer_index, factory.auto_build.mouse_target_x, factory.auto_build.mouse_target_y, distance.floor(), duration.floor()); }
+  if options.trace_auto_builder { log!("AutoBuild: Moving from {}x{} to woop {} at {}x{} (distance {} px) in {} ticks", factory.auto_build.mouse_offset_x, factory.auto_build.mouse_offset_y, visible_woop_index, factory.auto_build.mouse_target_x, factory.auto_build.mouse_target_y, distance.floor(), duration.floor()); }
 }
 
 fn auto_build_init_drag_target_part_to_machine(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
@@ -411,7 +410,7 @@ fn auto_build_init_drag_target_part_to_machine(options: &Options, state: &State,
   let duration = ms / (ONE_MS as f64 * options.speed_modifier_ui);
   factory.auto_build.phase_duration = duration as u64;
 
-  if options.trace_auto_builder { log!("AutoBuild: Moving from offer {}x{} back to machine at {}x{} (distance {} px) in {} ticks", factory.auto_build.mouse_offset_x, factory.auto_build.mouse_offset_y, factory.auto_build.mouse_target_x, factory.auto_build.mouse_target_y, distance.floor(), duration.floor()); }
+  if options.trace_auto_builder { log!("AutoBuild: Moving from woop {}x{} back to machine at {}x{} (distance {} px) in {} ticks", factory.auto_build.mouse_offset_x, factory.auto_build.mouse_offset_y, factory.auto_build.mouse_target_x, factory.auto_build.mouse_target_y, distance.floor(), duration.floor()); }
 }
 
 fn auto_build_init_release_target_part(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
@@ -433,6 +432,8 @@ fn auto_build_init_move_to_input_part(options: &Options, state: &State, config: 
   if options.trace_auto_builder { log!("AutoBuildPhase::MoveToInputPart: {}", factory.auto_build.step_counter); }
   // Pick the next input required for the current target part.
 
+  // TODO: this has to be an atom currently. Would be really sweet if it could do complex builds and use woops here...
+
   // From the machine, find a path to an edge cell then use that
   // cell as the offset to generate a path towards the machine
 
@@ -453,11 +454,15 @@ fn auto_build_init_move_to_input_part(options: &Options, state: &State, config: 
 
   let input_part_kind = inputs[current_step_index];
   factory.auto_build.machine_draggin_part_kind = input_part_kind;
-  let visible_offer_index = part_kind_to_visible_offer_index(config, factory, input_part_kind).unwrap();
-  let (offer_x, offer_y) = get_offer_xy(visible_offer_index);
+  let (target_x, target_y) =
+    if is_atom(config, input_part_kind) {
+      get_atom_xy(part_kind_to_visible_atom_index(config, factory, input_part_kind).unwrap())
+    } else {
+      get_woop_xy(part_kind_to_visible_woop_index(config, factory, input_part_kind).unwrap())
+    };
 
-  factory.auto_build.mouse_target_x = offer_x + UI_OFFER_WIDTH * 0.5 - MOUSE_POINTER_RADIUS_AUTO_BUILD * 0.5;
-  factory.auto_build.mouse_target_y = offer_y + UI_OFFER_WIDTH * 0.5 - MOUSE_POINTER_RADIUS_AUTO_BUILD * 0.5;
+  factory.auto_build.mouse_target_x = target_x + UI_WOTOM_WIDTH * 0.5 - MOUSE_POINTER_RADIUS_AUTO_BUILD * 0.5;
+  factory.auto_build.mouse_target_y = target_y + UI_WOTOM_WIDTH * 0.5 - MOUSE_POINTER_RADIUS_AUTO_BUILD * 0.5;
 
   // Determine duration based on a desired mouse speed constant
   let distance = ((factory.auto_build.mouse_target_x - factory.auto_build.mouse_offset_x).abs().powf(2.0) + (factory.auto_build.mouse_target_y - factory.auto_build.mouse_offset_y).abs().powf(2.0)).sqrt();
@@ -467,9 +472,9 @@ fn auto_build_init_move_to_input_part(options: &Options, state: &State, config: 
 }
 
 fn auto_build_init_drag_input_part_to_edge(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
-  // Assume we're now at the current input part offer.
+  // Assume we're now at the current input part atom. TODO: support woops?
   // Find an edge cell with at least one available path to the machine.
-  // Move to it and create a demander with this input part
+  // Move to it and create a supplier with this input part
 
   let current_step_index = factory.auto_build.step_counter;
 
@@ -490,14 +495,6 @@ fn auto_build_init_drag_input_part_to_edge(options: &Options, state: &State, con
   let (nearest_edge_x, nearest_edge_y) = nearest_edge.unwrap();
   factory.auto_build.target_edge_x = nearest_edge_x;
   factory.auto_build.target_edge_y = nearest_edge_y;
-
-  let target_part_kind: PartKind = factory.quests[factory.auto_build.quest_index.min(factory.quests.len() - 1)].production_part_kind;
-  let inputs = &config.nodes[target_part_kind].pattern_unique_kinds;
-  let input_part_kind = inputs[current_step_index];
-
-  let visible_offer_index = part_kind_to_visible_offer_index(config, factory, input_part_kind).unwrap();
-  let part_xy = get_offer_xy(visible_offer_index);
-
   factory.auto_build.mouse_target_x = UI_FLOOR_OFFSET_X + nearest_edge_x as f64 * CELL_W + CELL_W * 0.5;
   factory.auto_build.mouse_target_y = UI_FLOOR_OFFSET_Y + nearest_edge_y as f64 * CELL_H + CELL_H * 0.5;
 

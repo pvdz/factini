@@ -5,7 +5,6 @@ use super::belt::*;
 use super::bouncer::*;
 use super::cell::*;
 use super::cli_serialize::*;
-use crate::craft::*;
 use super::direction::*;
 use super::factory::*;
 use super::floor::*;
@@ -93,7 +92,7 @@ pub struct MouseState {
 
   // TODO: change the hover/down state/location to an enum rather than individual down states for each part of the UI
 
-  pub over_floor_area: bool,
+  pub over_floor_zone: bool, // Anywhere in zone (even outside of floor)
   pub over_floor_not_corner: bool, // Over the floor but not any of the corner cells
   pub down_floor_area: bool,
   pub down_floor_not_corner: bool,
@@ -112,43 +111,27 @@ pub struct MouseState {
   pub help_hover: bool,
   pub help_down: bool,
 
-  pub offer_hover: bool,
-  pub offer_hover_offer_index: usize, // Only relevant when offer_hover = true
-  pub offer_down: bool,
-  pub offer_down_offer_index: usize, // Kept until the next up, used for dragging
-  pub offer_selected: bool,
-  pub offer_selected_index: usize, // Offer index, not part index
-  pub dragging_offer: bool,
+  // woop: previously named "offer". But I don't have a proper short word for this. So it's woop now.
+  pub woop_hover: bool,
+  pub woop_hover_woop_index: usize, // Only relevant when woop_hover = true
+  pub woop_down: bool,
+  pub woop_down_woop_index: usize, // Kept until the next up, used for dragging
+  pub woop_selected: bool,
+  pub woop_selected_index: usize, // woop index, not part index
+  pub dragging_woop: bool,
+
+  pub atom_hover: bool,
+  pub atom_hover_atom_index: usize, // Only relevant when atom_hover = true
+  pub atom_down: bool,
+  pub atom_down_atom_index: usize, // Kept until the next up, used for dragging
+  pub atom_selected: bool,
+  pub atom_selected_index: usize, // Atom index, not part index
+  pub dragging_atom: bool,
+
   pub dragging_machine1x2: bool,
   pub dragging_machine2x1: bool,
   pub dragging_machine2x2: bool,
   pub dragging_machine3x3: bool,
-
-  pub craft_over_ci: CraftInteractable,
-  pub craft_over_ci_wx: f64,
-  pub craft_over_ci_wy: f64,
-  pub craft_over_ci_ww: f64,
-  pub craft_over_ci_wh: f64,
-  pub craft_over_ci_icon: char,
-  pub craft_over_ci_index: u8,
-  pub craft_over_ci_part_kind: PartKind,
-  pub craft_down_ci: CraftInteractable,
-  pub craft_down_ci_wx: f64,
-  pub craft_down_ci_wy: f64,
-  pub craft_down_ci_ww: f64,
-  pub craft_down_ci_wh: f64,
-  pub craft_down_ci_icon: char,
-  pub craft_down_ci_part_kind: PartKind,
-  pub craft_down_ci_index: u8,
-  pub craft_up_ci: CraftInteractable,
-  pub craft_up_ci_wx: f64,
-  pub craft_up_ci_wy: f64,
-  pub craft_up_ci_ww: f64,
-  pub craft_up_ci_wh: f64,
-  pub craft_up_ci_icon: char,
-  pub craft_up_ci_part_kind: PartKind,
-  pub craft_up_ci_index: u8,
-  pub craft_dragging_ci: bool, // in this case craft_down_ci_c can tell you what's being dragged
 
   // https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/buttons
   // bitwise field; 1=left, 2=right, 3=left|right, 4=middle, etc

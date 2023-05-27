@@ -21,7 +21,6 @@ pub enum Zone {
   BottomBottomLeft,
   BottomBottom,
   BottomBottomRight,
-  Craft,
   Manual,
   Margin,
 }
@@ -103,7 +102,7 @@ pub const UI_SPEED_BUBBLE_RADIUS: f64 = 20.0; // half the diameter...
 pub const UI_SPEED_BUBBLE_SPACING: f64 = 15.0;
 
 pub const UI_MENU_BUTTONS_COUNT_WIDTH_MAX: f64 = 6.0; // Update after adding new button
-pub const UI_MENU_BUTTONS_OFFSET_X: f64 = UI_OFFERS_OFFSET_X;
+pub const UI_MENU_BUTTONS_OFFSET_X: f64 = GRID_X2;
 pub const UI_MENU_BUTTONS_OFFSET_Y: f64 = GRID_Y0 + 5.0;
 pub const UI_MENU_BUTTONS_OFFSET_Y2: f64 = UI_MENU_BUTTONS_OFFSET_Y + 30.0;
 pub const UI_MENU_BUTTONS_WIDTH: f64 = 50.0;
@@ -111,23 +110,23 @@ pub const UI_MENU_BUTTONS_HEIGHT: f64 = 20.0;
 pub const UI_MENU_BUTTONS_SPACING: f64 = 10.0;
 pub const UI_MENU_BUTTONS_WIDTH_MAX: f64 = UI_MENU_BUTTONS_COUNT_WIDTH_MAX * (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING);
 
-pub const UI_MENU_MACHINE_BUTTON_1X2_X: f64 = GRID_X1 + 100.0;
-pub const UI_MENU_MACHINE_BUTTON_1X2_Y: f64 = UI_BOTTOM_OFFSET_Y + 5.0;
+pub const UI_MENU_MACHINE_BUTTON_1X2_X: f64 = GRID_X1 + 400.0;
+pub const UI_MENU_MACHINE_BUTTON_1X2_Y: f64 = UI_BOTTOM_OFFSET_Y + 45.0;
 pub const UI_MENU_MACHINE_BUTTON_1X2_WIDTH: f64 = 23.0;
 pub const UI_MENU_MACHINE_BUTTON_1X2_HEIGHT: f64 = 47.0;
 
-pub const UI_MENU_MACHINE_BUTTON_2X1_X: f64 = GRID_X1 + 200.0;
-pub const UI_MENU_MACHINE_BUTTON_2X1_Y: f64 = UI_BOTTOM_OFFSET_Y + 5.0;
+pub const UI_MENU_MACHINE_BUTTON_2X1_X: f64 = GRID_X1 + 380.0;
+pub const UI_MENU_MACHINE_BUTTON_2X1_Y: f64 = UI_BOTTOM_OFFSET_Y + 10.0;
 pub const UI_MENU_MACHINE_BUTTON_2X1_WIDTH: f64 = 47.0;
 pub const UI_MENU_MACHINE_BUTTON_2X1_HEIGHT: f64 = 23.0;
 
-pub const UI_MENU_MACHINE_BUTTON_2X2_X: f64 = GRID_X1 + 300.0;
-pub const UI_MENU_MACHINE_BUTTON_2X2_Y: f64 = UI_BOTTOM_OFFSET_Y + 5.0;
+pub const UI_MENU_MACHINE_BUTTON_2X2_X: f64 = GRID_X1 + 440.0;
+pub const UI_MENU_MACHINE_BUTTON_2X2_Y: f64 = UI_BOTTOM_OFFSET_Y + 10.0;
 pub const UI_MENU_MACHINE_BUTTON_2X2_WIDTH: f64 = 47.0;
 pub const UI_MENU_MACHINE_BUTTON_2X2_HEIGHT: f64 = 47.0;
 
-pub const UI_MENU_MACHINE_BUTTON_3X3_X: f64 = GRID_X1 + 400.0;
-pub const UI_MENU_MACHINE_BUTTON_3X3_Y: f64 = UI_BOTTOM_OFFSET_Y + 5.0;
+pub const UI_MENU_MACHINE_BUTTON_3X3_X: f64 = GRID_X1 + 500.0;
+pub const UI_MENU_MACHINE_BUTTON_3X3_Y: f64 = UI_BOTTOM_OFFSET_Y + 10.0;
 pub const UI_MENU_MACHINE_BUTTON_3X3_WIDTH: f64 = 70.0;
 pub const UI_MENU_MACHINE_BUTTON_3X3_HEIGHT: f64 = 70.0;
 
@@ -159,16 +158,23 @@ pub const UI_DEBUG_CELL_HEIGHT: f64 = 250.0;
 pub const UI_DEBUG_CELL_MARGIN: f64 = 5.0;
 pub const UI_DEBUG_CELL_FONT_HEIGHT: f64 = 16.0; // at 12px + bottom spacing
 
-pub const UI_OFFERS_OFFSET_X: f64 = GRID_X2 + 10.0;
-pub const UI_OFFERS_OFFSET_Y: f64 = UI_FLOOR_OFFSET_Y;
-pub const UI_OFFER_WIDTH: f64 = 50.0;
-pub const UI_OFFER_HEIGHT: f64 = 50.0;
-pub const UI_OFFER_WIDTH_PLUS_MARGIN: f64 = UI_OFFER_WIDTH + 10.0;
-pub const UI_OFFER_HEIGHT_PLUS_MARGIN: f64 = UI_OFFER_HEIGHT + 10.0;
-pub const UI_OFFERS_PER_ROW: f64 = 6.0;
-pub const UI_OFFERS_WIDTH: f64 = UI_OFFER_WIDTH + ((UI_OFFERS_PER_ROW - 1.0) * UI_OFFER_WIDTH_PLUS_MARGIN);
+pub const UI_WOOPS_OFFSET_X: f64 = GRID_X2 + 10.0;
+pub const UI_WOOPS_OFFSET_Y: f64 = UI_FLOOR_OFFSET_Y;
+pub const UI_WOOPS_PER_ROW: f64 = 6.0;
+pub const UI_WOOPS_WIDTH: f64 = UI_WOTOM_WIDTH + ((UI_WOOPS_PER_ROW - 1.0) * UI_WOTOM_WIDTH_PLUS_MARGIN);
+
+pub const UI_WOTOM_WIDTH: f64 = 50.0;
+pub const UI_WOTOM_HEIGHT: f64 = 50.0;
+pub const UI_WOTOM_WIDTH_PLUS_MARGIN: f64 = UI_WOTOM_WIDTH + 10.0;
+pub const UI_WOTOM_HEIGHT_PLUS_MARGIN: f64 = UI_WOTOM_HEIGHT + 10.0;
+
 pub const UI_OFFER_TOOLTIP_WIDTH: f64 = 185.0;
 pub const UI_OFFER_TOOLTIP_HEIGHT: f64 = 3.0 + (0.75 * CELL_H) + 5.0 + (0.75 * CELL_H) + 5.0 + (0.75 * CELL_H) + 3.0;
+
+pub const UI_ATOMS_OFFSET_X: f64 = GRID_X1 + 50.0;
+pub const UI_ATOMS_OFFSET_Y: f64 = GRID_Y2 + 10.0;
+pub const UI_ATOMS_PER_ROW: f64 = 5.0;
+pub const UI_ATOMS_WIDTH: f64 = UI_WOTOM_WIDTH + ((UI_ATOMS_PER_ROW - 1.0) * UI_WOTOM_WIDTH_PLUS_MARGIN);
 
 pub const UI_AUTO_BUILD_W: f64 = 48.0;
 pub const UI_AUTO_BUILD_H: f64 = 48.0;
@@ -194,20 +200,14 @@ pub const ZONE_BOTTOM_BOTTOM_LEFT: Zone = Zone::BottomBottomLeft;
 pub const ZONE_FLOOR: Zone = Zone::Middle;
 pub const ZONE_BOTTOM_BOTTOM: Zone = Zone::BottomBottom;
 pub const ZONE_TOP_RIGHT: Zone = Zone::TopRight;
-pub const ZONE_OFFERS: Zone = Zone::Right;
 pub const ZONE_RIGHT_BOTTOM: Zone = Zone::BottomRight;
 pub const ZONE_BOTTOM_BOTTOM_RIGHT: Zone = Zone::BottomBottomRight;
-pub const ZONE_CRAFT: Zone = Zone::Craft;
 pub const ZONE_MANUAL: Zone = Zone::Manual;
 pub const ZONE_MARGIN: Zone = Zone::Margin; // Between the cracks of each zone
 
 pub fn coord_to_zone(options: &Options, state: &State, config: &Config, x: f64, y: f64, is_machine_selected: bool, factory: &Factory, selected_coord: usize) -> Zone {
   if state.manual_open {
     return ZONE_MANUAL;
-  }
-
-  if is_machine_selected && hit_test_machine_craft_menu(options, factory, selected_coord, x, y) {
-    return ZONE_CRAFT
   }
 
   if x >= GRID_X0 && x < GRID_X0 + GRID_LEFT_WIDTH {
@@ -249,8 +249,8 @@ pub fn coord_to_zone(options: &Options, state: &State, config: &Config, x: f64, 
       // top-right, unused
       ZONE_TOP_RIGHT
     } else if y >= GRID_Y1 && y < GRID_Y1 + UI_FLOOR_HEIGHT {
-      // right, offers
-      ZONE_OFFERS
+      // right, woops
+      Zone::Right
     } else if y >= GRID_Y2 && y < GRID_Y2 + GRID_BOTTOM_HEIGHT {
       // right-bottom, not really used but trucks turn here
       ZONE_RIGHT_BOTTOM
@@ -263,43 +263,6 @@ pub fn coord_to_zone(options: &Options, state: &State, config: &Config, x: f64, 
   }
 
   return ZONE_MARGIN;
-}
-
-pub fn hit_test_machine_craft_menu(options: &Options, factory: &Factory, any_machine_coord: usize, mwx: f64, mwy: f64) -> bool {
-  let main_coord = factory.floor[any_machine_coord].machine.main_coord;
-  if options.enable_craft_menu_circle {
-    // When craft menu is displayed, test for whole circle
-    let ( center_wx, center_wy, cr ) = get_machine_selection_circle_params(factory, main_coord);
-    return hit_test_circle(mwx, mwy, center_wx, center_wy, cr);
-  }
-  else {
-    // Without craft menu just check if selected machine
-    let ( main_x, main_y) = to_xy(main_coord);
-    let machine_width = factory.floor[main_coord].machine.cell_width as f64;
-    let machine_height = factory.floor[main_coord].machine.cell_height as f64;
-    return bounds_check((mwx - UI_FLOOR_OFFSET_X) / CELL_W, (mwy - UI_FLOOR_OFFSET_Y) / CELL_H, main_x as f64, main_y as f64, main_x as f64 + machine_width, main_y as f64 + machine_height);
-  }
-}
-
-pub fn get_machine_selection_circle_params(factory: &Factory, main_coord: usize) -> ( f64, f64, f64 ) {
-  // Find the center of the machine because .arc() requires the center x,y
-  let ( main_x, main_y ) = to_xy(main_coord);
-  let machine_width = factory.floor[main_coord].machine.cell_width as f64;
-  let machine_height = factory.floor[main_coord].machine.cell_height as f64;
-  let center_cell_x = main_x as f64 + machine_width / 2.0;
-  let center_cell_y = main_y as f64 + machine_height / 2.0;
-  let center_wx = UI_FLOOR_OFFSET_X + center_cell_x * CELL_W;
-  let center_wy = UI_FLOOR_OFFSET_Y + center_cell_y * CELL_H;
-  // Radius should be enough to fit half the biggest axis + margin + diagonal of resource bubble + border
-  let cr = (machine_width as f64 * (CELL_W as f64)).max(machine_height as f64 * (CELL_H as f64)) * 0.5 + 10.0 + CELL_W.max(CELL_H) * 2.0 + 5.0;
-  // let cr = 5.0;
-  return ( center_wx, center_wy, cr );
-}
-pub fn hit_test_circle(x: f64, y: f64, cx: f64, cy: f64, r: f64) -> bool {
-  // Hit test for a circle is testing whether the distance from the center of the circle to the
-  // point is smaller than the radius. The formula is relatively simple: (x1-x2)^2+(y1-y2)^2<=r^2
-  // https://www.xarg.org/book/computer-graphics/2d-hittest/
-  return (cx-x).powf(2.0) + (cy-y).powf(2.0) <= r.powf(2.0);
 }
 
 pub fn get_quest_xy(visible_index: usize, delta: f64) -> (f64, f64 ) {

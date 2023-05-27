@@ -565,8 +565,9 @@ pub fn serialize2(options: &Options, state: &State, config: &Config, factory: &F
   out.push(cell_params.clone());
 
   // $ abcdfe
-  let available = factory.available_parts_rhs_menu.iter().map(|(part, _visible)| part_kind_to_icon(config, *part)).collect::<String>();
-  let available: Vec<char> = format!("$ {}", available).chars().collect();
+  let available_atoms = factory.available_atoms.iter().map(|(part, _visible)| part_kind_to_icon(config, *part)).collect::<String>();
+  let available_woops = factory.available_woops.iter().map(|(part, _visible)| part_kind_to_icon(config, *part)).collect::<String>();
+  let available: Vec<char> = format!("$ {}{}", available_atoms, available_woops).chars().collect();
   out.push(available);
 
   let flat: Vec<char> = out.into_iter().flatten().collect();

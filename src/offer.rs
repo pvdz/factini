@@ -1,3 +1,7 @@
+// An offer represents a draggable part, atoms have no patterns and are the offers below
+// while woops are the offers with a pattern and are to the right..
+// "Woop" was chosen because I couldn't think of a reasonable unique short name for it.
+
 use super::belt::*;
 use super::belt_type::*;
 use super::bouncer::*;
@@ -5,7 +9,6 @@ use super::cell::*;
 use super::canvas::*;
 use super::cli_serialize::*;
 use super::config::*;
-use super::craft::*;
 use super::direction::*;
 use super::factory::*;
 use super::floor::*;
@@ -27,9 +30,16 @@ use super::utils::*;
 use super::zone::*;
 use super::log;
 
-pub fn get_offer_xy(index: usize) -> (f64, f64 ) {
-  let x = UI_OFFERS_OFFSET_X + (index as f64 % UI_OFFERS_PER_ROW).floor() * UI_OFFER_WIDTH_PLUS_MARGIN;
-  let y = UI_OFFERS_OFFSET_Y + (index as f64 / UI_OFFERS_PER_ROW).floor() * UI_OFFER_HEIGHT_PLUS_MARGIN;
+pub fn get_atom_xy(index: usize) -> (f64, f64 ) {
+  let x = UI_ATOMS_OFFSET_X + (index as f64 % UI_ATOMS_PER_ROW).floor() * UI_WOTOM_WIDTH_PLUS_MARGIN;
+  let y = UI_ATOMS_OFFSET_Y + (index as f64 / UI_ATOMS_PER_ROW).floor() * UI_WOTOM_HEIGHT_PLUS_MARGIN;
+
+  return ( x, y );
+}
+
+pub fn get_woop_xy(index: usize) -> (f64, f64 ) {
+  let x = UI_WOOPS_OFFSET_X + (index as f64 % UI_WOOPS_PER_ROW).floor() * UI_WOTOM_WIDTH_PLUS_MARGIN;
+  let y = UI_WOOPS_OFFSET_Y + (index as f64 / UI_WOOPS_PER_ROW).floor() * UI_WOTOM_HEIGHT_PLUS_MARGIN;
 
   return ( x, y );
 }
