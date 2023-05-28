@@ -4453,7 +4453,11 @@ fn paint_corner_help_icon(options: &Options, state: &State, config: &Config, fac
   );
 
   context.save();
-  context.set_fill_style(&"yellow".into());
+  if factory.auto_build.phase == AutoBuildPhase::None {
+    context.set_fill_style(&"yellow".into());
+  } else {
+    context.set_fill_style(&"orange".into());
+  }
   context.fill_rect(UI_AUTO_BUILD_X, UI_AUTO_BUILD_Y, UI_AUTO_BUILD_W, UI_AUTO_BUILD_H);
   if over_auto_draw {
     context.set_fill_style(&"red".into());
@@ -4461,7 +4465,7 @@ fn paint_corner_help_icon(options: &Options, state: &State, config: &Config, fac
     context.set_fill_style(&"black".into());
   }
   context.set_font(&"48px monospace");
-  context.fill_text(format!("?").as_str(), UI_AUTO_BUILD_X + 10.0, UI_AUTO_BUILD_Y + 40.0).expect("yes");
+  context.fill_text(if factory.auto_build.phase == AutoBuildPhase::None { format!("?") } else { format!("!") }.as_str(), UI_AUTO_BUILD_X + 10.0, UI_AUTO_BUILD_Y + 40.0).expect("yes");
   context.restore();
 }
 
