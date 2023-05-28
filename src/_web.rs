@@ -2861,25 +2861,24 @@ fn hit_test_woops(factory: &Factory, mx: f64, my: f64) -> (bool, usize) {
     return ( false, 0 );
   };
 }
-fn hit_test_machine3x3_button(x: f64, y: f64) -> bool {
-  let bounds = machine_dims_to_button_coords(3, 3);
-  return bounds_check(x, y, bounds.0, bounds.1, bounds.2, bounds.3);
-}
 fn hit_test_machine1x2_button(x: f64, y: f64) -> bool {
   let bounds = machine_dims_to_button_coords(1, 2);
-  return bounds_check(x, y, bounds.0, bounds.1, bounds.2, bounds.3);
+  return bounds_check(x, y, bounds.0, bounds.1, bounds.0 + bounds.2, bounds.1 + bounds.3);
 }
 fn hit_test_machine2x1_button(x: f64, y: f64) -> bool {
   let bounds = machine_dims_to_button_coords(2, 1);
-  return bounds_check(x, y, bounds.0, bounds.1, bounds.2, bounds.3);
+  return bounds_check(x, y, bounds.0, bounds.1, bounds.0 + bounds.2, bounds.1 + bounds.3);
 }
 fn hit_test_machine2x2_button(x: f64, y: f64) -> bool {
   let bounds = machine_dims_to_button_coords(2, 2);
-  return bounds_check(x, y, bounds.0, bounds.1, bounds.2, bounds.3);
+  return bounds_check(x, y, bounds.0, bounds.1, bounds.0 + bounds.2, bounds.1 + bounds.3);
+}
+fn hit_test_machine3x3_button(x: f64, y: f64) -> bool {
+  let bounds = machine_dims_to_button_coords(3, 3);
+  return bounds_check(x, y, bounds.0, bounds.1, bounds.0 + bounds.2, bounds.1 + bounds.3);
 }
 fn hit_test_help_button(mx: f64, my: f64) -> bool {
-  let bounds = machine_dims_to_button_coords(3, 3);
-  return bounds_check(x, y, bounds.0, bounds.1, bounds.2, bounds.3);
+  return bounds_check(mx, my, UI_HELP_X, UI_HELP_Y, UI_HELP_X + UI_HELP_WIDTH, UI_HELP_Y + UI_HELP_HEIGHT);
 }
 fn hit_check_speed_bubble_x(x: f64, y: f64, index: usize) -> bool {
   let diameter = 2.0 * UI_SPEED_BUBBLE_RADIUS;
@@ -5054,18 +5053,18 @@ fn paint_paint_toggle(options: &Options, state: &State, config: &Config, context
   context.restore();
 }
 fn paint_machine1x2(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  paint_machine_button(1, 2);
+  paint_machine_button(options, state, config, factory, context, 1, 2);
 }
 fn paint_machine2x1(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  paint_machine_button(2, 1);
+  paint_machine_button(options, state, config, factory, context, 2, 1);
 }
 fn paint_machine2x2(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  paint_machine_button(2, 2);
+  paint_machine_button(options, state, config, factory, context, 2, 2);
 }
 fn paint_machine3x3(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  paint_machine_button(3, 3);
+  paint_machine_button(options, state, config, factory, context, 3, 3);
 }
-fn paint_machine_button(width: usize, height: usize) {
+fn paint_machine_button(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, width: usize, height: usize) {
   let (bx, by, bw, bh) = machine_dims_to_button_coords(width, height);
 
   context.set_fill_style(&"#aaa".into());
