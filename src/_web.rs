@@ -54,7 +54,6 @@
 //   - disable user while auto build is busy?
 //   - allow to cancel auto build. and to let it run continuously.
 //   - can we prevent undo/redo stack changes until the end?
-// - embed machine_dims_to_button_coords()
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -2863,19 +2862,24 @@ fn hit_test_woops(factory: &Factory, mx: f64, my: f64) -> (bool, usize) {
   };
 }
 fn hit_test_machine3x3_button(x: f64, y: f64) -> bool {
-  return bounds_check(x, y, UI_MENU_MACHINE_BUTTON_3X3_X, UI_MENU_MACHINE_BUTTON_3X3_Y, UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH, UI_MENU_MACHINE_BUTTON_3X3_Y + UI_MENU_MACHINE_BUTTON_3X3_HEIGHT);
+  let bounds = machine_dims_to_button_coords(3, 3);
+  return bounds_check(x, y, bounds.0, bounds.1, bounds.2, bounds.3);
 }
 fn hit_test_machine1x2_button(x: f64, y: f64) -> bool {
-  return bounds_check(x, y, UI_MENU_MACHINE_BUTTON_1X2_X, UI_MENU_MACHINE_BUTTON_1X2_Y, UI_MENU_MACHINE_BUTTON_1X2_X + UI_MENU_MACHINE_BUTTON_1X2_WIDTH, UI_MENU_MACHINE_BUTTON_1X2_Y + UI_MENU_MACHINE_BUTTON_1X2_HEIGHT);
+  let bounds = machine_dims_to_button_coords(1, 2);
+  return bounds_check(x, y, bounds.0, bounds.1, bounds.2, bounds.3);
 }
 fn hit_test_machine2x1_button(x: f64, y: f64) -> bool {
-  return bounds_check(x, y, UI_MENU_MACHINE_BUTTON_2X1_X, UI_MENU_MACHINE_BUTTON_2X1_Y, UI_MENU_MACHINE_BUTTON_2X1_X + UI_MENU_MACHINE_BUTTON_2X1_WIDTH, UI_MENU_MACHINE_BUTTON_2X1_Y + UI_MENU_MACHINE_BUTTON_2X1_HEIGHT);
+  let bounds = machine_dims_to_button_coords(2, 1);
+  return bounds_check(x, y, bounds.0, bounds.1, bounds.2, bounds.3);
 }
 fn hit_test_machine2x2_button(x: f64, y: f64) -> bool {
-  return bounds_check(x, y, UI_MENU_MACHINE_BUTTON_2X2_X, UI_MENU_MACHINE_BUTTON_2X2_Y, UI_MENU_MACHINE_BUTTON_2X2_X + UI_MENU_MACHINE_BUTTON_2X2_WIDTH, UI_MENU_MACHINE_BUTTON_2X2_Y + UI_MENU_MACHINE_BUTTON_2X2_HEIGHT);
+  let bounds = machine_dims_to_button_coords(2, 2);
+  return bounds_check(x, y, bounds.0, bounds.1, bounds.2, bounds.3);
 }
 fn hit_test_help_button(mx: f64, my: f64) -> bool {
-  return bounds_check(mx, my, UI_HELP_X, UI_HELP_Y, UI_HELP_X + UI_HELP_WIDTH, UI_HELP_Y + UI_HELP_HEIGHT);
+  let bounds = machine_dims_to_button_coords(3, 3);
+  return bounds_check(x, y, bounds.0, bounds.1, bounds.2, bounds.3);
 }
 fn hit_check_speed_bubble_x(x: f64, y: f64, index: usize) -> bool {
   let diameter = 2.0 * UI_SPEED_BUBBLE_RADIUS;
@@ -5050,48 +5054,27 @@ fn paint_paint_toggle(options: &Options, state: &State, config: &Config, context
   context.restore();
 }
 fn paint_machine1x2(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  context.set_fill_style(&"#aaa".into());
-  context.fill_rect(UI_MENU_MACHINE_BUTTON_1X2_X, UI_MENU_MACHINE_BUTTON_1X2_Y, UI_MENU_MACHINE_BUTTON_1X2_WIDTH, UI_MENU_MACHINE_BUTTON_1X2_HEIGHT);
-
-  paint_asset(options, state, config, context, machine_size_to_asset_index(2, 2), factory.ticks,
-    UI_MENU_MACHINE_BUTTON_1X2_X, UI_MENU_MACHINE_BUTTON_1X2_Y, UI_MENU_MACHINE_BUTTON_1X2_WIDTH, UI_MENU_MACHINE_BUTTON_1X2_HEIGHT
-  );
-
-  context.set_stroke_style(&"black".into());
-  context.stroke_rect(UI_MENU_MACHINE_BUTTON_1X2_X, UI_MENU_MACHINE_BUTTON_1X2_Y, UI_MENU_MACHINE_BUTTON_1X2_WIDTH, UI_MENU_MACHINE_BUTTON_1X2_HEIGHT);
+  paint_machine_button(1, 2);
 }
 fn paint_machine2x1(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  context.set_fill_style(&"#aaa".into());
-  context.fill_rect(UI_MENU_MACHINE_BUTTON_2X1_X, UI_MENU_MACHINE_BUTTON_2X1_Y, UI_MENU_MACHINE_BUTTON_2X1_WIDTH, UI_MENU_MACHINE_BUTTON_2X1_HEIGHT);
-
-  paint_asset(options, state, config, context, machine_size_to_asset_index(2, 2), factory.ticks,
-    UI_MENU_MACHINE_BUTTON_2X1_X, UI_MENU_MACHINE_BUTTON_2X1_Y, UI_MENU_MACHINE_BUTTON_2X1_WIDTH, UI_MENU_MACHINE_BUTTON_2X1_HEIGHT
-  );
-
-  context.set_stroke_style(&"black".into());
-  context.stroke_rect(UI_MENU_MACHINE_BUTTON_2X1_X, UI_MENU_MACHINE_BUTTON_2X1_Y, UI_MENU_MACHINE_BUTTON_2X1_WIDTH, UI_MENU_MACHINE_BUTTON_2X1_HEIGHT);
+  paint_machine_button(2, 1);
 }
 fn paint_machine2x2(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  context.set_fill_style(&"#aaa".into());
-  context.fill_rect(UI_MENU_MACHINE_BUTTON_2X2_X, UI_MENU_MACHINE_BUTTON_2X2_Y, UI_MENU_MACHINE_BUTTON_2X2_WIDTH, UI_MENU_MACHINE_BUTTON_2X2_HEIGHT);
-
-  paint_asset(options, state, config, context, machine_size_to_asset_index(2, 2), factory.ticks,
-    UI_MENU_MACHINE_BUTTON_2X2_X, UI_MENU_MACHINE_BUTTON_2X2_Y, UI_MENU_MACHINE_BUTTON_2X2_WIDTH, UI_MENU_MACHINE_BUTTON_2X2_HEIGHT
-  );
-
-  context.set_stroke_style(&"black".into());
-  context.stroke_rect(UI_MENU_MACHINE_BUTTON_2X2_X, UI_MENU_MACHINE_BUTTON_2X2_Y, UI_MENU_MACHINE_BUTTON_2X2_WIDTH, UI_MENU_MACHINE_BUTTON_2X2_HEIGHT);
+  paint_machine_button(2, 2);
 }
 fn paint_machine3x3(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  context.set_fill_style(&"#aaa".into());
-  context.fill_rect(UI_MENU_MACHINE_BUTTON_3X3_X, UI_MENU_MACHINE_BUTTON_3X3_Y, UI_MENU_MACHINE_BUTTON_3X3_WIDTH, UI_MENU_MACHINE_BUTTON_3X3_HEIGHT);
+  paint_machine_button(3, 3);
+}
+fn paint_machine_button(width: usize, height: usize) {
+  let (bx, by, bw, bh) = machine_dims_to_button_coords(width, height);
 
-  paint_asset(options, state, config, context, machine_size_to_asset_index(3, 3), factory.ticks,
-    UI_MENU_MACHINE_BUTTON_3X3_X, UI_MENU_MACHINE_BUTTON_3X3_Y, UI_MENU_MACHINE_BUTTON_3X3_WIDTH, UI_MENU_MACHINE_BUTTON_3X3_HEIGHT
-  );
+  context.set_fill_style(&"#aaa".into());
+  context.fill_rect(bx, by, bw, bh);
+
+  paint_asset(options, state, config, context, machine_size_to_asset_index(width, height), factory.ticks, bx, by, bw, bh);
 
   context.set_stroke_style(&"black".into());
-  context.stroke_rect(UI_MENU_MACHINE_BUTTON_3X3_X, UI_MENU_MACHINE_BUTTON_3X3_Y, UI_MENU_MACHINE_BUTTON_3X3_WIDTH, UI_MENU_MACHINE_BUTTON_3X3_HEIGHT);
+  context.stroke_rect(bx, by, bw, bh);
 }
 fn paint_ui_buttons(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   // See on_up_menu for events
