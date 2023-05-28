@@ -272,3 +272,13 @@ pub fn get_quest_xy(visible_index: usize, delta: f64) -> (f64, f64 ) {
 
   return ( x, y );
 }
+
+pub fn machine_dims_to_button_coords(width: usize, height: usize) -> (f64, f64, f64, f64) {
+  match (width, height) {
+    (1, 2) => (UI_MENU_MACHINE_BUTTON_1X2_X, UI_MENU_MACHINE_BUTTON_1X2_Y, UI_MENU_MACHINE_BUTTON_1X2_WIDTH, UI_MENU_MACHINE_BUTTON_1X2_HEIGHT),
+    (2, 1) => (UI_MENU_MACHINE_BUTTON_2X1_X, UI_MENU_MACHINE_BUTTON_2X1_Y, UI_MENU_MACHINE_BUTTON_2X1_WIDTH, UI_MENU_MACHINE_BUTTON_2X1_HEIGHT),
+    (2, 2) => (UI_MENU_MACHINE_BUTTON_2X2_X, UI_MENU_MACHINE_BUTTON_2X2_Y, UI_MENU_MACHINE_BUTTON_2X2_WIDTH, UI_MENU_MACHINE_BUTTON_2X2_HEIGHT),
+    (3, 3) => (UI_MENU_MACHINE_BUTTON_3X3_X, UI_MENU_MACHINE_BUTTON_3X3_Y, UI_MENU_MACHINE_BUTTON_3X3_WIDTH, UI_MENU_MACHINE_BUTTON_3X3_HEIGHT),
+    _ => panic!("Machine size of {}x{} is not supported here. add me!", width, height),
+  }
+}

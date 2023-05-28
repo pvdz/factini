@@ -223,20 +223,43 @@ fn auto_build_init_startup(options: &Options, state: &State, config: &Config, fa
   // mouse_offset_x/y are initialized
   factory.auto_build.phase = AutoBuildPhase::Startup;
   factory.auto_build.phase_at = factory.ticks; // Only for this phase. Assume "next_step" sets it in other phases.
-  factory.auto_build.machine_w = 2;
-  factory.auto_build.machine_h = 2;
   factory.auto_build.step_counter = 0;
 
+  let mut rng = xorshift(factory.ticks as usize);
 
-  let rng = xorshift(factory.ticks as usize);
   let active_quest_indexes = quest_get_active_indexes(options, state, config, factory);
   let n = rng % active_quest_indexes.len();
+  rng = xorshift(rng);
   log!("have {:?} picking {} ({})", active_quest_indexes, n, rng);
   factory.auto_build.quest_visible_index = n;
   factory.auto_build.quest_index = quest_visible_index_to_quest_index(options, state, config, factory, factory.auto_build.quest_visible_index).unwrap();
 
+  // Pick machine size that fits
+  let pattern = config.nodes[factory.quests[factory.auto_build.quest_index].config_node_index].pattern_unique_kinds.len();
+  if pattern <= 2 {
+    rng = xorshift(rng);
+    match rng % 2 {
+      0 => {
+        factory.auto_build.machine_w = 1;
+        factory.auto_build.machine_h = 2;
+      }
+      1 => {
+        factory.auto_build.machine_w = 2;
+        factory.auto_build.machine_h = 1;
+      }
+      _ => panic!("can only be zero or one"),
+    }
+  }
+  else if pattern <= 4 {
+    factory.auto_build.machine_w = 2;
+    factory.auto_build.machine_h = 2;
+  }
+  else {
+    factory.auto_build.machine_w = 3;
+    factory.auto_build.machine_h = 3;
+  }
+
   // Determine position of machine
-  let mut rng = factory.ticks as usize;
   let mut rng_coords = factory.floor.iter().enumerate().map(|(i, _)| i).collect::<Vec<usize>>();
   let len = rng_coords.len();
   // Randomize the cells
@@ -244,6 +267,7 @@ fn auto_build_init_startup(options: &Options, state: &State, config: &Config, fa
   let mut rng9 = [126, 127, 128, 143, 144, 145, 160, 161, 162];
   // Set those coords to 0..9
   for i in 0..9 {
+    rng = xorshift(rng);
     rng_coords[rng9[i]] = i;
   }
   // Randomize those coords
@@ -257,6 +281,7 @@ fn auto_build_init_startup(options: &Options, state: &State, config: &Config, fa
   }
   // Swap the first 9 elements of the output list with the rngs
   for i in 0..9 {
+    rng = xorshift(rng);
     rng_coords[i] = rng9[i];
   }
   // Now mix the rest, but leave the first 9 alone
@@ -363,8 +388,9 @@ fn auto_build_init_startup(options: &Options, state: &State, config: &Config, fa
 
 fn auto_build_init_pick_machine(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
   // Move to the target machine
-  factory.auto_build.mouse_target_x = UI_MENU_MACHINE_BUTTON_2X2_X + factory.auto_build.machine_w as f64 * CELL_W * 0.5 - MOUSE_POINTER_RADIUS_AUTO_BUILD;
-  factory.auto_build.mouse_target_y = UI_MENU_MACHINE_BUTTON_2X2_Y + factory.auto_build.machine_h as f64 * CELL_H * 0.5 - MOUSE_POINTER_RADIUS_AUTO_BUILD;
+  let (mx, my, mw, mh) = machine_dims_to_button_coords(factory.auto_build.machine_w, factory.auto_build.machine_h);
+  factory.auto_build.mouse_target_x = mx + mw * 0.5;
+  factory.auto_build.mouse_target_y = my + mh * 0.5;
 
   // Determine duration based on a desired mouse speed constant
   let distance = ((factory.auto_build.mouse_target_x - factory.auto_build.mouse_offset_x).abs().powf(2.0) + (factory.auto_build.mouse_target_y - factory.auto_build.mouse_offset_y).abs().powf(2.0)).sqrt();

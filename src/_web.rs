@@ -53,8 +53,8 @@
 //   - prettier auto build button
 //   - disable user while auto build is busy?
 //   - allow to cancel auto build. and to let it run continuously.
-//   - should pick machine suitable for the quest
 //   - can we prevent undo/redo stack changes until the end?
+// - embed machine_dims_to_button_coords()
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
