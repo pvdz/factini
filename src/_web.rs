@@ -5387,9 +5387,12 @@ fn paint_map_state_buttons(options: &Options, state: &State, config: &Config, co
   );
 
   paint_button(options, state, config, context, button_canvii, if state.mouse_mode_mirrored { BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_UP }, UI_UNREDO_PAINT_TOGGLE_X, UI_UNREDO_PAINT_TOGGLE_Y);
-  context.set_fill_style(&(if mouse_state.over_menu_button == MenuButton::PaintToggleButton { if state.mouse_mode_mirrored { "red" } else { "#aaa" } } else if state.mouse_mode_mirrored { "tomato" } else { "#ddd" }).into());
-  context.fill_text("🖌", UI_UNREDO_PAINT_TOGGLE_X + UI_UNREDO_WIDTH / 2.0 - 24.0, UI_UNREDO_PAINT_TOGGLE_Y + UI_UNREDO_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
-
+  // context.set_fill_style(&(if mouse_state.over_menu_button == MenuButton::PaintToggleButton { if state.mouse_mode_mirrored { "red" } else { "#aaa" } } else if state.mouse_mode_mirrored { "tomato" } else { "#ddd" }).into());
+  // context.fill_text("🖌", UI_UNREDO_PAINT_TOGGLE_X + UI_UNREDO_WIDTH / 2.0 - 24.0, UI_UNREDO_PAINT_TOGGLE_Y + UI_UNREDO_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
+  paint_asset_raw(
+    options, state, config, &context, if mouse_state.over_menu_button == MenuButton::PaintToggleButton { CONFIG_NODE_ASSET_BRUSH_LIGHT } else if state.mouse_mode_mirrored { CONFIG_NODE_ASSET_BRUSH_RED } else { CONFIG_NODE_ASSET_BRUSH_GREEN }, 0,
+    UI_UNREDO_PAINT_TOGGLE_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_UNREDO_PAINT_TOGGLE_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0
+  );
   context.restore();
 }
 fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {

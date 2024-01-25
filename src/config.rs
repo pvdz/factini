@@ -349,6 +349,11 @@ pub const CONFIG_NODE_STORY_DEFAULT: usize = 323;
 pub const CONFIG_NDOE_ASSET_TREASURE: usize = 324;
 pub const CONFIG_NODE_ASSET_PICKAXE: usize = 325;
 pub const CONFIG_NODE_ASSET_DRM_PLACEHOLDER: usize = 326;
+pub const CONFIG_NODE_ASSET_BRUSH_DARK: usize = 327;
+pub const CONFIG_NODE_ASSET_BRUSH_LIGHT: usize = 328;
+pub const CONFIG_NODE_ASSET_BRUSH_RED: usize = 329;
+pub const CONFIG_NODE_ASSET_BRUSH_GREEN: usize = 330;
+pub const CONFIG_NODE_ASSET_BRUSH_GREY: usize = 331;
 
 #[derive(Debug)]
 pub struct Config {
@@ -1281,6 +1286,11 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Asset_Treasure" => CONFIG_NDOE_ASSET_TREASURE,
     "Asset_Pickaxe" => CONFIG_NODE_ASSET_PICKAXE,
     "Asset_DrmPlaceholder" => CONFIG_NODE_ASSET_DRM_PLACEHOLDER,
+    "Asset_BrushDark" => CONFIG_NODE_ASSET_BRUSH_DARK,
+    "Asset_BrushLight" => CONFIG_NODE_ASSET_BRUSH_LIGHT,
+    "Asset_BrushRed" => CONFIG_NODE_ASSET_BRUSH_RED,
+    "Asset_BrushGreen" => CONFIG_NODE_ASSET_BRUSH_GREEN,
+    "Asset_BrushGrey" => CONFIG_NODE_ASSET_BRUSH_GREY,
     "Part_None" => CONFIG_NODE_PART_NONE,
     "Part_Trash" => CONFIG_NODE_PART_TRASH,
     "Supply_Up" => CONFIG_NODE_SUPPLY_UP,
@@ -1898,9 +1908,14 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_asset(CONFIG_NDOE_ASSET_TREASURE, "TREASURE"),
     config_node_asset(CONFIG_NODE_ASSET_PICKAXE, "PICKAXE"),
     config_node_asset(CONFIG_NODE_ASSET_DRM_PLACEHOLDER, "DRM_PLACEHOLDER"),
+    config_node_asset(CONFIG_NODE_ASSET_BRUSH_DARK, "BRUSH_DARK"),
+    config_node_asset(CONFIG_NODE_ASSET_BRUSH_LIGHT, "BRUSH_LIGHT"),
+    config_node_asset(CONFIG_NODE_ASSET_BRUSH_RED, "BRUSH_RED"),
+    config_node_asset(CONFIG_NODE_ASSET_BRUSH_GREEN, "BRUSH_GREEN"),
+    config_node_asset(CONFIG_NODE_ASSET_BRUSH_GREY, "BRUSH_GREY"),
   );
 
-  v.iter().enumerate().for_each(|(i, node)| assert!(node.index == i, "system node indexes must match their global constant value; mismatch for index {}", i));
+  v.iter().enumerate().for_each(|(i, node)| assert!(node.index == i, "system node indexes must match their global constant value; mismatch for index {} in get_system_nodes()", i));
 
   return v;
 }

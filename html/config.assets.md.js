@@ -190,7 +190,6 @@ Indicator that a machine has no target part to create
 - frame_offset: 0
 - frame_count: 1
 - file: ./img/trash_dark_cb.png
-- drm
 - x: 0
 - y: 0
 - w: 136
@@ -200,7 +199,6 @@ Indicator that a machine has no target part to create
 - frame_offset: 0
 - frame_count: 1
 - file: ./img/trash_light_cb.png
-- drm
 - x: 0
 - y: 0
 - w: 136
@@ -210,7 +208,6 @@ Indicator that a machine has no target part to create
 - frame_offset: 0
 - frame_count: 1
 - file: ./img/trash_grey_cb.png
-- drm
 - x: 0
 - y: 0
 - w: 136
@@ -220,7 +217,6 @@ Indicator that a machine has no target part to create
 - frame_offset: 0
 - frame_count: 1
 - file: ./img/trash_red_cb.png
-- drm
 - x: 0
 - y: 0
 - w: 136
@@ -230,11 +226,55 @@ Indicator that a machine has no target part to create
 - frame_offset: 0
 - frame_count: 1
 - file: ./img/trash_green_cb.png
-- drm
 - x: 0
 - y: 0
 - w: 136
 - h: 136
+
+# Asset_BrushGrey
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/brush_grey_cb.png
+- x: 0
+- y: 0
+- w: 128
+- h: 128
+
+# Asset_BrushDark
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/brush_dark_cb.png
+- x: 0
+- y: 0
+- w: 128
+- h: 128
+
+# Asset_BrushLight
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/brush_light_cb.png
+- x: 0
+- y: 0
+- w: 128
+- h: 128
+
+# Asset_BrushGreen
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/brush_green_cb.png
+- x: 0
+- y: 0
+- w: 128
+- h: 128
+
+# Asset_BrushRed
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/brush_red_cb_x.png
+- x: 0
+- y: 0
+- w: 128
+- h: 128
 
 # Asset_QuestFrame
 - frame_offset: 0
