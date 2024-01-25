@@ -54,6 +54,7 @@
 //   - disable user while auto build is busy?
 //   - allow to cancel auto build. and to let it run continuously.
 //   - can we prevent undo/redo stack changes until the end?
+// - should machines auto-configure based on inputs? that would prevent complex patterns if there are shorter patterns that are a subset.. maybe that's fine?
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -5403,10 +5404,11 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
   }
 
   let x = (GRID_X2 + GRID_RIGHT_WIDTH / 2.0 - MAZE_WIDTH / 2.0).floor() + 0.5;
-  let y = (GRID_Y1 + UI_FLOOR_HEIGHT - MAZE_HEIGHT).floor() + 0.5;
+  let y = (GRID_Y1 + UI_FLOOR_HEIGHT - (MAZE_HEIGHT + 10.0)).floor() + 0.5;
 
   let maze = &factory.maze;
 
+  // Bars above the maze:
   // Energy remaining
   let energy_x = x + 10.0;
   let energy_y = y - 30.0;
@@ -5533,10 +5535,11 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
   }
 
   if options.enable_maze_partial {
-    // stats bars
+    // Stats bars below the maze
 
     let bars = 15.0;
     let bar_width = MAZE_WIDTH / (bars + 1.0); // one extra for the label
+    let bar_height = 25.0;
 
     let ( e, s, p, v) = factory.maze_prep;
 
@@ -5559,19 +5562,19 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     let filled = bar_width * (1 + have) as f64;
     let semi = if filled >= 16.0 * bar_width { 0.0 } else { (bar_width * ((e as f64 % 10.0) / 10.0)).floor() };
     context.set_fill_style(&"white".into());
-    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + delta, MAZE_WIDTH, 25.0);
+    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + delta, MAZE_WIDTH, bar_height);
     context.set_fill_style(&"#169d06".into());
-    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + delta, filled, 25.0);
+    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + delta, filled, bar_height);
     context.set_fill_style(&"#169d0655".into());
-    context.fill_rect(0.5 + x + filled, 0.5 + GRID_Y2 + delta, semi, 25.0);
+    context.fill_rect(0.5 + x + filled, 0.5 + GRID_Y2 + delta, semi, bar_height);
     context.set_stroke_style(&"black".into());
-    context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + delta, MAZE_WIDTH, 25.0);
+    context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + delta, MAZE_WIDTH, bar_height);
     context.set_fill_style(&"white".into());
     context.fill_text("E", 0.5 + x + 5.0, 0.5 + GRID_Y2 + delta + 17.0).expect("canvas api call to work");
     for i in 0..((bars as usize) + 1) {
       context.begin_path();
       context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta);
-      context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 25.0);
+      context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + bar_height);
       context.stroke();
     }
     context.set_fill_style(&"#169d06".into());
@@ -5590,19 +5593,19 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     let filled = bar_width *(1 + have) as f64;
     let semi = if filled >= 16.0 * bar_width { 0.0 } else { (bar_width * ((s as f64 % 10.0) / 10.0)).floor() };
     context.set_fill_style(&"white".into());
-    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 32.0 + delta, MAZE_WIDTH, 25.0);
+    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 32.0 + delta, MAZE_WIDTH, bar_height);
     context.set_fill_style(&"#a86007".into());
-    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 32.0 + delta, filled, 25.0);
+    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 32.0 + delta, filled, bar_height);
     context.set_fill_style(&"#a8600777".into());
-    context.fill_rect(0.5 + x + filled, 0.5 + GRID_Y2 + 32.0 + delta, semi, 25.0);
+    context.fill_rect(0.5 + x + filled, 0.5 + GRID_Y2 + 32.0 + delta, semi, bar_height);
     context.set_stroke_style(&"black".into());
-    context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + 32.0 + delta, MAZE_WIDTH, 25.0);
+    context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + 32.0 + delta, MAZE_WIDTH, bar_height);
     context.set_fill_style(&"white".into());
     context.fill_text("S", 0.5 + x + 5.0, 0.5 + GRID_Y2 + 32.0 + delta + 17.0).expect("canvas api call to work");
     for i in 0..((bars as usize) + 1) {
       context.begin_path();
       context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 32.0);
-      context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 32.0 + 25.0);
+      context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 32.0 + bar_height);
       context.stroke();
     }
     context.set_fill_style(&"#a86007".into());
@@ -5621,19 +5624,19 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     let filled = bar_width *(1 + have) as f64;
     let semi = if filled >= 16.0 * bar_width { 0.0 } else { (bar_width * ((p as f64 % 10.0) / 10.0)).floor() };
     context.set_fill_style(&"white".into());
-    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 64.0 + delta, MAZE_WIDTH, 25.0);
+    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 64.0 + delta, MAZE_WIDTH, bar_height);
     context.set_fill_style(&"#ef13bf".into());
-    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 64.0 + delta, filled, 25.0);
+    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 64.0 + delta, filled, bar_height);
     context.set_fill_style(&"#ef13bf77".into());
-    context.fill_rect(0.5 + x + filled, 0.5 + GRID_Y2 + 64.0 + delta, semi, 25.0);
+    context.fill_rect(0.5 + x + filled, 0.5 + GRID_Y2 + 64.0 + delta, semi, bar_height);
     context.set_stroke_style(&"black".into());
-    context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + 64.0 + delta, MAZE_WIDTH, 25.0);
+    context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + 64.0 + delta, MAZE_WIDTH, bar_height);
     context.set_fill_style(&"white".into());
     context.fill_text("P", 0.5 + x + 5.0, 0.5 + GRID_Y2 + 64.0 + delta + 17.0).expect("canvas api call to work");
     for i in 0..((bars as usize) + 1) {
       context.begin_path();
       context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 64.0);
-      context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 64.0 + 25.0);
+      context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 64.0 + bar_height);
       context.stroke();
     }
     context.set_fill_style(&"#ef13bf".into());
@@ -5652,19 +5655,19 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     let filled = bar_width *(1 + have) as f64;
     let semi = if filled >= 16.0 * bar_width { 0.0 } else { (bar_width * ((v as f64 % 10.0) / 10.0)).floor() };
     context.set_fill_style(&"white".into());
-    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 96.0 + delta, MAZE_WIDTH, 25.0);
+    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 96.0 + delta, MAZE_WIDTH, bar_height);
     context.set_fill_style(&"#360676".into());
-    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 96.0 + delta, filled, 25.0);
+    context.fill_rect(0.5 + x, 0.5 + GRID_Y2 + 96.0 + delta, filled, bar_height);
     context.set_fill_style(&"#36067677".into());
-    context.fill_rect(0.5 + x + filled, 0.5 + GRID_Y2 + 96.0 + delta, semi, 25.0);
+    context.fill_rect(0.5 + x + filled, 0.5 + GRID_Y2 + 96.0 + delta, semi, bar_height);
     context.set_stroke_style(&"black".into());
-    context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + 96.0 + delta, MAZE_WIDTH, 25.0);
+    context.stroke_rect(0.5 + x, 0.5 + GRID_Y2 + 96.0 + delta, MAZE_WIDTH, bar_height);
     context.set_fill_style(&"white".into());
     context.fill_text("V", 0.5 + x + 5.0, 0.5 + GRID_Y2 + 96.0 + delta + 17.0).expect("canvas api call to work");
     for i in 0..((bars as usize) + 1) {
       context.begin_path();
       context.move_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 96.0);
-      context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 96.0 + 25.0);
+      context.line_to(0.5 + x + (bar_width * (i as f64)), 0.5 + GRID_Y2 + delta + 96.0 + bar_height);
       context.stroke();
     }
     context.set_fill_style(&"#360676".into());
