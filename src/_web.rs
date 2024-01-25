@@ -25,6 +25,7 @@
 //   - car polish; should make nice corners, should drive same speed to any height
 //   - fix item animation in and out of suppliers/demanders. looks ugly rn
 //   - certain things should be painted as a background layer once
+//   - machine top layer should paint _over_ the parts
 // - help the player
 //   - create tutorial
 // - store xorshift seed in map save
@@ -36,12 +37,9 @@
 // - cars with new parts shouldn't jump. that's the whole point of the invisible placeholder. why does it still do that when unlocking pink and grey at the same time?
 // - for the prepared maze stats: use fast fake belt to move the parts to the vehicle? one part per bar? balance accordingly? level 1=1, 2=10, 3=100, 4=1000 or whatever scale? on a log requirements scale?
 // - what does the maze runner ultimately find that allows you to move to the next level? (no plus, one plus, two plus)
-// - paint brush toggle must be X when deleting, must be away from the machine buttons
 // - menu must be moved away
 // - full screen button
 // - paint belts lighter
-// - something's off with the pause and refuel delay of the maze. something related to speed.
-// - collected parts after refueling starts should be hidden until refueling finishes. it currently adds a cube even when in flight.
 // - finished quests restart on load. all of them.
 // - copy paste should copy machines too? why not
 // - experiment with bigger maps and scrolling
@@ -57,6 +55,7 @@
 // - should machines auto-configure based on inputs? that would prevent complex patterns if there are shorter patterns that are a subset.. maybe that's fine?
 // - fix car driving paths, especially the new ones
 // - convert maze to rgb and implement some kind of image thing
+// - maze fuel could blow-up-fade-out when collected, with a 3x for the better one, maybe rainbow wiggle etc? or just 1x 2x 3x instead of icon
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -4700,7 +4699,7 @@ fn paint_woop(
     context.stroke_rect(px, py, CELL_W, CELL_H);
     context.restore();
     // paint some pixels green? (https://colordesigner.io/gradient-generator)
-    let ui_throttled_second = factory_ticks_to_game_time(options, factory.ticks) * 2.0;
+    let ui_throttled_second = factory_ticks_to_game_ui_time(options, factory.ticks) * 2.0;
     let progress = ui_throttled_second % 1.0;
     paint_green_pixel(context, progress, 0.0, x, y, "#9ac48b");
     paint_green_pixel(context, progress, 1.0, x, y, "#8ebd7f");

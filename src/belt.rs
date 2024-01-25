@@ -58,7 +58,7 @@ pub fn belt_new(config: &Config, meta: BeltMeta) -> Belt {
     part_to_tbd: true,
     part_at: 0,
     part_progress: 0,
-    speed: ONE_SECOND / 5,
+    speed: (ONE_SECOND as f64 * PART_OVER_BELT_SPEED_SEC) as u64,
     tick_price: 0,
     sprite_start_at: 0,
   };

@@ -40,8 +40,8 @@ const GAME_OPTIONS = `
 - zone_borders_color: "white"
 - short_term_window: 10000
 - long_term_window: 600000
-- speed_modifier_floor: 0.4
-- speed_modifier_ui: 0.2
+- speed_modifier_floor: 1.0
+- speed_modifier_ui: 0.5
 - touch_drag_compensation: false
 - dropzone_color_offset: 75
 - dropzone_bounce_speed: 8

@@ -2,7 +2,13 @@ use super::log;
 use super::utils::*;
 use super::state::*;
 
-// Design is for the default speed to run 10k ticks per real world second
+// Design was for the default speed to run 10k ticks per real world second
+
+// How many seconds should it take for one part to travel across one belt cell at normal speed?
+// This ultimately determines visual game speed
+pub const PART_OVER_BELT_SPEED_SEC: f64 = 0.5;
+pub const MAZE_TICK_INTERVAL: u64 = 400; // One maze tick every this many factory ticks
+
 pub const ONE_MS: u64 = 10;
 pub const ONE_SECOND: u64 = 1000 * ONE_MS;
 pub const MAX_TICKS_PER_FRAME: u64 = 1000; // Frame limiter
@@ -506,6 +512,6 @@ pub fn options_serialize(options: &Options) -> String {
   return arr.join("\n");
 }
 
-pub fn factory_ticks_to_game_time(options: &Options, ticks: u64) -> f64 {
+pub fn factory_ticks_to_game_ui_time(options: &Options, ticks: u64) -> f64 {
   return (ticks as f64 / (ONE_SECOND as f64 * options.speed_modifier_floor)) * options.speed_modifier_ui;
 }

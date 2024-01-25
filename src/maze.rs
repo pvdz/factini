@@ -264,7 +264,7 @@ pub fn maze_get_refuel_time(options: &Options) -> u64 {
 pub fn tick_maze(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
   if !options.enable_maze_runner { return; }
 
-  if factory.ticks % 150 == 0 {
+  if factory.ticks % MAZE_TICK_INTERVAL == 0 {
     if factory.maze_runner.maze_finish_at > 0 {
       if factory.ticks - factory.maze_runner.maze_finish_at > maze_get_finish_pause_time(options) {
         if factory.maze_runner.maze_nooped { log!("Maze runner last attempt at refuel was 5 seconds ago, trying again now..."); }
