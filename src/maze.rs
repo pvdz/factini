@@ -28,6 +28,12 @@ pub const MAZE_HEIGHT: f64 = 21.0 * MAZE_CELL_SIZE;
 pub const MAZE_CELLS_W: usize = (MAZE_WIDTH / MAZE_CELL_SIZE) as usize;
 pub const MAZE_CELLS_H: usize = (MAZE_HEIGHT / MAZE_CELL_SIZE) as usize;
 
+// This corresponds to the bar tabs in the UI too. UI has 16 bars; the first one is a label.
+pub const MAZE_MAX_UNITS_PER_REFUEL: u16 = 15;
+pub const MAZE_FINISH_PAUSE_TIME: f64 = 5.0; // At normal speed
+pub const MAZE_REFUEL_TIME_SEC: f64 = 2.0; // At normal speed
+pub const MAZE_REFUEL_PORTION: f64 = 0.2; // First 20% of refueling time is waiting at start
+
 const VERTICE_COUNT: usize = MAZE_CELLS_W * MAZE_CELLS_H;
 const SPECIAL_DENSITY: f64 = 0.1; // 5% of cells are specials
 const SPECIAL_COUNT: usize = ((MAZE_CELLS_W * MAZE_CELLS_H) as f64 * SPECIAL_DENSITY) as usize;
@@ -68,6 +74,8 @@ pub struct MazeRunner {
 
   // Last time a maze runner finished / got stuck
   pub maze_finish_at: u64,
+  pub maze_refueling_at: u64,
+  pub maze_nooped: bool,
   // Last start of animation to restart the runner
   pub maze_restart_at: u64,
 
@@ -231,6 +239,8 @@ pub fn create_maze_runner(x: usize, y: usize) -> MazeRunner {
     y,
 
     maze_finish_at: 0,
+    maze_refueling_at: 0,
+    maze_nooped: true,
     maze_restart_at: 0,
 
     energy_max: 1000,
@@ -244,27 +254,47 @@ pub fn create_maze_runner(x: usize, y: usize) -> MazeRunner {
 }
 
 pub fn maze_get_finish_pause_time(options: &Options) -> u64 {
-  return (5.0 * ONE_SECOND as f64 * options.speed_modifier_floor) as u64;
+  return (MAZE_FINISH_PAUSE_TIME * ONE_SECOND as f64) as u64;
 }
 
 pub fn maze_get_refuel_time(options: &Options) -> u64 {
-  return (2.0 * ONE_SECOND as f64 * options.speed_modifier_floor) as u64;
+  return (MAZE_REFUEL_TIME_SEC * ONE_SECOND as f64) as u64;
 }
 
 pub fn tick_maze(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
   if !options.enable_maze_runner { return; }
 
   if factory.ticks % 150 == 0 {
-    let x = (GRID_X2 + MAZE_WIDTH / 2.0).floor() + 0.5;
-    let y = (GRID_Y1 + FLOOR_HEIGHT - MAZE_WIDTH).floor() + 0.5;
-
     if factory.maze_runner.maze_finish_at > 0 {
       if factory.ticks - factory.maze_runner.maze_finish_at > maze_get_finish_pause_time(options) {
-        log!("Maze runner finished 5 seconds ago. Fueling it now...");
+        if factory.maze_runner.maze_nooped { log!("Maze runner last attempt at refuel was 5 seconds ago, trying again now..."); }
+        else { log!("Maze runner finished 5 seconds ago. Fueling it now..."); }
         // A few seconds after the maze runner gets stuck or out of energy, start the
         // "refueling" animation that starts the next run.
         factory.maze_runner.maze_finish_at = 0;
         factory.maze_runner.maze_restart_at = factory.ticks;
+        factory.maze_runner.maze_nooped = false;
+        let ( e, s, p, v) = factory.maze_prep;
+        if e >= 10 && s >= 10 && p >= 10 && v >= 10 {
+          let fe = (e / 10).min(MAZE_MAX_UNITS_PER_REFUEL);
+          let fs = (s / 10).min(MAZE_MAX_UNITS_PER_REFUEL);
+          let fp = (p / 10).min(MAZE_MAX_UNITS_PER_REFUEL);
+          let fv = (v / 10).min(MAZE_MAX_UNITS_PER_REFUEL);
+
+          factory.fuel_in_flight = ( fe, fs, fp, fv );
+          factory.maze_prep = (
+            if fe >= MAZE_MAX_UNITS_PER_REFUEL { 0 } else { e - fe * 10 },
+            if fs >= MAZE_MAX_UNITS_PER_REFUEL { 0 } else { s - fs * 10 },
+            if fp >= MAZE_MAX_UNITS_PER_REFUEL { 0 } else { p - fp * 10 },
+            if fv >= MAZE_MAX_UNITS_PER_REFUEL { 0 } else { v - fv * 10 },
+          );
+          factory.maze_runner.maze_refueling_at = factory.ticks;
+        } else {
+          // Reset refuel period
+          log!("Maze runner finished but there's not enough fuel {:?}. Delaying refuel step. {:?}", factory.maze_prep, factory.maze_runner.maze_nooped);
+          factory.maze_runner.maze_finish_at = factory.ticks;
+          factory.maze_runner.maze_nooped = true;
+        }
       }
       return;
     }
@@ -274,27 +304,24 @@ pub fn tick_maze(options: &Options, state: &State, config: &Config, factory: &mu
         log!("Maze runner finished refueling. Starting new run");
         // Start the next maze runner.
 
-        let ( e, s, p, w ) = factory.maze_prep;
+        let ( e, s, p, v ) = factory.fuel_in_flight;
 
         factory.maze_runner.maze_restart_at = 0;
 
-        factory.maze_runner.energy_now = (e.max(1) as u64 * 10).min(factory.maze_runner.energy_max);
-        factory.maze_runner.energy_max = factory.maze_runner.energy_now;
-        factory.maze_runner.speed = s.max(1) as u64;
-        factory.maze_runner.power_now = p.max(1) as u64;
-        factory.maze_runner.power_max = factory.maze_runner.power_now;
-        factory.maze_runner.volume_now = 0;
-        factory.maze_runner.volume_max = w.max(1) as u64;
+        factory.maze_runner.energy_now = e as u64 * 100;
+        factory.maze_runner.energy_max = e as u64 * 100;
+        factory.maze_runner.speed = s as u64 * 100;
+        factory.maze_runner.power_now = p as u64 * 100;
+        factory.maze_runner.power_max = p as u64 * 100;
+        factory.maze_runner.volume_now = v as u64 * 100;
+        factory.maze_runner.volume_max = v as u64 * 100;
 
         factory.maze_runner.x = 0;
         factory.maze_runner.y = 0;
 
         factory.maze = create_maze(factory.maze_seed);
 
-        factory.maze_prep.0 = 0;
-        factory.maze_prep.1 = 0;
-        factory.maze_prep.2 = 0;
-        factory.maze_prep.3 = 0;
+        factory.fuel_in_flight = (0,0,0,0);
       }
       return;
     }

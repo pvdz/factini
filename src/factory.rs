@@ -65,6 +65,8 @@ pub struct Factory {
   // Prepared stats for the next maze runner
   // TODO: maybe this should be a vec of parts that contribute to the total current value? So we can paint them in order received etc
   pub maze_prep: ( u16, u16, u16, u16 ),
+  // Fuel cubes (visually) in flight
+  pub fuel_in_flight: ( u16, u16, u16, u16 ),
   // State for automatic builder code
   pub auto_build: AutoBuild,
 }
@@ -126,6 +128,7 @@ pub fn create_factory(options: &Options, state: &mut State, config: &Config, flo
     maze_seed,
     maze_runner: create_maze_runner(0, 0),
     maze_prep: (0, 0, 0, 0),
+    fuel_in_flight: (0, 0, 0, 0),
     auto_build: auto_build_create(),
   };
 
@@ -339,7 +342,7 @@ pub fn tick_factory(options: &mut Options, state: &mut State, config: &Config, f
         t.1 += 1.0;
         if t.1 > x3 + 2.0 * tsize {
           match config.nodes[t.0].special.0 {
-            'n' => panic!("Special kind 0 should not end up here"),
+            'n' => panic!("Special.kind `n` should not end up here"),
             'e' => factory.maze_prep.0 += config.nodes[t.0].special.1 as u16,
             's' => factory.maze_prep.1 += config.nodes[t.0].special.1 as u16,
             'p' => factory.maze_prep.2 += config.nodes[t.0].special.1 as u16,
