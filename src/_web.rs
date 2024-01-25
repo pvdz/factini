@@ -56,6 +56,7 @@
 // - fix car driving paths, especially the new ones
 // - convert maze to rgb and implement some kind of image thing
 // - maze fuel could blow-up-fade-out when collected, with a 3x for the better one, maybe rainbow wiggle etc? or just 1x 2x 3x instead of icon
+// - when AI picks rainbow bucket it should be aware of the machine requirements (3x3)
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -4468,8 +4469,13 @@ fn paint_corner_help_icon(options: &Options, state: &State, config: &Config, fac
   } else {
     context.set_fill_style(&"black".into());
   }
-  context.set_font(&"48px monospace");
-  context.fill_text(if factory.auto_build.phase == AutoBuildPhase::None { format!("?") } else { format!("!") }.as_str(), UI_AUTO_BUILD_X + 10.0, UI_AUTO_BUILD_Y + 40.0).expect("yes");
+  if factory.auto_build.phase == AutoBuildPhase::None {
+    context.set_font(&"30px verdana");
+    context.fill_text( format!("AI").as_str(), UI_AUTO_BUILD_X + 8.0, UI_AUTO_BUILD_Y + 35.0).expect("yes");
+  } else {
+    context.set_font(&"48px verdana, sans-serif");
+    context.fill_text(format!("!").as_str(), UI_AUTO_BUILD_X + 15.0, UI_AUTO_BUILD_Y + 40.0).expect("yes");
+  }
   context.restore();
 }
 
@@ -4717,7 +4723,6 @@ fn paint_ui_woop_tooltip(options: &Options, state: &State, config: &Config, fact
   let required_parts = &config.nodes[part_kind].pattern_unique_kinds;
 
   if required_parts.len() == 0 {
-    // Only paint this for
     return;
   }
 
@@ -5014,10 +5019,10 @@ fn paint_machines_droptarget_green(options: &Options, state: &State, config: &Co
 }
 fn get_drop_color(options: &Options, ticks: u64) -> String {
   let color_offset = options.dropzone_color_offset; // 75
-  let bounce_speed = options.dropzone_bounce_speed; // 10
+  let bounce_speed = options.dropzone_bounce_speed; // 100
   let bounce_distance = options.dropzone_bounce_distance; // 150
   let bounce_d2 = bounce_distance * 2;
-  let mut p = ((((ticks as f64) / options.speed_modifier_floor * options.speed_modifier_ui) as u64) / bounce_speed) % bounce_d2;
+  let mut p = ((((ticks as f64) / options.speed_modifier_ui) as u64) / bounce_speed) % bounce_d2;
   if p > bounce_distance { p = bounce_distance - (p - bounce_distance); } // This makes the color bounce rather than jump from black to green
   let yo = format!("#00{:02x}0077", p+ color_offset);
   return yo;
@@ -5492,6 +5497,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     context.set_stroke_style(&"black".into());
     context.stroke_rect(x, y, MAZE_WIDTH, MAZE_HEIGHT);
 
+    // maze visited fill
     for i in 0..MAZE_CELLS_W as usize {
       for j in 0..MAZE_CELLS_H as usize {
         let v = &maze[j* MAZE_CELLS_W +i];

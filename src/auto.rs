@@ -75,7 +75,7 @@ pub struct AutoBuild {
   pub step_counter: usize,
 }
 
-const MOUSE_SPEED_MODIFIER_PX_P_MS: f64 = 0.1;
+const MOUSE_SPEED_MODIFIER_PX_P_MS: f64 = 0.01;
 pub const MOUSE_POINTER_RADIUS_AUTO_BUILD: f64 = PART_W / 2.0; // radius = half the circle width
 
 const FLOOD_FILL_EMPTY_FRESH: i32 = 900;
@@ -131,7 +131,7 @@ pub fn auto_build_next_step(options: &Options, state: &State, config: &Config, f
   }
 
   // By default, pause briefly between steps
-  let wait = 2000.0;
+  let wait = 40000.0;
   let pause = wait / (ONE_MS as f64 * options.speed_modifier_ui);
   factory.auto_build.phase_pause = pause as u64;
   // Each step should set their own duration
@@ -569,14 +569,14 @@ fn auto_build_init_create_supplier(options: &Options, state: &State, config: &Co
 
 fn auto_build_init_track_to_machine_start(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
   // Pause here briefly
-  let wait = 1000.0;
+  let wait = 10000.0;
   let duration = wait / (ONE_MS as f64 * options.speed_modifier_ui);
   factory.auto_build.phase_pause = duration as u64;
 }
 
 fn auto_build_init_track_to_machine(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
   // Pause here briefly
-  let wait = 1000.0;
+  let wait = 10000.0;
   let duration = wait / (ONE_MS as f64 * options.speed_modifier_ui);
   factory.auto_build.phase_pause = duration as u64;
 
@@ -645,14 +645,14 @@ fn auto_build_init_track_to_machine_step(options: &Options, state: &State, confi
 
 fn auto_build_init_track_from_machine_start(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
   // Pause here briefly
-  let wait = 1000.0;
+  let wait = 10000.0;
   let duration = wait / (ONE_MS as f64 * options.speed_modifier_ui);
   factory.auto_build.phase_pause = duration as u64;
 }
 
 fn auto_build_init_track_from_machine(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
   // Pause here briefly
-  let wait = 1000.0;
+  let wait = 10000.0;
   let duration = wait / (ONE_MS as f64 * options.speed_modifier_ui);
   factory.auto_build.phase_pause = duration as u64;
 
@@ -843,7 +843,7 @@ fn auto_build_init_track_from_machine_step(options: &Options, state: &State, con
 }
 
 fn auto_build_init_blocked(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
-  factory.auto_build.phase_pause = 4000;
+  factory.auto_build.phase_pause = 30000;
 }
 
 fn auto_build_init_finishing(options: &Options, state: &State, config: &Config, factory: &mut Factory) {

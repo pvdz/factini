@@ -182,7 +182,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     speed_modifier_ui,
     touch_drag_compensation: false,
     dropzone_color_offset: 75,
-    dropzone_bounce_speed: 10,
+    dropzone_bounce_speed: 100,
     dropzone_bounce_distance: 150,
     bouncer_decay_rate_modifier: 3.0,
     bouncer_amplitude_decay_rate: 1.0,
