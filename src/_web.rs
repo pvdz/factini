@@ -979,7 +979,6 @@ pub fn start() -> Result<(), JsValue> {
         paint_lasers(&options, &mut state, &config, &context);
         paint_trucks(&options, &state, &config, &context, &mut factory);
         paint_ui_time_control(&options, &state, &context, &mouse_state);
-        paint_paint_toggle(&options, &state, &config, &context, &button_canvii, &mouse_state); // TODO: move to left
         paint_button_menu_ui(&options, &state, &config, &factory, &context, &button_canvii, &mouse_state);
         paint_floor_round_way(&options, &state, &config, &factory, &context);
         paint_background_tiles1(&options, &state, &config, &factory, &context);
@@ -5045,15 +5044,6 @@ fn paint_button_menu_ui(options: &Options, state: &State, config: &Config, facto
     paint_ui_buttons2(options, state, context, mouse_state);
   }
 }
-fn paint_paint_toggle(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
-  paint_button(options, state, config, context, button_canvii, if state.mouse_mode_mirrored { BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_UP }, UI_UNREDO_PAINT_TOGGLE_X, UI_UNREDO_PAINT_TOGGLE_Y);
-
-  context.save();
-  context.set_font(&"48px monospace");
-  context.set_fill_style(&(if mouse_state.over_menu_button == MenuButton::PaintToggleButton { if state.mouse_mode_mirrored { "red" } else { "#aaa" } } else if state.mouse_mode_mirrored { "tomato" } else { "#ddd" }).into());
-  context.fill_text("🖌", UI_UNREDO_PAINT_TOGGLE_X + UI_UNREDO_WIDTH / 2.0 - 24.0, UI_UNREDO_PAINT_TOGGLE_Y + UI_UNREDO_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
-  context.restore();
-}
 fn paint_machine1x2(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   paint_machine_button(options, state, config, factory, context, 1, 2);
 }
@@ -5384,18 +5374,21 @@ fn paint_map_state_buttons(options: &Options, state: &State, config: &Config, co
   context.set_fill_style(&text_color.into());
   context.fill_text("↶", UI_UNREDO_UNDO_OFFSET_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_UNREDO_UNDO_OFFSET_Y + UI_UNREDO_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
 
-  paint_button(options, state, config, context, button_canvii, if mouse_state.down_menu_button == MenuButton::ClearButton { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_UNREDO_CLEAR_OFFSET_X, UI_UNREDO_CLEAR_OFFSET_Y);
+  paint_button(options, state, config, context, button_canvii, if state.snapshot_undo_pointer != state.snapshot_pointer && mouse_state.down_menu_button == MenuButton::RedoButton { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_UNREDO_REDO_OFFSET_X, UI_UNREDO_REDO_OFFSET_Y);
+  let text_color = if state.snapshot_undo_pointer == state.snapshot_pointer { "#777" } else if mouse_state.over_menu_button == MenuButton::RedoButton { "#aaa" } else { "#ddd" };
+  context.set_fill_style(&text_color.into());
+  context.fill_text("↷", UI_UNREDO_REDO_OFFSET_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_UNREDO_REDO_OFFSET_Y + UI_UNREDO_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
 
+  // 🗑 🚮
+  paint_button(options, state, config, context, button_canvii, if mouse_state.down_menu_button == MenuButton::ClearButton { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_UNREDO_CLEAR_OFFSET_X, UI_UNREDO_CLEAR_OFFSET_Y);
   paint_asset_raw(
     options, state, config, &context, if mouse_state.over_menu_button == MenuButton::ClearButton { CONFIG_NODE_ASSET_TRASH_RED } else { CONFIG_NODE_ASSET_TRASH_LIGHT }, 0,
     UI_UNREDO_CLEAR_OFFSET_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_UNREDO_CLEAR_OFFSET_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0
   );
 
-  // 🗑 🚮
-  paint_button(options, state, config, context, button_canvii, if state.snapshot_undo_pointer != state.snapshot_pointer && mouse_state.down_menu_button == MenuButton::RedoButton { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_UNREDO_REDO_OFFSET_X, UI_UNREDO_REDO_OFFSET_Y);
-  let text_color = if state.snapshot_undo_pointer == state.snapshot_pointer { "#777" } else if mouse_state.over_menu_button == MenuButton::RedoButton { "#aaa" } else { "#ddd" };
-  context.set_fill_style(&text_color.into());
-  context.fill_text("↷", UI_UNREDO_REDO_OFFSET_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_UNREDO_REDO_OFFSET_Y + UI_UNREDO_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
+  paint_button(options, state, config, context, button_canvii, if state.mouse_mode_mirrored { BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_UP }, UI_UNREDO_PAINT_TOGGLE_X, UI_UNREDO_PAINT_TOGGLE_Y);
+  context.set_fill_style(&(if mouse_state.over_menu_button == MenuButton::PaintToggleButton { if state.mouse_mode_mirrored { "red" } else { "#aaa" } } else if state.mouse_mode_mirrored { "tomato" } else { "#ddd" }).into());
+  context.fill_text("🖌", UI_UNREDO_PAINT_TOGGLE_X + UI_UNREDO_WIDTH / 2.0 - 24.0, UI_UNREDO_PAINT_TOGGLE_Y + UI_UNREDO_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
 
   context.restore();
 }
