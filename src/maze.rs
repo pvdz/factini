@@ -35,9 +35,8 @@ pub const MAZE_REFUEL_TIME_SEC: f64 = 2.0; // At normal speed
 pub const MAZE_REFUEL_PORTION: f64 = 0.2; // First 20% of refueling time is waiting at start
 
 const VERTICE_COUNT: usize = MAZE_CELLS_W * MAZE_CELLS_H;
-const SPECIAL_DENSITY: f64 = 0.1; // 5% of cells are specials
-const SPECIAL_COUNT: usize = ((MAZE_CELLS_W * MAZE_CELLS_H) as f64 * SPECIAL_DENSITY) as usize;
-const SECTION_SIZE: usize = (VERTICE_COUNT as f64 / (SPECIAL_COUNT as f64)) as usize;
+pub const MAX_ROCK_COUNT: usize = 15; // Should be in sync with max pickaxe count
+pub const MAX_TREASURE_COUNT: usize = 15; // Should be in sync with max volume count
 
 fn dnow() -> u64 {
   js_sys::Date::now() as u64
@@ -213,21 +212,29 @@ pub fn create_maze(seed: u64) -> Vec<MazeCell> {
   // of each of those sections to fill with the special.
   // Specials could be bonuses, points, or obstacles. TBD.
 
-  log!("section_size={} SPECIAL_COUNT={} vertices.len()={}", SECTION_SIZE, SPECIAL_COUNT, vertices.len());
-  for i in 0..SPECIAL_COUNT {
+  log!("MAX_ROCK_COUNT={} MAX_TREASURE_COUNT={} vertices.len()={}", MAX_ROCK_COUNT, MAX_TREASURE_COUNT, vertices.len());
+
+  let len = vertices.len();
+  let mut n = 0;
+  while n < MAX_ROCK_COUNT {
     z = xorshift(z);
 
-    let what = match z % 10 {
-      | 0
-      | 1
-      | 2
-      | 3 => MAZE_ROCK,
-      _ => MAZE_TREASURE,
-    };
+    let index = z % len;
+    if vertices[index].special != MAZE_EMPTY { continue; }
 
+    vertices[index].special = MAZE_ROCK;
+    n += 1;
+  }
+
+  let mut m = 0;
+  while m < MAX_TREASURE_COUNT {
     z = xorshift(z);
 
-    vertices[i * SECTION_SIZE + (z % SECTION_SIZE)].special = what;
+    let index = z % len;
+    if vertices[index].special != MAZE_EMPTY { continue; }
+
+    vertices[index].special = MAZE_TREASURE;
+    m += 1;
   }
 
   return vertices;
@@ -310,11 +317,11 @@ pub fn tick_maze(options: &Options, state: &State, config: &Config, factory: &mu
 
         factory.maze_runner.energy_now = e as u64 * 100;
         factory.maze_runner.energy_max = e as u64 * 100;
-        factory.maze_runner.speed = s as u64 * 100;
-        factory.maze_runner.power_now = p as u64 * 100;
+        factory.maze_runner.speed = s as u64;
+        factory.maze_runner.power_now = p as u64;
         factory.maze_runner.power_max = p as u64 * 100;
-        factory.maze_runner.volume_now = v as u64 * 100;
-        factory.maze_runner.volume_max = v as u64 * 100;
+        factory.maze_runner.volume_now = v as u64;
+        factory.maze_runner.volume_max = factory.maze_runner.volume_max.max(v as u64);
 
         factory.maze_runner.x = 0;
         factory.maze_runner.y = 0;

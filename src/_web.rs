@@ -5371,13 +5371,21 @@ fn paint_map_state_buttons(options: &Options, state: &State, config: &Config, co
 
   paint_button(options, state, config, context, button_canvii, if state.snapshot_undo_pointer > 0 && mouse_state.down_menu_button == MenuButton::UndoButton { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_UNREDO_UNDO_OFFSET_X, UI_UNREDO_UNDO_OFFSET_Y);
   let text_color = if state.snapshot_undo_pointer <= 0 { "#777" } else if mouse_state.over_menu_button == MenuButton::UndoButton { "#aaa" } else { "#ddd" };
-  context.set_fill_style(&text_color.into());
-  context.fill_text("↶", UI_UNREDO_UNDO_OFFSET_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_UNREDO_UNDO_OFFSET_Y + UI_UNREDO_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
+  // context.set_fill_style(&text_color.into());
+  // context.fill_text("↶", UI_UNREDO_UNDO_OFFSET_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_UNREDO_UNDO_OFFSET_Y + UI_UNREDO_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
+  paint_asset_raw(
+    options, state, config, &context, if mouse_state.over_menu_button == MenuButton::UndoButton { CONFIG_NODE_ASSET_UNDO_LIGHT } else { CONFIG_NODE_ASSET_UNDO_GREY }, 0,
+    UI_UNREDO_UNDO_OFFSET_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_UNREDO_UNDO_OFFSET_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0
+  );
 
   paint_button(options, state, config, context, button_canvii, if state.snapshot_undo_pointer != state.snapshot_pointer && mouse_state.down_menu_button == MenuButton::RedoButton { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_UNREDO_REDO_OFFSET_X, UI_UNREDO_REDO_OFFSET_Y);
   let text_color = if state.snapshot_undo_pointer == state.snapshot_pointer { "#777" } else if mouse_state.over_menu_button == MenuButton::RedoButton { "#aaa" } else { "#ddd" };
-  context.set_fill_style(&text_color.into());
-  context.fill_text("↷", UI_UNREDO_REDO_OFFSET_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_UNREDO_REDO_OFFSET_Y + UI_UNREDO_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
+  // context.set_fill_style(&text_color.into());
+  // context.fill_text("↷", UI_UNREDO_REDO_OFFSET_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_UNREDO_REDO_OFFSET_Y + UI_UNREDO_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
+  paint_asset_raw(
+    options, state, config, &context, if mouse_state.over_menu_button == MenuButton::RedoButton { CONFIG_NODE_ASSET_REDO_LIGHT } else { CONFIG_NODE_ASSET_REDO_GREY }, 0,
+    UI_UNREDO_REDO_OFFSET_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_UNREDO_REDO_OFFSET_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0
+  );
 
   // 🗑 🚮
   paint_button(options, state, config, context, button_canvii, if mouse_state.down_menu_button == MenuButton::ClearButton { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_UNREDO_CLEAR_OFFSET_X, UI_UNREDO_CLEAR_OFFSET_Y);
@@ -5445,18 +5453,18 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     context.set_stroke_style(&"black".into());
     context.stroke_rect(speed_x, speed_y, 30.0, 25.0);
     context.set_fill_style(&"black".into());
-    context.fill_text(&format!("{}", factory.maze_runner.speed), speed_x + 11.0, speed_y + 16.0).expect("it to work");
+    context.fill_text(&format!("{}", factory.maze_runner.speed), speed_x + if factory.maze_runner.speed >= 100 { 4.0 } else if factory.maze_runner.speed >= 10 { 7.0 } else { 11.0 }, speed_y + 16.0).expect("it to work");
 
     context.set_fill_style(&"black".into());
     if options.print_maze_prepared_stats { context.fill_text(format!("{} / {}", factory.maze_runner.power_now, factory.maze_runner.power_max).as_str(), power_x, power_y - 5.0).expect("it to work"); }
     context.set_fill_style(&"white".into());
     context.fill_rect(power_x, power_y, 60.0, 25.0);
     // paint one hammer evenly divided across the space. maintain location (dont "jump" when removing a hammer). max width to divide is field_width-margin-img_width-margin. max spacing is img_width+margin
-    let max_power_space = 60.0 - 5.0 - 5.0;
-    let power_offset_step = (max_power_space / (factory.maze_runner.power_max as f64)).min(20.0);
-    for i in 0..factory.maze_runner.power_now {
+    let max_power_space = 60.0 - 5.0 - 11.0;
+    let power_offset_step = (max_power_space / (factory.maze_runner.power_max.min(MAX_ROCK_COUNT as u64) as f64)).min(40.0);
+    for i in 0..factory.maze_runner.power_now.min(MAX_ROCK_COUNT as u64) {
       // will overlap. by design
-      paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_PICKAXE, factory.ticks, power_x + 5.0 + (i as f64) * power_offset_step, power_y + 5.0, 15.0, 15.0);
+      paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_PICKAXE, factory.ticks, power_x + 3.0 + (i as f64) * power_offset_step, power_y + 5.0, 15.0, 15.0);
     }
     context.set_stroke_style(&"black".into());
     context.stroke_rect(power_x, power_y, 60.0, 25.0);
@@ -5468,9 +5476,9 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     context.set_fill_style(&"white".into());
     context.fill_rect(volume_x, volume_y, 80.0, 25.0);
     // Unlike power, here we may actually want to update the spacing as the volume goes up. Try to make it a "pile" or whatever. We can probably fake that to some degree with some kind of pre-defined positioning table etc.
-    let max_volume_space = 60.0 - 5.0 - 10.0 - 5.0;
-    let volume_offset_step = (max_volume_space / (factory.maze_runner.volume_max as f64)).min(20.0);
-    for i in 0..factory.maze_runner.volume_now {
+    let max_volume_space = 60.0 - 5.0;
+    let volume_offset_step = (max_volume_space / (factory.maze_runner.volume_max.min(40) as f64)).min(20.0);
+    for i in 0..factory.maze_runner.volume_now.min(40) {
       // will overlap. by design
       paint_asset(&options, &state, &config, &context, CONFIG_NDOE_ASSET_TREASURE, factory.ticks, volume_x + 5.0 + (i as f64) * volume_offset_step, volume_y + 5.0, 15.0, 15.0);
     }
@@ -5516,7 +5524,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
         match v.special {
           // MAZE_TREASURE
           2 => {
-            context.set_fill_style(&"orange".into());
+            context.set_fill_style(&"#d4662f".into());
             context.fill_rect(x + i as f64 * MAZE_CELL_SIZE + 2.0, y + j as f64 * MAZE_CELL_SIZE + 2.0, MAZE_CELL_SIZE - 4.0, 6.0);
           }
           // MAZE_ROCK

@@ -276,6 +276,42 @@ Indicator that a machine has no target part to create
 - w: 128
 - h: 128
 
+# Asset_UndoLight
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/undo_light.png
+- x: 0
+- y: 0
+- w: 128
+- h: 128
+
+# Asset_UndoGrey
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/undo_grey.png
+- x: 0
+- y: 0
+- w: 128
+- h: 128
+
+# Asset_RedoLight
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/redo_light.png
+- x: 0
+- y: 0
+- w: 128
+- h: 128
+
+# Asset_RedoGrey
+- frame_offset: 0
+- frame_count: 1
+- file: ./img/redo_grey.png
+- x: 0
+- y: 0
+- w: 128
+- h: 128
+
 # Asset_QuestFrame
 - frame_offset: 0
 - frame_count: 1
@@ -393,20 +429,18 @@ Indicator that a machine has no target part to create
 - h: 55
 
 # Asset_Pickaxe
-- file: ./img/roguelikeitems.png
-- drm
-- x: 80
-- y: 96
-- w: 16
-- h: 16
+- file: ./img/pickaxe.png
+- x: 0
+- y: 0
+- w: 128
+- h: 128
 
 # Asset_Treasure
-- file: ./img/roguelikeitems.png
-- drm
-- x: 16
-- y: 96
-- w: 16
-- h: 16
+- file: ./img/treasure.png
+- x: 0
+- y: 0
+- w: 160
+- h: 160
 
 # Asset_DrmPlaceholder
 See options.show_drm=false
