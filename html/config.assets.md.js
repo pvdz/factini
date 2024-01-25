@@ -189,52 +189,52 @@ Indicator that a machine has no target part to create
 # Asset_TrashDark
 - frame_offset: 0
 - frame_count: 1
-- file: ./img/trash_dark.png
+- file: ./img/trash_dark_cb.png
 - drm
 - x: 0
 - y: 0
-- w: 43
-- h: 43
+- w: 136
+- h: 136
 
 # Asset_TrashLight
 - frame_offset: 0
 - frame_count: 1
-- file: ./img/trash_light.png
+- file: ./img/trash_light_cb.png
 - drm
 - x: 0
 - y: 0
-- w: 43
-- h: 43
+- w: 136
+- h: 136
 
 # Asset_TrashGrey
 - frame_offset: 0
 - frame_count: 1
-- file: ./img/trash_grey.png
+- file: ./img/trash_grey_cb.png
 - drm
 - x: 0
 - y: 0
-- w: 43
-- h: 43
+- w: 136
+- h: 136
 
 # Asset_TrashRed
 - frame_offset: 0
 - frame_count: 1
-- file: ./img/trash_red.png
+- file: ./img/trash_red_cb.png
 - drm
 - x: 0
 - y: 0
-- w: 43
-- h: 43
+- w: 136
+- h: 136
 
 # Asset_TrashGreen
 - frame_offset: 0
 - frame_count: 1
-- file: ./img/trash_green.png
+- file: ./img/trash_green_cb.png
 - drm
 - x: 0
 - y: 0
-- w: 43
-- h: 43
+- w: 136
+- h: 136
 
 # Asset_QuestFrame
 - frame_offset: 0
