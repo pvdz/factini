@@ -56,7 +56,6 @@
 // - fix car driving paths, especially the new ones
 // - convert maze to rgb and implement some kind of image thing
 // - maze fuel could blow-up-fade-out when collected, with a 3x for the better one, maybe rainbow wiggle etc? or just 1x 2x 3x instead of icon
-// - when AI picks rainbow bucket it should be aware of the machine requirements (3x3)
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 

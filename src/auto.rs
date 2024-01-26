@@ -234,8 +234,11 @@ fn auto_build_init_startup(options: &Options, state: &State, config: &Config, fa
   factory.auto_build.quest_visible_index = n;
   factory.auto_build.quest_index = quest_visible_index_to_quest_index(options, state, config, factory, factory.auto_build.quest_visible_index).unwrap();
 
-  // Pick machine size that fits
-  let pattern = config.nodes[factory.quests[factory.auto_build.quest_index].config_node_index].pattern_unique_kinds.len();
+  // Pick machine size that fits.
+  // Note: this assumes there is at least one production target (which should be the case but the engine supports more per quest...)
+  let target_by_index = &config.nodes[factory.quests[factory.auto_build.quest_index].config_node_index].production_target_by_index;
+  assert!(target_by_index.len() >= 1, "assuming that the picked quest has at least one production target...");
+  let pattern = config.nodes[target_by_index[0].1].pattern_unique_kinds.len();
   if pattern <= 2 {
     rng = xorshift(rng);
     match rng % 2 {
