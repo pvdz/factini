@@ -976,7 +976,6 @@ pub fn start() -> Result<(), JsValue> {
         paint_atoms(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
         let highlight_index = paint_woops(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
         paint_lasers(&options, &mut state, &config, &context);
-        paint_trucks(&options, &state, &config, &context, &mut factory);
         paint_ui_time_control(&options, &state, &context, &mouse_state);
         paint_button_menu_ui(&options, &state, &config, &factory, &context, &button_canvii, &mouse_state);
         paint_floor_round_way(&options, &state, &config, &factory, &context);
@@ -997,6 +996,8 @@ pub fn start() -> Result<(), JsValue> {
         paint_load_thumbs(&options, &state, &config, &factory, &context, &button_canvii, &mouse_state, &mut quick_saves);
 
         paint_maze(&options, &state, &config, &factory, &context, &mouse_state);
+        // Truck will jump over maze stuff
+        paint_trucks(&options, &state, &config, &context, &mut factory);
 
         // Probably after all backround/floor stuff is finished
         paint_zone_borders(&options, &state, &context);
@@ -4896,25 +4897,43 @@ fn abp(a: f64, b: f64, p: f64, ease: Ease) -> f64 {
 }
 
 const AT1: (f64, f64, f64, f64) = (
-  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH - (50.0 + 5.0), // Right side of the button but enough to hide under the button
-  UI_MENU_MACHINE_BUTTON_3X3_Y + (UI_MENU_MACHINE_BUTTON_3X3_HEIGHT / 2.0) - (50.0 / 2.0), // Middle of button
+  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH - (50.0), // Right side of the button but enough to hide under the button
+  UI_MENU_MACHINE_BUTTON_3X3_Y + (UI_MENU_MACHINE_BUTTON_3X3_HEIGHT / 2.0), // Bottom of button
   0.25, // Facing right
   50.0,
 );
 const AT2: (f64, f64, f64, f64) = (
-  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH + 30.0,
-  UI_MENU_MACHINE_BUTTON_3X3_Y - 50.0,
+  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH + 10.0,
+  UI_MENU_MACHINE_BUTTON_3X3_Y,
   -0.05, // Facing up and a little left
   50.0,
 );
-const AT3: (f64, f64, f64, f64) = (
-  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH + 20.0,
-  UI_MENU_MACHINE_BUTTON_3X3_Y - 100.0,
-  0.01, // Facing up and a little left
+const AT3jump: (f64, f64, f64, f64) = (
+  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH + 10.0 - 15.0,
+  UI_MENU_MACHINE_BUTTON_3X3_Y - 75.0,
+  0.00, // Facing up
+  80.0,
+);
+const AT3nojump: (f64, f64, f64, f64) = (
+  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH + 10.0,
+  UI_MENU_MACHINE_BUTTON_3X3_Y - 75.0,
+  0.00, // Facing up
   50.0,
 );
 const AT4: (f64, f64, f64, f64) = (
-  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH + 20.0,
+  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH + 10.0,
+  UI_MENU_MACHINE_BUTTON_3X3_Y - 90.0,
+  0.0, // Facing up and a little left
+  50.0,
+);
+const AT5: (f64, f64, f64, f64) = (
+  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH + 10.0,
+  UI_MENU_MACHINE_BUTTON_3X3_Y - 150.0,
+  0.0, // Facing up and a little left
+  50.0,
+);
+const AT6: (f64, f64, f64, f64) = (
+  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH + 10.0,
   UI_MENU_MACHINE_BUTTON_3X3_Y - 350.0,
   0.0, // Facing up and a little left
   50.0,
@@ -4984,9 +5003,10 @@ fn paint_atom_truck_at_age(options: &Options, state: &State, config: &Config, co
   // Paint a truck that is heading to the menu on the bottom-left
 
   // Basically this is the speed of each segment of the truck
-  const tb1: f64 = 1000.0;
-  const tb2: f64 = 150.0;
-  const tb3: f64 = 2000.0;
+  let m = 1.0; // Lower is faster.
+  let tb1 = 1000.0 * m;
+  let tb2 = 150.0 * m;
+  let tb3 = 2000.0 * m;
 
   // let part = CONFIG_NODE_PART_NONE;
   if age < tb1 {
@@ -5037,14 +5057,19 @@ fn paint_atom_truck_at_age(options: &Options, state: &State, config: &Config, co
 fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory, age: f64, part: PartKind, target_menu_part_position: usize) -> bool {
   // Paint a truck heading to the right menu
 
-  // Basically this is the number of ticks available per segment of the truck. Lower is faster.
-  const ta1: f64 = 1000.0;
-  const ta2: f64 = 1000.0;
-  const ta3: f64 = 2500.0;
-  const ta4: f64 = 1600.0;
+  // Basically this is the number of ticks available per segment of the truck.
+  let m = 1.0; // Lower is faster.
+  let ta1 = 1000.0 * m;
+  let ta2 = 320.0 * m;
+  let ta3 = 120.0 * m;
+  let ta4 = 240.0 * m;
+  let ta5 = 800.0 * m;
+  let ta6 = 760.0 * m;
 
   // let part = CONFIG_NODE_PART_NONE;
+
   if age < ta1 {
+    // Curve out of the gate
     paint_truck(options, state, config, context, part,
       AT1, AT2,
       ( Ease::None, Ease::None, Ease::Cos, Ease::None ),
@@ -5054,8 +5079,9 @@ fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, co
     );
   }
   else if age < ta1 + ta2 {
+    // Bounce back.
     paint_truck(options, state, config, context, part,
-      AT2, AT3,
+      AT2, if options.enable_maze_partial { AT3jump } else { AT3nojump },
       ( Ease::None, Ease::None, Ease::None, Ease::None ),
       // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
       (age - ta1) / ta2 % 10.0,
@@ -5063,27 +5089,49 @@ fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, co
     );
   }
   else if age < ta1 + ta2 + ta3 {
+    // If maze is on, jump up to go over the path, otherwise do not jump
     paint_truck(options, state, config, context, part,
-      AT3, AT4,
-      ( Ease::None, Ease::None, Ease::Out, Ease::None ),
+      if options.enable_maze_partial { AT3jump } else { AT3nojump }, AT4,
+      ( Ease::None, Ease::None, Ease::None, Ease::None ),
       // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
       (age - (ta1 + ta2)) / ta3 % 10.0,
       factory.ticks,
     );
   }
   else if age < ta1 + ta2 + ta3 + ta4 {
+    // Jump back down if jumping, else just keep moving
+    paint_truck(options, state, config, context, part,
+      AT4, AT5,
+      ( Ease::None, Ease::None, Ease::None, Ease::None ),
+      // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
+      (age - (ta1 + ta2 + ta3)) / ta4 % 10.0,
+      factory.ticks,
+    );
+  }
+  else if age < ta1 + ta2 + ta3 + ta4 + ta5 {
+    // Move straight up past the maze
+    paint_truck(options, state, config, context, part,
+      AT5, AT6,
+      ( Ease::None, Ease::None, Ease::Out, Ease::None ),
+      // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
+      (age - (ta1 + ta2 + ta3 + ta4)) / ta5 % 10.0,
+      factory.ticks,
+    );
+  }
+  else if age < ta1 + ta2 + ta3 + ta4 + ta5 + ta6 {
+    // Now swirve into the slot
+
     // Get target coordinate where this part will be permanently drawn so we know where the truck has to move to
     // let ( target_x, target_y ) = if factory.trucks[t].for_woop { get_woop_xy(factory.trucks[t].target_menu_part_position) } else { get_atom_xy(factory.trucks[t].target_menu_part_position) };
     let ( target_x, target_y ) = get_woop_xy(target_menu_part_position);
     // Angle is tan(y1-y2, x1-x2) in 2pi
-    let angle1 = (target_y - AT4.1).atan2(target_x - AT4.0);
+    let angle1 = (target_y - AT6.1).atan2(target_x - AT6.0);
     let angle = angle1 / std::f64::consts::TAU + 0.25;
-    log!("angle {} norm {}", angle1, angle);
     paint_truck(options, state, config, context, part,
-      AT4, ( target_x, target_y + CELL_H + 5.0, angle * 1.3, AT4.3 ),
+      AT6, ( target_x, target_y + CELL_H + 5.0, angle * 1.3, AT6.3 ),
       ( Ease::Cubic, Ease::None, Ease::Cos, Ease::None ),
       // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
-      (age-(ta1 + ta2 + ta3))/ ta4 % 10.0,
+      (age-(ta1 + ta2 + ta3 + ta4 + ta5))/ ta6 % 10.0,
       factory.ticks,
     );
   }
@@ -5105,10 +5153,10 @@ fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, co
 
 fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory) {
   if options.dbg_loop_woop_truck {
-    paint_woop_truck_at_age(options, state, config, context, factory, factory.ticks as f64 / 10.0 % 6000.0, CONFIG_NODE_PART_NONE, 5);
+    paint_woop_truck_at_age(options, state, config, context, factory, factory.ticks as f64 / 10.0 % 7000.0, CONFIG_NODE_PART_NONE, 5);
   }
   if options.dbg_loop_atom_truck {
-    paint_atom_truck_at_age(options, state, config, context, factory, factory.ticks as f64 / 10.0 % 6000.0, CONFIG_NODE_PART_NONE, 5);
+    paint_atom_truck_at_age(options, state, config, context, factory, factory.ticks as f64 / 10.0 % 7000.0, CONFIG_NODE_PART_NONE, 5);
   }
 
   let len = factory.trucks.len();
@@ -5119,7 +5167,6 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
     }
 
     // TODO: Why are these trucks not released after they're done?
-    log!("woop: {}", factory.trucks[t].for_woop);
 
     let age = (factory.ticks - factory.trucks[t].created_at) as f64 / 10.0;
     let target_menu_part_position = factory.trucks[t].target_menu_part_position;
@@ -5127,15 +5174,17 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
 
     if factory.trucks[t].for_woop {
       let done = paint_woop_truck_at_age(options, state, config, context, factory, age, part, target_menu_part_position);
-      factory.trucks[t].finished = done;
+      if done { factory.trucks[t].finished = done; }
     } else {
       let done = paint_atom_truck_at_age(options, state, config, context, factory, age, part, target_menu_part_position);
-      factory.trucks[t].finished = done;
+      if done { factory.trucks[t].finished = done; }
     }
   }
 
   for t in 0..len {
-    if factory.trucks[len-t-1].finished { factory.trucks.remove(len-t-1); }
+    if factory.trucks[len-t-1].finished {
+      factory.trucks.remove(len-t-1);
+    }
   }
 }
 
