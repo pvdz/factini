@@ -113,8 +113,8 @@ Indicator that a machine has no target part to create
 - h: 128
 
 # Asset_DumpTruck
+Public domain from https://opengameart.org/content/yellow-racing-car
 - file: ./img/dumptruck.png
-- drm
 - x: 0
 - y: 0
 - w: 64
