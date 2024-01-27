@@ -176,8 +176,8 @@ pub const UI_ATOMS_OFFSET_Y: f64 = GRID_Y2 + 10.0;
 pub const UI_ATOMS_PER_ROW: f64 = 5.0;
 pub const UI_ATOMS_WIDTH: f64 = UI_WOTOM_WIDTH + ((UI_ATOMS_PER_ROW - 1.0) * UI_WOTOM_WIDTH_PLUS_MARGIN);
 
-pub const UI_AUTO_BUILD_W: f64 = 48.0;
-pub const UI_AUTO_BUILD_H: f64 = 48.0;
+pub const UI_AUTO_BUILD_W: f64 = 60.0; // Size of a medium button
+pub const UI_AUTO_BUILD_H: f64 = 60.0;
 pub const UI_AUTO_BUILD_X: f64 = GRID_X0 + 100.0;
 pub const UI_AUTO_BUILD_Y: f64 = GRID_Y0 + 10.0;
 

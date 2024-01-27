@@ -48,13 +48,12 @@
 // - when next ui-phase unlocks, use an animation where ui elements drift into their place
 // - once the partial is enabled, wait until the four bars all have at least one cell and then start the maze. preferably animated
 // - auto build
-//   - prettier auto build button
-//   - disable user while auto build is busy?
-//   - allow to cancel auto build. and to let it run continuously.
+//   - allow to let it run continuously.
 //   - can we prevent undo/redo stack changes until the end?
 // - should machines auto-configure based on inputs? that would prevent complex patterns if there are shorter patterns that are a subset.. maybe that's fine?
 // - convert maze to rgb and implement some kind of image thing
 // - maze fuel could blow-up-fade-out when collected, with a 3x for the better one, maybe rainbow wiggle etc? or just 1x 2x 3x instead of icon
+// - Clicking under the floor in the corner crashes with oob? wat.
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -132,6 +131,8 @@ const BUTTON_PRERENDER_INDEX_SAVE_BIG_UP: usize = 4;
 const BUTTON_PRERENDER_INDEX_SAVE_BIG_DOWN: usize = 5;
 const BUTTON_PRERENDER_INDEX_SAVE_THIN_UP: usize = 6;
 const BUTTON_PRERENDER_INDEX_SAVE_THIN_DOWN: usize = 7;
+
+const FLOOR_YELLOW_COLOR: &str = "#ffcf8e";
 
 // Exports from web (on a non-module context, define a global "log" and "dnow" function)
 // Not sure how this works in threads. Probably the same. TBD.
@@ -966,12 +967,12 @@ pub fn start() -> Result<(), JsValue> {
 
         // Put a semi-transparent layer over the inner floor part to make it darker
         // context.set_fill_style(&"#00000077".into());
-        context.set_fill_style(&"#ffcf8e".into());
+        context.set_fill_style(&FLOOR_YELLOW_COLOR.into());
         context.fill_rect(UI_FLOOR_OFFSET_X + CELL_W, UI_FLOOR_OFFSET_Y + CELL_H, (FLOOR_CELLS_W - 2) as f64 * CELL_W, (FLOOR_CELLS_H - 2) as f64 * CELL_H);
 
         paint_zone_hovers(&options, &state, &context, &mouse_state);
         // paint_top_stats(&context, &mut factory);
-        paint_corner_help_icon(&options, &state, &config, &factory, &context, mouse_state.help_hover, mouse_state.over_menu_button == MenuButton::AutoBuildButton);
+        paint_help_and_ai_button(&options, &state, &config, &factory, &mouse_state, &context, &button_canvii);
         paint_quests(&options, &state, &config, &context, &factory, &mouse_state);
         paint_atoms(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
         let highlight_index = paint_woops(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
@@ -4458,31 +4459,25 @@ fn paint_top_stats(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Fa
   context.fill_text(format!("Ticks: {}, Supplied: {}, Produced: {}, Received: {}, Trashed: {}", factory.ticks, factory.supplied, factory.produced, factory.accepted, factory.trashed).as_str(), 20.0, 20.0).expect("to paint");
   context.fill_text(format!("Current time: {}", factory.ticks).as_str(), 20.0, 40.0).expect("to paint");
 }
-fn paint_corner_help_icon(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, hovering: bool, over_auto_draw: bool) {
-  paint_asset(options, state, config, context, if hovering { CONFIG_NODE_ASSET_HELP_RED } else { CONFIG_NODE_ASSET_HELP_BLACK }, factory.ticks,
+fn paint_help_and_ai_button(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &MouseState, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>) {
+
+  paint_asset(options, state, config, context, if mouse_state.help_hover { CONFIG_NODE_ASSET_HELP_RED } else { CONFIG_NODE_ASSET_HELP_BLACK }, factory.ticks,
     UI_HELP_X, UI_HELP_Y, UI_HELP_WIDTH, UI_HELP_HEIGHT
   );
 
-  context.save();
-  if factory.auto_build.phase == AutoBuildPhase::None {
-    context.set_fill_style(&"yellow".into());
+  paint_button(options, state, config, context, button_canvii, if factory.auto_build.phase != AutoBuildPhase::None { BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_UP }, UI_AUTO_BUILD_X, UI_AUTO_BUILD_Y);
+  if mouse_state.over_menu_button == MenuButton::AutoBuildButton {
+    context.set_fill_style(&"white".into());
   } else {
-    context.set_fill_style(&"orange".into());
-  }
-  context.fill_rect(UI_AUTO_BUILD_X, UI_AUTO_BUILD_Y, UI_AUTO_BUILD_W, UI_AUTO_BUILD_H);
-  if over_auto_draw {
-    context.set_fill_style(&"red".into());
-  } else {
-    context.set_fill_style(&"black".into());
+    context.set_fill_style(&FLOOR_YELLOW_COLOR.into());
   }
   if factory.auto_build.phase == AutoBuildPhase::None {
     context.set_font(&"30px verdana");
-    context.fill_text( format!("AI").as_str(), UI_AUTO_BUILD_X + 8.0, UI_AUTO_BUILD_Y + 35.0).expect("yes");
+    context.fill_text( format!("AI").as_str(), UI_AUTO_BUILD_X + 14.0, UI_AUTO_BUILD_Y + 40.0).expect("yes");
   } else {
     context.set_font(&"48px verdana, sans-serif");
-    context.fill_text(format!("!").as_str(), UI_AUTO_BUILD_X + 15.0, UI_AUTO_BUILD_Y + 40.0).expect("yes");
+    context.fill_text(format!("!").as_str(), UI_AUTO_BUILD_X + 20.0, UI_AUTO_BUILD_Y + 47.0).expect("yes");
   }
-  context.restore();
 }
 
 fn paint_quests(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState) {
