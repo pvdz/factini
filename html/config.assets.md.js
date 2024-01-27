@@ -25,15 +25,14 @@ This is an animated alarm (like the rotating light on a police car or ambulance)
 - frame_offset: 0
 - frame_count: 50
 - frame_direction: right
-- frame_delay: 80
+- frame_delay: 200
 - looping: true
 - frame: 1
-- file: ./img/weewoo.png
-- drm
+- file: ./img/woowie50.png
 - x: 0
 - y: 0
-- w: 92
-- h: 92
+- w: 16
+- h: 16
 
 # Asset_MissingInputs
 Indicator that a machine is missing an input belt
