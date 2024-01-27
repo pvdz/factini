@@ -2433,8 +2433,15 @@ fn on_up_machine3x3_button() {
   log!("on_up_machine3x3_button()");
 }
 fn on_up_auto_build_button(options: &Options, state: &State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
-  log!("on_up_auto_build_button");
-  auto_build_start(options, state, config, factory, mouse_state.world_x, mouse_state.world_y);
+  log!("on_up_auto_build_button, factory.auto_build.phase={:?}", factory.auto_build.phase);
+
+  if factory.auto_build.phase == AutoBuildPhase::None {
+    log!("Starting AutoBuild...");
+    auto_build_start(options, state, config, factory, mouse_state.world_x, mouse_state.world_y);
+  } else {
+    log!("Stopping AutoBuild...");
+    factory.auto_build.phase = AutoBuildPhase::None;
+  }
 }
 
 fn on_drag_start_machine1x2_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
