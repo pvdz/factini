@@ -161,7 +161,6 @@ Indicator that a machine has no target part to create
 
 # Asset_SaveDark
 - file: ./img/save_dark.png
-- drm
 - y: 0
 - w: 48
 - h: 48
@@ -170,7 +169,6 @@ Indicator that a machine has no target part to create
 - frame_offset: 0
 - frame_count: 1
 - file: ./img/save_light.png
-- drm
 - x: 0
 - y: 0
 - w: 48
@@ -180,7 +178,6 @@ Indicator that a machine has no target part to create
 - frame_offset: 0
 - frame_count: 1
 - file: ./img/save_grey.png
-- drm
 - x: 0
 - y: 0
 - w: 48
