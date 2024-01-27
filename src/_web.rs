@@ -5104,8 +5104,12 @@ fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, co
 }
 
 fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory) {
-  paint_woop_truck_at_age(options, state, config, context, factory, factory.ticks as f64 / 10.0 % 6000.0, CONFIG_NODE_PART_NONE, 5);
-  paint_atom_truck_at_age(options, state, config, context, factory, factory.ticks as f64 / 10.0 % 6000.0, CONFIG_NODE_PART_NONE, 5);
+  if options.dbg_loop_woop_truck {
+    paint_woop_truck_at_age(options, state, config, context, factory, factory.ticks as f64 / 10.0 % 6000.0, CONFIG_NODE_PART_NONE, 5);
+  }
+  if options.dbg_loop_atom_truck {
+    paint_atom_truck_at_age(options, state, config, context, factory, factory.ticks as f64 / 10.0 % 6000.0, CONFIG_NODE_PART_NONE, 5);
+  }
 
   let len = factory.trucks.len();
 

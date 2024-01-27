@@ -73,6 +73,8 @@ const GAME_OPTIONS = `
 - dbg_print_quest_states: false
 - dbg_auto_builder_zero_pause: false
 - dbg_auto_builder_zero_duration: false
+- dbg_loop_atom_truck: false
+- dbg_loop_woop_truck: false
 - default_demand_speed: 1000
 - default_demand_cooldown: 0
 - enable_quick_save_menu: true

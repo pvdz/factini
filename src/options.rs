@@ -121,6 +121,9 @@ pub struct Options {
   pub dbg_auto_builder_zero_pause: bool,
   pub dbg_auto_builder_zero_duration: bool,
 
+  pub dbg_loop_atom_truck: bool,
+  pub dbg_loop_woop_truck: bool,
+
   pub default_demand_speed: u64,
   pub default_demand_cooldown: u64,
 
@@ -211,6 +214,8 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     dbg_print_quest_states: false,
     dbg_auto_builder_zero_pause: false,
     dbg_auto_builder_zero_duration: false,
+    dbg_loop_atom_truck: false,
+    dbg_loop_woop_truck: false,
 
     default_demand_speed: 1000,
     default_demand_cooldown: 500,
@@ -402,6 +407,8 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "dbg_print_quest_states" => options.dbg_print_quest_states = parse_bool(value, name, strict, options.dbg_print_quest_states, verbose),
             "dbg_auto_builder_zero_pause" => options.dbg_auto_builder_zero_pause = parse_bool(value, name, strict, options.dbg_auto_builder_zero_pause, verbose),
             "dbg_auto_builder_zero_duration" => options.dbg_auto_builder_zero_duration = parse_bool(value, name, strict, options.dbg_auto_builder_zero_duration, verbose),
+            "dbg_loop_atom_truck" => options.dbg_loop_atom_truck = parse_bool(value, name, strict, options.dbg_loop_atom_truck, verbose),
+            "dbg_loop_woop_truck" => options.dbg_loop_woop_truck = parse_bool(value, name, strict, options.dbg_loop_woop_truck, verbose),
             "default_demand_speed" => options.default_demand_speed = parse_u64(value, name, strict, options.default_demand_speed, verbose),
             "default_demand_cooldown" => options.default_demand_cooldown = parse_u64(value, name, strict, options.default_demand_cooldown, verbose),
             "enable_quick_save_menu" => options.enable_quick_save_menu = parse_bool(value, name, strict, options.enable_quick_save_menu, verbose),
@@ -500,6 +507,8 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- dbg_print_quest_states: {}", options.dbg_print_quest_states));
   arr.push(format!("- dbg_auto_builder_zero_pause: {}", options.dbg_auto_builder_zero_pause));
   arr.push(format!("- dbg_auto_builder_zero_duration: {}", options.dbg_auto_builder_zero_duration));
+  arr.push(format!("- dbg_loop_atom_truck: {}", options.dbg_loop_atom_truck));
+  arr.push(format!("- dbg_loop_woop_truck: {}", options.dbg_loop_woop_truck));
   arr.push(format!("- default_demand_speed: {}", options.default_demand_speed));
   arr.push(format!("- default_demand_cooldown: {}", options.default_demand_cooldown));
   arr.push(format!("- enable_quick_save_menu: {}", options.enable_quick_save_menu));
