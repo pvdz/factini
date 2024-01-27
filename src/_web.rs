@@ -53,7 +53,6 @@
 //   - allow to cancel auto build. and to let it run continuously.
 //   - can we prevent undo/redo stack changes until the end?
 // - should machines auto-configure based on inputs? that would prevent complex patterns if there are shorter patterns that are a subset.. maybe that's fine?
-// - fix car driving paths, especially the new ones
 // - convert maze to rgb and implement some kind of image thing
 // - maze fuel could blow-up-fade-out when collected, with a 3x for the better one, maybe rainbow wiggle etc? or just 1x 2x 3x instead of icon
 
@@ -4862,93 +4861,280 @@ fn paint_lasers(options: &Options, state: &mut State, config: &Config, context: 
     }
   }
 }
+
+// Examples: https://easings.net/
+fn ease_cos(v: f64) -> f64 {
+  return (1.0 - (v * std::f64::consts::PI).cos()) / 2.0;
+}
+fn ease_cubic(v: f64) -> f64 {
+  return v*v*v*v;
+}
+fn ease_sin(v: f64) -> f64 {
+  return (v * std::f64::consts::PI).sin();
+}
+fn ease_out(v: f64) -> f64 {
+  return 1.0 - (1.0 - v).powf(2.0);
+}
+
+enum Ease {
+  None,
+  Cos,
+  Cubic,
+  Sin,
+  Out,
+}
+
+fn abp(a: f64, b: f64, p: f64, ease: Ease) -> f64 {
+  let p = match ease {
+    Ease::None => p,
+    Ease::Sin => ease_sin(p),
+    Ease::Cubic => ease_cubic(p),
+    Ease::Cos => ease_cos(p),
+    Ease::Out => ease_out(p),
+  };
+  return a + p * (b - a);
+}
+
+const AT1: (f64, f64, f64, f64) = (
+  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH - (50.0 + 5.0), // Right side of the button but enough to hide under the button
+  UI_MENU_MACHINE_BUTTON_3X3_Y + (UI_MENU_MACHINE_BUTTON_3X3_HEIGHT / 2.0) - (50.0 / 2.0), // Middle of button
+  0.25, // Facing right
+  50.0,
+);
+const AT2: (f64, f64, f64, f64) = (
+  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH + 30.0,
+  UI_MENU_MACHINE_BUTTON_3X3_Y - 50.0,
+  -0.05, // Facing up and a little left
+  50.0,
+);
+const AT3: (f64, f64, f64, f64) = (
+  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH + 20.0,
+  UI_MENU_MACHINE_BUTTON_3X3_Y - 100.0,
+  0.01, // Facing up and a little left
+  50.0,
+);
+const AT4: (f64, f64, f64, f64) = (
+  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH + 20.0,
+  UI_MENU_MACHINE_BUTTON_3X3_Y - 350.0,
+  0.0, // Facing up and a little left
+  50.0,
+);
+const BT1: (f64, f64, f64, f64) = (
+  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH - (50.0 + 5.0), // Right side of the button but enough to hide under the button
+  UI_MENU_MACHINE_BUTTON_3X3_Y + (UI_MENU_MACHINE_BUTTON_3X3_HEIGHT / 2.0) - (50.0 / 2.0), // Middle of button
+  0.25, // Facing right
+  50.0,
+);
+const BT2a: (f64, f64, f64, f64) = (
+  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH + 15.0, // Needs some forward movement for the sin
+  UI_MENU_MACHINE_BUTTON_3X3_Y + UI_MENU_MACHINE_BUTTON_3X3_HEIGHT + 15.0,
+  0.80, // Facing left and a little up
+  50.0
+);
+const BT2b: (f64, f64, f64, f64) = (
+  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH - (50.0 + 5.0), // Should be starting position of T2 due to the sin
+  UI_MENU_MACHINE_BUTTON_3X3_Y + UI_MENU_MACHINE_BUTTON_3X3_HEIGHT + 15.0,
+  0.80, // Facing left and a little up
+  50.0
+);
+const BT3: (f64, f64, f64, f64) = (
+  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH - 100.0,
+  UI_MENU_MACHINE_BUTTON_3X3_Y + UI_MENU_MACHINE_BUTTON_3X3_HEIGHT + 12.0,
+  0.74, // Facing right
+  50.0
+);
+
+fn paint_truck(
+  options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, part_kind: PartKind,
+  xyrs1: ( f64, f64, f64, f64 ), // x y rotation size. rotation is 0..1 of 2pi where 0.0 is up-facing, 0.25 is right-facing, etc
+  xyrs2: ( f64, f64, f64, f64 ),
+  ease: ( Ease, Ease, Ease, Ease ),
+  progress: f64,
+  ticks: u64,
+) {
+  let (x1, y1, r1, s1) = xyrs1;
+  let (x2, y2, r2, s2) = xyrs2;
+  let ( ease_x, ease_y, ease_r, ease_s ) = ease;
+
+  let p = progress;
+
+  let truck_x = abp(x1, x2, progress, ease_x);
+  let truck_y = abp(y1, y2, progress, ease_y);
+  let truck_r = abp(r1, r2, progress, ease_r);
+  let truck_size = abp(s1, s2, progress, ease_s);
+
+  context.save();
+  // This is how canvas rotation works; you rotate around the center of what you're painting, paint it, then reset the translation matrix.
+  // For this reason we must find the center of the dump truck, rotate around that point, and draw the dump track at minus half its size.
+  context.translate(truck_x + truck_size / 2.0, truck_y + truck_size / 2.0).expect("oopsie translate");
+  // tau=2*pi. r=0.0 is upward. This rotates the entire canvas so you can just paint like normal but it's as if you temporarily rotated your screen.
+  context.rotate(std::f64::consts::TAU * truck_r).expect("oopsie rotate");
+  // Compensate for the origin currently being in the middle of the dump truck. Top-left is just easier.
+  context.translate(-truck_size/2.0, -truck_size/2.0).expect("oopsie translate");
+  // The truck starts _inside_ the factory and drives to the right (maybe slanted)
+  paint_asset_raw(options, state, config, context, CONFIG_NODE_ASSET_DUMP_TRUCK, ticks,
+    0.0, 0.0, truck_size, truck_size
+  );
+  // Paint the part icon on the back of the trick (x-centered, y-bottom)
+  paint_segment_part_from_config(&options, &state, &config, &context, part_kind, 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
+  context.restore();
+}
+
+fn paint_atom_truck_at_age(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory, age: f64, part: PartKind, target_menu_part_position: usize) -> bool {
+  // Paint a truck that is heading to the menu on the bottom-left
+
+  // Basically this is the speed of each segment of the truck
+  const tb1: f64 = 1000.0;
+  const tb2: f64 = 150.0;
+  const tb3: f64 = 2000.0;
+
+  // let part = CONFIG_NODE_PART_NONE;
+  if age < tb1 {
+    paint_truck(options, state, config, context, part,
+      BT1, BT2a,
+      ( Ease::Sin, Ease::None, Ease::Cos, Ease::None ),
+      // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
+      age/ tb1 % 10.0,
+      factory.ticks,
+    );
+  }
+  else if age < tb1 + tb2 {
+    paint_truck(options, state, config, context, part,
+      BT2b, BT3,
+      ( Ease::None, Ease::None, Ease::Out, Ease::None ),
+      // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
+      (age- tb1)/ tb2 % 10.0,
+      factory.ticks,
+    );
+  }
+  else if age < tb1 + tb2 + tb3 {
+    // Get target coordinate where this part will be permanently drawn so we know where the truck has to move to
+    // let ( target_x, target_y ) = if factory.trucks[t].for_woop { get_woop_xy(factory.trucks[t].target_menu_part_position) } else { get_atom_xy(factory.trucks[t].target_menu_part_position) };
+    let ( target_x, target_y ) = get_atom_xy(target_menu_part_position);
+    paint_truck(options, state, config, context, part,
+      BT3, ( target_x, target_y + CELL_H + 5.0, 1.05, BT3.3 ),
+      ( Ease::Out, Ease::Cos, Ease::Cos, Ease::None ),
+      // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
+      (age-(tb1 + tb2))/ tb3 % 10.0,
+      factory.ticks,
+    );
+  }
+  else {
+    // Truck reached its destiny.
+    // - Enable the button
+    // - Drop the truck
+    if factory.available_atoms.len() > target_menu_part_position {
+      factory.available_atoms[target_menu_part_position].1 = true;
+    } else {
+      log!("Must be testing but target_menu_part_position ({}) was oob on (factory.available_atoms ({})", target_menu_part_position, factory.available_atoms.len())
+    }
+    return true;
+  }
+
+  return false;
+}
+
+fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory, age: f64, part: PartKind, target_menu_part_position: usize) -> bool {
+  // Paint a truck heading to the right menu
+
+  // Basically this is the number of ticks available per segment of the truck. Lower is faster.
+  const ta1: f64 = 1000.0;
+  const ta2: f64 = 1000.0;
+  const ta3: f64 = 2500.0;
+  const ta4: f64 = 1600.0;
+
+  // let part = CONFIG_NODE_PART_NONE;
+  if age < ta1 {
+    paint_truck(options, state, config, context, part,
+      AT1, AT2,
+      ( Ease::None, Ease::None, Ease::Cos, Ease::None ),
+      // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
+      age/ ta1 % 10.0,
+      factory.ticks,
+    );
+  }
+  else if age < ta1 + ta2 {
+    paint_truck(options, state, config, context, part,
+      AT2, AT3,
+      ( Ease::None, Ease::None, Ease::None, Ease::None ),
+      // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
+      (age - ta1) / ta2 % 10.0,
+      factory.ticks,
+    );
+  }
+  else if age < ta1 + ta2 + ta3 {
+    paint_truck(options, state, config, context, part,
+      AT3, AT4,
+      ( Ease::None, Ease::None, Ease::Out, Ease::None ),
+      // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
+      (age - (ta1 + ta2)) / ta3 % 10.0,
+      factory.ticks,
+    );
+  }
+  else if age < ta1 + ta2 + ta3 + ta4 {
+    // Get target coordinate where this part will be permanently drawn so we know where the truck has to move to
+    // let ( target_x, target_y ) = if factory.trucks[t].for_woop { get_woop_xy(factory.trucks[t].target_menu_part_position) } else { get_atom_xy(factory.trucks[t].target_menu_part_position) };
+    let ( target_x, target_y ) = get_woop_xy(target_menu_part_position);
+    // Angle is tan(y1-y2, x1-x2) in 2pi
+    let angle1 = (target_y - AT4.1).atan2(target_x - AT4.0);
+    let angle = angle1 / std::f64::consts::TAU + 0.25;
+    log!("angle {} norm {}", angle1, angle);
+    paint_truck(options, state, config, context, part,
+      AT4, ( target_x, target_y + CELL_H + 5.0, angle * 1.3, AT4.3 ),
+      ( Ease::Cubic, Ease::None, Ease::Cos, Ease::None ),
+      // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
+      (age-(ta1 + ta2 + ta3))/ ta4 % 10.0,
+      factory.ticks,
+    );
+  }
+  else {
+    // Truck reached its destiny.
+    // - Enable the button
+    // - Drop the truck
+    if factory.available_woops.len() > target_menu_part_position {
+      factory.available_woops[target_menu_part_position].1 = true;
+    } else {
+      log!("Must be testing but target_menu_part_position ({}) was oob on (factory.available_woops ({})", target_menu_part_position, factory.available_woops.len())
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
 fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory) {
-  // Paint trucks
-  let truck_dur_1 = 3.0 * options.speed_modifier_ui; // seconds trucks take to cross the first part
-  let truck_dur_2 = 1.0 * options.speed_modifier_ui; // turning circle
-  let truck_dur_3 = 5.0 * options.speed_modifier_ui; // time to get up
-  let truck_size = 50.0;
-  let start_x = UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH - (truck_size + 5.0);
-  let end_x = GRID_X2 + 5.0;
-  // paint dump truck so it starts under the factory
-  for t in 0..factory.trucks.len() {
+  paint_woop_truck_at_age(options, state, config, context, factory, factory.ticks as f64 / 10.0 % 6000.0, CONFIG_NODE_PART_NONE, 5);
+  paint_atom_truck_at_age(options, state, config, context, factory, factory.ticks as f64 / 10.0 % 6000.0, CONFIG_NODE_PART_NONE, 5);
+
+  let len = factory.trucks.len();
+
+  for t in 0..len {
     if factory.trucks[t].delay > 0 {
       continue;
     }
 
-    // Draw dump truck at proper position // TODO: prevent overlapping of multiples etc
-    // The first n seconds are spent driving under the floor to the right and then a corner
-    // The rest is however long it takes to reach the final location where the button is created
-    let ticks_since_truck = (factory.ticks - factory.trucks[t].created_at) as f64 / options.speed_modifier_floor;
-    let time_since_truck = ticks_since_truck / (ONE_SECOND as f64);
-    if time_since_truck < truck_dur_1 {
-      let truck_x = start_x + (time_since_truck / truck_dur_1).min(1.0).max(0.0) * (end_x - start_x);
-      let truck_y = UI_MENU_MACHINE_BUTTON_3X3_Y + (UI_MENU_MACHINE_BUTTON_3X3_HEIGHT / 2.0) - (truck_size / 2.0); // Factory mid
+    // TODO: Why are these trucks not released after they're done?
+    log!("woop: {}", factory.trucks[t].for_woop);
 
-      context.save();
-      // This is how canvas rotation works; you rotate around the center of what you're painting, paint it, then reset the translation matrix.
-      // For this reason we must find the center of the dump truck, rotate around that point, and draw the dump track at minus half its size.
-      context.translate(truck_x + truck_size / 2.0, truck_y + truck_size / 2.0).expect("oopsie translate");
-      // pi/2 = quarter circle. what you draw upward will end up pointing to the right, which is what we want.
-      context.rotate(std::f64::consts::FRAC_PI_2).expect("oopsie rotate");
-      // Compensate for the origin currently being in the middle of the dump truck. Top-left is just easier.
-      context.translate(-truck_size/2.0, -truck_size/2.0).expect("oopsie translate");
-      // The truck starts _inside_ the factory and drives to the right (maybe slanted)
-      paint_asset_raw(options, state, config, context, CONFIG_NODE_ASSET_DUMP_TRUCK, factory.ticks,
-        0.0, 0.0, truck_size, truck_size
-      );
-      // Paint the part icon on the back of the trick (x-centered, y-bottom)
-      paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_kind, 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
-      context.restore();
-    } else if time_since_truck < (truck_dur_1 + truck_dur_2) {
-      let progress = ((time_since_truck - truck_dur_1) / truck_dur_2).min(1.0).max(0.0);
-      let truck_x = end_x + progress * 20.0;
-      let truck_y = UI_MENU_MACHINE_BUTTON_3X3_Y + (UI_MENU_MACHINE_BUTTON_3X3_HEIGHT / 2.0) - (truck_size / 2.0) + (progress * -50.0); // Turn upward
+    let age = (factory.ticks - factory.trucks[t].created_at) as f64 / 10.0;
+    let target_menu_part_position = factory.trucks[t].target_menu_part_position;
+    let part = factory.trucks[t].part_kind;
 
-      context.save();
-      // This is how canvas rotation works; you rotate around the center of what you're painting, paint it, then reset the translation matrix.
-      // For this reason we must find the center of the dump truck, rotate around that point, and draw the dump track at minus half its size.
-      context.translate(truck_x + truck_size / 2.0, truck_y + truck_size / 2.0).expect("oopsie translate");
-      // Note: same as before but we turn less as we progress in the turn
-      context.rotate(std::f64::consts::FRAC_PI_2 * (1.0 - progress)).expect("oopsie rotate");
-      // Compensate for the origin currently being in the middle of the dump truck. Top-left is just easier.
-      context.translate(-truck_size/2.0, -truck_size/2.0).expect("oopsie translate");
-      // The truck starts _inside_ the factory and drives to the right (maybe slanted)
-      paint_asset_raw(options, state, config, context, CONFIG_NODE_ASSET_DUMP_TRUCK, factory.ticks,
-        0.0, 0.0, truck_size, truck_size
-      );
-      // Paint the part icon on the back of the trick (x-centered, y-bottom)
-      paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_kind, 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
-      context.restore();
-    } else if time_since_truck < (truck_dur_1 + truck_dur_2 + truck_dur_3) {
-      // Get target coordinate where this part will be permanently drawn so we know where the truck has to move to
-      let ( target_x, target_y ) = if factory.trucks[t].for_woop { get_woop_xy(factory.trucks[t].target_menu_part_position) } else { get_atom_xy(factory.trucks[t].target_menu_part_position) };
-
-      let progress = ((time_since_truck - (truck_dur_1 + truck_dur_2)) / truck_dur_3).min(1.0).max(0.0);
-      let truck_x = end_x + 20.0;
-      let truck_y = UI_MENU_MACHINE_BUTTON_3X3_Y + (UI_MENU_MACHINE_BUTTON_3X3_HEIGHT / 2.0) - (truck_size / 2.0) + -50.0; // Turn upward
-
-      let x = truck_x + (target_x - truck_x) * progress;
-      let y = truck_y + (target_y - truck_y) * progress;
-
-      paint_asset(options, state, config, context, CONFIG_NODE_ASSET_DUMP_TRUCK, factory.ticks,
-        x, y, truck_size, truck_size
-      );
-
-      // Paint the part icon on the back of the trick (x-centered, y-bottom)
-      paint_segment_part_from_config(&options, &state, &config, &context, factory.trucks[t].part_kind, x + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), y + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
+    if factory.trucks[t].for_woop {
+      let done = paint_woop_truck_at_age(options, state, config, context, factory, age, part, target_menu_part_position);
+      factory.trucks[t].finished = done;
     } else {
-      // Truck reached its destiny.
-      // - Enable the button
-      // - Drop the truck
-      if factory.trucks[t].for_woop {
-        factory.available_woops[factory.trucks[t].target_menu_part_position].1 = true;
-      } else {
-        factory.available_atoms[factory.trucks[t].target_menu_part_position].1 = true;
-      }
+      let done = paint_atom_truck_at_age(options, state, config, context, factory, age, part, target_menu_part_position);
+      factory.trucks[t].finished = done;
     }
   }
+
+  for t in 0..len {
+    if factory.trucks[len-t-1].finished { factory.trucks.remove(len-t-1); }
+  }
 }
+
 fn paint_ui_atom_woop_hover_droptarget_hint_conditionally(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) {
   let ( is_mouse_over_woop, woop_hover_index ) =
     if mouse_state.is_dragging || mouse_state.was_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight woops

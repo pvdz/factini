@@ -274,8 +274,9 @@ pub fn tick_maze(options: &Options, state: &State, config: &Config, factory: &mu
   if factory.ticks % MAZE_TICK_INTERVAL == 0 {
     if factory.maze_runner.maze_finish_at > 0 {
       if factory.ticks - factory.maze_runner.maze_finish_at > maze_get_finish_pause_time(options) {
-        if factory.maze_runner.maze_nooped { log!("Maze runner last attempt at refuel was 5 seconds ago, trying again now..."); }
-        else { log!("Maze runner finished 5 seconds ago. Fueling it now..."); }
+        // if factory.maze_runner.maze_nooped { log!("Maze runner last attempt at refuel was 5 seconds ago, trying again now..."); }
+        // else { log!("Maze runner finished 5 seconds ago. Fueling it now..."); }
+
         // A few seconds after the maze runner gets stuck or out of energy, start the
         // "refueling" animation that starts the next run.
         factory.maze_runner.maze_finish_at = 0;
@@ -298,7 +299,7 @@ pub fn tick_maze(options: &Options, state: &State, config: &Config, factory: &mu
           factory.maze_runner.maze_refueling_at = factory.ticks;
         } else {
           // Reset refuel period
-          log!("Maze runner finished but there's not enough fuel {:?}. Delaying refuel step. {:?}", factory.maze_prep, factory.maze_runner.maze_nooped);
+          // log!("Maze runner finished but there's not enough fuel {:?}. Delaying refuel step. {:?}", factory.maze_prep, factory.maze_runner.maze_nooped);
           factory.maze_runner.maze_finish_at = factory.ticks;
           factory.maze_runner.maze_nooped = true;
         }
