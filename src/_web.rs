@@ -4816,7 +4816,7 @@ fn paint_ui_woop_tooltip(options: &Options, state: &State, config: &Config, fact
   ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
 
   if factory.machines.len() == 0 {
-    if (factory.ticks as f64 / (ONE_SECOND as f64 * options.speed_modifier_ui)) as u64 % 2 == 0 {
+    if (factory.ticks as f64 / (ONE_SECOND as f64)) as u64 % 2 == 0 {
       context.save();
       context.set_font(&"48px monospace");
       context.set_fill_style(&"red".into());

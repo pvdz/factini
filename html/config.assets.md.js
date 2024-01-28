@@ -64,14 +64,15 @@ Indicator that a machine is missing an input belt
 
 # Asset_MissingPurpose
 Indicator that a machine has no target part to create
+Source of cog unclear: https://pixelartmaker.com/art/b1c49e7f345d87d
+- drm
 - frame_offset: 0
 - frame_count: 2
 - frame_direction: right
-- frame_delay: 2000
+- frame_delay: 5000
 - looping: true
 - frame: 1
 - file: ./img/missing_purpose.png
-- drm
 - x: 0
 - y: 0
 - w: 50
@@ -126,16 +127,18 @@ Public domain from https://opengameart.org/content/yellow-racing-car
 - h: 128
 
 # Asset_HelpBlack
+Source: ikea.com via https://www.mentalfloss.com/article/58450/16-out-context-ikea-instructions-help-you-live-better-life
+Used as parody
 - file: ./img/help.png
-- drm
 - x: 0
 - y: 0
 - w: 50
 - h: 41
 
 # Asset_HelpRed
+Source: ikea.com via https://www.mentalfloss.com/article/58450/16-out-context-ikea-instructions-help-you-live-better-life
+Used as parody
 - file: ./img/help_red.png
-- drm
 - x: 0
 - y: 0
 - w: 50
@@ -147,14 +150,16 @@ Public domain from https://opengameart.org/content/yellow-racing-car
 - h: 740
 
 # Asset_Lmb
+Source: https://www.flaticon.com/free-icon/mouse-left-button_32041
+Free when with attribution
 - file: ./img/lmb.png
-- drm
 - w: 50
 - h: 50
 
 # Asset_Rmb
+Source: https://www.flaticon.com/free-icon/mouse-left-button_32041
+Free when with attribution
 - file: ./img/rmb.png
-- drm
 - w: 50
 - h: 50
 
