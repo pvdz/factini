@@ -5816,9 +5816,9 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
         e, s, p , v,
         (fuel_progress1 * 100.0).floor(),
         (fuel_progress * 100.0).floor(),
-        if factory.maze_runner.maze_finish_at >= 0 { (maze_get_finish_pause_time(options) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_finish_at as i64)).max(0) } else { -1 },
-        if factory.maze_runner.maze_restart_at >= 0 { (maze_get_finish_pause_time(options) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_restart_at as i64)).max(0) } else { -1 },
-        if factory.maze_runner.maze_refueling_at >= 0 { (maze_get_refuel_time(options) as i64- (factory.ticks as i64 - factory.maze_runner.maze_refueling_at as i64)).max(0) } else { -1 },
+        (maze_get_finish_pause_time(options) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_finish_at as i64)).max(0),
+        (maze_get_finish_pause_time(options) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_restart_at as i64)).max(0),
+        (maze_get_refuel_time(options) as i64- (factory.ticks as i64 - factory.maze_runner.maze_refueling_at as i64)).max(0),
       ).as_str(), 0.5 + x + 5.0 - 100.0, 0.5 + GRID_Y2 + (bar_height * 4.0 + 30.0)).expect("canvas api call to work");
     }
 
