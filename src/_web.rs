@@ -305,10 +305,18 @@ pub fn start() -> Result<(), JsValue> {
     None => ( getGameOptions(), true ),
   };
   let options_started_from_source = if options_started_from_source { 0 } else { option_string.len() as u64 };
+  let old = options.show_debug_bottom;
   parse_and_save_options_string(option_string.clone(), &mut options, true, options_started_from_source, true);
 
   let mut config = parse_fmd(options.print_fmd_trace, getGameConfig());
   load_config(options.print_img_loader_trace, &mut config);
+
+  if old != options.show_debug_bottom {
+    let h = if options.show_debug_bottom { CANVAS_CSS_HEIGHT } else { CANVAS_CSS_HEIGHT - GRID_BOTTOM_DEBUG_HEIGHT - GRID_PADDING } as u32;
+    let c = document.get_element_by_id("$main_game_canvas").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().expect("should work");
+    c.set_height(h);
+    c.style().set_property("height", format!("{}px", h).as_str()).expect("should work");
+  }
 
   let img_loading_sand: web_sys::HtmlImageElement = load_tile("./img/sand.png");
 
@@ -525,6 +533,7 @@ pub fn start() -> Result<(), JsValue> {
   let initial_map_from_source = if initial_map_from_source { 0 } else { initial_map.len() as u64 };
   options.initial_map_from_source = initial_map_from_source;
   let ( mut state, mut factory ) = init(&mut options, &config, initial_map);
+  state.showing_debug_bottom = options.show_debug_bottom;
   let mut quick_saves: [Option<QuickSave>; 9] = [(); 9].map(|_| None);
 
   state_add_examples(getExamples(), &mut state);
