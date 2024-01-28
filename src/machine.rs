@@ -149,7 +149,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, f
       if let Some(to_coord) = to_coord {
         if factory.floor[to_coord].kind == CellKind::Belt && factory.floor[to_coord].belt.part.kind == CONFIG_NODE_PART_NONE {
           // The neighbor is a belt that is empty
-          if options.print_moves || options.print_moves_machine {
+          if options.trace_all_moves || options.trace_moves_machine {
             log!("({}) Machine @{} (sub @{}) finished part {:?}! Moving to belt @{}", factory.ticks, main_coord, sub_coord, factory.floor[main_coord].machine.output_want.kind, to_coord);
           }
 
@@ -223,7 +223,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, f
                     let have_eq_wants = belt_part == factory.floor[main_coord].machine.wants[i].kind && belt_part != have;
                     let trash_joker = options.dbg_trash_is_joker && belt_part == CONFIG_NODE_PART_TRASH;
                     if have_eq_wants || trash_joker {
-                      if options.print_moves || options.print_moves_machine {
+                      if options.trace_all_moves || options.trace_moves_machine {
                         log!("({}) Machine @{} (sub @{}) accepting part {:?} as input {} from belt @{}, had {:?}", factory.ticks, main_coord, sub_coord, belt_part, i, from_coord, have);
                       }
                       machine_receive_part(factory, main_coord, i, part_from_part_kind(config, want));
@@ -237,7 +237,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, f
             }
 
             if trash {
-              if options.print_moves || options.print_moves_machine {
+              if options.trace_all_moves || options.trace_moves_machine {
                 log!("({}) Machine @{} (sub @{}) trashing part {:?} from belt @{}", factory.ticks, main_coord, sub_coord, belt_part, from_coord);
               }
               let part = factory.floor[from_coord].belt.part.clone();
@@ -267,7 +267,7 @@ pub fn tick_machine(options: &mut Options, state: &mut State, config: &Config, f
 
     if ready {
       // Ready to produce a new part
-      if options.print_moves || options.print_moves_machine { log!("({}) Machine @{} started to create new part", factory.ticks, main_coord); }
+      if options.trace_all_moves || options.trace_moves_machine { log!("({}) Machine @{} started to create new part", factory.ticks, main_coord); }
       for i in 0..factory.floor[main_coord].machine.haves.len() {
         factory.floor[main_coord].machine.haves[i] = part_none(config);
       }

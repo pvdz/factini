@@ -269,7 +269,7 @@ pub fn maze_get_refuel_time(options: &Options) -> u64 {
 }
 
 pub fn tick_maze(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
-  if !options.enable_maze_runner { return; }
+  if !options.dbg_maze_enable_runner { return; }
 
   if factory.ticks % MAZE_TICK_INTERVAL == 0 {
     if factory.maze_runner.maze_finish_at > 0 {

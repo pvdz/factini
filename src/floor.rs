@@ -44,7 +44,7 @@ pub fn floor_empty(config: &Config) -> [Cell; FLOOR_CELLS_WH] {
 
 
 pub fn auto_layout(options: &Options, state: &mut State, config: &Config, factory: &mut Factory) {
-  log!("auto_layout(options.print_auto_layout_debug={})", options.print_auto_layout_debug);
+  log!("auto_layout(options.trace_auto_layout={})", options.trace_auto_layout);
   let mut machines = 0;
   for coord in 0..FLOOR_CELLS_WH {
     match factory.floor[coord].kind {
@@ -78,16 +78,16 @@ pub fn auto_layout(options: &Options, state: &mut State, config: &Config, factor
           let mut biggest_area_width = 0;
           let mut biggest_area_height = 0;
 
-          if options.print_auto_layout_debug { log!("======"); }
-          if options.print_auto_layout_debug { log!("- Discovering machine..."); }
+          if options.trace_auto_layout { log!("======"); }
+          if options.trace_auto_layout { log!("- Discovering machine..."); }
           // Find biggest machine rectangle area wise, with x,y in the top-left corner
           for n in y .. y + FLOOR_CELLS_H - y {
             max_height = n - y;
             for m in x .. x + max_width {
               let c = to_coord(m, n);
-              if options.print_auto_layout_debug { log!("  - {}x{}; is machine? {:?}; if so, what kind? {:?}", m, n, factory.floor[c].kind, factory.floor[c].machine.kind); }
+              if options.trace_auto_layout { log!("  - {}x{}; is machine? {:?}; if so, what kind? {:?}", m, n, factory.floor[c].kind, factory.floor[c].machine.kind); }
               if factory.floor[c].kind != CellKind::Machine || factory.floor[c].machine.kind != MachineKind::Unknown {
-                if options.print_auto_layout_debug { log!("    - end of machine row, max width {}, max height {}, first col? {}, area is {}, biggest is {}", max_width, max_height, m==x, max_width * max_height, biggest_area_size); }
+                if options.trace_auto_layout { log!("    - end of machine row, max width {}, max height {}, first col? {}, area is {}, biggest is {}", max_width, max_height, m==x, max_width * max_height, biggest_area_size); }
 
                 if max_width * max_height > biggest_area_size {
                   biggest_area_size = max_width * max_height;
@@ -103,7 +103,7 @@ pub fn auto_layout(options: &Options, state: &mut State, config: &Config, factor
               break;
             }
           }
-          if options.print_auto_layout_debug { log!("  - Last area: {} ({} by {})", max_width * max_height, max_width, max_height); }
+          if options.trace_auto_layout { log!("  - Last area: {} ({} by {})", max_width * max_height, max_width, max_height); }
           if max_width * max_height > biggest_area_size {
             biggest_area_size = max_width * max_height;
             biggest_area_width = max_width;
@@ -119,8 +119,8 @@ pub fn auto_layout(options: &Options, state: &mut State, config: &Config, factor
               (('0' as u8) + machines) as char // 1-9
             };
 
-          if options.print_auto_layout_debug { log!("  - Final biggest area: {} at {} x {}, assigning machine number {}, with id `{}`", biggest_area_size, biggest_area_width, biggest_area_height, machines, id); }
-          if options.print_auto_layout_debug { log!("======"); }
+          if options.trace_auto_layout { log!("  - Final biggest area: {} at {} x {}, assigning machine number {}, with id `{}`", biggest_area_size, biggest_area_width, biggest_area_height, machines, id); }
+          if options.trace_auto_layout { log!("======"); }
 
           // Now collect all cells in this grid and assign them to be the same machine
           factory.floor[main_coord].machine.coords.clear();
@@ -153,7 +153,7 @@ pub fn auto_layout(options: &Options, state: &mut State, config: &Config, factor
             }
           }
 
-          if options.print_auto_layout_debug { log!("Machine {} @{} has these cells: {:?}", factory.floor[main_coord].machine.id, main_coord, factory.floor[main_coord].machine.coords); }
+          if options.trace_auto_layout { log!("Machine {} @{} has these cells: {:?}", factory.floor[main_coord].machine.id, main_coord, factory.floor[main_coord].machine.coords); }
         }
       }
       CellKind::Supply => {}

@@ -87,7 +87,7 @@ pub fn tick_supply(options: &mut Options, state: &mut State, factory: &mut Facto
   }
 
   if supply.part_created_at == 0 {
-    if options.print_moves || options.print_moves_supply { log!("({}) Created new {:?} at supply @{}", ticks, supply.gives.kind, coord); }
+    if options.trace_all_moves || options.trace_moves_supply { log!("({}) Created new {:?} at supply @{}", ticks, supply.gives.kind, coord); }
     supply.part_created_at = ticks;
   }
 

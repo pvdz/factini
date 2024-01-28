@@ -98,7 +98,7 @@ fn tick_belt_take_from_belt(options: &mut Options, state: &mut State, config: &C
   // }
 
   // Okay, ready to move that part
-  if options.print_moves || options.print_moves_belt { log!("({}) Moved {:?} from belt @{} to belt @{}", factory.ticks, factory.floor[from_coord].belt.part, from_coord, curr_coord); }
+  if options.trace_all_moves || options.trace_moves_belt { log!("({}) Moved {:?} from belt @{} to belt @{}", factory.ticks, factory.floor[from_coord].belt.part, from_coord, curr_coord); }
   belt_receive_part(factory, curr_coord, curr_dir, factory.floor[from_coord].belt.part.clone());
   belt_receive_part(factory, from_coord, from_dir, part_none(config));
 
@@ -119,7 +119,7 @@ fn tick_belt_take_from_supply(options: &mut Options, state: &mut State, factory:
     }
     else {
       if factory.floor[supply_coord].supply.part_progress >= factory.floor[supply_coord].supply.speed {
-        if options.print_moves || options.print_moves_supply { log!("({}) Supply {:?} from @{} to belt @{}", factory.ticks, factory.floor[supply_coord].supply.gives.kind, supply_coord, belt_coord); }
+        if options.trace_all_moves || options.trace_moves_supply { log!("({}) Supply {:?} from @{} to belt @{}", factory.ticks, factory.floor[supply_coord].supply.gives.kind, supply_coord, belt_coord); }
         belt_receive_part(factory, belt_coord, factory.floor[supply_coord].supply.neighbor_incoming_dir, factory.floor[supply_coord].supply.gives.clone());
         supply_clear_part(factory, supply_coord);
         return true;
@@ -138,7 +138,7 @@ fn tick_belt_give_to_demand(options: &mut Options, state: &mut State, config: &C
     if factory.floor[belt_coord].belt.part_to == belt_dir_towards_demand {
       if factory.floor[belt_coord].belt.part_at > 0 && factory.floor[belt_coord].belt.part_progress >= factory.floor[belt_coord].belt.speed {
         if demand_ready(options, state, config, factory, demand_coord) {
-          if options.print_moves || options.print_moves_demand { log!("({}) Demand takes {:?} at @{} from belt @{}. belt.part_at={:?}, belt_dir={:?}", factory.ticks, factory.floor[belt_coord].belt.part.kind, demand_coord, belt_coord, factory.floor[belt_coord].belt.part_to, belt_dir_towards_demand); }
+          if options.trace_all_moves || options.trace_moves_demand { log!("({}) Demand takes {:?} at @{} from belt @{}. belt.part_at={:?}, belt_dir={:?}", factory.ticks, factory.floor[belt_coord].belt.part.kind, demand_coord, belt_coord, factory.floor[belt_coord].belt.part_to, belt_dir_towards_demand); }
           demand_receive_part(options, state, config, factory, demand_coord, belt_coord);
           belt_receive_part(factory, belt_coord, Direction::Up, part_none(config));
           return true;

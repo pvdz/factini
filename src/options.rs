@@ -34,48 +34,37 @@ pub struct Options {
   pub options_started_from_source: u64, // If non-zero, the current config started from local storage rather than source (options.md.js) and it will be the byte size
   pub initial_map_from_source: u64, // If non-zero, the initial map started from local storage rather than source (map.md.js) and it will be the byte size
 
-  pub print_options_string: bool,
-  pub print_choices: bool,
-  pub print_choices_belt: bool,
-  pub print_choices_machine: bool,
-  pub print_choices_supply: bool,
-  pub print_choices_demand: bool,
-  pub print_moves: bool,
-  pub print_moves_belt: bool,
-  pub print_moves_machine: bool,
-  pub print_moves_supply: bool,
-  pub print_moves_demand: bool,
-  pub print_price_deltas: bool,
-  pub print_machine_actions: bool,
-  pub print_factory_interval: u64,
-  pub print_stats_interval: u64,
-  pub print_auto_layout_debug: bool,
+  pub dbg_dump_options_string: bool,
+  pub trace_all_moves: bool,
+  pub trace_moves_belt: bool,
+  pub trace_moves_machine: bool,
+  pub trace_moves_supply: bool,
+  pub trace_moves_demand: bool,
+  pub cli_factory_output_interval: u64,
+  pub trace_auto_layout: bool,
   pub trace_cell_connect: bool,
   pub trace_cell_set_port: bool,
-  pub print_fmd_trace: bool,
+  pub trace_parse_fmd: bool,
   pub trace_get_quote_status: bool,
-  pub print_img_loader_trace: bool,
+  pub trace_img_loader: bool,
   pub trace_priority_step: bool,
   pub trace_porting_step: bool,
   pub trace_map_parsing: bool,
-  pub print_priority_tile_order: bool, // Print the prio index of a tile in the game (debug, web)
-  pub print_initial_table: bool, // Print the CLI version of the floor after generating it initially?
+  pub dbg_paint_tile_priority: bool, // Print the prio index of a tile in the game (debug, web)
+  pub dbg_onload_dump_factory: bool, // Print the CLI version of the floor after generating it initially?
   pub trace_auto_builder: bool,
 
   pub show_drm: bool, // Draw media where configNode.drm == true ?
-  pub draw_part_borders: bool, // Draw a border around Parts? Helps debugging invisible parts due to sprite problems
-  pub draw_part_char_icon: bool, // Draw the char icon representation for a part on top of it
-  pub draw_part_kind: bool, // Draw the part kind id representation for a part on top of it
-  pub draw_port_arrows: bool, // Draw the port directional arrows?
+  pub dbg_paint_part_borders: bool, // Draw a border around Parts? Helps debugging invisible parts due to sprite problems
+  pub dbg_paint_part_char_icon: bool, // Draw the char icon representation for a part on top of it
+  pub dbg_paint_part_kind_id: bool, // Draw the part kind id representation for a part on top of it
+  pub dbg_paint_port_arrows: bool, // Draw the port directional arrows?
   pub paint_belts: bool, // Paint the belt background tiles?
-  pub draw_belt_dbg_id: bool, // Draw the belt id on top of each belt? "dl_r" etc
+  pub dbg_paint_belt_id: bool, // Draw the belt id on top of each belt? "dl_r" etc
 
-  pub draw_zone_hovers: bool, // Draw a rect on the area where the mouse is detected
-  pub draw_zone_borders: bool, // Draw a guide around each grid section of the ui?
-  pub zone_borders_color: String, // the color of this border
-
-  pub short_term_window: u64, // For stats; average over this many ticks
-  pub long_term_window: u64, // For stats; average over this many ticks
+  pub dbg_paint_zone_hovers: bool, // Draw a rect on the area where the mouse is detected
+  pub dbg_paint_zone_borders: bool, // Draw a guide around each grid section of the ui?
+  pub dbg_zone_border_color: String, // the color of this border
 
   pub speed_modifier_floor: f64, // Increase or decrease ticks per second by this rate for (actual factory game/floor) animations
   pub speed_modifier_ui: f64, // Same as speed_modifier_floor but for rest of the UI (buttons, bouncers, trucks, dropzone pulse, etc)
@@ -98,23 +87,20 @@ pub struct Options {
   pub bouncer_stop_after: f64, // On the scale of bouncer_formula_total_distance, how far into the formula do we end the bouncer? this would be ideally when the bouncer is inside the factory.
   pub bouncer_formula_total_distance: f64, // The bouncer follows a formula and this is the would-be total distance until it "stops bouncing", the bouncer_stop_after is a normalized point onto this value
 
-  pub enable_maze_runner: bool, // Start the maze runner at all?
-  pub print_maze_prepared_stats: bool, // Show actual numbers of prepared maze stats?
-
-  // obsolete
-  pub bouncer_decay_speed: f64,
+  pub dbg_maze_enable_runner: bool, // Start the maze runner at all?
+  pub dbg_maze_paint_stats_text: bool, // Show actual numbers of prepared maze stats?
 
   pub splash_keep_loader: bool, // Keep showing the loader screen, even when loading is complete
   pub splash_no_loader: bool, // Skip the loader screen and go straight to the game
   pub splash_keep_main: bool, // Show main menu?
   pub splash_no_main: bool, // Skip main menu?
 
-  pub web_output_cli: bool, // Print the simplified cli output in web version?
+  pub dbg_animate_cli_output_in_web: bool, // Print the simplified cli output in web version?
 
   pub initial_event_type_swapped: bool, // sets initial state.event_type_swapped -> MOUSE / TOUCH
 
   pub dbg_trash_is_joker: bool, // Trash serves as joker item for machines?
-  pub db_joker_corrupts_factory: bool, // Show visual change when corrupting the factory
+  pub dbg_joker_corrupts_factory: bool, // Show visual change when corrupting the factory
   pub dbg_machine_produce_trash: bool, // If a machine trashes a part and expects no inputs, should it output trash instead of discarding it?
   pub dbg_clickable_quests: bool,
   pub dbg_print_quest_states: bool,
@@ -131,8 +117,8 @@ pub struct Options {
   pub enable_maze_partial: bool,
   pub enable_maze_full: bool,
   pub enable_speed_menu: bool,
-  pub show_debug_menu: bool,
-  pub show_debug_bottom: bool,
+  pub dbg_show_secret_menu: bool,
+  pub dbg_show_bottom_info: bool,
   pub dbg_show_fps: bool,
 
   pub test: u64, // just a temporary flag
@@ -143,45 +129,35 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     options_started_from_source: 0, // Updated elsewhere
     initial_map_from_source: 0, // Updated elsewhere
 
-    print_options_string: true,
-    print_choices: false,
-    print_choices_belt: false,
-    print_choices_machine: false,
-    print_choices_supply: false,
-    print_choices_demand: false,
-    print_moves: false,
-    print_moves_belt: false,
-    print_moves_machine: false,
-    print_moves_supply: false,
-    print_moves_demand: false,
-    print_price_deltas: false,
-    print_machine_actions: false,
-    print_factory_interval: 5000,
-    print_stats_interval: 100000,
-    print_auto_layout_debug: false,
+    dbg_dump_options_string: true,
+    trace_all_moves: false,
+    trace_moves_belt: false,
+    trace_moves_machine: false,
+    trace_moves_supply: false,
+    trace_moves_demand: false,
+    cli_factory_output_interval: 5000,
+    trace_auto_layout: false,
     trace_cell_connect: false,
     trace_cell_set_port: false,
-    print_fmd_trace: false,
+    trace_parse_fmd: false,
     trace_get_quote_status: false,
-    print_img_loader_trace: false,
+    trace_img_loader: false,
     trace_priority_step: false,
     trace_porting_step: false,
     trace_map_parsing: false,
-    print_priority_tile_order: false,
-    print_initial_table: false,
+    dbg_paint_tile_priority: false,
+    dbg_onload_dump_factory: false,
     trace_auto_builder: false,
     show_drm: true,
-    draw_part_borders: false,
-    draw_part_char_icon: false,
-    draw_part_kind: false,
-    draw_port_arrows: false,
+    dbg_paint_part_borders: false,
+    dbg_paint_part_char_icon: false,
+    dbg_paint_part_kind_id: false,
+    dbg_paint_port_arrows: false,
     paint_belts: true,
-    draw_belt_dbg_id: false,
-    draw_zone_hovers: false,
-    draw_zone_borders: false,
-    zone_borders_color: "white".to_string(),
-    short_term_window: 10000,
-    long_term_window: 600000,
+    dbg_paint_belt_id: false,
+    dbg_paint_zone_hovers: false,
+    dbg_paint_zone_borders: false,
+    dbg_zone_border_color: "white".to_string(),
     speed_modifier_floor,
     speed_modifier_ui,
     touch_drag_compensation: false,
@@ -199,17 +175,16 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     bouncer_stamp_interval: 20,
     bouncer_stop_after: 1200.0,
     bouncer_formula_total_distance: 650.0,
-    enable_maze_runner: true,
-    print_maze_prepared_stats: false,
+    dbg_maze_enable_runner: true,
+    dbg_maze_paint_stats_text: false,
     splash_keep_loader: false,
     splash_no_loader: false,
     splash_keep_main: false,
     splash_no_main: false,
-    bouncer_decay_speed: 1.2,
-    web_output_cli: false,
+    dbg_animate_cli_output_in_web: false,
     initial_event_type_swapped: false,
     dbg_trash_is_joker: true,
-    db_joker_corrupts_factory: true,
+    dbg_joker_corrupts_factory: true,
     dbg_machine_produce_trash: true,
     dbg_clickable_quests: true,
     dbg_print_quest_states: false,
@@ -224,8 +199,8 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     enable_maze_partial: true,
     enable_maze_full: true,
     enable_speed_menu: true,
-    show_debug_menu: true,
-    show_debug_bottom: true,
+    dbg_show_secret_menu: true,
+    dbg_show_bottom_info: true,
     dbg_show_fps: false,
     test: 0,
   };
@@ -316,9 +291,9 @@ fn _parse_string(value: String, key: &str, strict: bool, def: &String, verbose: 
 }
 
 pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
-  log!("parse_options_into(options.print_options_string={})", options.print_options_string);
+  log!("parse_options_into(options.dbg_dump_options_string={})", options.dbg_dump_options_string);
 
-  let mut verbose = options.print_options_string;
+  let mut verbose = options.dbg_dump_options_string;
 
   let trimmed = input.trim().clone().split('\n');
   trimmed.for_each(|line| {
@@ -331,58 +306,47 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
           let name = name.trim();
           let value = value.trim();
 
-          if name == "print_options_string" { verbose = value == "true"; }
+          if name == "dbg_dump_options_string" { verbose = value == "true"; }
           if verbose { log!("- updating options.{} to `{}`", name, value); }
 
           match name {
-            "print_options_string" => options.print_options_string = parse_bool(value, name, strict, options.print_options_string, verbose),
+            "dbg_dump_options_string" => options.dbg_dump_options_string = parse_bool(value, name, strict, options.dbg_dump_options_string, verbose),
             "options_started_from_source" => options.options_started_from_source = parse_u64(value, name, strict, options.options_started_from_source, verbose),
             "initial_map_from_source" => options.initial_map_from_source = parse_u64(value, name, strict, options.initial_map_from_source, verbose),
-            "print_choices" => options.print_choices = parse_bool(value, name, strict, options.print_choices, verbose),
-            "print_choices_belt" => options.print_choices_belt = parse_bool(value, name, strict, options.print_choices_belt, verbose),
-            "print_choices_machine" => options.print_choices_machine = parse_bool(value, name, strict, options.print_choices_machine, verbose),
-            "print_choices_supply" => options.print_choices_supply = parse_bool(value, name, strict, options.print_choices_supply, verbose),
-            "print_choices_demand" => options.print_choices_demand = parse_bool(value, name, strict, options.print_choices_demand, verbose),
-            "print_moves" => options.print_moves = parse_bool(value, name, strict, options.print_moves, verbose),
-            "print_moves_belt" => options.print_moves_belt = parse_bool(value, name, strict, options.print_moves_belt, verbose),
-            "print_moves_machine" => options.print_moves_machine = parse_bool(value, name, strict, options.print_moves_machine, verbose),
-            "print_moves_supply" => options.print_moves_supply = parse_bool(value, name, strict, options.print_moves_supply, verbose),
-            "print_moves_demand" => options.print_moves_demand = parse_bool(value, name, strict, options.print_moves_demand, verbose),
-            "print_price_deltas" => options.print_price_deltas = parse_bool(value, name, strict, options.print_price_deltas, verbose),
-            "print_machine_actions" => options.print_machine_actions = parse_bool(value, name, strict, options.print_machine_actions, verbose),
-            "print_factory_interval" => options.print_factory_interval = parse_u64(value, name, strict, options.print_factory_interval, verbose),
-            "print_stats_interval" => options.print_stats_interval = parse_u64(value, name, strict, options.print_stats_interval, verbose),
-            "print_auto_layout_debug" => options.print_auto_layout_debug = parse_bool(value, name, strict, options.print_auto_layout_debug, verbose),
+            "trace_all_moves" => options.trace_all_moves = parse_bool(value, name, strict, options.trace_all_moves, verbose),
+            "trace_moves_belt" => options.trace_moves_belt = parse_bool(value, name, strict, options.trace_moves_belt, verbose),
+            "trace_moves_machine" => options.trace_moves_machine = parse_bool(value, name, strict, options.trace_moves_machine, verbose),
+            "trace_moves_supply" => options.trace_moves_supply = parse_bool(value, name, strict, options.trace_moves_supply, verbose),
+            "trace_moves_demand" => options.trace_moves_demand = parse_bool(value, name, strict, options.trace_moves_demand, verbose),
+            "cli_factory_output_interval" => options.cli_factory_output_interval = parse_u64(value, name, strict, options.cli_factory_output_interval, verbose),
+            "trace_auto_layout" => options.trace_auto_layout = parse_bool(value, name, strict, options.trace_auto_layout, verbose),
             "trace_cell_connect" => options.trace_cell_connect = parse_bool(value, name, strict, options.trace_cell_connect, verbose),
             "trace_cell_set_port" => options.trace_cell_set_port = parse_bool(value, name, strict, options.trace_cell_set_port, verbose),
-            "print_fmd_trace" => options.print_fmd_trace = parse_bool(value, name, strict, options.print_fmd_trace, verbose),
+            "trace_parse_fmd" => options.trace_parse_fmd = parse_bool(value, name, strict, options.trace_parse_fmd, verbose),
             "trace_get_quote_status" => options.trace_get_quote_status = parse_bool(value, name, strict, options.trace_get_quote_status, verbose),
-            "print_img_loader_trace" => options.print_img_loader_trace = parse_bool(value, name, strict, options.print_img_loader_trace, verbose),
+            "trace_img_loader" => options.trace_img_loader = parse_bool(value, name, strict, options.trace_img_loader, verbose),
             "trace_priority_step" => options.trace_priority_step = parse_bool(value, name, strict, options.trace_priority_step, verbose),
             "trace_porting_step" => options.trace_porting_step = parse_bool(value, name, strict, options.trace_porting_step, verbose),
             "trace_map_parsing" => options.trace_map_parsing = parse_bool(value, name, strict, options.trace_map_parsing, verbose),
-            "print_priority_tile_order" => options.print_priority_tile_order = parse_bool(value, name, strict, options.print_priority_tile_order, verbose),
-            "print_initial_table" => options.print_initial_table = parse_bool(value, name, strict, options.print_initial_table, verbose),
+            "dbg_paint_tile_priority" => options.dbg_paint_tile_priority = parse_bool(value, name, strict, options.dbg_paint_tile_priority, verbose),
+            "dbg_onload_dump_factory" => options.dbg_onload_dump_factory = parse_bool(value, name, strict, options.dbg_onload_dump_factory, verbose),
             "trace_auto_builder" => options.trace_auto_builder = parse_bool(value, name, strict, options.trace_auto_builder, verbose),
             "show_drm" => options.show_drm = parse_bool(value, name, strict, options.show_drm, verbose),
-            "draw_part_borders" => options.draw_part_borders = parse_bool(value, name, strict, options.draw_part_borders, verbose),
-            "draw_part_char_icon" => options.draw_part_char_icon = parse_bool(value, name, strict, options.draw_part_char_icon, verbose),
-            "draw_part_kind" => options.draw_part_kind = parse_bool(value, name, strict, options.draw_part_kind, verbose),
-            "draw_port_arrows" => options.draw_port_arrows = parse_bool(value, name, strict, options.draw_port_arrows, verbose),
+            "dbg_paint_part_borders" => options.dbg_paint_part_borders = parse_bool(value, name, strict, options.dbg_paint_part_borders, verbose),
+            "dbg_paint_part_char_icon" => options.dbg_paint_part_char_icon = parse_bool(value, name, strict, options.dbg_paint_part_char_icon, verbose),
+            "dbg_paint_part_kind_id" => options.dbg_paint_part_kind_id = parse_bool(value, name, strict, options.dbg_paint_part_kind_id, verbose),
+            "dbg_paint_port_arrows" => options.dbg_paint_port_arrows = parse_bool(value, name, strict, options.dbg_paint_port_arrows, verbose),
             "paint_belts" => options.paint_belts = parse_bool(value, name, strict, options.paint_belts, verbose),
-            "draw_belt_dbg_id" => options.draw_belt_dbg_id = parse_bool(value, name, strict, options.draw_belt_dbg_id, verbose),
-            "draw_zone_hovers" => options.draw_zone_hovers = parse_bool(value, name, strict, options.draw_zone_hovers, verbose),
-            "draw_zone_borders" => options.draw_zone_borders = parse_bool(value, name, strict, options.draw_zone_borders, verbose),
-            "zone_borders_color" => options.zone_borders_color = parse_string(value.to_string(), name, strict, options.zone_borders_color.clone(), verbose),
-            "short_term_window" => options.short_term_window = parse_u64(value, name, strict, options.short_term_window, verbose),
-            "long_term_window" => options.long_term_window = parse_u64(value, name, strict, options.long_term_window, verbose),
+            "dbg_paint_belt_id" => options.dbg_paint_belt_id = parse_bool(value, name, strict, options.dbg_paint_belt_id, verbose),
+            "dbg_paint_zone_hovers" => options.dbg_paint_zone_hovers = parse_bool(value, name, strict, options.dbg_paint_zone_hovers, verbose),
+            "dbg_paint_zone_borders" => options.dbg_paint_zone_borders = parse_bool(value, name, strict, options.dbg_paint_zone_borders, verbose),
+            "dbg_zone_border_color" => options.dbg_zone_border_color = parse_string(value.to_string(), name, strict, options.dbg_zone_border_color.clone(), verbose),
             "bouncer_decay_rate_modifier" => options.bouncer_decay_rate_modifier = parse_f64(value, name, strict, options.bouncer_decay_rate_modifier, verbose),
             "bouncer_amplitude_decay_rate" => options.bouncer_amplitude_decay_rate = parse_f64(value, name, strict, options.bouncer_amplitude_decay_rate, verbose),
             "bouncer_wave_decay_rate" => options.bouncer_wave_decay_rate = parse_f64(value, name, strict, options.bouncer_wave_decay_rate, verbose),
             "bouncer_initial_angle" => options.bouncer_initial_angle = parse_f64(value, name, strict, options.bouncer_initial_angle, verbose),
             "bouncer_angular_freq" => options.bouncer_angular_freq = parse_f64(value, name, strict, options.bouncer_angular_freq, verbose),
             "bouncer_time_to_factory" => options.bouncer_time_to_factory = parse_f64(value, name, strict, options.bouncer_time_to_factory, verbose),
-            "bouncer_decay_speed" => options.bouncer_decay_speed = parse_f64(value, name, strict, options.bouncer_decay_speed, verbose),
             "speed_modifier_floor" => options.speed_modifier_floor = parse_f64(value, name, strict, options.speed_modifier_floor, verbose),
             "speed_modifier_ui" => options.speed_modifier_ui = parse_f64(value, name, strict, options.speed_modifier_ui, verbose),
             "bouncer_trail_time" => options.bouncer_trail_time = parse_f64(value, name, strict, options.bouncer_trail_time, verbose),
@@ -390,8 +354,8 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "bouncer_stamp_interval" => options.bouncer_stamp_interval = parse_u64(value, name, strict, options.bouncer_stamp_interval, verbose),
             "bouncer_stop_after" => options.bouncer_stop_after = parse_f64(value, name, strict, options.bouncer_stop_after, verbose),
             "bouncer_formula_total_distance" => options.bouncer_formula_total_distance = parse_f64(value, name, strict, options.bouncer_formula_total_distance, verbose),
-            "enable_maze_runner" => options.enable_maze_runner = parse_bool(value, name, strict, options.enable_maze_runner, verbose),
-            "print_maze_prepared_stats" => options.print_maze_prepared_stats = parse_bool(value, name, strict, options.print_maze_prepared_stats, verbose),
+            "dbg_maze_enable_runner" => options.dbg_maze_enable_runner = parse_bool(value, name, strict, options.dbg_maze_enable_runner, verbose),
+            "dbg_maze_paint_stats_text" => options.dbg_maze_paint_stats_text = parse_bool(value, name, strict, options.dbg_maze_paint_stats_text, verbose),
             "splash_keep_loader" => options.splash_keep_loader = parse_bool(value, name, strict, options.splash_keep_loader, verbose),
             "splash_no_loader" => options.splash_no_loader = parse_bool(value, name, strict, options.splash_no_loader, verbose),
             "splash_keep_main" => options.splash_keep_main = parse_bool(value, name, strict, options.splash_keep_main, verbose),
@@ -400,10 +364,10 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "dropzone_color_offset" => options.dropzone_color_offset = parse_u64(value, name, strict, options.dropzone_color_offset, verbose),
             "dropzone_bounce_speed" => options.dropzone_bounce_speed = parse_u64(value, name, strict, options.dropzone_bounce_speed, verbose),
             "dropzone_bounce_distance" => options.dropzone_bounce_distance = parse_u64(value, name, strict, options.dropzone_bounce_distance, verbose),
-            "web_output_cli" => options.web_output_cli = parse_bool(value, name, strict, options.web_output_cli, verbose),
+            "dbg_animate_cli_output_in_web" => options.dbg_animate_cli_output_in_web = parse_bool(value, name, strict, options.dbg_animate_cli_output_in_web, verbose),
             "initial_event_type_swapped" => options.initial_event_type_swapped = parse_bool(value, name, strict, options.initial_event_type_swapped, verbose),
             "dbg_trash_is_joker" => options.dbg_trash_is_joker = parse_bool(value, name, strict, options.dbg_trash_is_joker, verbose),
-            "db_joker_corrupts_factory" => options.db_joker_corrupts_factory = parse_bool(value, name, strict, options.db_joker_corrupts_factory, verbose),
+            "dbg_joker_corrupts_factory" => options.dbg_joker_corrupts_factory = parse_bool(value, name, strict, options.dbg_joker_corrupts_factory, verbose),
             "dbg_machine_produce_trash" => options.dbg_machine_produce_trash = parse_bool(value, name, strict, options.dbg_machine_produce_trash, verbose),
             "dbg_clickable_quotes" => options.dbg_clickable_quests = parse_bool(value, name, strict, options.dbg_clickable_quests, verbose),
             "dbg_print_quest_states" => options.dbg_print_quest_states = parse_bool(value, name, strict, options.dbg_print_quest_states, verbose),
@@ -417,8 +381,8 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "enable_maze_partial" => options.enable_maze_partial = parse_bool(value, name, strict, options.enable_maze_partial, verbose),
             "enable_maze_full" => options.enable_maze_full = parse_bool(value, name, strict, options.enable_maze_full, verbose),
             "enable_speed_menu" => options.enable_speed_menu = parse_bool(value, name, strict, options.enable_speed_menu, verbose),
-            "show_debug_menu" => options.show_debug_menu = parse_bool(value, name, strict, options.show_debug_menu, verbose),
-            "show_debug_bottom" => options.show_debug_bottom = parse_bool(value, name, strict, options.show_debug_bottom, verbose),
+            "dbg_show_secret_menu" => options.dbg_show_secret_menu = parse_bool(value, name, strict, options.dbg_show_secret_menu, verbose),
+            "dbg_show_bottom_info" => options.dbg_show_bottom_info = parse_bool(value, name, strict, options.dbg_show_bottom_info, verbose),
             "dbg_show_fps" => options.dbg_show_fps = parse_bool(value, name, strict, options.dbg_show_fps, verbose),
             "test" => options.test = parse_u64(value, name, strict, options.test, verbose),
             _ => {
@@ -438,45 +402,35 @@ pub fn options_serialize(options: &Options) -> String {
   let mut arr = vec!();
   arr.push(format!("- options_started_from_source: {}", options.options_started_from_source));
   arr.push(format!("- initial_map_from_source: {}", options.initial_map_from_source));
-  arr.push(format!("- print_options_string: {}", options.print_options_string));
-  arr.push(format!("- print_choices: {}", options.print_choices));
-  arr.push(format!("- print_choices_belt: {}", options.print_choices_belt));
-  arr.push(format!("- print_choices_machine: {}", options.print_choices_machine));
-  arr.push(format!("- print_choices_supply: {}", options.print_choices_supply));
-  arr.push(format!("- print_choices_demand: {}", options.print_choices_demand));
-  arr.push(format!("- print_moves: {}", options.print_moves));
-  arr.push(format!("- print_moves_belt: {}", options.print_moves_belt));
-  arr.push(format!("- print_moves_machine: {}", options.print_moves_machine));
-  arr.push(format!("- print_moves_supply: {}", options.print_moves_supply));
-  arr.push(format!("- print_moves_demand: {}", options.print_moves_demand));
-  arr.push(format!("- print_price_deltas: {}", options.print_price_deltas));
-  arr.push(format!("- print_machine_actions: {}", options.print_machine_actions));
-  arr.push(format!("- print_factory_interval: {}", options.print_factory_interval));
-  arr.push(format!("- print_stats_interval: {}", options.print_stats_interval));
-  arr.push(format!("- print_auto_layout_debug: {}", options.print_auto_layout_debug));
+  arr.push(format!("- dbg_dump_options_string: {}", options.dbg_dump_options_string));
+  arr.push(format!("- trace_all_moves: {}", options.trace_all_moves));
+  arr.push(format!("- trace_moves_belt: {}", options.trace_moves_belt));
+  arr.push(format!("- trace_moves_machine: {}", options.trace_moves_machine));
+  arr.push(format!("- trace_moves_supply: {}", options.trace_moves_supply));
+  arr.push(format!("- trace_moves_demand: {}", options.trace_moves_demand));
+  arr.push(format!("- cli_factory_output_interval: {}", options.cli_factory_output_interval));
+  arr.push(format!("- trace_auto_layout: {}", options.trace_auto_layout));
   arr.push(format!("- trace_cell_connect: {}", options.trace_cell_connect));
   arr.push(format!("- trace_cell_set_port: {}", options.trace_cell_set_port));
-  arr.push(format!("- print_fmd_trace: {}", options.print_fmd_trace));
+  arr.push(format!("- trace_parse_fmd: {}", options.trace_parse_fmd));
   arr.push(format!("- trace_get_quote_status: {}", options.trace_get_quote_status));
-  arr.push(format!("- print_img_loader_trace: {}", options.print_img_loader_trace));
+  arr.push(format!("- trace_img_loader: {}", options.trace_img_loader));
   arr.push(format!("- trace_priority_step: {}", options.trace_priority_step));
   arr.push(format!("- trace_porting_step: {}", options.trace_porting_step));
   arr.push(format!("- trace_map_parsing: {}", options.trace_map_parsing));
-  arr.push(format!("- print_priority_tile_order: {}", options.print_priority_tile_order));
-  arr.push(format!("- print_initial_table: {}", options.print_initial_table));
+  arr.push(format!("- dbg_paint_tile_priority: {}", options.dbg_paint_tile_priority));
+  arr.push(format!("- dbg_onload_dump_factory: {}", options.dbg_onload_dump_factory));
   arr.push(format!("- trace_auto_builder: {}", options.trace_auto_builder));
   arr.push(format!("- show_drm: {}", options.show_drm));
-  arr.push(format!("- draw_part_borders: {}", options.draw_part_borders));
-  arr.push(format!("- draw_part_char_icon: {}", options.draw_part_char_icon));
-  arr.push(format!("- draw_part_kind: {}", options.draw_part_kind));
-  arr.push(format!("- draw_port_arrows: {}", options.draw_port_arrows));
+  arr.push(format!("- dbg_paint_part_borders: {}", options.dbg_paint_part_borders));
+  arr.push(format!("- dbg_paint_part_char_icon: {}", options.dbg_paint_part_char_icon));
+  arr.push(format!("- dbg_paint_part_kind_id: {}", options.dbg_paint_part_kind_id));
+  arr.push(format!("- dbg_paint_port_arrows: {}", options.dbg_paint_port_arrows));
   arr.push(format!("- paint_belts: {}", options.paint_belts));
-  arr.push(format!("- draw_belt_dbg_id: {}", options.draw_belt_dbg_id));
-  arr.push(format!("- draw_zone_hovers: {}", options.draw_zone_hovers));
-  arr.push(format!("- draw_zone_borders: {}", options.draw_zone_borders));
-  arr.push(format!("- zone_borders_color: '{}'", options.zone_borders_color));
-  arr.push(format!("- short_term_window: {}", options.short_term_window));
-  arr.push(format!("- long_term_window: {}", options.long_term_window));
+  arr.push(format!("- dbg_paint_belt_id: {}", options.dbg_paint_belt_id));
+  arr.push(format!("- dbg_paint_zone_hovers: {}", options.dbg_paint_zone_hovers));
+  arr.push(format!("- dbg_paint_zone_borders: {}", options.dbg_paint_zone_borders));
+  arr.push(format!("- dbg_zone_border_color: '{}'", options.dbg_zone_border_color));
   arr.push(format!("- speed_modifier_floor: {}", options.speed_modifier_floor));
   arr.push(format!("- speed_modifier_ui: {}", options.speed_modifier_ui));
   arr.push(format!("- touch_drag_compensation: {}", options.touch_drag_compensation));
@@ -494,17 +448,16 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- bouncer_stamp_interval: {}", options.bouncer_stamp_interval));
   arr.push(format!("- bouncer_stop_after: {}", options.bouncer_stop_after));
   arr.push(format!("- bouncer_formula_total_distance: {}", options.bouncer_formula_total_distance));
-  arr.push(format!("- enable_maze_runner: {}", options.enable_maze_runner));
-  arr.push(format!("- print_maze_prepared_stats: {}", options.print_maze_prepared_stats));
-  arr.push(format!("- bouncer_decay_speed: {}", options.bouncer_decay_speed));
+  arr.push(format!("- dbg_maze_enable_runner: {}", options.dbg_maze_enable_runner));
+  arr.push(format!("- dbg_maze_paint_stats_text: {}", options.dbg_maze_paint_stats_text));
   arr.push(format!("- splash_keep_loader: {}", options.splash_keep_loader));
   arr.push(format!("- splash_no_loader: {}", options.splash_no_loader));
   arr.push(format!("- splash_keep_main: {}", options.splash_keep_main));
   arr.push(format!("- splash_no_main: {}", options.splash_no_main));
-  arr.push(format!("- web_output_cli: {}", options.web_output_cli));
+  arr.push(format!("- dbg_animate_cli_output_in_web: {}", options.dbg_animate_cli_output_in_web));
   arr.push(format!("- initial_event_type_swapped: {}", options.initial_event_type_swapped));
   arr.push(format!("- dbg_trash_is_joker: {}", options.dbg_trash_is_joker));
-  arr.push(format!("- db_joker_corrupts_factory: {}", options.db_joker_corrupts_factory));
+  arr.push(format!("- dbg_joker_corrupts_factory: {}", options.dbg_joker_corrupts_factory));
   arr.push(format!("- dbg_machine_produce_trash: {}", options.dbg_machine_produce_trash));
   arr.push(format!("- dbg_clickable_quotes: {}", options.dbg_clickable_quests));
   arr.push(format!("- dbg_print_quest_states: {}", options.dbg_print_quest_states));
@@ -518,8 +471,8 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- enable_maze_partial: {}", options.enable_maze_partial));
   arr.push(format!("- enable_maze_full: {}", options.enable_maze_full));
   arr.push(format!("- enable_speed_menu: {}", options.enable_speed_menu));
-  arr.push(format!("- show_debug_menu: {}", options.show_debug_menu));
-  arr.push(format!("- show_debug_bottom: {}", options.show_debug_bottom));
+  arr.push(format!("- dbg_show_secret_menu: {}", options.dbg_show_secret_menu));
+  arr.push(format!("- dbg_show_bottom_info: {}", options.dbg_show_bottom_info));
   arr.push(format!("- dbg_show_fps: {}", options.dbg_show_fps));
   arr.push(format!("- test: {}", options.test));
   return arr.join("\n");

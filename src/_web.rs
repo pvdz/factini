@@ -223,10 +223,10 @@ pub fn start() -> Result<(), JsValue> {
 
   context.set_image_smoothing_enabled(false);
 
-  pub fn load_config(print_img_loader_trace: bool, config: &mut Config) {
-    log!("load_config(options.print_img_loader_trace={})", print_img_loader_trace);
+  pub fn load_config(trace_img_loader: bool, config: &mut Config) {
+    log!("load_config(options.trace_img_loader={})", trace_img_loader);
 
-    if print_img_loader_trace {
+    if trace_img_loader {
       log!("  - Nodes that want to load a file:");
       config.nodes.iter().for_each(|node| {
         if node.sprite_config.frames[0].file != "" {
@@ -244,7 +244,7 @@ pub fn start() -> Result<(), JsValue> {
     let mut boxed: Vec<Option<web_sys::HtmlImageElement>> =
       config.sprite_cache_order.iter().enumerate().map(|(index, src)| {
         if image_loader_prio.contains(&index) {
-          if print_img_loader_trace { log!("Loading {} with prio", src); }
+          if trace_img_loader { log!("Loading {} with prio", src); }
           return Some(load_tile(src.clone().as_str()));
         }
         return None;
@@ -260,7 +260,7 @@ pub fn start() -> Result<(), JsValue> {
 
     config.sprite_cache_loading = true;
 
-    if print_img_loader_trace { log!("Queued up {} sprite files for these parts: {:?}", config.sprite_cache_canvas.len(), config.sprite_cache_lookup); }
+    if trace_img_loader { log!("Queued up {} sprite files for these parts: {:?}", config.sprite_cache_canvas.len(), config.sprite_cache_lookup); }
     else { log!("Queued up {} sprite files to load...", config.sprite_cache_canvas.len()); }
 
     {
@@ -303,14 +303,14 @@ pub fn start() -> Result<(), JsValue> {
     None => ( getGameOptions(), true ),
   };
   let options_started_from_source = if options_started_from_source { 0 } else { option_string.len() as u64 };
-  let old = options.show_debug_bottom;
+  let old = options.dbg_show_bottom_info;
   parse_and_save_options_string(option_string.clone(), &mut options, true, options_started_from_source, true);
 
-  let mut config = parse_fmd(options.print_fmd_trace, getGameConfig());
-  load_config(options.print_img_loader_trace, &mut config);
+  let mut config = parse_fmd(options.trace_parse_fmd, getGameConfig());
+  load_config(options.trace_img_loader, &mut config);
 
-  if old != options.show_debug_bottom {
-    let h = if options.show_debug_bottom { CANVAS_CSS_HEIGHT } else { CANVAS_CSS_HEIGHT - GRID_BOTTOM_DEBUG_HEIGHT - GRID_PADDING } as u32;
+  if old != options.dbg_show_bottom_info {
+    let h = if options.dbg_show_bottom_info { CANVAS_CSS_HEIGHT } else { CANVAS_CSS_HEIGHT - GRID_BOTTOM_DEBUG_HEIGHT - GRID_PADDING } as u32;
     let c = document.get_element_by_id("$main_game_canvas").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().expect("should work");
     c.set_height(h);
     c.style().set_property("height", format!("{}px", h).as_str()).expect("should work");
@@ -531,7 +531,7 @@ pub fn start() -> Result<(), JsValue> {
   let initial_map_from_source = if initial_map_from_source { 0 } else { initial_map.len() as u64 };
   options.initial_map_from_source = initial_map_from_source;
   let ( mut state, mut factory ) = init(&mut options, &config, initial_map);
-  state.showing_debug_bottom = options.show_debug_bottom;
+  state.showing_debug_bottom = options.dbg_show_bottom_info;
   let mut quick_saves: [Option<QuickSave>; 9] = [(); 9].map(|_| None);
 
   state_add_examples(getExamples(), &mut state);
@@ -556,7 +556,7 @@ pub fn start() -> Result<(), JsValue> {
   if let Some(saved_map) = saved_map4 { if let Some(saved_png) = saved_png4 { quick_saves[3] = Some(quick_save_create(3, &document, saved_map, saved_png)); } }
 
 
-  if options.print_initial_table {
+  if options.dbg_onload_dump_factory {
     print_floor_with_views(&mut options, &mut state, &mut factory);
     print_floor_without_views(&mut options, &mut state, &mut factory);
   }
@@ -847,8 +847,8 @@ pub fn start() -> Result<(), JsValue> {
         "apply_options" => {
           parse_and_save_options_string(getGameOptions(), &mut options, false, options_started_from_source, false);
 
-          if options.show_debug_bottom != state.showing_debug_bottom {
-            state.showing_debug_bottom = options.show_debug_bottom;
+          if options.dbg_show_bottom_info != state.showing_debug_bottom {
+            state.showing_debug_bottom = options.dbg_show_bottom_info;
             let h = if state.showing_debug_bottom { CANVAS_CSS_HEIGHT } else { CANVAS_CSS_HEIGHT - GRID_BOTTOM_DEBUG_HEIGHT - GRID_PADDING } as u32;
 
             let c = document.get_element_by_id("$main_game_canvas").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().expect("should work");
@@ -858,8 +858,8 @@ pub fn start() -> Result<(), JsValue> {
         },
         "load_map" => state.reset_next_frame = true, // implicitly will call getGameMap() which loads the map from UI indirectly
         "load_config" => {
-          let mut config = parse_fmd(options.print_fmd_trace, getGameConfig());
-          load_config(options.print_img_loader_trace, &mut config);
+          let mut config = parse_fmd(options.trace_parse_fmd, getGameConfig());
+          load_config(options.trace_img_loader, &mut config);
         }, // Might crash the game
         "" => {},
         _ => panic!("getAction() returned an unsupported value: `{}`", queued_action),
@@ -905,7 +905,7 @@ pub fn start() -> Result<(), JsValue> {
         onQuestUpdate(pairs.iter().collect::<js_sys::Array>().into());
       }
 
-      if options.web_output_cli {
+      if options.dbg_animate_cli_output_in_web {
         paint_world_cli(&context, &mut options, &mut state, &factory);
       } else {
         let was_down = last_mouse_was_down.get();
@@ -1190,7 +1190,7 @@ fn update_mouse_state(
       }
     }
     Zone::TopRight => {
-      if options.show_debug_menu {
+      if options.dbg_show_secret_menu {
         let menu_button = hit_test_menu_buttons(mouse_state.world_x, mouse_state.world_y);
         if menu_button != MenuButton::None {
           // time controls, first, second row of menu buttons
@@ -1335,7 +1335,7 @@ fn update_mouse_state(
         log!("Top menu button down: {:?}", mouse_state.down_menu_button);
       }
       Zone::TopRight => {
-        if options.show_debug_menu {
+        if options.dbg_show_secret_menu {
           let menu_button = hit_test_menu_buttons(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
           if menu_button != MenuButton::None {
             // time controls, first, second row of menu buttons
@@ -1493,7 +1493,7 @@ fn update_mouse_state(
         log!("Top menu button up: {:?}", mouse_state.up_menu_button);
       }
       Zone::TopRight => {
-        if options.show_debug_menu {
+        if options.dbg_show_secret_menu {
           let menu_button = hit_test_menu_buttons(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
           if menu_button != MenuButton::None {
             // time controls, first, second row of menu buttons
@@ -1504,7 +1504,7 @@ fn update_mouse_state(
         } else {
           if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_DEBUG_SECRET_X, UI_DEBUG_SECRET_Y, UI_DEBUG_SECRET_X + UI_DEBUG_SECRET_W, UI_DEBUG_SECRET_Y + UI_DEBUG_SECRET_H) {
             log!("Enabling secret debug menu...");
-            options.show_debug_menu = true;
+            options.dbg_show_secret_menu = true;
           }
         }
       }
@@ -3697,7 +3697,7 @@ fn paint_background_tiles3(
     }
   }
 
-  if options.print_priority_tile_order {
+  if options.dbg_paint_tile_priority {
     for i in 0..factory.prio.len() {
       let coord = factory.prio[i];
       let (cx, cy) = to_xy(coord);
@@ -3710,7 +3710,7 @@ fn paint_background_tiles3(
   }
 }
 fn paint_port_arrows(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory) {
-  if !options.draw_port_arrows {
+  if !options.dbg_paint_port_arrows {
     return;
   }
 
@@ -3743,7 +3743,7 @@ fn paint_port_arrows(options: &Options, state: &State, config: &Config, context:
   }
 }
 fn paint_belt_dbg_id(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory) {
-  if !options.draw_belt_dbg_id {
+  if !options.dbg_paint_belt_id {
     return;
   }
 
@@ -4399,8 +4399,8 @@ fn paint_debug_selected_demand_cell(context: &Rc<web_sys::CanvasRenderingContext
   // context.fill_text(format!("Received: {:?}", demand.received).as_str(), UI_DEBUG_CELL_OFFSET_X + UI_DEBUG_CELL_MARGIN, UI_DEBUG_CELL_OFFSET_Y + (9.0 * UI_DEBUG_CELL_FONT_HEIGHT)).expect("something error fill_text");
 }
 fn paint_zone_borders(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>) {
-  if options.draw_zone_borders {
-    context.set_stroke_style(&options.zone_borders_color.clone().into());
+  if options.dbg_paint_zone_borders {
+    context.set_stroke_style(&options.dbg_zone_border_color.clone().into());
     context.stroke_rect(GRID_X0, GRID_Y0, GRID_LEFT_WIDTH, GRID_TOP_HEIGHT);
     context.stroke_rect(GRID_X1, GRID_Y0, UI_FLOOR_WIDTH, GRID_TOP_HEIGHT);
     context.stroke_rect(GRID_X2, GRID_Y0, GRID_RIGHT_WIDTH, GRID_TOP_HEIGHT + GRID_PADDING + UI_FLOOR_HEIGHT + GRID_PADDING + GRID_BOTTOM_HEIGHT);
@@ -4472,7 +4472,7 @@ fn paint_bouncers(options: &Options, state: &State, config: &Config, context: &R
   }
 }
 fn paint_zone_hovers(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  if options.draw_zone_hovers {
+  if options.dbg_paint_zone_hovers {
     context.set_fill_style(&"#99999970".into()); // 100% background
     match mouse_state.over_zone {
       Zone::None => {}
@@ -5323,7 +5323,7 @@ fn paint_green_pixel(context: &Rc<web_sys::CanvasRenderingContext2d>, progress: 
   }
 }
 fn paint_button_menu_ui(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
-  if options.show_debug_menu {
+  if options.dbg_show_secret_menu {
     paint_ui_buttons(options, state, context, mouse_state);
     paint_ui_buttons2(options, state, context, mouse_state);
   } else {
@@ -5506,15 +5506,15 @@ fn paint_segment_part_from_config_bug(options: &Options, state: &State, config: 
     dx, dy, dw, dh,
   ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
 
-  if options.draw_part_borders {
+  if options.dbg_paint_part_borders {
     context.set_stroke_style(&"black".into());
     context.stroke_rect(dx, dy, dw, dh);
   }
-  if options.draw_part_char_icon || options.draw_part_kind {
+  if options.dbg_paint_part_char_icon || options.dbg_paint_part_kind_id {
     context.set_fill_style(&"#ffffff99".into());
     context.fill_rect(dx, dy, dw, dh);
     context.set_fill_style(&"black".into());
-    if options.draw_part_kind {
+    if options.dbg_paint_part_kind_id {
       context.fill_text(part_kind.to_string().as_str(), dx + dw / 2.0 - (if part_kind < 9 { 4.0 } else { 14.0 }), dy + dh / 2.0 + 3.0).expect("to paint");
     } else if part_kind == CONFIG_NODE_PART_NONE {
       context.fill_text("ε", dx + dw / 2.0 - 4.0, dy + dh / 2.0 + 3.0).expect("to paint");
@@ -5551,15 +5551,15 @@ fn paint_asset_raw(options: &Options, state: &State, config: &Config, context: &
     dx, dy, dw, dh,
   ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
 
-  if options.draw_part_borders {
+  if options.dbg_paint_part_borders {
     context.set_stroke_style(&"black".into());
     context.stroke_rect(dx, dy, dw, dh);
   }
-  if options.draw_part_char_icon || options.draw_part_kind {
+  if options.dbg_paint_part_char_icon || options.dbg_paint_part_kind_id {
     context.set_fill_style(&"#ffffff99".into());
     context.fill_rect(dx, dy, dw, dh);
     context.set_fill_style(&"black".into());
-    if options.draw_part_kind {
+    if options.dbg_paint_part_kind_id {
       context.fill_text(config_node_index.to_string().as_str(), dx + dw / 2.0 - (if config_node_index < 9 { 4.0 } else { 14.0 }), dy + dh / 2.0 + 3.0).expect("to paint");
     } else if config_node_index == CONFIG_NODE_PART_NONE {
       context.fill_text("ε", dx + dw / 2.0 - 4.0, dy + dh / 2.0 + 3.0).expect("to paint");
@@ -5731,15 +5731,15 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
   let max_bar_tab_count: f64 = 16.0;
 
   if options.enable_maze_full {
-    if !options.enable_maze_runner {
+    if !options.dbg_maze_enable_runner {
       context.set_fill_style(&"black".into());
-      context.fill_text("Warning: options.enable_maze_runner = false", x, y + MAZE_HEIGHT + 15.0).expect("an ok");
+      context.fill_text("Warning: options.dbg_maze_enable_runner = false", x, y + MAZE_HEIGHT + 15.0).expect("an ok");
     }
 
     // Paint four "current" runner bars
 
     context.set_fill_style(&"black".into());
-    if options.print_maze_prepared_stats { context.fill_text(format!("{} / {}", factory.maze_runner.energy_now, factory.maze_runner.energy_max).as_str(), energy_x, energy_y - 5.0).expect("it to work"); }
+    if options.dbg_maze_paint_stats_text { context.fill_text(format!("{} / {}", factory.maze_runner.energy_now, factory.maze_runner.energy_max).as_str(), energy_x, energy_y - 5.0).expect("it to work"); }
     context.set_fill_style(&"white".into());
     context.fill_rect(energy_x, energy_y, 80.0, 25.0);
     context.set_fill_style(&"yellow".into());
@@ -5748,7 +5748,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     context.stroke_rect(energy_x, energy_y, 80.0, 25.0);
 
     context.set_fill_style(&"black".into());
-    if options.print_maze_prepared_stats { context.fill_text(format!("{}", factory.maze_runner.speed).as_str(), speed_x, speed_y - 5.0).expect("it to work"); }
+    if options.dbg_maze_paint_stats_text { context.fill_text(format!("{}", factory.maze_runner.speed).as_str(), speed_x, speed_y - 5.0).expect("it to work"); }
     context.set_fill_style(&"white".into());
     context.fill_rect(speed_x, speed_y, 30.0, 25.0);
     context.set_stroke_style(&"black".into());
@@ -5757,7 +5757,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     context.fill_text(&format!("{}", factory.maze_runner.speed), speed_x + if factory.maze_runner.speed >= 100 { 4.0 } else if factory.maze_runner.speed >= 10 { 7.0 } else { 11.0 }, speed_y + 16.0).expect("it to work");
 
     context.set_fill_style(&"black".into());
-    if options.print_maze_prepared_stats { context.fill_text(format!("{} / {}", factory.maze_runner.power_now, factory.maze_runner.power_max).as_str(), power_x, power_y - 5.0).expect("it to work"); }
+    if options.dbg_maze_paint_stats_text { context.fill_text(format!("{} / {}", factory.maze_runner.power_now, factory.maze_runner.power_max).as_str(), power_x, power_y - 5.0).expect("it to work"); }
     context.set_fill_style(&"white".into());
     context.fill_rect(power_x, power_y, 60.0, 25.0);
     // paint one hammer evenly divided across the space. maintain location (dont "jump" when removing a hammer). max width to divide is field_width-margin-img_width-margin. max spacing is img_width+margin
@@ -5771,7 +5771,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     context.stroke_rect(power_x, power_y, 60.0, 25.0);
 
     context.set_fill_style(&"black".into());
-    if options.print_maze_prepared_stats {
+    if options.dbg_maze_paint_stats_text {
       context.fill_text(format!("{} / {}", factory.maze_runner.volume_now, factory.maze_runner.volume_max).as_str(), volume_x, volume_y - 5.0).expect("it to work");
     }
     context.set_fill_style(&"white".into());
@@ -5864,7 +5864,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     let fuel_progress = if fuel_progress1 < MAZE_REFUEL_PORTION { 0.0 } else { (fuel_progress1 - MAZE_REFUEL_PORTION) / (1.0 - MAZE_REFUEL_PORTION) };
 
     context.set_fill_style(&"black".into());
-    if options.print_maze_prepared_stats {
+    if options.dbg_maze_paint_stats_text {
       context.fill_text(format!(
         "{}  {}  {}  {} :: {}% {}% :: fin {} re {} fuel {}",
         e, s, p , v,
@@ -6111,14 +6111,14 @@ fn unpart(options: &mut Options, state: &mut State, config: &Config, factory: &m
 }
 
 fn parse_and_save_options_string(option_string: String, options: &mut Options, strict: bool, options_started_from_source: u64, on_load: bool) {
-  log!("parse_and_save_options_string(options.print_options_string = ?) {} (len = {})", if options_started_from_source > 0 { "from source" } else { "compiled defaults" }, option_string.len());
+  log!("parse_and_save_options_string(options.dbg_dump_options_string = ?) {} (len = {})", if options_started_from_source > 0 { "from source" } else { "compiled defaults" }, option_string.len());
   let bak = options.initial_map_from_source;
   parse_options_into(option_string.clone(), options, true);
   options.options_started_from_source = options_started_from_source; // This prop will be overwritten by the above, first
   options.initial_map_from_source = bak; // Do not overwrite this.
   let exp = options_serialize(options);
 
-  if options.print_options_string { log!("{}", option_string); } // Default is on but localStorage could turn this off
+  if options.dbg_dump_options_string { log!("{}", option_string); } // Default is on but localStorage could turn this off
 
   let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
   if !on_load {

@@ -43,7 +43,7 @@ pub fn cli_main(options: &mut Options, state: &mut State) {
     d4 = g\n\
   ";
   let mut factory = create_factory(options, state, map.to_string(), vec!(PartKind::Sapphire, PartKind::WoodenStick));
-  if options.print_initial_table {
+  if options.dbg_onload_dump_factory {
     println!("prio: {:?}", factory.prio);
     print_floor_with_views(options, state, &mut factory);
     println!("\n");
@@ -96,7 +96,7 @@ pub fn cli_main(options: &mut Options, state: &mut State) {
   loop {
     tick_factory(options, state, &config, &mut factory);
 
-    if (factory.ticks % options.print_factory_interval) == 0 {
+    if (factory.ticks % options.cli_factory_output_interval) == 0 {
       println!("{:200}", ' ');
       println!("factory @ {} {:200}", factory.ticks, ' ');
       if factory.ticks % 10000 == 0 {

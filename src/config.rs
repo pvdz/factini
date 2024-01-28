@@ -453,9 +453,9 @@ pub enum ConfigNodeState {
 //   return parts;
 // }
 
-pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
+pub fn parse_fmd(trace_parse_fmd: bool, config: String) -> Config {
   // Parse Fake MD config
-  log!("parse_fmd(print_fmd_trace={})", print_fmd_trace);
+  log!("parse_fmd(trace_parse_fmd={})", trace_parse_fmd);
 
   // This pseudo-md config file is a series of node definitions.
   // Names are case insensitive.
@@ -523,7 +523,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
             },
             _ => {
               // Not conforming a header. Consider this a comment.
-              if print_fmd_trace { log!("This line is considered comment because it starts with a hash but not a space: {:?}", trimmed); }
+              if trace_parse_fmd { log!("This line is considered comment because it starts with a hash but not a space: {:?}", trimmed); }
               return;
             },
           }
@@ -532,7 +532,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
           first_frame = true;
 
           let rest = trimmed[1..].trim();
-          if print_fmd_trace { log!("Next # header: {:?}. Previous node was: {:?}", rest, nodes[nodes.len()-1].raw_name); }
+          if trace_parse_fmd { log!("Next # header: {:?}. Previous node was: {:?}", rest, nodes[nodes.len()-1].raw_name); }
           let mut split = rest.split('_');
           let kind = split.next().or(Some("UnknownPrefix")).unwrap().trim(); // first
 
@@ -545,18 +545,18 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
           let node_index =
             if node_index == nodes.len() {
               if let Some(&node_index) = full_name_to_node_index.get(rest.clone()) {
-                if print_fmd_trace { log!("Amending to index {} for node {}", node_index, rest); }
+                if trace_parse_fmd { log!("Amending to index {} for node {}", node_index, rest); }
                 node_index
               } else {
-                if print_fmd_trace { log!("Creating new index {} for {}", rest, node_index); }
+                if trace_parse_fmd { log!("Creating new index {} for {}", rest, node_index); }
                 full_name_to_node_index.insert(rest.to_string(), node_index);
                 node_index
               }
             } else {
-              if print_fmd_trace { log!("System {} node index {}", rest, node_index); }
+              if trace_parse_fmd { log!("System {} node index {}", rest, node_index); }
               node_index
             };
-          if print_fmd_trace { log!("- raw: `{}`, kind: `{}`, name: `{}`, index: {}", rest, kind, name, node_index); }
+          if trace_parse_fmd { log!("- raw: `{}`, kind: `{}`, name: `{}`, index: {}", rest, kind, name, node_index); }
           let is_fresh_node = node_index == nodes.len();
           if is_fresh_node {
             let current_node = ConfigNode {
@@ -621,14 +621,14 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
             "Quest" => {
               // quest_nodes_by_index.push(node_index);
               // Register as node for the current story
-              if print_fmd_trace { log!("Adding quest_node_index {} to story_index {}", node_index, current_story_index); }
+              if trace_parse_fmd { log!("Adding quest_node_index {} to story_index {}", node_index, current_story_index); }
               let story = &mut stories[current_story_index];
               nodes[node_index].quest_index = story.quest_nodes.len();
               story.quest_nodes.push(node_index);
             },
             "Part" => {
               // Register as node for the current story
-              if print_fmd_trace { log!("Adding part {} ({}) to stories {} / {}", node_index, nodes[node_index].raw_name, current_story_index, stories.len()); }
+              if trace_parse_fmd { log!("Adding part {} ({}) to stories {} / {}", node_index, nodes[node_index].raw_name, current_story_index, stories.len()); }
               stories[current_story_index].part_nodes.push(node_index);
             },
             "Supply" => {}
@@ -645,14 +645,14 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
               }
               current_story_index = next_story_index;
               if next_story_index == stories.len() {
-                if print_fmd_trace { log!("Added new Story, index {}, name {}", next_story_index, nodes[node_index].raw_name); }
+                if trace_parse_fmd { log!("Added new Story, index {}, name {}", next_story_index, nodes[node_index].raw_name); }
                 stories.push(Story {
                   story_node_index: node_index,
                   part_nodes: vec!(),
                   quest_nodes: vec!(),
                 });
               }
-              if print_fmd_trace { log!("Changing to quest_index {} ({})", current_story_index, nodes[node_index].raw_name); }
+              if trace_parse_fmd { log!("Changing to quest_index {} ({})", current_story_index, nodes[node_index].raw_name); }
             },
             _ => panic!("Unsupported node kind. Node headers should be composed like Kind_Name and the kind can only be Quest, Part, Supply, Demand, Machine, Belt, or Dock. But it was {:?}", kind),
           }
@@ -664,7 +664,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
             },
             _ => {
               // Not conforming a header. Consider this a comment.
-              if print_fmd_trace { log!("This line is considered comment because it starts with a hash but not a space: {:?}", trimmed); }
+              if trace_parse_fmd { log!("This line is considered comment because it starts with a hash but not a space: {:?}", trimmed); }
               return;
             },
           }
@@ -688,7 +688,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
               }
               active_story_index = current_story_index;
               story_activated = true;
-              if print_fmd_trace { log!("Marked {} as the active_story_index", current_story_index); }
+              if trace_parse_fmd { log!("Marked {} as the active_story_index", current_story_index); }
             }
             "after" => {
               // This should be a list of zero or more quests that are required to unlock this quest
@@ -744,7 +744,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
                   }
                   let name = split[split.len() - 1]; // Ignore multiple spaces between, :shrug:
                   let name = if name == "" { "MissingName" } else { name };
-                  if print_fmd_trace { log!("Parsing counts: `{}` into `{:?}` -> `{}` and `{}`", pair, split, count, name); }
+                  if trace_parse_fmd { log!("Parsing counts: `{}` into `{:?}` -> `{}` and `{}`", pair, split, count, name); }
                   nodes[current_node_index].production_target_by_name.push((count, name.to_string()));
                 }
               }
@@ -807,19 +807,19 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
                   else if kind == "V" { 'v' }
                   else { 'n' };
                 if kind == 'n' {
-                  if print_fmd_trace { log!("Parsed a special kind `n`, which means none. Might be intentional, might be a parse error... Current node: {}, input value: `{}`", nodes[current_node_index].raw_name, value_raw); }
+                  if trace_parse_fmd { log!("Parsed a special kind `n`, which means none. Might be intentional, might be a parse error... Current node: {}, input value: `{}`", nodes[current_node_index].raw_name, value_raw); }
                 } else if kind != 'e' && kind != 's' && kind != 'p' && kind != 'v' {
-                  if print_fmd_trace { log!("Parsed an unknown special kind, which defaults to none. Might be intentional, might be a parse error... Current node: {}, input value: `{}`", nodes[current_node_index].raw_name, value_raw); }
+                  if trace_parse_fmd { log!("Parsed an unknown special kind, which defaults to none. Might be intentional, might be a parse error... Current node: {}, input value: `{}`", nodes[current_node_index].raw_name, value_raw); }
                   kind = 'n';
                 }
 
                 let power_level_str = split[split.len() - 1].trim();
                 let power_level = power_level_str.parse::<u8>().or::<Result<u8, &str>>(Ok(0u8)).unwrap();
                 if power_level == 0 {
-                  if print_fmd_trace { log!("Parsed a special level of zero. Maybe this was a bug or a parse error... Current node: {}, input value: `{}`", nodes[current_node_index].raw_name, value_raw); }
+                  if trace_parse_fmd { log!("Parsed a special level of zero. Maybe this was a bug or a parse error... Current node: {}, input value: `{}`", nodes[current_node_index].raw_name, value_raw); }
                 }
 
-                if print_fmd_trace { log!("Parsing special: `{}` into `{:?}` -> `{}` and `{}`", pair, split, kind, power_level); }
+                if trace_parse_fmd { log!("Parsing special: `{}` into `{:?}` -> `{}` and `{}`", pair, split, kind, power_level); }
 
                 nodes[current_node_index].special = ( kind, power_level );
               }
@@ -918,13 +918,13 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
         }
         _ => {
           // comment
-          if print_fmd_trace { log!("This line is considered comment because it does not start with a hash or dash: {:?}", trimmed); }
+          if trace_parse_fmd { log!("This line is considered comment because it does not start with a hash or dash: {:?}", trimmed); }
         }
       }
     }
   );
-  if print_fmd_trace { log!("Last node was: {:?}", nodes[nodes.len()-1]); }
-  if print_fmd_trace {
+  if trace_parse_fmd { log!("Last node was: {:?}", nodes[nodes.len()-1]); }
+  if trace_parse_fmd {
     log!("+ Have {} stories:", stories.len());
     stories.iter().for_each(|story| {
       log!("  - Story {}, has {} quests", nodes[story.story_node_index].name, story.quest_nodes.len());
@@ -940,7 +940,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   // We create two models; one is a tree and the other a hashmap
 
   // Extrapolate SpriteConfig frames to match specified frame count
-  if print_fmd_trace { log!("+ Extrapolate all sprite animations"); }
+  if trace_parse_fmd { log!("+ Extrapolate all sprite animations"); }
   nodes.iter_mut().enumerate().for_each(|(i, node)| {
     let len = node.sprite_config.frames.len();
     let to_add = node.sprite_config.frame_count as i32 - node.sprite_config.frames.len() as i32;
@@ -957,7 +957,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
         else if node.sprite_config.frame_direction == SpriteConfigDirection::Down { node.sprite_config.frames[len - 1].h }
         else { 0.0 };
 
-      if print_fmd_trace { log!("Extrapolating {} more frames for node {} from {} to {} with delta x: {}, y: {}", to_add, i, len, node.sprite_config.frame_count, delta_x, delta_y); }
+      if trace_parse_fmd { log!("Extrapolating {} more frames for node {} from {} to {} with delta x: {}, y: {}", to_add, i, len, node.sprite_config.frame_count, delta_x, delta_y); }
 
       for i in 0..to_add {
         let len = node.sprite_config.frames.len();
@@ -989,7 +989,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   // Downside is that this assignment isn't stable and any changes to config order may screw this up
   // In particular with respects to maps with initial starting configs
   // We could use raw names rather than icons for that tho
-  if print_fmd_trace { log!("+ Assign icons to parts without icons"); }
+  if trace_parse_fmd { log!("+ Assign icons to parts without icons"); }
   nodes.iter_mut().enumerate().for_each(|(i, node)| {
     if node.kind != ConfigNodeKind::Part { return; } // Only relevant for parts
     if node.icon != '?' { return; } // Only assign unassigned ones
@@ -998,7 +998,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
       if !node_name_to_index.contains_key(&cstring) {
         node.icon = icon as char;
         node_name_to_index.insert(cstring, i);
-        if print_fmd_trace { log!("  - config node {} was assigned icon `{}`", node.name, node.icon); }
+        if trace_parse_fmd { log!("  - config node {} was assigned icon `{}`", node.name, node.icon); }
         return; // -> continue with next node
       }
     }
@@ -1007,7 +1007,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
       if !node_name_to_index.contains_key(&cstring) {
         node.icon = icon as char;
         node_name_to_index.insert(cstring, i);
-        if print_fmd_trace { log!("  - config node {} was assigned icon `{}`", node.name, node.icon); }
+        if trace_parse_fmd { log!("  - config node {} was assigned icon `{}`", node.name, node.icon); }
         return; // -> continue with next node
       }
     }
@@ -1016,7 +1016,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
       if !node_name_to_index.contains_key(&cstring) {
         node.icon = icon as char;
         node_name_to_index.insert(cstring, i);
-        if print_fmd_trace { log!("  - config node {} was assigned icon `{}` ({})", node.name, node.icon, icon); }
+        if trace_parse_fmd { log!("  - config node {} was assigned icon `{}` ({})", node.name, node.icon, icon); }
         return; // -> continue with next node
       }
     }
@@ -1025,7 +1025,7 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
     panic!("oh no, ran out of space :'( can define up to 170 parts");
   });
 
-  if print_fmd_trace { log!("+ Create part pattern_by_index tables"); }
+  if trace_parse_fmd { log!("+ Create part pattern_by_index tables"); }
   for i in 0..nodes.len() {
     let node = &mut nodes[i];
 
@@ -1064,12 +1064,12 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
     nodes[i].pattern_by_index = pattern_by_index;
   }
 
-  if print_fmd_trace { log!("+ Create quest unlocks_after_by_index and starting_part_by_index pointers"); }
+  if trace_parse_fmd { log!("+ Create quest unlocks_after_by_index and starting_part_by_index pointers"); }
   stories.iter().for_each(|story| {
-    if print_fmd_trace { log!("  - Story: {}", nodes[story.story_node_index].name); }
+    if trace_parse_fmd { log!("  - Story: {}", nodes[story.story_node_index].name); }
 
     story.quest_nodes.iter().for_each(|&node_index| {
-      if print_fmd_trace { log!("    ++ quest node index = {}, name = {}, unlocks after = `{:?}`", node_index, nodes[node_index].name, nodes[node_index].unlocks_after_by_name); }
+      if trace_parse_fmd { log!("    ++ quest node index = {}, name = {}, unlocks after = `{:?}`", node_index, nodes[node_index].name, nodes[node_index].unlocks_after_by_name); }
 
       let mut indices: Vec<usize> = vec!();
       nodes[node_index].unlocks_after_by_name.iter().for_each(|name| {
@@ -1093,14 +1093,14 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
     });
   });
 
-  if print_fmd_trace {
+  if trace_parse_fmd {
     log!("+ Have a total of {} config nodes:", nodes.len());
     nodes.iter_mut().enumerate().for_each(|(i, node)| {
       log!("- node {} is {}", i, node.raw_name);
     });
   }
 
-  if print_fmd_trace { log!("+ prepare unique sprite map pointers"); }
+  if trace_parse_fmd { log!("+ prepare unique sprite map pointers"); }
   nodes.iter_mut().enumerate().for_each(|(i, node)| {
     if i == 0 || node.name == "None" {
       // Do not add a sprite map for the None part; we should never be painting it.
@@ -1126,20 +1126,20 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
     });
   });
 
-  if print_fmd_trace { log!("+ Initialize the quest node states"); }
+  if trace_parse_fmd { log!("+ Initialize the quest node states"); }
   stories.iter().for_each(|story| {
-    if print_fmd_trace { log!("  - Story: {}", nodes[story.story_node_index].name); }
+    if trace_parse_fmd { log!("  - Story: {}", nodes[story.story_node_index].name); }
     story.quest_nodes.iter().for_each(|&quest_index| {
-      if print_fmd_trace { log!("    - state loop"); }
+      if trace_parse_fmd { log!("    - state loop"); }
       // If the config specified an initial state then just roll with that
       let mut changed = true;
       while changed {
-        if print_fmd_trace { log!("      - state inner loop"); }
+        if trace_parse_fmd { log!("      - state inner loop"); }
         // Repeat the process until there's no further changes. This loop is guaranteed to halt.
         changed = false;
         if nodes[quest_index].current_state == ConfigNodeState::Waiting {
           if nodes[quest_index].unlocks_after_by_index.iter().all(|&other_index| nodes[other_index].current_state == ConfigNodeState::Finished) {
-            if print_fmd_trace { log!("        - Quest `{}` is available because `{:?}` are all finished", nodes[quest_index].name, nodes[quest_index].unlocks_after_by_name); }
+            if trace_parse_fmd { log!("        - Quest `{}` is available because `{:?}` are all finished", nodes[quest_index].name, nodes[quest_index].unlocks_after_by_name); }
             nodes[quest_index].current_state = ConfigNodeState::Available;
             changed = true;
           }
@@ -1148,22 +1148,22 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
     });
   });
 
-  if print_fmd_trace { log!("+ Initialize the part node states"); }
+  if trace_parse_fmd { log!("+ Initialize the part node states"); }
   stories.iter().for_each(|story| {
-    if print_fmd_trace { log!("  - Story: {}", nodes[story.story_node_index].name); }
+    if trace_parse_fmd { log!("  - Story: {}", nodes[story.story_node_index].name); }
     story.quest_nodes.iter().for_each(|&quest_index| {
       // Clone the list of numbers because otherwise it moves. So be it.
-      if print_fmd_trace { log!("    - Quest Part {} is {:?} and would enable parts {:?} ({:?})", nodes[quest_index].name, nodes[quest_index].current_state, nodes[quest_index].starting_part_by_name, nodes[quest_index].starting_part_by_index); }
+      if trace_parse_fmd { log!("    - Quest Part {} is {:?} and would enable parts {:?} ({:?})", nodes[quest_index].name, nodes[quest_index].current_state, nodes[quest_index].starting_part_by_name, nodes[quest_index].starting_part_by_index); }
       if nodes[quest_index].current_state != ConfigNodeState::Waiting {
         nodes[quest_index].starting_part_by_index.clone().iter().for_each(|&part_kind| {
-          if print_fmd_trace { log!("      - Part {} is available because Quest {} is available", nodes[part_kind].name, nodes[quest_index].name); }
+          if trace_parse_fmd { log!("      - Part {} is available because Quest {} is available", nodes[part_kind].name, nodes[quest_index].name); }
           nodes[part_kind].current_state = ConfigNodeState::Available;
         });
       }
     });
   });
 
-  if print_fmd_trace {
+  if trace_parse_fmd {
     log!("+ Collect available Quests and Parts from the start:");
     nodes.iter().for_each(|node| {
       if node.current_state != ConfigNodeState::Waiting {
@@ -1182,9 +1182,9 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
     });
   }
 
-  if print_fmd_trace { log!("+ Determine unlock requirements for each quest"); }
+  if trace_parse_fmd { log!("+ Determine unlock requirements for each quest"); }
   stories.iter_mut().for_each(|story| {
-    if print_fmd_trace {  log!("  - Story: {}", nodes[story.story_node_index].name); }
+    if trace_parse_fmd {  log!("  - Story: {}", nodes[story.story_node_index].name); }
     story.quest_nodes.iter().for_each(|&quest_node_index| {
       // For all quests go through list of dependency quests and tag them as being their "unlock parent"
       let mut found = vec!(); // Work around chicken egg problem -> mutability of nodes
@@ -1222,8 +1222,8 @@ pub fn parse_fmd(print_fmd_trace: bool, config: String) -> Config {
   log!("Config has {} nodes with: {} stories, {} assets, {} parts, {} quests, {} demanders, {} suppliers, {} docks, {} machines, and {} belts", nodes.len(), stories_count, assets, parts, quests, demanders, suppliers, docks, machines, belts);
 
   // log!("parsed nodes: {:?}", &nodes[1..]);
-  if print_fmd_trace { log!("parsed map: {:?}", node_name_to_index); }
-  if print_fmd_trace { node_pattern_to_index.iter_mut().for_each(|(str, &mut kind)| log!("- node_pattern_to_index: {} = pattern({}) -> kind: {}", nodes[kind].raw_name, str, kind)); }
+  if trace_parse_fmd { log!("parsed map: {:?}", node_name_to_index); }
+  if trace_parse_fmd { node_pattern_to_index.iter_mut().for_each(|(str, &mut kind)| log!("- node_pattern_to_index: {} = pattern({}) -> kind: {}", nodes[kind].raw_name, str, kind)); }
 
   return Config {
     nodes,
