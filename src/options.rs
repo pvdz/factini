@@ -133,6 +133,7 @@ pub struct Options {
   pub enable_speed_menu: bool,
   pub show_debug_menu: bool,
   pub show_debug_bottom: bool,
+  pub dbg_show_fps: bool,
 
   pub test: u64, // just a temporary flag
 }
@@ -225,6 +226,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     enable_speed_menu: true,
     show_debug_menu: true,
     show_debug_bottom: true,
+    dbg_show_fps: false,
     test: 0,
   };
 }
@@ -417,6 +419,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "enable_speed_menu" => options.enable_speed_menu = parse_bool(value, name, strict, options.enable_speed_menu, verbose),
             "show_debug_menu" => options.show_debug_menu = parse_bool(value, name, strict, options.show_debug_menu, verbose),
             "show_debug_bottom" => options.show_debug_bottom = parse_bool(value, name, strict, options.show_debug_bottom, verbose),
+            "dbg_show_fps" => options.dbg_show_fps = parse_bool(value, name, strict, options.dbg_show_fps, verbose),
             "test" => options.test = parse_u64(value, name, strict, options.test, verbose),
             _ => {
               log!("  - ignoring `{}` because it is an unknown option or because it needs to be added to the options parser", name);
@@ -517,6 +520,7 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- enable_speed_menu: {}", options.enable_speed_menu));
   arr.push(format!("- show_debug_menu: {}", options.show_debug_menu));
   arr.push(format!("- show_debug_bottom: {}", options.show_debug_bottom));
+  arr.push(format!("- dbg_show_fps: {}", options.dbg_show_fps));
   arr.push(format!("- test: {}", options.test));
   return arr.join("\n");
 }

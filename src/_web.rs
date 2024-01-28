@@ -2977,10 +2977,12 @@ fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, c
 fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, fps: &VecDeque<f64>, now: f64, since_prev: f64, ticks_todo: u64, estimated_fps: f64, rounded_fps: u64, factory: &Factory, mouse_state: &MouseState) {
 
   if !state.showing_debug_bottom {
-    context.set_font(&"12px monospace");
-    context.set_fill_style(&"black".into());
-    context.fill_text(format!("fps: {}", fps.len()).as_str(), GRID_X3 - 70.0, GRID_Y0 + 15.0).expect("something error fill_text");
-    return;
+    if options.dbg_show_fps {
+      context.set_font(&"12px monospace");
+      context.set_fill_style(&"black".into());
+      context.fill_text(format!("fps: {}", fps.len()).as_str(), GRID_X3 - 70.0, GRID_Y0 + 15.0).expect("something error fill_text");
+      return;
+    }
   }
 
   let mut ui_lines = 0.0;
