@@ -50,8 +50,6 @@
 // - should machines auto-configure based on inputs? that would prevent complex patterns if there are shorter patterns that are a subset.. maybe that's fine?
 // - convert maze to rgb and implement some kind of image thing
 // - maze fuel could blow-up-fade-out when collected, with a 3x for the better one, maybe rainbow wiggle etc? or just 1x 2x 3x instead of icon
-// - Clicking under the floor in the corner crashes with oob? wat.
-// - factini logo over top-right menu, hiding the menu
 // - speed menu same button style
 // - something with that ikea help icon
 // - make maze prettier
@@ -1673,7 +1671,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
           }
         }
         ZONE_FLOOR => {
-          on_up_floor(options, state, config, factory, cell_selection, &mouse_state);
+          on_up_floor_zone(options, state, config, factory, cell_selection, &mouse_state);
         }
         _ => {}
       }
@@ -1693,9 +1691,9 @@ fn on_down_floor(mouse_state: &mut MouseState) {
   mouse_state.last_cell_x = mouse_state.last_down_cell_x_floored;
   mouse_state.last_cell_y = mouse_state.last_down_cell_y_floored;
 }
-fn on_up_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
-  log!("on_up_floor()");
-  on_click_inside_floor(options, state, config, factory, cell_selection, mouse_state);
+fn on_up_floor_zone(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
+  log!("on_up_floor_zone()");
+  on_click_inside_floor_zone(options, state, config, factory, cell_selection, mouse_state);
 }
 fn on_drag_floor(options: &Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState) {
   // Do not log drag events by default :)
@@ -1828,11 +1826,19 @@ fn on_up_woop(options: &Options, state: &State, config: &Config, factory: &Facto
     mouse_state.woop_selected_index = mouse_state.woop_hover_woop_index;
   }
 }
-fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
-  log!("on_click_inside_floor()");
+fn on_click_inside_floor_zone(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
+  log!("on_click_inside_floor_zone()");
   let last_mouse_up_cell_x = mouse_state.last_up_cell_x.floor();
   let last_mouse_up_cell_y = mouse_state.last_up_cell_y.floor();
-
+  if bounds_check(
+    last_mouse_up_cell_x, last_mouse_up_cell_y,
+    UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + UI_FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + UI_FLOOR_HEIGHT
+  ) {
+    on_click_inside_floor(options, state, config, factory, cell_selection, mouse_state, last_mouse_up_cell_x, last_mouse_up_cell_y);
+  }
+}
+fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState, last_mouse_up_cell_x: f64, last_mouse_up_cell_y: f64) {
+  log!("on_click_inside_floor()");
   let action = mouse_button_to_action(state, mouse_state);
 
   if action == Action::Remove {
