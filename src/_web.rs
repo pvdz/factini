@@ -2536,17 +2536,17 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
       on_up_paint_toggle(state);
     }
 
-    MenuButton::Row1ButtonMin => {
+    MenuButton::SpeedMin => {
       let m = options.speed_modifier_floor;
       options.speed_modifier_floor = options.speed_modifier_floor.min(0.5) * 0.5;
       log!("pressed time minus, from {} to {}", m, options.speed_modifier_floor);
     }
-    MenuButton::Row1ButtonHalf => {
+    MenuButton::SpeedHalf => {
       let m = options.speed_modifier_floor;
       options.speed_modifier_floor = 0.5;
       log!("pressed time half, from {} to {}", m, options.speed_modifier_floor);
     }
-    MenuButton::Row1ButtonPlay => {
+    MenuButton::SpeedPlayPause => {
       let m = options.speed_modifier_floor;
       if m == 1.0 {
         options.speed_modifier_floor = 0.0;
@@ -2557,12 +2557,12 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
       }
       log!("pressed time one, from {} to {}", m, options.speed_modifier_floor);
     }
-    MenuButton::Row1Button2x => {
+    MenuButton::SpeedDouble => {
       let m = options.speed_modifier_floor;
       options.speed_modifier_floor = 2.0;
       log!("pressed time two, from {} to {}", m, options.speed_modifier_floor);
     }
-    MenuButton::Row1ButtonPlus => {
+    MenuButton::SpeedPlus => {
       let m = options.speed_modifier_floor;
       options.speed_modifier_floor = options.speed_modifier_floor.max(2.0) * 1.5;
       log!("pressed time plus, from {} to {}", m, options.speed_modifier_floor);
@@ -2748,15 +2748,15 @@ fn hit_test_menu_speed_buttons(x: f64, y: f64) -> MenuButton {
     UI_SPEED_BUBBLE_OFFSET_Y + (2.0 * UI_SPEED_BUBBLE_RADIUS)
   ) {
     if hit_check_speed_bubble_x(x, y, 0) {
-      MenuButton::Row1ButtonMin
+      MenuButton::SpeedMin
     } else if hit_check_speed_bubble_x(x, y, 1) {
-      MenuButton::Row1ButtonHalf
+      MenuButton::SpeedHalf
     } else if hit_check_speed_bubble_x(x, y, 2) {
-      MenuButton::Row1ButtonPlay
+      MenuButton::SpeedPlayPause
     } else if hit_check_speed_bubble_x(x, y, 3) {
-      MenuButton::Row1Button2x
+      MenuButton::SpeedDouble
     } else if hit_check_speed_bubble_x(x, y, 4) {
-      MenuButton::Row1ButtonPlus
+      MenuButton::SpeedPlus
     } else {
       MenuButton::None
     }
@@ -4912,13 +4912,13 @@ const AT2: (f64, f64, f64, f64) = (
   -0.05, // Facing up and a little left
   50.0,
 );
-const AT3jump: (f64, f64, f64, f64) = (
+const AT3JUMP: (f64, f64, f64, f64) = (
   UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH + 10.0 - 15.0,
   UI_MENU_MACHINE_BUTTON_3X3_Y - 75.0,
   0.00, // Facing up
   80.0,
 );
-const AT3nojump: (f64, f64, f64, f64) = (
+const AT3NOJUMP: (f64, f64, f64, f64) = (
   UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH + 10.0,
   UI_MENU_MACHINE_BUTTON_3X3_Y - 75.0,
   0.00, // Facing up
@@ -4948,13 +4948,13 @@ const BT1: (f64, f64, f64, f64) = (
   0.25, // Facing right
   50.0,
 );
-const BT2a: (f64, f64, f64, f64) = (
+const BT2A: (f64, f64, f64, f64) = (
   UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH + 15.0, // Needs some forward movement for the sin
   UI_MENU_MACHINE_BUTTON_3X3_Y + UI_MENU_MACHINE_BUTTON_3X3_HEIGHT + 15.0,
   0.80, // Facing left and a little up
   50.0
 );
-const BT2b: (f64, f64, f64, f64) = (
+const BT2B: (f64, f64, f64, f64) = (
   UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH - (50.0 + 5.0), // Should be starting position of T2 due to the sin
   UI_MENU_MACHINE_BUTTON_3X3_Y + UI_MENU_MACHINE_BUTTON_3X3_HEIGHT + 15.0,
   0.80, // Facing left and a little up
@@ -5015,7 +5015,7 @@ fn paint_atom_truck_at_age(options: &Options, state: &State, config: &Config, co
   // let part = CONFIG_NODE_PART_NONE;
   if age < tb1 {
     paint_truck(options, state, config, context, part,
-      BT1, BT2a,
+      BT1, BT2A,
       ( Ease::Sin, Ease::None, Ease::Cos, Ease::None ),
       // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
       age/ tb1 % 10.0,
@@ -5024,7 +5024,7 @@ fn paint_atom_truck_at_age(options: &Options, state: &State, config: &Config, co
   }
   else if age < tb1 + tb2 {
     paint_truck(options, state, config, context, part,
-      BT2b, BT3,
+      BT2B, BT3,
       ( Ease::None, Ease::None, Ease::Out, Ease::None ),
       // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
       (age- tb1)/ tb2 % 10.0,
@@ -5085,7 +5085,7 @@ fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, co
   else if age < ta1 + ta2 {
     // Bounce back.
     paint_truck(options, state, config, context, part,
-      AT2, if options.enable_maze_partial { AT3jump } else { AT3nojump },
+      AT2, if options.enable_maze_partial { AT3JUMP } else { AT3NOJUMP },
       ( Ease::None, Ease::None, Ease::None, Ease::None ),
       // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
       (age - ta1) / ta2 % 10.0,
@@ -5095,7 +5095,7 @@ fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, co
   else if age < ta1 + ta2 + ta3 {
     // If maze is on, jump up to go over the path, otherwise do not jump
     paint_truck(options, state, config, context, part,
-      if options.enable_maze_partial { AT3jump } else { AT3nojump }, AT4,
+      if options.enable_maze_partial { AT3JUMP } else { AT3NOJUMP }, AT4,
       ( Ease::None, Ease::None, Ease::None, Ease::None ),
       // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
       (age - (ta1 + ta2)) / ta3 % 10.0,
@@ -5377,11 +5377,11 @@ fn paint_ui_button2(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state
 fn paint_ui_time_control(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   // paint_speed_buttons
   if options.enable_speed_menu {
-    paint_ui_speed_bubble(MenuButton::Row1ButtonMin, options, state, context, mouse_state, 0, "-");
-    paint_ui_speed_bubble(MenuButton::Row1ButtonHalf, options, state, context, mouse_state, 1, "½");
-    paint_ui_speed_bubble(MenuButton::Row1ButtonPlay, options, state, context, mouse_state, 2, "⏭"); // "play" / "pause" / Row1ButtonPlay
-    paint_ui_speed_bubble(MenuButton::Row1Button2x, options, state, context, mouse_state, 3, "2");
-    paint_ui_speed_bubble(MenuButton::Row1ButtonPlus, options, state, context, mouse_state, 4, "+");
+    paint_ui_speed_bubble(MenuButton::SpeedMin, options, state, context, mouse_state, 0, "-");
+    paint_ui_speed_bubble(MenuButton::SpeedHalf, options, state, context, mouse_state, 1, "½");
+    paint_ui_speed_bubble(MenuButton::SpeedPlayPause, options, state, context, mouse_state, 2, "⏭"); // "play" / "pause"
+    paint_ui_speed_bubble(MenuButton::SpeedDouble, options, state, context, mouse_state, 3, "2");
+    paint_ui_speed_bubble(MenuButton::SpeedPlus, options, state, context, mouse_state, 4, "+");
   }
 }
 fn paint_ui_speed_bubble(button: MenuButton, options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, index: usize, text: &str) {

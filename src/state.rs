@@ -166,11 +166,11 @@ pub struct MouseState {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MenuButton {
   None,
-  Row1ButtonMin,
-  Row1ButtonHalf,
-  Row1ButtonPlay,
-  Row1Button2x,
-  Row1ButtonPlus,
+  SpeedMin,
+  SpeedHalf,
+  SpeedPlayPause,
+  SpeedDouble,
+  SpeedPlus,
   Row2Button0,
   Row2Button1,
   Row2Button2,
