@@ -5614,12 +5614,12 @@ fn paint_load_thumbs(options: &Options, state: &State, config: &Config, factory:
     return;
   }
 
-  paint_map_load_button(options, state, config,factory, 0.0, 0.0, 0, context, &mut quick_saves[0], button_canvii, mouse_state);
-  paint_map_load_button(options, state, config,factory, 1.0, 0.0, 1, context, &mut quick_saves[1], button_canvii, mouse_state);
-  paint_map_load_button(options, state, config,factory, 0.0, 1.0, 2, context, &mut quick_saves[2], button_canvii, mouse_state);
-  paint_map_load_button(options, state, config,factory, 1.0, 1.0, 3, context, &mut quick_saves[3], button_canvii, mouse_state);
+  paint_map_save_load_button(options, state, config,factory, 0.0, 0.0, 0, context, &mut quick_saves[0], button_canvii, mouse_state);
+  paint_map_save_load_button(options, state, config,factory, 1.0, 0.0, 1, context, &mut quick_saves[1], button_canvii, mouse_state);
+  paint_map_save_load_button(options, state, config,factory, 0.0, 1.0, 2, context, &mut quick_saves[2], button_canvii, mouse_state);
+  paint_map_save_load_button(options, state, config,factory, 1.0, 1.0, 3, context, &mut quick_saves[3], button_canvii, mouse_state);
 }
-fn paint_map_load_button(options: &Options, state: &State, config: &Config, factory: &Factory, col: f64, row: f64, button_index: usize, context: &Rc<web_sys::CanvasRenderingContext2d>, quick_save: &mut Option<QuickSave>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
+fn paint_map_save_load_button(options: &Options, state: &State, config: &Config, factory: &Factory, col: f64, row: f64, button_index: usize, context: &Rc<web_sys::CanvasRenderingContext2d>, quick_save: &mut Option<QuickSave>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
   assert!(button_index < 6, "there are only 6 save buttons");
   let ox = (GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN)).floor();
   let oy = (GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN)).floor();
