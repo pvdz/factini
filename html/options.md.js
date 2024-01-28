@@ -1,6 +1,7 @@
 const GAME_OPTIONS = `
 - options_started_from_source: 0
 - initial_map_from_source: 0
+
 - print_options_string: true
 - print_choices: false
 - print_choices_belt: false
@@ -77,10 +78,12 @@ const GAME_OPTIONS = `
 - dbg_loop_woop_truck: false
 - default_demand_speed: 1000
 - default_demand_cooldown: 0
-- enable_quick_save_menu: true
-- enable_maze_partial: true
-- enable_maze_full: true
-- enable_speed_menu: true
-- show_debug_menu: true
-- show_debug_bottom: true
-`;
+
+- enable_quick_save_menu: false
+- enable_maze_partial: false
+- enable_maze_full: false
+- enable_speed_menu: false
+
+- show_debug_menu: false
+- show_debug_bottom: false
+`.trim();

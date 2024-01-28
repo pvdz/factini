@@ -27,11 +27,9 @@
 // - help the player
 //   - update tutorial with current status
 //   - something with that ikea help icon
-// - should undo/redo reset quest progress?
 // - animations
 //   - when next ui-phase unlocks, use an animation where ui elements drift into their place
 // - maze
-//   - once the partial is enabled, wait until the four bars all have at least one cell and then start the maze. preferably animated
 //   - maze fuel could blow-up-fade-out when collected, with a 3x for the better one, maybe rainbow wiggle etc? or just 1x 2x 3x instead of icon
 // - auto build
 //   - can we prevent undo/redo stack changes until the end?
@@ -6129,6 +6127,7 @@ fn parse_and_save_options_string(option_string: String, options: &mut Options, s
   }
 
   // Update UI to reflect actually loaded options
+  log!("setGameOptions()");
   setGameOptions(exp.into(), on_load.into());
 }
 

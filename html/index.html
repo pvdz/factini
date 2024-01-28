@@ -33,7 +33,7 @@
     return $game_options.value /*GAME_OPTIONS*/;
   }
   function setGameOptions(optionStr, onLoad) {
-    console.log('[js] setGameOptions(onLoad =',onLoad,')');
+    console.log('[js] setGameOptions(', GAME_OPTIONS === optionStr ? 'from options.md.js' : 'from arg', ', onLoad =',onLoad,')');
     //console.log("[js] setGameOptions() received this:\n", optionStr);
     $game_options.value = optionStr;
     $option_bools.innerHTML = '';
@@ -499,7 +499,7 @@
   .option-label:hover { background-color: yellow; }
 </style>
 <textarea id="$game_options" style="float: right; clear: right; min-width: 50px; min-height: 50px; width: 300px; height: 100px; margin-top: 5px; margin-right: 5px;" autocomplete="off" spellcheck="false"></textarea>
-<script>setGameOptions(GAME_OPTIONS.trim());</script>
+<script>setGameOptions(GAME_OPTIONS);</script>
 <button style="float: right; clear: right; margin-top: 5px; margin-right: 5px;" onclick="queuedAction = 'apply_options';">Apply options</button>
 
 <div style="float: right; clear: right; margin-top: 5px;"><hr/>Current map:<div id="$initial_map_from_source" style="color: red; cursor: pointer;" title="Click to clear"></div></div>
