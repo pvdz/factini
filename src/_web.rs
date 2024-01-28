@@ -35,6 +35,7 @@
 //   - can we prevent undo/redo stack changes until the end?
 // - repo
 //   - cleanup
+// - unlocks (speed menu, save menu, etc) and quest progress should be remembered in local storage? at least optionally and by default.
 
 // features
 // - belts
@@ -1000,7 +1001,7 @@ pub fn start() -> Result<(), JsValue> {
         let highlight_index = paint_woops(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
         paint_lasers(&options, &mut state, &config, &context);
         paint_ui_time_control(&options, &state, &context, &mouse_state);
-        paint_button_menu_ui(&options, &state, &config, &factory, &context, &button_canvii, &mouse_state);
+        paint_secret_menu_or_logo(&options, &state, &config, &factory, &context, &button_canvii, &mouse_state);
         paint_floor_round_way(&options, &state, &config, &factory, &context);
         paint_background_tiles1(&options, &state, &config, &factory, &context);
         paint_background_tiles2(&options, &state, &config, &factory, &context);
@@ -2999,9 +3000,10 @@ fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, c
 }
 fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, fps: &VecDeque<f64>, now: f64, since_prev: f64, ticks_todo: u64, estimated_fps: f64, rounded_fps: u64, factory: &Factory, mouse_state: &MouseState) {
 
+  context.set_font(&"12px monospace");
+
   if !state.showing_debug_bottom {
     if options.dbg_show_fps {
-      context.set_font(&"12px monospace");
       context.set_fill_style(&"black".into());
       context.fill_text(format!("fps: {}", fps.len()).as_str(), GRID_X3 - 70.0, GRID_Y0 + 15.0).expect("something error fill_text");
       return;
@@ -3210,7 +3212,7 @@ fn paint_floor_round_way(
   context: &Rc<web_sys::CanvasRenderingContext2d>,
 ) {
   // Paint a track around the floor. It will be smaller than the track on the floor.
-  if !options.enable_maze_partial {
+  if !options.enable_maze_roundway_and_collection {
     return;
   }
 
@@ -5122,7 +5124,7 @@ fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, co
   else if age < ta1 + ta2 {
     // Bounce back.
     paint_truck(options, state, config, context, part,
-      AT2, if options.enable_maze_partial { AT3JUMP } else { AT3NOJUMP },
+      AT2, if options.enable_maze_roundway_and_collection { AT3JUMP } else { AT3NOJUMP },
       ( Ease::None, Ease::None, Ease::None, Ease::None ),
       // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
       (age - ta1) / ta2 % 10.0,
@@ -5132,7 +5134,7 @@ fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, co
   else if age < ta1 + ta2 + ta3 {
     // If maze is on, jump up to go over the path, otherwise do not jump
     paint_truck(options, state, config, context, part,
-      if options.enable_maze_partial { AT3JUMP } else { AT3NOJUMP }, AT4,
+      if options.enable_maze_roundway_and_collection { AT3JUMP } else { AT3NOJUMP }, AT4,
       ( Ease::None, Ease::None, Ease::None, Ease::None ),
       // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
       (age - (ta1 + ta2)) / ta3 % 10.0,
@@ -5322,8 +5324,9 @@ fn paint_green_pixel(context: &Rc<web_sys::CanvasRenderingContext2d>, progress: 
     context.stroke_rect(fx, fy + UI_WOTOM_HEIGHT - (pos - (UI_WOTOM_WIDTH + UI_WOTOM_HEIGHT + UI_WOTOM_WIDTH)), 1.0, 1.0);
   }
 }
-fn paint_button_menu_ui(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
+fn paint_secret_menu_or_logo(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
   if options.dbg_show_secret_menu {
+    context.set_font(&"12px monospace");
     paint_ui_buttons(options, state, context, mouse_state);
     paint_ui_buttons2(options, state, context, mouse_state);
   } else {
@@ -5705,7 +5708,7 @@ fn paint_map_state_buttons(options: &Options, state: &State, config: &Config, co
   context.restore();
 }
 fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  if !options.enable_maze_partial {
+  if !options.enable_maze_roundway_and_collection {
     return;
   }
 
@@ -5843,7 +5846,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     context.fill_rect(x + (factory.maze_runner.x as f64) * MAZE_CELL_SIZE + 2.0, y + (factory.maze_runner.y as f64) * MAZE_CELL_SIZE + 2.0, MAZE_CELL_SIZE - 4.0, 6.0);
   }
 
-  if options.enable_maze_partial {
+  if options.enable_maze_roundway_and_collection {
     // Stats bars below the maze
 
     let max_bar_tabs = (MAZE_MAX_UNITS_PER_REFUEL as f64) + 1.0; // First one is always filled and is more of a label

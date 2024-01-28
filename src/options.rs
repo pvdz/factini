@@ -114,7 +114,7 @@ pub struct Options {
   pub default_demand_cooldown: u64,
 
   pub enable_quick_save_menu: bool,
-  pub enable_maze_partial: bool,
+  pub enable_maze_roundway_and_collection: bool,
   pub enable_maze_full: bool,
   pub enable_speed_menu: bool,
   pub dbg_show_secret_menu: bool,
@@ -196,7 +196,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     default_demand_speed: 1000,
     default_demand_cooldown: 500,
     enable_quick_save_menu: true,
-    enable_maze_partial: true,
+    enable_maze_roundway_and_collection: true,
     enable_maze_full: true,
     enable_speed_menu: true,
     dbg_show_secret_menu: true,
@@ -378,7 +378,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "default_demand_speed" => options.default_demand_speed = parse_u64(value, name, strict, options.default_demand_speed, verbose),
             "default_demand_cooldown" => options.default_demand_cooldown = parse_u64(value, name, strict, options.default_demand_cooldown, verbose),
             "enable_quick_save_menu" => options.enable_quick_save_menu = parse_bool(value, name, strict, options.enable_quick_save_menu, verbose),
-            "enable_maze_partial" => options.enable_maze_partial = parse_bool(value, name, strict, options.enable_maze_partial, verbose),
+            "enable_maze_roundway_and_collection" => options.enable_maze_roundway_and_collection = parse_bool(value, name, strict, options.enable_maze_roundway_and_collection, verbose),
             "enable_maze_full" => options.enable_maze_full = parse_bool(value, name, strict, options.enable_maze_full, verbose),
             "enable_speed_menu" => options.enable_speed_menu = parse_bool(value, name, strict, options.enable_speed_menu, verbose),
             "dbg_show_secret_menu" => options.dbg_show_secret_menu = parse_bool(value, name, strict, options.dbg_show_secret_menu, verbose),
@@ -468,7 +468,7 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- default_demand_speed: {}", options.default_demand_speed));
   arr.push(format!("- default_demand_cooldown: {}", options.default_demand_cooldown));
   arr.push(format!("- enable_quick_save_menu: {}", options.enable_quick_save_menu));
-  arr.push(format!("- enable_maze_partial: {}", options.enable_maze_partial));
+  arr.push(format!("- enable_maze_roundway_and_collection: {}", options.enable_maze_roundway_and_collection));
   arr.push(format!("- enable_maze_full: {}", options.enable_maze_full));
   arr.push(format!("- enable_speed_menu: {}", options.enable_speed_menu));
   arr.push(format!("- dbg_show_secret_menu: {}", options.dbg_show_secret_menu));

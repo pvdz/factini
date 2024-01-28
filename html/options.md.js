@@ -69,7 +69,7 @@ const GAME_OPTIONS = `
 - default_demand_cooldown: 0
 
 - enable_quick_save_menu: false
-- enable_maze_partial: false
+- enable_maze_roundway_and_collection: false
 - enable_maze_full: false
 - enable_speed_menu: false
 

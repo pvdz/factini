@@ -456,7 +456,7 @@ pub fn update_game_ui_after_quest_finish(options: &mut Options, state: &mut Stat
     log!("Moving to UI stage 3");
     // TODO: Probably want the user to use a bigger machine for that
     // TODO: should first unlock the meter. The maze should unlock once each input on the meter has at least one bar.
-    options.enable_maze_partial = true;
+    options.enable_maze_roundway_and_collection = true;
     state.ui_unlock_progress = 3;
   }
   // Note: enable_maze_full is set once you have at least one cell in all four bars
