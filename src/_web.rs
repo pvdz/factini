@@ -3,58 +3,68 @@
 
 
 // Compile with --profile to try and get some sense of shit
+
+// road to release
 // - import/export
 //   - import/export with clipboard
+//   - store xorshift seed in map save
+//   - finished quests restart on load. all of them.
 // - small problem with tick_belt_take_from_belt when a belt crossing is next to a supply and another belt; it will ignore the other belt as input. because the belt will not let a part proceed to the next port unless it's free and the processing order will process the neighbor belt first and then the crossing so by the time it's free, the part will still be at 50% whereas the supply part is always ready. fix is probably to make supply parts take a tick to be ready, or whatever.
 //   - affects machine speed so should be fixed
 // - machines
-//   - investigate different machine speeds at different configs
-//   - throughput problem. part has to wait at 50% for next part to clear, causing delays. if there's enough outputs there's always room and no such delay. if supply-to-machine is one belt there's also no queueing so it's faster
 //   - putting machine down next to two dead end belts will only connect one?
 //   - make the menu-machine "process" the finished parts before text.draw_image_with_html_image_element_and_dw_angenerating trucks
-//   - animate machines at work
-//   - paint the prepared parts of a machine while not selected?
+//   - missing purpose for machine is not properly displayed for 1x2. see MACHINE_1X2_UI / missing_purpose_y
+//   - should machines auto-configure based on inputs? that would prevent complex patterns if there are shorter patterns that are a subset.. maybe that's fine?
+// - what's up with these assertion traps :(
+//   - `let (received_part_kind, received_count) = factory.floor[coord].demand.received[i];` threw oob (1 while len=0). i thin it's somehow related to dropping a demander on the edge
+// - ui
+//   - hover over craftable offer should highlight craft-inputs (offers)
+//   - full screen button etc
+// - unblock animations
+//   - fix item animation in and out of suppliers/demanders. looks ugly rn
+//   - machine top layer should paint _over_ the parts
+// - help the player
+//   - update tutorial with current status
+//   - something with that ikea help icon
+// - should undo/redo reset quest progress?
+// - animations
+//   - when next ui-phase unlocks, use an animation where ui elements drift into their place
+// - maze
+//   - once the partial is enabled, wait until the four bars all have at least one cell and then start the maze. preferably animated
+//   - maze fuel could blow-up-fade-out when collected, with a 3x for the better one, maybe rainbow wiggle etc? or just 1x 2x 3x instead of icon
+// - auto build
+//   - can we prevent undo/redo stack changes until the end?
+// - repo
+//   - cleanup
+
+// features
 // - belts
 //   - does snaking bother me when a belt should move all at once or not at all? should we change the algo? probably not that hard to move all connected cells between intersections/entry/exit points at once. if one moves, all move, etc.
 //   - a part that reaches 100% of a cell but can't be moved to the side should not block the next part from entering the cell until all ports are taken like that. the part can sit in the port and a belt can only take parts if it has an available port.
-// - what's up with these assertion traps :(
-//   - `let (received_part_kind, received_count) = factory.floor[coord].demand.received[i];` threw oob (1 while len=0). i thin it's somehow related to dropping a demander on the edge
-// - hover over craftable offer should highlight craft-inputs (offers)
-// - unblock animations
-//   - fix item animation in and out of suppliers/demanders. looks ugly rn
+//   - paint belts lighter
+// - machines
+//   - investigate different machine speeds at different configs
+//   - throughput problem. part has to wait at 50% for next part to clear, causing delays. if there's enough outputs there's always room and no such delay. if supply-to-machine is one belt there's also no queueing so it's faster
+//   - animate machines at work
+//   - paint the prepared parts of a machine while not selected?
+// - import export
+//   - do we want/need to support serialization of maps with more than 60 machines? 2x2 can only go up to 49. but 2x1 or 1x2 would double that, up to 84. if not we should gracefully handle it rather than let it throw
+// - animations
 //   - certain things should be painted as a background layer once
-//   - machine top layer should paint _over_ the parts
-// - help the player
-//   - create tutorial
-// - store xorshift seed in map save
-// - do we want/need to support serialization of maps with more than 60 machines? 2x2 can only go up to 49. but 2x1 or 1x2 would double that, up to 84. if not we should gracefully handle it rather than let it throw
-// - missing purpose for machine is not properly displayed for 1x2. see MACHINE_1X2_UI / missing_purpose_y
-// - machine hint based on history received should decay
-// - clicking on machine should cycle through available parts
-// - clicking on empty machine should select one of the parts it can create based on the history
-// - for the prepared maze stats: use fast fake belt to move the parts to the vehicle? one part per bar? balance accordingly? level 1=1, 2=10, 3=100, 4=1000 or whatever scale? on a log requirements scale?
-// - what does the maze runner ultimately find that allows you to move to the next level? (no plus, one plus, two plus)
-// - menu must be moved away
-// - full screen button
-// - paint belts lighter
-// - finished quests restart on load. all of them.
-// - copy paste should copy machines too? why not
-// - experiment with bigger maps and scrolling
-// - collected stuff is only cleared if a cell is completed. fractions are kept etc.
-// - should undo/redo reset quest progress?
-// - when next ui-phase unlocks, use an animation where ui elements drift into their place
-// - once the partial is enabled, wait until the four bars all have at least one cell and then start the maze. preferably animated
-// - auto build
-//   - allow to let it run continuously.
-//   - can we prevent undo/redo stack changes until the end?
-// - should machines auto-configure based on inputs? that would prevent complex patterns if there are shorter patterns that are a subset.. maybe that's fine?
-// - convert maze to rgb and implement some kind of image thing
-// - maze fuel could blow-up-fade-out when collected, with a 3x for the better one, maybe rainbow wiggle etc? or just 1x 2x 3x instead of icon
-// - speed menu same button style
-// - something with that ikea help icon
 // - make maze prettier
 //   - the whole thing could just explode into animated particles once you finish or smth
-// - help, okay, secret menu
+//   - what does the maze runner ultimately find that allows you to move to the next level? (no plus, one plus, two plus)
+// - convert maze to rgb and implement some kind of image thing
+// - auto build
+//   - allow to let it run continuously.
+// - clicking on machine should cycle through available parts
+// - clicking on empty machine should select one of the parts it can create based on the history
+// - machine hint based on history received should decay
+// - copy paste should copy machines too? why not
+// - experiment with bigger maps and scrolling
+// - help the player
+//   - help, okay, secret menu
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
