@@ -60,7 +60,7 @@ pub const QUEST_FADE_TIME: u64 = 4 * ONE_SECOND;
 pub const UI_UNREDO_WIDTH: f64 = 60.0;
 pub const UI_UNREDO_HEIGHT: f64 = 60.0;
 pub const UI_UNREDO_MARGIN: f64 = 5.0;
-pub const UI_UNREDO_OFFSET_X: f64 = GRID_X2 - 20.0 - (UI_UNREDO_WIDTH * 4.0 + UI_UNREDO_MARGIN * 3.0);
+pub const UI_UNREDO_OFFSET_X: f64 = GRID_X2 - 10.0 - (UI_UNREDO_WIDTH * 4.0 + UI_UNREDO_MARGIN * 3.0);
 pub const UI_UNREDO_OFFSET_Y: f64 = GRID_Y0;
 pub const UI_UNREDO_UNDO_OFFSET_X: f64 = UI_UNREDO_OFFSET_X;
 pub const UI_UNREDO_UNDO_OFFSET_Y: f64 = UI_UNREDO_OFFSET_Y;
@@ -96,10 +96,16 @@ pub const UI_SAVE_THUMB_Y1: f64 = UI_SAVE_OFFSET_Y;
 pub const UI_BOTTOM_OFFSET_X: f64 = GRID_X1 + 15.0;
 pub const UI_BOTTOM_OFFSET_Y: f64 = GRID_Y2 + 10.0;
 
-pub const UI_SPEED_BUBBLE_OFFSET_X: f64 = UI_TOP_OFFSET_X + 10.0;
-pub const UI_SPEED_BUBBLE_OFFSET_Y: f64 = UI_TOP_OFFSET_Y + 10.0;
-pub const UI_SPEED_BUBBLE_RADIUS: f64 = 20.0; // half the diameter...
-pub const UI_SPEED_BUBBLE_SPACING: f64 = 15.0;
+pub const BUTTON_SPEED_MIN_INDEX: usize = 0;
+pub const BUTTON_SPEED_HALF_INDEX: usize = 1;
+pub const BUTTON_SPEED_PLAY_PAUSE_INDEX: usize = 2;
+pub const BUTTON_SPEED_DOUBLE_INDEX: usize = 3;
+pub const BUTTON_SPEED_PLUS_INDEX: usize = 4;
+
+pub const UI_SPEED_BUBBLE_OFFSET_X: f64 = UI_TOP_OFFSET_X + 5.0;
+pub const UI_SPEED_BUBBLE_OFFSET_Y: f64 = UI_TOP_OFFSET_Y + 5.0;
+pub const UI_SPEED_BUBBLE_RADIUS: f64 = 25.0; // half the diameter...
+pub const UI_SPEED_BUBBLE_SPACING: f64 = 10.0;
 
 pub const UI_MENU_BUTTONS_COUNT_WIDTH_MAX: f64 = 6.0; // Update after adding new button
 pub const UI_MENU_BUTTONS_OFFSET_X: f64 = GRID_X2;

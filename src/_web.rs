@@ -135,6 +135,10 @@ const BUTTON_PRERENDER_INDEX_SAVE_THIN_UP: usize = 6;
 const BUTTON_PRERENDER_INDEX_SAVE_THIN_DOWN: usize = 7;
 
 const FLOOR_YELLOW_COLOR: &str = "#ffcf8e";
+const BUTTON_COLOR_BORDER_DARK: &str = "#24142c";
+const BUTTON_COLOR_BORDER_LIGHT: &str = "#928fb8";
+const BUTTON_COLOR_BACK: &str = "#392946";
+const BUTTON_COLOR_FRONT: &str = "#ffcf8e"; // Same as floor
 
 // Exports from web (on a non-module context, define a global "log" and "dnow" function)
 // Not sure how this works in threads. Probably the same. TBD.
@@ -2747,15 +2751,15 @@ fn hit_test_menu_speed_buttons(x: f64, y: f64) -> MenuButton {
     UI_SPEED_BUBBLE_OFFSET_X + 5.0 * (2.0 * UI_SPEED_BUBBLE_RADIUS) + 4.0 * UI_SPEED_BUBBLE_SPACING,
     UI_SPEED_BUBBLE_OFFSET_Y + (2.0 * UI_SPEED_BUBBLE_RADIUS)
   ) {
-    if hit_check_speed_bubble_x(x, y, 0) {
+    if hit_check_speed_bubble_x(x, y, BUTTON_SPEED_MIN_INDEX) {
       MenuButton::SpeedMin
-    } else if hit_check_speed_bubble_x(x, y, 1) {
+    } else if hit_check_speed_bubble_x(x, y, BUTTON_SPEED_HALF_INDEX) {
       MenuButton::SpeedHalf
-    } else if hit_check_speed_bubble_x(x, y, 2) {
+    } else if hit_check_speed_bubble_x(x, y, BUTTON_SPEED_PLAY_PAUSE_INDEX) {
       MenuButton::SpeedPlayPause
-    } else if hit_check_speed_bubble_x(x, y, 3) {
+    } else if hit_check_speed_bubble_x(x, y, BUTTON_SPEED_DOUBLE_INDEX) {
       MenuButton::SpeedDouble
-    } else if hit_check_speed_bubble_x(x, y, 4) {
+    } else if hit_check_speed_bubble_x(x, y, BUTTON_SPEED_PLUS_INDEX) {
       MenuButton::SpeedPlus
     } else {
       MenuButton::None
@@ -2892,6 +2896,7 @@ fn hit_test_help_button(mx: f64, my: f64) -> bool {
   return bounds_check(mx, my, UI_HELP_X, UI_HELP_Y, UI_HELP_X + UI_HELP_WIDTH, UI_HELP_Y + UI_HELP_HEIGHT);
 }
 fn hit_check_speed_bubble_x(x: f64, y: f64, index: usize) -> bool {
+  // Note: index should be one of the BUTTON_SPEED_***_INDEX
   let diameter = 2.0 * UI_SPEED_BUBBLE_RADIUS;
   let ox = UI_SPEED_BUBBLE_OFFSET_X + (index as f64) * (diameter + UI_SPEED_BUBBLE_SPACING);
 
@@ -5377,54 +5382,66 @@ fn paint_ui_button2(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state
 fn paint_ui_time_control(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   // paint_speed_buttons
   if options.enable_speed_menu {
-    paint_ui_speed_bubble(MenuButton::SpeedMin, options, state, context, mouse_state, 0, "-");
-    paint_ui_speed_bubble(MenuButton::SpeedHalf, options, state, context, mouse_state, 1, "½");
-    paint_ui_speed_bubble(MenuButton::SpeedPlayPause, options, state, context, mouse_state, 2, "⏭"); // "play" / "pause"
-    paint_ui_speed_bubble(MenuButton::SpeedDouble, options, state, context, mouse_state, 3, "2");
-    paint_ui_speed_bubble(MenuButton::SpeedPlus, options, state, context, mouse_state, 4, "+");
+    paint_ui_speed_bubble(MenuButton::SpeedMin, options, state, context, mouse_state, BUTTON_SPEED_MIN_INDEX, "-");
+    paint_ui_speed_bubble(MenuButton::SpeedHalf, options, state, context, mouse_state, BUTTON_SPEED_HALF_INDEX, "½");
+    paint_ui_speed_bubble(MenuButton::SpeedPlayPause, options, state, context, mouse_state, BUTTON_SPEED_PLAY_PAUSE_INDEX, "⏭"); // "play" / "pause"
+    paint_ui_speed_bubble(MenuButton::SpeedDouble, options, state, context, mouse_state, BUTTON_SPEED_DOUBLE_INDEX, "2");
+    paint_ui_speed_bubble(MenuButton::SpeedPlus, options, state, context, mouse_state, BUTTON_SPEED_PLUS_INDEX, "+");
   }
 }
 fn paint_ui_speed_bubble(button: MenuButton, options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, index: usize, text: &str) {
+  // index should be one of the BUTTON_SPEED_***_INDEX constants
+
   let cx = UI_SPEED_BUBBLE_OFFSET_X + (2.0 * UI_SPEED_BUBBLE_RADIUS + UI_SPEED_BUBBLE_SPACING) * (index as f64) + UI_SPEED_BUBBLE_RADIUS;
   let cy = UI_SPEED_BUBBLE_OFFSET_Y + UI_SPEED_BUBBLE_RADIUS;
 
+  context.save();
+
+  context.begin_path();
+  context.arc(cx, cy, UI_SPEED_BUBBLE_RADIUS, 0.0, 2.0 * 3.14).expect("to paint"); // cx/cy must be _center_ coord of the circle, not top-left
+
+  context.set_line_width(5.0);
+  context.set_stroke_style(&BUTTON_COLOR_BORDER_DARK.into()); // border
+  context.stroke();
+
+  context.set_line_width(3.0);
   if mouse_state.over_menu_button == button {
-    context.set_stroke_style(&"red".into()); // border
+    context.set_stroke_style(&BUTTON_COLOR_BORDER_DARK.into()); // border
   } else {
-    context.set_stroke_style(&"white".into()); // border
+    context.set_stroke_style(&BUTTON_COLOR_BORDER_LIGHT.into()); // border
   }
 
   if text == "⏭" && options.speed_modifier_floor == 0.0 {
     context.set_fill_style(&"tomato".into());
   }
   else if text == "⏭" && options.speed_modifier_floor == 1.0 {
-    context.set_fill_style(&"#0f0".into());
+    context.set_fill_style(&BUTTON_COLOR_BORDER_LIGHT.into());
   }
   else if text == "½" && options.speed_modifier_floor == 0.5 {
-    context.set_fill_style(&"#0f0".into());
+    context.set_fill_style(&BUTTON_COLOR_BORDER_LIGHT.into());
   }
   else if text == "2" && options.speed_modifier_floor == 2.0 {
-    context.set_fill_style(&"#0f0".into());
+    context.set_fill_style(&BUTTON_COLOR_BORDER_LIGHT.into());
   }
   else if text == "-" && (options.speed_modifier_floor > 0.0 && options.speed_modifier_floor < 0.5) {
-    context.set_fill_style(&"#0f0".into());
+    context.set_fill_style(&BUTTON_COLOR_BORDER_LIGHT.into());
   }
   else if text == "+" && options.speed_modifier_floor > 2.0 {
-    context.set_fill_style(&"#0f0".into());
+    context.set_fill_style(&BUTTON_COLOR_BORDER_LIGHT.into());
   }
   else if mouse_state.over_menu_button == button {
-    context.set_fill_style(&"#eee".into());
+    context.set_fill_style(&"#444".into());
   }
   else {
-    context.set_fill_style(&"#aaa".into());
+    context.set_fill_style(&BUTTON_COLOR_BACK.into());
   }
 
-  context.begin_path();
-  context.arc(cx, cy, UI_SPEED_BUBBLE_RADIUS, 0.0, 2.0 * 3.14).expect("to paint"); // cx/cy must be _center_ coord of the circle, not top-left
   context.fill();
   context.stroke();
-  context.set_fill_style(&"black".into());
+  context.set_fill_style(&BUTTON_COLOR_FRONT.into());
   context.fill_text(text, cx - 4.0, cy + 4.0).expect("to paint");
+
+  context.restore();
 }
 fn paint_segment_part_from_config(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, part_kind: PartKind, dx: f64, dy: f64, dw: f64, dh: f64) -> bool {
   return paint_segment_part_from_config_bug(options, state, config, context, part_kind, dx, dy, dw, dh, false);
