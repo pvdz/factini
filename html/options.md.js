@@ -81,6 +81,6 @@ const GAME_OPTIONS = `
 - enable_maze_partial: true
 - enable_maze_full: true
 - enable_speed_menu: true
-- show_menu: true
+- show_debug_menu: true
 - show_debug_bottom: true
 `;

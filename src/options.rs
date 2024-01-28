@@ -131,7 +131,7 @@ pub struct Options {
   pub enable_maze_partial: bool,
   pub enable_maze_full: bool,
   pub enable_speed_menu: bool,
-  pub show_menu: bool,
+  pub show_debug_menu: bool,
   pub show_debug_bottom: bool,
 
   pub test: u64, // just a temporary flag
@@ -223,7 +223,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     enable_maze_partial: true,
     enable_maze_full: true,
     enable_speed_menu: true,
-    show_menu: true,
+    show_debug_menu: true,
     show_debug_bottom: true,
     test: 0,
   };
@@ -415,7 +415,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "enable_maze_partial" => options.enable_maze_partial = parse_bool(value, name, strict, options.enable_maze_partial, verbose),
             "enable_maze_full" => options.enable_maze_full = parse_bool(value, name, strict, options.enable_maze_full, verbose),
             "enable_speed_menu" => options.enable_speed_menu = parse_bool(value, name, strict, options.enable_speed_menu, verbose),
-            "show_menu" => options.show_menu = parse_bool(value, name, strict, options.show_menu, verbose),
+            "show_debug_menu" => options.show_debug_menu = parse_bool(value, name, strict, options.show_debug_menu, verbose),
             "show_debug_bottom" => options.show_debug_bottom = parse_bool(value, name, strict, options.show_debug_bottom, verbose),
             "test" => options.test = parse_u64(value, name, strict, options.test, verbose),
             _ => {
@@ -515,7 +515,7 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- enable_maze_partial: {}", options.enable_maze_partial));
   arr.push(format!("- enable_maze_full: {}", options.enable_maze_full));
   arr.push(format!("- enable_speed_menu: {}", options.enable_speed_menu));
-  arr.push(format!("- show_menu: {}", options.show_menu));
+  arr.push(format!("- show_debug_menu: {}", options.show_debug_menu));
   arr.push(format!("- show_debug_bottom: {}", options.show_debug_bottom));
   arr.push(format!("- test: {}", options.test));
   return arr.join("\n");

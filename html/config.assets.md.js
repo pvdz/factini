@@ -7,6 +7,11 @@ Note: These asset names are hardcoded. Their order or even occurrence in this fi
 ===
 
 
+# Asset_Logo
+- file: ./img/logo75.png
+- w: 210
+- h: 75
+
 # Asset_ScreenLoader
 This should be the cover screen. It should be at the top so it starts to load first.
   A placeholder is shown as long as the loader hasn't finished loading yet.

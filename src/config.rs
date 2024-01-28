@@ -358,6 +358,7 @@ pub const CONFIG_NODE_ASSET_UNDO_LIGHT: usize = 332;
 pub const CONFIG_NODE_ASSET_UNDO_GREY: usize = 333;
 pub const CONFIG_NODE_ASSET_REDO_LIGHT: usize = 334;
 pub const CONFIG_NODE_ASSET_REDO_GREY: usize = 335;
+pub const CONFIG_NODE_ASSET_LOGO: usize = 336;
 
 #[derive(Debug)]
 pub struct Config {
@@ -1299,6 +1300,7 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Asset_UndoGrey" => CONFIG_NODE_ASSET_UNDO_GREY,
     "Asset_RedoLight" => CONFIG_NODE_ASSET_REDO_LIGHT,
     "Asset_RedoGrey" => CONFIG_NODE_ASSET_REDO_GREY,
+    "Asset_Logo" => CONFIG_NODE_ASSET_LOGO,
     "Part_None" => CONFIG_NODE_PART_NONE,
     "Part_Trash" => CONFIG_NODE_PART_TRASH,
     "Supply_Up" => CONFIG_NODE_SUPPLY_UP,
@@ -1925,6 +1927,7 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_asset(CONFIG_NODE_ASSET_UNDO_GREY, "UNDO_GREY"),
     config_node_asset(CONFIG_NODE_ASSET_REDO_LIGHT, "REDO_LIGHT"),
     config_node_asset(CONFIG_NODE_ASSET_REDO_GREY, "REDO_GREY"),
+    config_node_asset(CONFIG_NODE_ASSET_LOGO, "LOGO"),
   );
 
   v.iter().enumerate().for_each(|(i, node)| assert!(node.index == i, "system node indexes must match their global constant value; mismatch for index {} in get_system_nodes()", i));

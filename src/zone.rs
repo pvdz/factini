@@ -26,7 +26,7 @@ pub enum Zone {
 }
 
 // Size of the floor determines dimensions of all other grid items and depends on cell size and cell count.
-pub const GRID_TOP_HEIGHT: f64 = 60.0;
+pub const GRID_TOP_HEIGHT: f64 = 65.0;
 pub const GRID_RIGHT_WIDTH: f64 = 400.0;
 pub const GRID_BOTTOM_HEIGHT: f64 = 150.0;
 pub const GRID_BOTTOM_DEBUG_HEIGHT: f64 = 400.0;
@@ -60,7 +60,7 @@ pub const QUEST_FADE_TIME: u64 = 4 * ONE_SECOND;
 pub const UI_UNREDO_WIDTH: f64 = 60.0;
 pub const UI_UNREDO_HEIGHT: f64 = 60.0;
 pub const UI_UNREDO_MARGIN: f64 = 5.0;
-pub const UI_UNREDO_OFFSET_X: f64 = GRID_X2 - 10.0 - (UI_UNREDO_WIDTH * 4.0 + UI_UNREDO_MARGIN * 3.0);
+pub const UI_UNREDO_OFFSET_X: f64 = GRID_X2 + 10.0 - (UI_UNREDO_WIDTH * 4.0 + UI_UNREDO_MARGIN * 3.0);
 pub const UI_UNREDO_OFFSET_Y: f64 = GRID_Y0;
 pub const UI_UNREDO_UNDO_OFFSET_X: f64 = UI_UNREDO_OFFSET_X;
 pub const UI_UNREDO_UNDO_OFFSET_Y: f64 = UI_UNREDO_OFFSET_Y;
@@ -108,13 +108,23 @@ pub const UI_SPEED_BUBBLE_RADIUS: f64 = 25.0; // half the diameter...
 pub const UI_SPEED_BUBBLE_SPACING: f64 = 10.0;
 
 pub const UI_MENU_BUTTONS_COUNT_WIDTH_MAX: f64 = 6.0; // Update after adding new button
-pub const UI_MENU_BUTTONS_OFFSET_X: f64 = GRID_X2;
+pub const UI_MENU_BUTTONS_OFFSET_X: f64 = GRID_X2 + 20.0;
 pub const UI_MENU_BUTTONS_OFFSET_Y: f64 = GRID_Y0 + 5.0;
 pub const UI_MENU_BUTTONS_OFFSET_Y2: f64 = UI_MENU_BUTTONS_OFFSET_Y + 30.0;
 pub const UI_MENU_BUTTONS_WIDTH: f64 = 50.0;
 pub const UI_MENU_BUTTONS_HEIGHT: f64 = 20.0;
 pub const UI_MENU_BUTTONS_SPACING: f64 = 10.0;
 pub const UI_MENU_BUTTONS_WIDTH_MAX: f64 = UI_MENU_BUTTONS_COUNT_WIDTH_MAX * (UI_MENU_BUTTONS_WIDTH + UI_MENU_BUTTONS_SPACING);
+
+pub const UI_LOGO_X: f64 = UI_MENU_BUTTONS_OFFSET_X + 50.0;
+pub const UI_LOGO_Y: f64 = UI_MENU_BUTTONS_OFFSET_Y;
+pub const UI_LOGO_W: f64 = 210.0;
+pub const UI_LOGO_H: f64 = 75.0;
+// Target the dot on the last i as secret clickable area
+pub const UI_DEBUG_SECRET_X: f64 = UI_LOGO_X + UI_LOGO_W - 21.0;
+pub const UI_DEBUG_SECRET_Y: f64 = UI_LOGO_Y + 2.0;
+pub const UI_DEBUG_SECRET_W: f64 = 15.0;
+pub const UI_DEBUG_SECRET_H: f64 = 15.0;
 
 pub const UI_MENU_MACHINE_BUTTON_1X2_X: f64 = GRID_X1 + 400.0;
 pub const UI_MENU_MACHINE_BUTTON_1X2_Y: f64 = UI_BOTTOM_OFFSET_Y + 45.0;
@@ -185,7 +195,7 @@ pub const UI_ATOMS_WIDTH: f64 = UI_WOTOM_WIDTH + ((UI_ATOMS_PER_ROW - 1.0) * UI_
 pub const UI_AUTO_BUILD_W: f64 = 60.0; // Size of a medium button
 pub const UI_AUTO_BUILD_H: f64 = 60.0;
 pub const UI_AUTO_BUILD_X: f64 = GRID_X0 + 100.0;
-pub const UI_AUTO_BUILD_Y: f64 = GRID_Y0 + 10.0;
+pub const UI_AUTO_BUILD_Y: f64 = GRID_Y0 + 0.0;
 
 // The UI is a 3x3 grid of sections. The center section is the main part of the game, "the Floor"
 // Define the coordinates of each "tab" (whatever the terminology ought to be) that defines the grid

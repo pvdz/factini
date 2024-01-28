@@ -56,6 +56,7 @@
 // - something with that ikea help icon
 // - make maze prettier
 //   - the whole thing could just explode into animated particles once you finish or smth
+// - help, okay, secret menu
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -1055,7 +1056,7 @@ fn get_y_while_dragging_offer_machine(cell_y: f64, offer_height: usize) -> f64 {
 }
 
 fn update_mouse_state(
-  options: &Options, state: &State, config: &Config, factory: &Factory,
+  options: &mut Options, state: &State, config: &Config, factory: &Factory,
   cell_selection: &mut CellSelection, mouse_state: &mut MouseState,
   mouse_x: f64, mouse_y: f64, mouse_moved_since_app_start: bool,
   last_down_event_type: EventSourceType, // MOUSE or TOUCH event
@@ -1174,7 +1175,7 @@ fn update_mouse_state(
       }
     }
     Zone::TopRight => {
-      if options.show_menu {
+      if options.show_debug_menu {
         let menu_button = hit_test_menu_buttons(mouse_state.world_x, mouse_state.world_y);
         if menu_button != MenuButton::None {
           // time controls, first, second row of menu buttons
@@ -1319,7 +1320,7 @@ fn update_mouse_state(
         log!("Top menu button down: {:?}", mouse_state.down_menu_button);
       }
       Zone::TopRight => {
-        if options.show_menu {
+        if options.show_debug_menu {
           let menu_button = hit_test_menu_buttons(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
           if menu_button != MenuButton::None {
             // time controls, first, second row of menu buttons
@@ -1477,13 +1478,18 @@ fn update_mouse_state(
         log!("Top menu button up: {:?}", mouse_state.up_menu_button);
       }
       Zone::TopRight => {
-        if options.show_menu {
+        if options.show_debug_menu {
           let menu_button = hit_test_menu_buttons(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
           if menu_button != MenuButton::None {
             // time controls, first, second row of menu buttons
             mouse_state.up_menu_button = menu_button;
           } else {
             log!("Ignored top-right up event");
+          }
+        } else {
+          if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_DEBUG_SECRET_X, UI_DEBUG_SECRET_Y, UI_DEBUG_SECRET_X + UI_DEBUG_SECRET_W, UI_DEBUG_SECRET_Y + UI_DEBUG_SECRET_H) {
+            log!("Enabling secret debug menu...");
+            options.show_debug_menu = true;
           }
         }
       }
@@ -2971,6 +2977,7 @@ fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, c
 fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, fps: &VecDeque<f64>, now: f64, since_prev: f64, ticks_todo: u64, estimated_fps: f64, rounded_fps: u64, factory: &Factory, mouse_state: &MouseState) {
 
   if !state.showing_debug_bottom {
+    context.set_font(&"12px monospace");
     context.set_fill_style(&"black".into());
     context.fill_text(format!("fps: {}", fps.len()).as_str(), GRID_X3 - 70.0, GRID_Y0 + 15.0).expect("something error fill_text");
     return;
@@ -5291,9 +5298,11 @@ fn paint_green_pixel(context: &Rc<web_sys::CanvasRenderingContext2d>, progress: 
   }
 }
 fn paint_button_menu_ui(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
-  if options.show_menu {
+  if options.show_debug_menu {
     paint_ui_buttons(options, state, context, mouse_state);
     paint_ui_buttons2(options, state, context, mouse_state);
+  } else {
+    paint_logo(options, state, config, context, mouse_state);
   }
 }
 fn paint_machine1x2(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
@@ -5318,6 +5327,9 @@ fn paint_machine_button(options: &Options, state: &State, config: &Config, facto
 
   context.set_stroke_style(&"black".into());
   context.stroke_rect(bx, by, bw, bh);
+}
+fn paint_logo(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  paint_asset_raw(options, state, config, &context, CONFIG_NODE_ASSET_LOGO, 0, UI_LOGO_X, UI_LOGO_Y, UI_LOGO_W, UI_LOGO_H);
 }
 fn paint_ui_buttons(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   // See on_up_menu for events
