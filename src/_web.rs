@@ -1827,12 +1827,12 @@ fn on_up_woop(options: &Options, state: &State, config: &Config, factory: &Facto
   }
 }
 fn on_click_inside_floor_zone(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
-  log!("on_click_inside_floor_zone()");
   let last_mouse_up_cell_x = mouse_state.last_up_cell_x.floor();
   let last_mouse_up_cell_y = mouse_state.last_up_cell_y.floor();
+  log!("on_click_inside_floor_zone(), {} {}", last_mouse_up_cell_x, last_mouse_up_cell_y);
   if bounds_check(
     last_mouse_up_cell_x, last_mouse_up_cell_y,
-    UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y, UI_FLOOR_OFFSET_X + UI_FLOOR_WIDTH, UI_FLOOR_OFFSET_Y + UI_FLOOR_HEIGHT
+    0.0, 0.0, FLOOR_CELLS_W as f64, FLOOR_CELLS_H as f64
   ) {
     on_click_inside_floor(options, state, config, factory, cell_selection, mouse_state, last_mouse_up_cell_x, last_mouse_up_cell_y);
   }
