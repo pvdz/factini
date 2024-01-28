@@ -9,7 +9,6 @@
 //   - affects machine speed so should be fixed
 // - machines
 //   - investigate different machine speeds at different configs
-//   - allow smaller machines still?
 //   - throughput problem. part has to wait at 50% for next part to clear, causing delays. if there's enough outputs there's always room and no such delay. if supply-to-machine is one belt there's also no queueing so it's faster
 //   - putting machine down next to two dead end belts will only connect one?
 //   - make the menu-machine "process" the finished parts before text.draw_image_with_html_image_element_and_dw_angenerating trucks
@@ -22,7 +21,6 @@
 //   - `let (received_part_kind, received_count) = factory.floor[coord].demand.received[i];` threw oob (1 while len=0). i thin it's somehow related to dropping a demander on the edge
 // - hover over craftable offer should highlight craft-inputs (offers)
 // - unblock animations
-//   - car polish; should make nice corners, should drive same speed to any height
 //   - fix item animation in and out of suppliers/demanders. looks ugly rn
 //   - certain things should be painted as a background layer once
 //   - machine top layer should paint _over_ the parts
@@ -34,7 +32,6 @@
 // - machine hint based on history received should decay
 // - clicking on machine should cycle through available parts
 // - clicking on empty machine should select one of the parts it can create based on the history
-// - cars with new parts shouldn't jump. that's the whole point of the invisible placeholder. why does it still do that when unlocking pink and grey at the same time?
 // - for the prepared maze stats: use fast fake belt to move the parts to the vehicle? one part per bar? balance accordingly? level 1=1, 2=10, 3=100, 4=1000 or whatever scale? on a log requirements scale?
 // - what does the maze runner ultimately find that allows you to move to the next level? (no plus, one plus, two plus)
 // - menu must be moved away
@@ -54,6 +51,11 @@
 // - convert maze to rgb and implement some kind of image thing
 // - maze fuel could blow-up-fade-out when collected, with a 3x for the better one, maybe rainbow wiggle etc? or just 1x 2x 3x instead of icon
 // - Clicking under the floor in the corner crashes with oob? wat.
+// - factini logo over top-right menu, hiding the menu
+// - speed menu same button style
+// - something with that ikea help icon
+// - make maze prettier
+//   - the whole thing could just explode into animated particles once you finish or smth
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
