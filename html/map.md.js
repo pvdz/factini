@@ -1,5 +1,6 @@
 // This is the initial map. See also the examples for more maps
 const GAME_MAP = `
+# Factini map
 # Created 1670200685070
 d=17x17
 ┌─────────────────────────────────────────────────┐

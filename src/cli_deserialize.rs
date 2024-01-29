@@ -26,10 +26,19 @@ pub fn floor_from_str(options: &Options, state: &mut State, config: &Config, str
     return (floor_empty(config), vec!());
   }
 
+  // Require a Factini header and proper map here. User input should handle an error sooner.
+  if
+    !str.trim().starts_with("# Factini map\n")
+    // TODO: remove the need for this. Let all exported maps have the factini header
+    && !str.starts_with("# Created ")
+  {
+    panic!("Error: Input is not a Factini map. Should start with a line `# Factini map` and it didn't...");
+  }
+
   return str_to_floor2(options, state, config, str);
 }
 
-fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &String) -> ([Cell; FLOOR_CELLS_WH], Vec<char>) {
+fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &String) -> ( [Cell; FLOOR_CELLS_WH], Vec<char> ) {
   // Given a string in a grid format, generate a floor
   // The string starts with at least one line of config.
   // - For now the only modifier are the dimension of the hardcoded 11x11
@@ -128,6 +137,7 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
   let mut lines = lines.iter_mut(); // hafta or the compiler complains
 
   let mut first_line = lines.next().unwrap(); // Bust if there's no input.
+
   if options.trace_map_parsing { log!("first First line: {:?}", first_line); }
   loop {
     while first_line.peek().or(Some(&'#')).unwrap() == &' ' { first_line.next(); }
@@ -916,7 +926,7 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
 
   if options.trace_map_parsing { log!("-- end of str_to_floor2()"); }
 
-  return (floor, unlocked_part_icons);
+  return ( floor, unlocked_part_icons );
 }
 
 fn n_to_alnum(n: u8) -> char {

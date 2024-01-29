@@ -321,7 +321,7 @@ pub fn serialize2(options: &Options, state: &State, config: &Config, factory: &F
   // harder because now we have to parse a 3x3 but whatever.
 
   let mut out: Vec<Vec<char>> = vec!(
-    format!("# Created {:?}\n", now).chars().collect(),
+    format!("# Factini map\n# Created {:?}\n", now).chars().collect(),
     "d=17x17\n".chars().collect(),
   );
 

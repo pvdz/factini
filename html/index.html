@@ -25,6 +25,8 @@
 <script src="examples.md.js" charset="UTF-8"></script>
 <script>
   var queuedAction = '';
+  var queuedPaste = '';
+
   function getGameConfig() { return $game_config.value; /*GAME_CONFIG*/ }
   function getGameMap() { return $game_map.value /*GAME_MAP*/; }
   function getGameOptions() {
@@ -474,6 +476,49 @@
       }
     });
   }
+
+  function getLastPaste() {
+    // When you press ctrl+v the event handler will store the value you pasted and prepare an action for the game to be read it
+    // Then when the game reads the action it will call this function to retrieve the stored paste value
+    return queuedPaste || '';
+  }
+  function getCurrentPaste() {
+    // Called from Rust when clicking the "paste" button. Due to unstable api limitations I could not get this to work inside Rust
+    // so instead I'm just doing it from JS and sending the result back in once there is one. Bit a pingpong but whatever.
+
+    // This doesn't work in firefox rn, but it seems firefox only supports clipboard reading through extensions or the paste event.
+    // This will popup a permission dialog once
+    try {
+      navigator.clipboard.readText().then(
+        s => {
+          queuedPaste = s;
+          queuedAction = 'paste';
+        },
+        err => {
+          console.error('(js) getCurrentPaste: failed to navigator.clipboard.readText():', err);
+          queuedPaste = ''; // This will show the ctrl+v message
+          queuedAction = 'paste';
+        }
+      );
+    } catch {
+      console.log('(js) Browser does not support navigator.clipboard :shrug:');
+      queuedPaste = ''; // This will show the ctrl+v message
+      queuedAction = 'paste';
+    }
+  }
+  function copyToClipboard(str) {
+    try {
+      navigator
+        .clipboard
+        .writeText(str)
+        .then((ok) => console.log('(js) copyToClipboard ok:', ok), (err) => console.log('(js) copyToClipboard err:', err));
+      return true;
+    } catch (e) {
+      console.log('(js) copyToClipboard threw error:', e);
+      return false;
+    }
+  }
+
 </script>
 <script type="module">
   Error.stackTraceLimit = Infinity;
@@ -483,6 +528,16 @@
     x.default();
   }, (e) => console.error(e));
   console.log('(html) after import');
+
+  window.addEventListener('paste', e => {
+    // Ironically, this works fine even in firefox. :shrug:
+    e.preventDefault();
+    console.log('(js) received paste event with', e.clipboardData?.items?.length, 'items');
+    e.clipboardData.items[0].getAsString(s => {
+      queuedPaste = s;
+      queuedAction = 'paste';
+    });
+  });
 </script>
 <!-- for flow graphs of the quests -->
 

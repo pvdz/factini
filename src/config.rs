@@ -359,6 +359,10 @@ pub const CONFIG_NODE_ASSET_UNDO_GREY: usize = 333;
 pub const CONFIG_NODE_ASSET_REDO_LIGHT: usize = 334;
 pub const CONFIG_NODE_ASSET_REDO_GREY: usize = 335;
 pub const CONFIG_NODE_ASSET_LOGO: usize = 336;
+pub const CONFIG_NODE_ASSET_COPY_GREY: usize = 337;
+pub const CONFIG_NODE_ASSET_PASTE_GREY: usize = 338;
+pub const CONFIG_NODE_ASSET_COPY_GREEN: usize = 339;
+pub const CONFIG_NODE_ASSET_PASTE_GREEN: usize = 340;
 
 #[derive(Debug)]
 pub struct Config {
@@ -1301,6 +1305,10 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Asset_RedoLight" => CONFIG_NODE_ASSET_REDO_LIGHT,
     "Asset_RedoGrey" => CONFIG_NODE_ASSET_REDO_GREY,
     "Asset_Logo" => CONFIG_NODE_ASSET_LOGO,
+    "Asset_CopyGrey" => CONFIG_NODE_ASSET_COPY_GREY,
+    "Asset_PasteGrey" => CONFIG_NODE_ASSET_PASTE_GREY,
+    "Asset_CopyGreen" => CONFIG_NODE_ASSET_COPY_GREEN,
+    "Asset_PasteGreen" => CONFIG_NODE_ASSET_PASTE_GREEN,
     "Part_None" => CONFIG_NODE_PART_NONE,
     "Part_Trash" => CONFIG_NODE_PART_TRASH,
     "Supply_Up" => CONFIG_NODE_SUPPLY_UP,
@@ -1928,6 +1936,10 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_asset(CONFIG_NODE_ASSET_REDO_LIGHT, "REDO_LIGHT"),
     config_node_asset(CONFIG_NODE_ASSET_REDO_GREY, "REDO_GREY"),
     config_node_asset(CONFIG_NODE_ASSET_LOGO, "LOGO"),
+    config_node_asset(CONFIG_NODE_ASSET_COPY_GREY, "COPY_GREY"),
+    config_node_asset(CONFIG_NODE_ASSET_PASTE_GREY, "PASTE_GREY"),
+    config_node_asset(CONFIG_NODE_ASSET_COPY_GREEN, "COPY_GREEN"),
+    config_node_asset(CONFIG_NODE_ASSET_PASTE_GREEN, "PASTE_GREEN"),
   );
 
   v.iter().enumerate().for_each(|(i, node)| assert!(node.index == i, "system node indexes must match their global constant value; mismatch for index {} in get_system_nodes()", i));

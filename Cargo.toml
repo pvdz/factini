@@ -44,7 +44,7 @@ console_error_panic_hook = "*"
 # Error: crate-type must be cdylib to compile to wasm32-unknown-unknown. Add the following to your Cargo.toml file:
 # meh?
 crate-type = ["cdylib", "rlib"]
-## can't find library `miners`, rename file to `src/lib.rs` or specify lib.path
+## can't find library `factini`, rename file to `src/lib.rs` or specify lib.path
 ## :facepalm:
 path = "src/main.rs"
 
@@ -55,7 +55,7 @@ path = "src/main.rs"
 #]
 
 [dependencies.web-sys]
-version = "0.3.4"
+version = "0.3.67"
 features = [
     'console',
     'CanvasPattern',

@@ -448,6 +448,26 @@ Free when with attribution
 - w: 160
 - h: 160
 
+# Asset_CopyGrey
+- file: ./img/copy_grey.png
+- w: 48
+- h: 48
+
+# Asset_CopyGreen
+- file: ./img/copy_green.png
+- w: 48
+- h: 48
+
+# Asset_PasteGrey
+- file: ./img/download_grey.png
+- w: 48
+- h: 48
+
+# Asset_PasteGreen
+- file: ./img/download_green.png
+- w: 48
+- h: 48
+
 # Asset_DrmPlaceholder
 See options.show_drm=false
 - file: ./img/drm.png

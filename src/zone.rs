@@ -56,9 +56,12 @@ pub const UI_QUEST_HEIGHT: f64 = CELL_H + 4.0;
 pub const UI_QUEST_MARGIN: f64 = 5.0;
 pub const QUEST_FADE_TIME: u64 = 4 * ONE_SECOND;
 
+pub const UI_SMALL_BUTTON_WIDTH: f64 = 60.0;
+pub const UI_SMALL_BUTTON_HEIGHT: f64 = 60.0;
+
 // Undo, redo, clear, paint mode
-pub const UI_UNREDO_WIDTH: f64 = 60.0;
-pub const UI_UNREDO_HEIGHT: f64 = 60.0;
+pub const UI_UNREDO_WIDTH: f64 = UI_SMALL_BUTTON_WIDTH;
+pub const UI_UNREDO_HEIGHT: f64 = UI_SMALL_BUTTON_HEIGHT;
 pub const UI_UNREDO_MARGIN: f64 = 5.0;
 pub const UI_UNREDO_OFFSET_X: f64 = GRID_X2 + 10.0 - (UI_UNREDO_WIDTH * 4.0 + UI_UNREDO_MARGIN * 3.0);
 pub const UI_UNREDO_OFFSET_Y: f64 = GRID_Y0;
@@ -85,13 +88,20 @@ pub const UI_SAVE_OFFSET_X: f64 = 5.0;
 pub const UI_SAVE_OFFSET_Y: f64 = 8.0;
 // Note: game is currently at 1000 x 800. The floor is 600x600, so 1:1 ratio
 pub const UI_SAVE_THUMB_WIDTH: f64 = 90.0;
-pub const UI_SAVE_THUMB_HEIGHT: f64 = 60.0;
+pub const UI_SAVE_THUMB_HEIGHT: f64 = UI_SMALL_BUTTON_HEIGHT;
 pub const UI_SAVE_THUMB_IMG_WIDTH: f64 = UI_SAVE_THUMB_WIDTH * 0.66; // Leave room for the close button
 pub const UI_SAVE_THUMB_IMG_HEIGHT: f64 = UI_SAVE_THUMB_HEIGHT;
 pub const UI_SAVE_MARGIN: f64 = 7.0;
 // Note: we have 3x2 save tiles
 pub const UI_SAVE_THUMB_X1: f64 = UI_SAVE_OFFSET_X;
 pub const UI_SAVE_THUMB_Y1: f64 = UI_SAVE_OFFSET_Y;
+// Clipboard import/export
+pub const UI_SAVE_CP_WIDTH: f64 = UI_SMALL_BUTTON_WIDTH;
+pub const UI_SAVE_CP_HEIGHT: f64 = UI_SMALL_BUTTON_HEIGHT;
+pub const UI_SAVE_COPY_X: f64 = GRID_X0 + UI_SAVE_OFFSET_X + 2.0*UI_SAVE_THUMB_WIDTH + 2.0*UI_SAVE_MARGIN;
+pub const UI_SAVE_COPY_Y: f64 = GRID_Y2 + UI_SAVE_OFFSET_Y;
+pub const UI_SAVE_PASTE_X: f64 = UI_SAVE_COPY_X;
+pub const UI_SAVE_PASTE_Y: f64 = UI_SAVE_COPY_Y + UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN;
 
 pub const UI_BOTTOM_OFFSET_X: f64 = GRID_X1 + 15.0;
 pub const UI_BOTTOM_OFFSET_Y: f64 = GRID_Y2 + 10.0;
@@ -187,7 +197,7 @@ pub const UI_WOTOM_HEIGHT_PLUS_MARGIN: f64 = UI_WOTOM_HEIGHT + 10.0;
 pub const UI_OFFER_TOOLTIP_WIDTH: f64 = 185.0;
 pub const UI_OFFER_TOOLTIP_HEIGHT: f64 = 3.0 + (0.75 * CELL_H) + 5.0 + (0.75 * CELL_H) + 5.0 + (0.75 * CELL_H) + 3.0;
 
-pub const UI_ATOMS_OFFSET_X: f64 = GRID_X1 + 50.0;
+pub const UI_ATOMS_OFFSET_X: f64 = GRID_X1 + 70.0;
 pub const UI_ATOMS_OFFSET_Y: f64 = GRID_Y2 + 10.0;
 pub const UI_ATOMS_PER_ROW: f64 = 5.0;
 pub const UI_ATOMS_WIDTH: f64 = UI_WOTOM_WIDTH + ((UI_ATOMS_PER_ROW - 1.0) * UI_WOTOM_WIDTH_PLUS_MARGIN);

@@ -43,9 +43,29 @@ pub struct State {
   pub reset_next_frame: bool,
   pub load_snapshot_next_frame: bool,
   pub load_example_next_frame: bool,
+  pub load_copy_hint_kind: LoadCopyHint,
+  pub load_copy_hint_since: u64,
+  pub load_paste_next_frame: bool,
+  pub load_paste_hint_kind: LoadPasteHint, // In case of problems, what do we show to the user?
+  pub load_paste_hint_since: u64, // Last ticks timestamp of when the hint changed
+  pub paste_to_load: String,
 
   pub showing_debug_bottom: bool, // Allows us to toggle the debug part with little overhead
   pub ui_unlock_progress: u8, // Used to track how much of the UI to unlock
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum LoadPasteHint {
+  None,
+  Empty,
+  Invalid,
+  Success,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum LoadCopyHint {
+  None,
+  Success,
 }
 
 #[derive(Debug)]
@@ -194,6 +214,8 @@ pub enum MenuButton {
   Machine2x2Button,
   Machine3x3Button,
   AutoBuildButton,
+  CopyFactory,
+  PasteFactory,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -235,6 +257,12 @@ pub fn state_create(options: &Options, active_story_index: usize) -> State {
     snapshot_pointer: 0,
     snapshot_undo_pointer: 0,
     load_example_next_frame: false,
+    load_paste_next_frame: false,
+    load_copy_hint_kind: LoadCopyHint::None,
+    load_copy_hint_since: 0,
+    load_paste_hint_kind: LoadPasteHint::None,
+    load_paste_hint_since: 0,
+    paste_to_load: "".to_string(),
     examples: vec!(),
     example_pointer: 0,
     showing_debug_bottom: true,

@@ -6,7 +6,6 @@
 
 // road to release
 // - import/export
-//   - import/export with clipboard
 //   - store xorshift seed in map save
 //   - finished quests restart on load. all of them.
 // - small problem with tick_belt_take_from_belt when a belt crossing is next to a supply and another belt; it will ignore the other belt as input. because the belt will not let a part proceed to the next port unless it's free and the processing order will process the neighbor belt first and then the crossing so by the time it's free, the part will still be at 50% whereas the supply part is always ready. fix is probably to make supply parts take a tick to be ready, or whatever.
@@ -36,6 +35,7 @@
 // - repo
 //   - cleanup
 // - unlocks (speed menu, save menu, etc) and quest progress should be remembered in local storage? at least optionally and by default.
+// - belts need to slow down to match their parts
 
 // features
 // - belts
@@ -161,6 +161,9 @@ extern {
   pub fn getAction() -> String; // queuedAction, polled every frame
   pub fn receiveConfigNode(name: JsValue, node: JsValue);
   pub fn onQuestUpdate(node: JsValue);
+  pub fn getLastPaste() -> String; // queuedPaste
+  pub fn getCurrentPaste(); // navigator.clipboard.readText() into action=paste. wont work in firefox.
+  pub fn copyToClipboard(str: JsValue) -> bool; // navigator.clipboard.writeText(str). does work in firefox too.
   // pub fn log(s: &str); // -> console.log(s)
   // pub fn print_world(s: &str);
   // pub fn print_options(options: &str);
@@ -336,7 +339,7 @@ pub fn start() -> Result<(), JsValue> {
   let last_mouse_up_x = Rc::new(Cell::new(0.0));
   let last_mouse_up_y = Rc::new(Cell::new(0.0));
   let last_mouse_up_button = Rc::new(Cell::new(0));
-  let counted = Rc::new(canvas);
+  let ref_counted_canvas = Rc::new(canvas);
 
   // mousedown
   {
@@ -365,7 +368,7 @@ pub fn start() -> Result<(), JsValue> {
       last_mouse_down_y.set(my);
       last_mouse_down_button.set(event.buttons()); // 1=left, 2=right, 3=left-then-also-right (but right-then-also-left is still 2)
     }) as Box<dyn FnMut(_)>);
-    counted.clone().add_event_listener_with_callback("mousedown", closure.as_ref().unchecked_ref())?;
+    ref_counted_canvas.clone().add_event_listener_with_callback("mousedown", closure.as_ref().unchecked_ref())?;
     closure.forget();
   }
   // mousemove
@@ -386,7 +389,7 @@ pub fn start() -> Result<(), JsValue> {
       mouse_y.set(my);
       mouse_moved.set(true);
     }) as Box<dyn FnMut(_)>);
-    counted.clone().add_event_listener_with_callback("mousemove", closure.as_ref().unchecked_ref())?;
+    ref_counted_canvas.clone().add_event_listener_with_callback("mousemove", closure.as_ref().unchecked_ref())?;
     closure.forget();
   }
   // mouseup
@@ -409,7 +412,7 @@ pub fn start() -> Result<(), JsValue> {
       last_mouse_up_y.set(my);
       last_mouse_up_button.set(event.buttons()); // 1=left, 2=right, 3=left-then-also-right (but right-then-also-left is still 2)
     }) as Box<dyn FnMut(_)>);
-    counted.clone().add_event_listener_with_callback("mouseup", closure.as_ref().unchecked_ref())?;
+    ref_counted_canvas.clone().add_event_listener_with_callback("mouseup", closure.as_ref().unchecked_ref())?;
     closure.forget();
   }
   // context menu (just to disable it so we can use rmb for interaction)
@@ -418,13 +421,13 @@ pub fn start() -> Result<(), JsValue> {
       event.stop_propagation();
       event.prevent_default();
     }) as Box<dyn FnMut(_)>);
-    counted.clone().add_event_listener_with_callback("contextmenu", closure.as_ref().unchecked_ref())?;
+    ref_counted_canvas.clone().add_event_listener_with_callback("contextmenu", closure.as_ref().unchecked_ref())?;
     closure.forget();
   }
   // touchdown
   {
     let last_down_event_type = last_down_event_type.clone();
-    let canvas = counted.clone();
+    let canvas = ref_counted_canvas.clone();
     let mouse_x = mouse_x.clone();
     let mouse_y = mouse_y.clone();
     let last_mouse_was_down = last_mouse_was_down.clone();
@@ -452,12 +455,12 @@ pub fn start() -> Result<(), JsValue> {
       last_mouse_down_y.set(my);
       last_mouse_down_button.set(1); // 1=left, 2=right, 3=left-then-also-right (but right-then-also-left is still 2). touch is always 1.
     }) as Box<dyn FnMut(_)>);
-    counted.clone().add_event_listener_with_callback("touchstart", closure.as_ref().unchecked_ref())?;
+    ref_counted_canvas.clone().add_event_listener_with_callback("touchstart", closure.as_ref().unchecked_ref())?;
     closure.forget();
   }
   // touchmove
   {
-    let canvas = counted.clone();
+    let canvas = ref_counted_canvas.clone();
     let mouse_x = mouse_x.clone();
     let mouse_y = mouse_y.clone();
     let mouse_moved = mouse_moved.clone();
@@ -477,12 +480,12 @@ pub fn start() -> Result<(), JsValue> {
       mouse_y.set(my);
       mouse_moved.set(true);
     }) as Box<dyn FnMut(_)>);
-    counted.clone().add_event_listener_with_callback("touchmove", closure.as_ref().unchecked_ref())?;
+    ref_counted_canvas.clone().add_event_listener_with_callback("touchmove", closure.as_ref().unchecked_ref())?;
     closure.forget();
   }
   // touchend
   {
-    let canvas = counted.clone();
+    let canvas = ref_counted_canvas.clone();
     let mouse_x = mouse_x.clone();
     let mouse_y = mouse_y.clone();
     let last_mouse_was_up = last_mouse_was_up.clone();
@@ -507,9 +510,20 @@ pub fn start() -> Result<(), JsValue> {
       last_mouse_up_y.set(my);
       last_mouse_up_button.set(1); // 1=left, 2=right, 3=left-then-also-right (but right-then-also-left is still 2)
     }) as Box<dyn FnMut(_)>);
-    counted.clone().add_event_listener_with_callback("touchend", closure.as_ref().unchecked_ref())?;
+    ref_counted_canvas.clone().add_event_listener_with_callback("touchend", closure.as_ref().unchecked_ref())?;
     closure.forget();
   }
+
+  // Note: Requires unstable API. Currently doing this same thing in the html to work around that.
+  // // clipboard paste global event
+  // // RUSTFLAGS=--cfg=web_sys_unstable_apis wasm-pack build --target web --dev
+  // // Note: the ::once_into_js() would also work and without the .forget() part but then only once (surprise)
+  // let clipboard_callback = Closure::wrap(Box::new(move |event: web_sys::ClipboardEvent| {
+  //   let clipboard_content = event.clipboard_data().unwrap().get_data("text/plain").unwrap();
+  //   log!("clipboard: {}", clipboard_content);
+  // }) as Box<dyn FnMut(_)>);
+  // window().add_event_listener_with_callback("paste", &clipboard_callback.as_ref().unchecked_ref()).unwrap();
+  // clipboard_callback.forget(); // Note: must do it this way otherwise the event just errors immediately
 
   // TODO: we could load the default map first (or put it under the stack) but I don't think we want that..?
   let initial_map_from_source;
@@ -834,6 +848,28 @@ pub fn start() -> Result<(), JsValue> {
         log!("Loading getGameMap(); size: {} bytes", map.len());
         factory_load_map(&mut options, &mut state, &config, &mut factory, map);
       }
+      if state.load_paste_next_frame {
+        state.load_paste_next_frame = false;
+        state.load_paste_hint_since = factory.ticks;
+        let paste = state.paste_to_load.clone(); // If we don't do this we'd "move" the state. Which is why we can't do this with load_paste_next_frame as an Option either.
+
+        if paste == "" {
+          // This most likely means the paste failed hard.
+          // Show a hint because ctrl+v / apple+v should work
+          state.load_paste_hint_kind = LoadPasteHint::Empty;
+        } else {
+          state.paste_to_load = "".to_string();
+          // Expect a Factini header here
+          if !paste.trim().starts_with("# Factini map\n") {
+            log!("Error: Input is not a Factini map. Should start with a line `# Factini map` and it didn't...");
+            state.load_paste_hint_kind = LoadPasteHint::Invalid;
+          } else {
+            log!("Loading map from paste; size: {} bytes", paste.len());
+            factory_load_map(&mut options, &mut state, &config, &mut factory, paste);
+            state.load_paste_hint_kind = LoadPasteHint::Success;
+          }
+        }
+      }
       if state.load_snapshot_next_frame {
         // Note: state.load_snapshot_next_frame remains true because factory.changed has special undo-stack behavior for it
         let map = state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].clone();
@@ -862,6 +898,10 @@ pub fn start() -> Result<(), JsValue> {
           let mut config = parse_fmd(options.trace_parse_fmd, getGameConfig());
           load_config(options.trace_img_loader, &mut config);
         }, // Might crash the game
+        "paste" => { // When you ctrl+v (or otherwise paste) in the window. This action will be triggered from the html.
+          state.paste_to_load = getLastPaste();
+          state.load_paste_next_frame = true;
+        }
         "" => {},
         _ => panic!("getAction() returned an unsupported value: `{}`", queued_action),
       }
@@ -1155,9 +1195,12 @@ fn update_mouse_state(
     ZONE_SAVE_MAP => {
       if options.enable_quick_save_menu {
         let button_index = hit_test_save_map_button_index(mouse_state.world_x, mouse_state.world_y);
-        if button_index == 100 { return; } // Not up on a button
-        mouse_state.over_save_map = true;
-        mouse_state.over_save_map_index = button_index;
+        if button_index != 100 {
+          // Up on a button
+          // TOFIX: change to use MenuButton approach
+          mouse_state.over_save_map = true;
+          mouse_state.over_save_map_index = button_index;
+        }
       }
     }
     Zone::BottomBottomLeft => {}
@@ -1223,6 +1266,12 @@ fn update_mouse_state(
       else if hit_test_machine3x3_button(mouse_state.world_x, mouse_state.world_y) {
         // the big machine button
         mouse_state.over_menu_button = MenuButton::Machine3x3Button;
+      }
+      else if hit_test_copy_button(mouse_state.world_x, mouse_state.world_y) {
+        mouse_state.over_menu_button = MenuButton::CopyFactory;
+      }
+      else if hit_test_paste_button(mouse_state.world_x, mouse_state.world_y) {
+        mouse_state.over_menu_button = MenuButton::PasteFactory;
       }
       else if !mouse_state.is_dragging {
         // Check if atom is hit
@@ -1290,9 +1339,11 @@ fn update_mouse_state(
       ZONE_SAVE_MAP => {
         if options.enable_quick_save_menu {
           let button_index = hit_test_save_map_button_index(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
-          if button_index == 100 { return; } // Not up on a button
-          mouse_state.down_save_map = true;
-          mouse_state.down_save_map_index = button_index;
+          if button_index != 100 {
+            // Up on a button
+            mouse_state.down_save_map = true;
+            mouse_state.down_save_map_index = button_index;
+          }
         } else {
           log!("Ignoring map save down");
         }
@@ -1370,10 +1421,18 @@ fn update_mouse_state(
         else if hit_test_machine3x3_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
           // the big machine button
           mouse_state.down_menu_button = MenuButton::Machine3x3Button;
-        } else if mouse_state.atom_hover {
+        }
+        else if mouse_state.atom_hover {
           mouse_state.atom_down = true;
           mouse_state.atom_down_atom_index = mouse_state.atom_hover_atom_index;
-        } else {
+        }
+        else if hit_test_copy_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
+          mouse_state.down_menu_button = MenuButton::CopyFactory;
+        }
+        else if hit_test_paste_button(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
+          mouse_state.down_menu_button = MenuButton::PasteFactory;
+        }
+        else {
           log!("Ignored down event in bottom");
         }
         log!("Bottom menu button down: {:?}", mouse_state.down_menu_button);
@@ -1450,9 +1509,11 @@ fn update_mouse_state(
       ZONE_SAVE_MAP => {
         if options.enable_quick_save_menu {
           let button_index = hit_test_save_map_button_index(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
-          if button_index == 100 { return; } // Not up on a button
-          mouse_state.up_save_map = true;
-          mouse_state.up_save_map_index = button_index;
+          if button_index != 100 {
+            // Up on a button
+            mouse_state.up_save_map = true;
+            mouse_state.up_save_map_index = button_index;
+          }
         } else {
           log!("Ignoring map save up");
         }
@@ -1526,6 +1587,12 @@ fn update_mouse_state(
         else if hit_test_machine3x3_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
           // the big machine button
           mouse_state.up_menu_button = MenuButton::Machine3x3Button;
+        }
+        else if hit_test_copy_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
+          mouse_state.up_menu_button = MenuButton::CopyFactory;
+        }
+        else if hit_test_paste_button(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
+          mouse_state.up_menu_button = MenuButton::PasteFactory;
         }
         else {
           log!("Ignored bottom up event");
@@ -1671,6 +1738,12 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
         Zone::Bottom => {
           if mouse_state.atom_down {
             on_up_atom(options, state, config, factory, mouse_state);
+          }
+          else if mouse_state.up_menu_button == MenuButton::CopyFactory {
+            on_copy_factory(options, state, config, factory);
+          }
+          else if mouse_state.up_menu_button == MenuButton::PasteFactory {
+            on_paste_factory(options, state, config, factory);
           }
         }
         Zone::Right => {
@@ -2145,6 +2218,22 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
 
     quick_saves[mouse_state.up_save_map_index] = Some(quick_save_create(mouse_state.up_save_map_index, &document, map_snapshot, png));
   }
+}
+fn on_copy_factory(options: &Options, state: &mut State, config: &Config, factory: &mut Factory) {
+  log!("on_copy_factory()");
+  let ok = copyToClipboard(generate_floor_dump(&options, &state, &config, &factory, dnow()).join("\n").into());
+  if ok {
+    state.load_copy_hint_kind = LoadCopyHint::Success;
+    state.load_copy_hint_since = factory.ticks;
+  }
+}
+fn on_paste_factory(options: &Options, state: &mut State, config: &Config, factory: &mut Factory) {
+  log!("on_paste_factory()");
+
+  // Unfortunately, at the time of writing all clipboard access in Rust requires enabling unsafe api's
+  // Alternative ways don't seem to work. So I'm handling clipboard read/write from JS and
+  // tunnel them back in through the "actions" API.
+  getCurrentPaste(); // -> see index.html definition
 }
 fn on_drag_end_machine1x2_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
   on_drag_end_machine_over_floor(options, state, config, factory, mouse_state, 1, 2);
@@ -2742,6 +2831,13 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
     }
     MenuButton::Row3Button6 => {
       log!("(no button here)");
+    }
+
+    MenuButton::CopyFactory => {
+      on_copy_factory(options, state, config, factory);
+    }
+    MenuButton::PasteFactory => {
+      on_paste_factory(options, state, config, factory);
     }
   }
 }
@@ -5609,6 +5705,12 @@ fn hit_test_save_map_delete_part(x: f64, y: f64, row: f64, col: f64) -> bool {
     GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN) + UI_SAVE_THUMB_WIDTH, GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN) + UI_SAVE_THUMB_HEIGHT,
   );
 }
+fn hit_test_copy_button(x: f64, y: f64) -> bool {
+  return bounds_check(x, y, UI_SAVE_COPY_X, UI_SAVE_COPY_Y, UI_SAVE_COPY_X+UI_SAVE_CP_WIDTH, UI_SAVE_COPY_Y+UI_SAVE_CP_HEIGHT);
+}
+fn hit_test_paste_button(x: f64, y: f64) -> bool {
+  return bounds_check(x, y, UI_SAVE_PASTE_X, UI_SAVE_PASTE_Y, UI_SAVE_PASTE_X+UI_SAVE_CP_WIDTH, UI_SAVE_PASTE_Y+UI_SAVE_CP_HEIGHT);
+}
 fn paint_load_thumbs(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState, quick_saves: &mut [Option<QuickSave>; 9]) {
   if !options.enable_quick_save_menu {
     return;
@@ -5620,7 +5722,7 @@ fn paint_load_thumbs(options: &Options, state: &State, config: &Config, factory:
   paint_map_save_load_button(options, state, config,factory, 1.0, 1.0, 3, context, &mut quick_saves[3], button_canvii, mouse_state);
 }
 fn paint_map_save_load_button(options: &Options, state: &State, config: &Config, factory: &Factory, col: f64, row: f64, button_index: usize, context: &Rc<web_sys::CanvasRenderingContext2d>, quick_save: &mut Option<QuickSave>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
-  assert!(button_index < 6, "there are only 6 save buttons");
+  assert!(button_index < 4, "there are only 4 save buttons");
   let ox = (GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN)).floor();
   let oy = (GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN)).floor();
   if let Some(quick_save) = quick_save {
@@ -5666,6 +5768,101 @@ fn paint_map_save_load_button(options: &Options, state: &State, config: &Config,
       UI_SAVE_THUMB_WIDTH / 3.0,
       UI_SAVE_THUMB_HEIGHT / 2.0
     );
+  }
+
+  paint_copy_button(options, state, config, factory, context, button_canvii, mouse_state);
+  paint_paste_button(options, state, config, factory, context, button_canvii, mouse_state);
+}
+fn paint_copy_button(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
+  paint_button(options, state, config, context, button_canvii, if mouse_state.over_menu_button == MenuButton::CopyFactory { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_SAVE_COPY_X, UI_SAVE_COPY_Y);
+  paint_asset_raw(
+    options, state, config, &context, CONFIG_NODE_ASSET_COPY_GREY, 0,
+    UI_SAVE_COPY_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_SAVE_COPY_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0
+  );
+
+  let max = 40000;
+  let delay = 15000;
+  let since = factory.ticks - state.load_copy_hint_since;
+  if state.load_copy_hint_since > 0 && since < max {
+    match state.load_copy_hint_kind {
+      LoadCopyHint::None => {}
+      LoadCopyHint::Success => {
+        let p = 1.0 - (since as f64 / (max - delay) as f64).min(1.0);
+        let n = (p * 255.0) as u8;
+        context.save();
+        context.set_global_alpha(p);
+        paint_asset_raw(
+          options, state, config, &context, CONFIG_NODE_ASSET_COPY_GREEN, 0,
+          UI_SAVE_COPY_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_SAVE_COPY_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0
+        );
+        context.restore();
+      }
+    }
+  }
+}
+fn paint_paste_button(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
+  paint_button(options, state, config, context, button_canvii, if mouse_state.over_menu_button == MenuButton::PasteFactory { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_SAVE_PASTE_X, UI_SAVE_PASTE_Y);
+  paint_asset_raw(
+    options, state, config, &context, CONFIG_NODE_ASSET_PASTE_GREY, 0,
+    UI_SAVE_PASTE_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_SAVE_PASTE_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0
+  );
+
+  let max = 40000;
+  let delay = 15000;
+  let since = factory.ticks - state.load_paste_hint_since;
+  if state.load_paste_hint_since > 0 && since < max {
+    match state.load_paste_hint_kind {
+      LoadPasteHint::None => {}
+      LoadPasteHint::Empty => {
+        let p = if since < delay { 1.0 } else { 1.0 - (since - delay) as f64 / (max - delay) as f64 };
+        let n = (p * 255.0) as u8;
+        context.save();
+
+        context.set_font(&"bold 52px Verdana");
+        context.set_fill_style(&format!("#ff0000{:02x}", n).into());
+        context.fill_text("!", UI_SAVE_PASTE_X + 20.0, UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
+        context.set_stroke_style(&format!("#000000{:02x}", n).into());
+        context.set_line_width(2.0);
+        context.stroke_text("!", UI_SAVE_PASTE_X + 20.0, UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
+        context.set_stroke_style(&format!("#ffffff{:02x}", n).into());
+        context.set_line_width(1.0);
+        context.stroke_text("!", UI_SAVE_PASTE_X + 20.0, UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
+
+        context.set_font(&"bold 30px Verdana");
+        context.set_fill_style(&format!("#000000{:02x}", n).into());
+        context.fill_text("ctrl+v / cmd+v", UI_SAVE_PASTE_X + UI_SAVE_CP_WIDTH + 15.0, UI_SAVE_PASTE_Y + 38.0).expect("canvas api call to work");
+        context.set_stroke_style(&format!("#ffffff{:02x}", n).into());
+        context.stroke_text("ctrl+v / cmd+v", UI_SAVE_PASTE_X + UI_SAVE_CP_WIDTH + 15.0, UI_SAVE_PASTE_Y + 38.0).expect("canvas api call to work");
+
+        context.restore();
+      }
+      LoadPasteHint::Invalid => {
+        let p = if since < delay { 1.0 } else { 1.0 - (since - delay) as f64 / (max - delay) as f64 };
+        let n = (p * 255.0) as u8;
+        context.save();
+        context.set_font(&"bold 52px Verdana");
+        context.set_fill_style(&format!("#ff0000{:02x}", n).into());
+        context.fill_text("?", UI_SAVE_PASTE_X + 16.0, UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
+        context.set_stroke_style(&format!("#000000{:02x}", n).into());
+        context.set_line_width(2.0);
+        context.stroke_text("?", UI_SAVE_PASTE_X + 16.0, UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
+        context.set_stroke_style(&format!("#ffffff{:02x}", n).into());
+        context.set_line_width(1.0);
+        context.stroke_text("?", UI_SAVE_PASTE_X + 16.0, UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
+        context.restore();
+      }
+      LoadPasteHint::Success => {
+        let p = 1.0 - (since as f64 / (max - delay) as f64).min(1.0);
+        let n = (p * 255.0) as u8;
+        context.save();
+        context.set_global_alpha(p);
+        paint_asset_raw(
+          options, state, config, &context, CONFIG_NODE_ASSET_PASTE_GREEN, 0,
+          UI_SAVE_PASTE_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_SAVE_PASTE_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0
+        );
+        context.restore();
+      }
+    }
   }
 }
 fn paint_map_state_buttons(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
@@ -6094,6 +6291,8 @@ fn document() -> web_sys::Document {
   window()
     .document()
     .expect("should have a document on window")
+    // // Convert to a HtmlDocument, which is different (richer) from Document. Requires HtmlDocument feature in cargo.toml
+    // .dyn_into::<web_sys::HtmlDocument>().unwrap()
 }
 fn body() -> web_sys::HtmlElement {
   document().body().expect("document should have a body")
