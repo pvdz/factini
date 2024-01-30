@@ -5937,6 +5937,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
 
   if options.enable_maze_full {
     if !options.dbg_maze_enable_runner {
+      // (Runner is painted but won't move)
       context.set_fill_style(&"black".into());
       context.fill_text("Warning: options.dbg_maze_enable_runner = false", x, y + MAZE_HEIGHT + 15.0).expect("an ok");
     }
@@ -6048,161 +6049,160 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     context.fill_rect(x + (factory.maze_runner.x as f64) * MAZE_CELL_SIZE + 2.0, y + (factory.maze_runner.y as f64) * MAZE_CELL_SIZE + 2.0, MAZE_CELL_SIZE - 4.0, 6.0);
   }
 
-  if options.enable_maze_roundway_and_collection {
-    // Stats bars below the maze
+  // Stats bars below the maze
 
-    let max_bar_tabs = (MAZE_MAX_UNITS_PER_REFUEL as f64) + 1.0; // First one is always filled and is more of a label
-    let bar_width = MAZE_WIDTH / max_bar_tabs;
-    let bar_height = 25.0;
-    let fuel_width = 10.0;
-    let fuel_height = 10.0;
+  let max_bar_tabs = (MAZE_MAX_UNITS_PER_REFUEL as f64) + 1.0; // First one is always filled and is more of a label
+  let bar_width = MAZE_WIDTH / max_bar_tabs;
+  let bar_height = 25.0;
+  let fuel_width = 10.0;
+  let fuel_height = 10.0;
 
-    let ( e, s, p, v) = factory.maze_prep;
-    let (flying_e, flying_s, flying_p, flying_v) = factory.fuel_in_flight;
+  let ( e, s, p, v) = factory.maze_prep;
+  let (flying_e, flying_s, flying_p, flying_v) = factory.fuel_in_flight;
 
-    let delta = -6.0;
+  let delta = -6.0;
 
-    let refuel_max_time = maze_get_refuel_time(options) as f64;
-    let fueling_time = (factory.ticks - factory.maze_runner.maze_refueling_at) as f64;
-    let fuel_progress1: f64 = if fueling_time < refuel_max_time { fueling_time as f64 / refuel_max_time } else { 1.0 };
-    // Wait 10% of the time at the start before moving
-    let fuel_progress = if fuel_progress1 < MAZE_REFUEL_PORTION { 0.0 } else { (fuel_progress1 - MAZE_REFUEL_PORTION) / (1.0 - MAZE_REFUEL_PORTION) };
+  let refuel_max_time = maze_get_refuel_time(options) as f64;
+  let fueling_time = (factory.ticks - factory.maze_runner.maze_refueling_at) as f64;
+  let fuel_progress1: f64 = if fueling_time < refuel_max_time { fueling_time as f64 / refuel_max_time } else { 1.0 };
+  // Wait 10% of the time at the start before moving
+  let fuel_progress = if fuel_progress1 < MAZE_REFUEL_PORTION { 0.0 } else { (fuel_progress1 - MAZE_REFUEL_PORTION) / (1.0 - MAZE_REFUEL_PORTION) };
 
-    context.set_fill_style(&"black".into());
-    if options.dbg_maze_paint_stats_text {
-      context.fill_text(format!(
-        "{}  {}  {}  {} :: {}% {}% :: fin {} re {} fuel {}",
-        e, s, p , v,
-        (fuel_progress1 * 100.0).floor(),
-        (fuel_progress * 100.0).floor(),
-        (maze_get_finish_pause_time(options) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_finish_at as i64)).max(0),
-        (maze_get_finish_pause_time(options) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_restart_at as i64)).max(0),
-        (maze_get_refuel_time(options) as i64- (factory.ticks as i64 - factory.maze_runner.maze_refueling_at as i64)).max(0),
-      ).as_str(), 0.5 + x + 5.0 - 100.0, 0.5 + GRID_Y2 + (bar_height * 4.0 + 30.0)).expect("canvas api call to work");
-    }
+  context.set_fill_style(&"black".into());
+  if options.dbg_maze_paint_stats_text {
+    context.fill_text(format!(
+      "{}  {}  {}  {} :: {}% {}% :: fin {} re {} fuel {}",
+      e, s, p , v,
+      (fuel_progress1 * 100.0).floor(),
+      (fuel_progress * 100.0).floor(),
+      (maze_get_finish_pause_time(options) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_finish_at as i64)).max(0),
+      (maze_get_finish_pause_time(options) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_restart_at as i64)).max(0),
+      (maze_get_refuel_time(options) as i64- (factory.ticks as i64 - factory.maze_runner.maze_refueling_at as i64)).max(0),
+    ).as_str(), 0.5 + x + 5.0 - 100.0, 0.5 + GRID_Y2 + (bar_height * 4.0 + 30.0)).expect("canvas api call to work");
+  }
 
-    // e = green
-    let have_e = (e as f64/10.0).floor().min(max_bar_tab_count - 1.0); // first one is always filled
-    let filled_tabs_e = bar_width * (1.0 + have_e);
-    let semi_filled_tabs_e = if filled_tabs_e >= max_bar_tab_count * bar_width { 0.0 } else { (bar_width * ((e as f64 % 10.0) / 10.0)).floor() };
-    let bar_e_offset_y = 0.5 + GRID_Y2 + delta;
-    context.set_fill_style(&"white".into());
-    context.fill_rect(0.5 + x, bar_e_offset_y, MAZE_WIDTH, bar_height);
-    context.set_fill_style(&"#169d06".into());
-    context.fill_rect(0.5 + x, bar_e_offset_y, filled_tabs_e, bar_height);
-    context.set_fill_style(&"#169d0655".into());
-    context.fill_rect(0.5 + x + filled_tabs_e, bar_e_offset_y, semi_filled_tabs_e, bar_height);
-    context.set_stroke_style(&"black".into());
-    context.stroke_rect(0.5 + x, bar_e_offset_y, MAZE_WIDTH, bar_height);
-    context.set_fill_style(&"white".into());
-    context.fill_text("E", 0.5 + x + 5.0, bar_e_offset_y + 17.0).expect("canvas api call to work");
-    for i in 0..(max_bar_tabs as usize) {
-      context.begin_path();
-      context.move_to(0.5 + x + (bar_width * (i as f64)), bar_e_offset_y);
-      context.line_to(0.5 + x + (bar_width * (i as f64)), bar_e_offset_y + bar_height);
-      context.stroke();
-    }
+  // e = green
+  let have_e = (e as f64/10.0).floor().min(max_bar_tab_count - 1.0); // first one is always filled
+  let filled_tabs_e = bar_width * (1.0 + have_e);
+  let semi_filled_tabs_e = if filled_tabs_e >= max_bar_tab_count * bar_width { 0.0 } else { (bar_width * ((e as f64 % 10.0) / 10.0)).floor() };
+  let bar_e_offset_y = 0.5 + GRID_Y2 + delta;
+  context.set_fill_style(&"white".into());
+  context.fill_rect(0.5 + x, bar_e_offset_y, MAZE_WIDTH, bar_height);
+  context.set_fill_style(&"#169d06".into());
+  context.fill_rect(0.5 + x, bar_e_offset_y, filled_tabs_e, bar_height);
+  context.set_fill_style(&"#169d0655".into());
+  context.fill_rect(0.5 + x + filled_tabs_e, bar_e_offset_y, semi_filled_tabs_e, bar_height);
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(0.5 + x, bar_e_offset_y, MAZE_WIDTH, bar_height);
+  context.set_fill_style(&"white".into());
+  context.fill_text("E", 0.5 + x + 5.0, bar_e_offset_y + 17.0).expect("canvas api call to work");
+  for i in 0..(max_bar_tabs as usize) {
+    context.begin_path();
+    context.move_to(0.5 + x + (bar_width * (i as f64)), bar_e_offset_y);
+    context.line_to(0.5 + x + (bar_width * (i as f64)), bar_e_offset_y + bar_height);
+    context.stroke();
+  }
 
-    // s = orange
-    let have_s = (s as f64/10.0).floor().min(max_bar_tab_count - 1.0); // first one is always filled
-    let filled_tabs_s = bar_width * (1.0 + have_s);
-    let semi_filled_tabs_s = if filled_tabs_s >= max_bar_tab_count * bar_width { 0.0 } else { (bar_width * ((s as f64 % 10.0) / 10.0)).floor() };
-    let bar_s_offset_y = 0.5 + GRID_Y2 + 32.0 + delta;
-    context.set_fill_style(&"white".into());
-    context.fill_rect(0.5 + x, bar_s_offset_y, MAZE_WIDTH, bar_height);
-    context.set_fill_style(&"#a86007".into());
-    context.fill_rect(0.5 + x, bar_s_offset_y, filled_tabs_s, bar_height);
-    context.set_fill_style(&"#a8600777".into());
-    context.fill_rect(0.5 + x + filled_tabs_s, bar_s_offset_y, semi_filled_tabs_s, bar_height);
-    context.set_stroke_style(&"black".into());
-    context.stroke_rect(0.5 + x, bar_s_offset_y, MAZE_WIDTH, bar_height);
-    context.set_fill_style(&"white".into());
-    context.fill_text("S", 0.5 + x + 5.0, bar_s_offset_y + 17.0).expect("canvas api call to work");
-    for i in 0..(max_bar_tabs as usize) {
-      context.begin_path();
-      context.move_to(0.5 + x + (bar_width * (i as f64)), bar_s_offset_y);
-      context.line_to(0.5 + x + (bar_width * (i as f64)), bar_s_offset_y + bar_height);
-      context.stroke();
-    }
+  // s = orange
+  let have_s = (s as f64/10.0).floor().min(max_bar_tab_count - 1.0); // first one is always filled
+  let filled_tabs_s = bar_width * (1.0 + have_s);
+  let semi_filled_tabs_s = if filled_tabs_s >= max_bar_tab_count * bar_width { 0.0 } else { (bar_width * ((s as f64 % 10.0) / 10.0)).floor() };
+  let bar_s_offset_y = 0.5 + GRID_Y2 + 32.0 + delta;
+  context.set_fill_style(&"white".into());
+  context.fill_rect(0.5 + x, bar_s_offset_y, MAZE_WIDTH, bar_height);
+  context.set_fill_style(&"#a86007".into());
+  context.fill_rect(0.5 + x, bar_s_offset_y, filled_tabs_s, bar_height);
+  context.set_fill_style(&"#a8600777".into());
+  context.fill_rect(0.5 + x + filled_tabs_s, bar_s_offset_y, semi_filled_tabs_s, bar_height);
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(0.5 + x, bar_s_offset_y, MAZE_WIDTH, bar_height);
+  context.set_fill_style(&"white".into());
+  context.fill_text("S", 0.5 + x + 5.0, bar_s_offset_y + 17.0).expect("canvas api call to work");
+  for i in 0..(max_bar_tabs as usize) {
+    context.begin_path();
+    context.move_to(0.5 + x + (bar_width * (i as f64)), bar_s_offset_y);
+    context.line_to(0.5 + x + (bar_width * (i as f64)), bar_s_offset_y + bar_height);
+    context.stroke();
+  }
 
-    // p = pink
-    let have_p = (p as f64/10.0).floor().min(max_bar_tab_count - 1.0); // first one is always filled
-    let filled_tabs_p = bar_width * (1.0 + have_p);
-    let semi_filled_tabs_p = if filled_tabs_p >= max_bar_tab_count * bar_width { 0.0 } else { (bar_width * ((p as f64 % 10.0) / 10.0)).floor() };
-    let bar_p_offset_y = 0.5 + GRID_Y2 + 64.0 + delta;
-    context.set_fill_style(&"white".into());
-    context.fill_rect(0.5 + x, bar_p_offset_y, MAZE_WIDTH, bar_height);
-    context.set_fill_style(&"#ef13bf".into());
-    context.fill_rect(0.5 + x, bar_p_offset_y, filled_tabs_p, bar_height);
-    context.set_fill_style(&"#ef13bf77".into());
-    context.fill_rect(0.5 + x + filled_tabs_p, bar_p_offset_y, semi_filled_tabs_p, bar_height);
-    context.set_stroke_style(&"black".into());
-    context.stroke_rect(0.5 + x, bar_p_offset_y, MAZE_WIDTH, bar_height);
-    context.set_fill_style(&"white".into());
-    context.fill_text("P", 0.5 + x + 5.0, bar_p_offset_y + 17.0).expect("canvas api call to work");
-    for i in 0..(max_bar_tabs as usize) {
-      context.begin_path();
-      context.move_to(0.5 + x + (bar_width * (i as f64)), bar_p_offset_y);
-      context.line_to(0.5 + x + (bar_width * (i as f64)), bar_p_offset_y + bar_height);
-      context.stroke();
-    }
+  // p = pink
+  let have_p = (p as f64/10.0).floor().min(max_bar_tab_count - 1.0); // first one is always filled
+  let filled_tabs_p = bar_width * (1.0 + have_p);
+  let semi_filled_tabs_p = if filled_tabs_p >= max_bar_tab_count * bar_width { 0.0 } else { (bar_width * ((p as f64 % 10.0) / 10.0)).floor() };
+  let bar_p_offset_y = 0.5 + GRID_Y2 + 64.0 + delta;
+  context.set_fill_style(&"white".into());
+  context.fill_rect(0.5 + x, bar_p_offset_y, MAZE_WIDTH, bar_height);
+  context.set_fill_style(&"#ef13bf".into());
+  context.fill_rect(0.5 + x, bar_p_offset_y, filled_tabs_p, bar_height);
+  context.set_fill_style(&"#ef13bf77".into());
+  context.fill_rect(0.5 + x + filled_tabs_p, bar_p_offset_y, semi_filled_tabs_p, bar_height);
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(0.5 + x, bar_p_offset_y, MAZE_WIDTH, bar_height);
+  context.set_fill_style(&"white".into());
+  context.fill_text("P", 0.5 + x + 5.0, bar_p_offset_y + 17.0).expect("canvas api call to work");
+  for i in 0..(max_bar_tabs as usize) {
+    context.begin_path();
+    context.move_to(0.5 + x + (bar_width * (i as f64)), bar_p_offset_y);
+    context.line_to(0.5 + x + (bar_width * (i as f64)), bar_p_offset_y + bar_height);
+    context.stroke();
+  }
 
-    // v = purple
-    let have_v = (v as f64/10.0).floor().min(max_bar_tab_count - 1.0); // first one is always filled
-    let filled_tabs_v = bar_width * (1.0 + have_v);
-    let semi_filled_tabs_v = if filled_tabs_v >= max_bar_tab_count * bar_width { 0.0 } else { (bar_width * ((v as f64 % 10.0) / 10.0)).floor() };
-    let bar_v_offset_y = 0.5 + GRID_Y2 + 96.0 + delta;
-    context.set_fill_style(&"white".into());
-    context.fill_rect(0.5 + x, bar_v_offset_y, MAZE_WIDTH, bar_height);
-    context.set_fill_style(&"#360676".into());
-    context.fill_rect(0.5 + x, bar_v_offset_y, filled_tabs_v, bar_height);
-    context.set_fill_style(&"#36067677".into());
-    context.fill_rect(0.5 + x + filled_tabs_v, bar_v_offset_y, semi_filled_tabs_v, bar_height);
-    context.set_stroke_style(&"black".into());
-    context.stroke_rect(0.5 + x, bar_v_offset_y, MAZE_WIDTH, bar_height);
-    context.set_fill_style(&"white".into());
-    context.fill_text("V", 0.5 + x + 5.0, bar_v_offset_y + 17.0).expect("canvas api call to work");
-    for i in 0..(max_bar_tabs as usize) {
-      context.begin_path();
-      context.move_to(0.5 + x + (bar_width * (i as f64)), bar_v_offset_y);
-      context.line_to(0.5 + x + (bar_width * (i as f64)), bar_v_offset_y + bar_height);
-      context.stroke();
-    }
+  // v = purple
+  let have_v = (v as f64/10.0).floor().min(max_bar_tab_count - 1.0); // first one is always filled
+  let filled_tabs_v = bar_width * (1.0 + have_v);
+  let semi_filled_tabs_v = if filled_tabs_v >= max_bar_tab_count * bar_width { 0.0 } else { (bar_width * ((v as f64 % 10.0) / 10.0)).floor() };
+  let bar_v_offset_y = 0.5 + GRID_Y2 + 96.0 + delta;
+  context.set_fill_style(&"white".into());
+  context.fill_rect(0.5 + x, bar_v_offset_y, MAZE_WIDTH, bar_height);
+  context.set_fill_style(&"#360676".into());
+  context.fill_rect(0.5 + x, bar_v_offset_y, filled_tabs_v, bar_height);
+  context.set_fill_style(&"#36067677".into());
+  context.fill_rect(0.5 + x + filled_tabs_v, bar_v_offset_y, semi_filled_tabs_v, bar_height);
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(0.5 + x, bar_v_offset_y, MAZE_WIDTH, bar_height);
+  context.set_fill_style(&"white".into());
+  context.fill_text("V", 0.5 + x + 5.0, bar_v_offset_y + 17.0).expect("canvas api call to work");
+  for i in 0..(max_bar_tabs as usize) {
+    context.begin_path();
+    context.move_to(0.5 + x + (bar_width * (i as f64)), bar_v_offset_y);
+    context.line_to(0.5 + x + (bar_width * (i as f64)), bar_v_offset_y + bar_height);
+    context.stroke();
+  }
 
-    // Squares in flight
-    context.set_fill_style(&"#169d06".into());
-    context.set_stroke_style(&"black".into());
-    for i in 0..flying_e {
-      let ox = 0.5 + x + bar_width + (bar_width * (i as f64)) + 4.0;
-      let oy = bar_e_offset_y + 8.0;
-      let cx = ox + (energy_x + 6.0 - ox) * fuel_progress;
-      let cy = oy + (energy_y + 6.0 - oy) * fuel_progress;
-      context.fill_rect(cx, cy, fuel_width, fuel_height);
-      context.stroke_rect(cx, cy, fuel_width, fuel_height);
-    }
-    context.set_fill_style(&"#a86007".into());
-    context.set_stroke_style(&"black".into());
-    for i in 0..flying_s {
-      let ox = 0.5 + x + bar_width + (bar_width * (i as f64)) + 4.0;
-      let oy = bar_s_offset_y + 8.0;
-      let cx = ox + (speed_x + 6.0 - ox) * fuel_progress;
-      let cy = oy + (speed_y + 6.0 - oy) * fuel_progress;
-      context.fill_rect(cx, cy, fuel_width, fuel_height);
-      context.stroke_rect(cx, cy, fuel_width, fuel_height);
-    }
-    context.set_fill_style(&"#ef13bf".into());
-    context.set_stroke_style(&"black".into());
-    for i in 0..flying_p {
-      let ox = 0.5 + x + bar_width + (bar_width * (i as f64)) + 4.0;
-      let oy = bar_p_offset_y + 8.0;
-      let cx = ox + (power_x + 6.0 - ox) * fuel_progress;
-      let cy = oy + (power_y + 6.0 - oy) * fuel_progress;
-      context.fill_rect(cx, cy, fuel_width, fuel_height);
-      context.stroke_rect(cx, cy, fuel_width, fuel_height);
-    }
-    context.set_fill_style(&"#360676".into());
-    context.set_stroke_style(&"black".into());
-    for i in 0..flying_v {
+  // Squares in flight
+  context.set_fill_style(&"#169d06".into());
+  context.set_stroke_style(&"black".into());
+  for i in 0..flying_e {
+    let ox = 0.5 + x + bar_width + (bar_width * (i as f64)) + 4.0;
+    let oy = bar_e_offset_y + 8.0;
+    let cx = ox + (energy_x + 6.0 - ox) * fuel_progress;
+    let cy = oy + (energy_y + 6.0 - oy) * fuel_progress;
+    context.fill_rect(cx, cy, fuel_width, fuel_height);
+    context.stroke_rect(cx, cy, fuel_width, fuel_height);
+  }
+  context.set_fill_style(&"#a86007".into());
+  context.set_stroke_style(&"black".into());
+  for i in 0..flying_s {
+    let ox = 0.5 + x + bar_width + (bar_width * (i as f64)) + 4.0;
+    let oy = bar_s_offset_y + 8.0;
+    let cx = ox + (speed_x + 6.0 - ox) * fuel_progress;
+    let cy = oy + (speed_y + 6.0 - oy) * fuel_progress;
+    context.fill_rect(cx, cy, fuel_width, fuel_height);
+    context.stroke_rect(cx, cy, fuel_width, fuel_height);
+  }
+  context.set_fill_style(&"#ef13bf".into());
+  context.set_stroke_style(&"black".into());
+  for i in 0..flying_p {
+    let ox = 0.5 + x + bar_width + (bar_width * (i as f64)) + 4.0;
+    let oy = bar_p_offset_y + 8.0;
+    let cx = ox + (power_x + 6.0 - ox) * fuel_progress;
+    let cy = oy + (power_y + 6.0 - oy) * fuel_progress;
+    context.fill_rect(cx, cy, fuel_width, fuel_height);
+    context.stroke_rect(cx, cy, fuel_width, fuel_height);
+  }
+  context.set_fill_style(&"#360676".into());
+  context.set_stroke_style(&"black".into());
+  for i in 0..flying_v {
       let ox = 0.5 + x + bar_width + (bar_width * (i as f64)) + 4.0;
       let oy = bar_v_offset_y + 8.0;
       let cx = ox + (volume_x + 6.0 - ox) * fuel_progress;
@@ -6210,7 +6210,6 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
       context.fill_rect(cx, cy, fuel_width, fuel_height);
       context.stroke_rect(cx, cy, fuel_width, fuel_height);
     }
-  }
 }
 
 fn paint_factory_belt(options: &Options, state: &State, config: &Config, factory: &Factory, coord: usize, context: &Rc<web_sys::CanvasRenderingContext2d>, dx: f64, dy: f64, dw: f64, dh: f64) {
