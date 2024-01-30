@@ -35,10 +35,12 @@
     return $game_options.value /*GAME_OPTIONS*/;
   }
   function setGameOptions(optionStr, onLoad) {
+    // Note: onLoad is first time Rust passes the options to the UI and again when map is loaded. It is NOT the initial options.md.js fetch, which happens first.
     console.log('[js] setGameOptions(', GAME_OPTIONS === optionStr ? 'from options.md.js' : 'from arg', ', onLoad =',onLoad,')');
-    //console.log("[js] setGameOptions() received this:\n", optionStr);
     $game_options.value = optionStr;
     $option_bools.innerHTML = '';
+
+    let loadMessage = [];
 
     optionStr.trim().split('\n').forEach(s => {
       const line = s.trim()[0] === '-' ? s.trim().slice(1) : s.trim();
@@ -46,25 +48,18 @@
       const key = keyy.trim();
       const value = valueParts.join(':').trim();
 
-      //console.log('[js] checking', [key], [value]);
-
       if (key === 'options_started_from_source') {
-        if (value !== '0') {
-          //trying to get this warning to show up
-          $option_warning.innerHTML = '(Options were loaded from localStorage! ' + value + ' bytes)';
-          $option_warning.onclick = () => {
-            console.log('Clearing options from local storage. Let\'s hope that works...');
-            window.localStorage.removeItem('factini.options');
-          };
+        if (value === '0') {
+          loadMessage.push('Options: default');
+        } else {
+          loadMessage.push('Options from localStorage: ' + value + ' bytes');
         }
       }
       else if (key === 'initial_map_from_source') {
-        if (value !== '0') {
-          $initial_map_from_source.innerHTML = '(Initial map loaded from localStorage! ' + value + ' bytes)';
-          $initial_map_from_source.onclick = () => {
-            console.log('Clearing map from local storage. Let\'s hope that works...');
-            window.localStorage.removeItem('factini.lastMap');
-          };
+        if (value === '0') {
+          loadMessage.push('Progress: not found');
+        } else {
+          loadMessage.push('Progress from localStorage: ' + value + ' bytes');
         }
       }
       else if (value === 'true' || value === 'false') {
@@ -86,6 +81,8 @@
         };
       }
     });
+
+    if (loadMessage.length) $warnings.innerHTML = loadMessage.join('<br/>');
   }
   function getExamples() { return GAME_EXAMPLES; }
   function getAction() { let x = queuedAction; queuedAction = ''; return x; }
@@ -543,11 +540,13 @@
 
 <div id="$main_game" style="float: left; clear: both; user-select: none;"></div>
 
-<style>#tdb img { border: 1px solid green; }</style>
-<div id="$tdb" style="float: right; border: 1px solid black; white-space: pre; font-family: monospace;">the debug box</div>
-
+<div style="float: right; clear: right; margin-top: 5px;">
+  Clear local:
+  <button onclick="window.localStorage.removeItem('factini.options'); $warnings.innerHTML = 'options cleared from localStorage<br/>';">options</button>
+  <button onclick="window.localStorage.removeItem('factini.lastMap'); $warnings.innerHTML = 'progress cleared from localStorage<br/>';">progress</button>
+</div>
 <div style="float: right; clear: right; margin-top: 5px;"><hr/>Options:</div>
-<div id="$option_warning" style="float: right; clear: right; color: red; cursor: pointer;" title="Click to clear"></div>
+<div id="$warnings" style="float: right; clear: right; color: red; cursor: pointer;"><br/><br/></div>
 <div id="$option_bools"></div>
 <style>
   .option-label { float: right; clear: right; cursor: pointer; }
@@ -557,7 +556,6 @@
 <script>setGameOptions(GAME_OPTIONS);</script>
 <button style="float: right; clear: right; margin-top: 5px; margin-right: 5px;" onclick="queuedAction = 'apply_options';">Apply options</button>
 
-<div style="float: right; clear: right; margin-top: 5px;"><hr/>Current map:<div id="$initial_map_from_source" style="color: red; cursor: pointer;" title="Click to clear"></div></div>
 <textarea id="$game_map" style="float: right; clear: right; min-width: 50px; min-height: 50px; width: 400px; height: 300px; margin-top: 5px; margin-right: 5px;" autocomplete="off" spellcheck="false" onClick="this.select();"></textarea>
 <script>$game_map.value = GAME_MAP.trim();</script>
 <button style="float: right; clear: right; margin-top: 5px; margin-right: 5px;" onclick="queuedAction = 'load_map';">Set as map</button>

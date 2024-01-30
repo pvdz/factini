@@ -9,6 +9,7 @@
 //   - store xorshift seed in map save
 //   - finished quests restart on load. all of them.
 //   - unlocks (speed menu, save menu, etc) and quest progress should be remembered in local storage? at least optionally and by default.
+//   - export should be ascii safe
 // - small problem with tick_belt_take_from_belt when a belt crossing is next to a supply and another belt; it will ignore the other belt as input. because the belt will not let a part proceed to the next port unless it's free and the processing order will process the neighbor belt first and then the crossing so by the time it's free, the part will still be at 50% whereas the supply part is always ready. fix is probably to make supply parts take a tick to be ready, or whatever.
 //   - affects machine speed so should be fixed
 // - machines
@@ -197,10 +198,6 @@ fn load_tile(src: &str) -> web_sys::HtmlImageElement {
     .expect("to work");
 
   img.set_src(src);
-
-  // // let body = document.body().expect("body should exist");
-  // let div = document.get_element_by_id("$tdb").unwrap().dyn_into::<web_sys::HtmlElement>().unwrap();
-  // div.append_child(&img).expect("to work");
 
   return img;
 }
@@ -551,6 +548,10 @@ pub fn start() -> Result<(), JsValue> {
   let ( mut state, mut factory ) = init(&mut options, &config, initial_map);
   state.showing_debug_bottom = options.dbg_show_bottom_info;
   let mut quick_saves: [Option<QuickSave>; 9] = [(); 9].map(|_| None);
+
+  // Update UI to reflect actually loaded map
+  log!("setGameOptions() (After loading map from localStorage)");
+  setGameOptions(options_serialize(&options).into(), true.into());
 
   state_add_examples(getExamples(), &mut state);
 
@@ -6333,7 +6334,7 @@ fn parse_and_save_options_string(option_string: String, options: &mut Options, s
   }
 
   // Update UI to reflect actually loaded options
-  log!("setGameOptions()");
+  log!("setGameOptions() (After loading them from localStorage)");
   setGameOptions(exp.into(), on_load.into());
 }
 
