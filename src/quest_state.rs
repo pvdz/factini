@@ -13,7 +13,7 @@ use super::part::*;
 use super::port::*;
 use super::port_auto::*;
 use super::prio::*;
-use super::quote::*;
+use super::quest::*;
 use super::state::*;
 use super::supply::*;
 use super::truck::*;

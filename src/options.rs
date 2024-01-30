@@ -45,7 +45,7 @@ pub struct Options {
   pub trace_cell_connect: bool,
   pub trace_cell_set_port: bool,
   pub trace_parse_fmd: bool,
-  pub trace_get_quote_status: bool,
+  pub trace_get_quest_status: bool,
   pub trace_img_loader: bool,
   pub trace_priority_step: bool,
   pub trace_porting_step: bool,
@@ -140,7 +140,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     trace_cell_connect: false,
     trace_cell_set_port: false,
     trace_parse_fmd: false,
-    trace_get_quote_status: false,
+    trace_get_quest_status: false,
     trace_img_loader: false,
     trace_priority_step: false,
     trace_porting_step: false,
@@ -323,7 +323,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "trace_cell_connect" => options.trace_cell_connect = parse_bool(value, name, strict, options.trace_cell_connect, verbose),
             "trace_cell_set_port" => options.trace_cell_set_port = parse_bool(value, name, strict, options.trace_cell_set_port, verbose),
             "trace_parse_fmd" => options.trace_parse_fmd = parse_bool(value, name, strict, options.trace_parse_fmd, verbose),
-            "trace_get_quote_status" => options.trace_get_quote_status = parse_bool(value, name, strict, options.trace_get_quote_status, verbose),
+            "trace_get_quest_status" => options.trace_get_quest_status = parse_bool(value, name, strict, options.trace_get_quest_status, verbose),
             "trace_img_loader" => options.trace_img_loader = parse_bool(value, name, strict, options.trace_img_loader, verbose),
             "trace_priority_step" => options.trace_priority_step = parse_bool(value, name, strict, options.trace_priority_step, verbose),
             "trace_porting_step" => options.trace_porting_step = parse_bool(value, name, strict, options.trace_porting_step, verbose),
@@ -369,7 +369,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "dbg_trash_is_joker" => options.dbg_trash_is_joker = parse_bool(value, name, strict, options.dbg_trash_is_joker, verbose),
             "dbg_joker_corrupts_factory" => options.dbg_joker_corrupts_factory = parse_bool(value, name, strict, options.dbg_joker_corrupts_factory, verbose),
             "dbg_machine_produce_trash" => options.dbg_machine_produce_trash = parse_bool(value, name, strict, options.dbg_machine_produce_trash, verbose),
-            "dbg_clickable_quotes" => options.dbg_clickable_quests = parse_bool(value, name, strict, options.dbg_clickable_quests, verbose),
+            "dbg_clickable_quests" => options.dbg_clickable_quests = parse_bool(value, name, strict, options.dbg_clickable_quests, verbose),
             "dbg_print_quest_states" => options.dbg_print_quest_states = parse_bool(value, name, strict, options.dbg_print_quest_states, verbose),
             "dbg_auto_builder_zero_pause" => options.dbg_auto_builder_zero_pause = parse_bool(value, name, strict, options.dbg_auto_builder_zero_pause, verbose),
             "dbg_auto_builder_zero_duration" => options.dbg_auto_builder_zero_duration = parse_bool(value, name, strict, options.dbg_auto_builder_zero_duration, verbose),
@@ -413,7 +413,7 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- trace_cell_connect: {}", options.trace_cell_connect));
   arr.push(format!("- trace_cell_set_port: {}", options.trace_cell_set_port));
   arr.push(format!("- trace_parse_fmd: {}", options.trace_parse_fmd));
-  arr.push(format!("- trace_get_quote_status: {}", options.trace_get_quote_status));
+  arr.push(format!("- trace_get_quest_status: {}", options.trace_get_quest_status));
   arr.push(format!("- trace_img_loader: {}", options.trace_img_loader));
   arr.push(format!("- trace_priority_step: {}", options.trace_priority_step));
   arr.push(format!("- trace_porting_step: {}", options.trace_porting_step));
@@ -459,7 +459,7 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- dbg_trash_is_joker: {}", options.dbg_trash_is_joker));
   arr.push(format!("- dbg_joker_corrupts_factory: {}", options.dbg_joker_corrupts_factory));
   arr.push(format!("- dbg_machine_produce_trash: {}", options.dbg_machine_produce_trash));
-  arr.push(format!("- dbg_clickable_quotes: {}", options.dbg_clickable_quests));
+  arr.push(format!("- dbg_clickable_quests: {}", options.dbg_clickable_quests));
   arr.push(format!("- dbg_print_quest_states: {}", options.dbg_print_quest_states));
   arr.push(format!("- dbg_auto_builder_zero_pause: {}", options.dbg_auto_builder_zero_pause));
   arr.push(format!("- dbg_auto_builder_zero_duration: {}", options.dbg_auto_builder_zero_duration));

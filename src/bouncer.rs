@@ -15,7 +15,7 @@ use super::paste::*;
 use super::port::*;
 use super::port_auto::*;
 use super::prio::*;
-use super::quote::*;
+use super::quest::*;
 use super::quest_state::*;
 use super::utils::*;
 use super::zone::*;
@@ -65,7 +65,7 @@ pub fn bouncer_xy_at_t(options: &Options, tick_age: u64, initial_visibile_quest_
   // This is a "damped springs" formula, with absolute y values. It sort of mimics a bouncing ball.
   let t = (tick_age as f64 / (options.bouncer_time_to_factory * ONE_SECOND as f64 * options.speed_modifier_ui)).max(0.0).min(1.0);
   let offset_y = get_quest_xy(initial_visibile_quest_index, 0.0).1;
-  let bottom_y = UI_QUOTES_OFFSET_Y + UI_QUOTES_HEIGHT + 100.0;
+  let bottom_y = UI_QUESTS_OFFSET_Y + UI_QUESTS_HEIGHT + 100.0;
   let start_height: f64 = bottom_y - offset_y; // start/max height
   let x: f64 = t * options.bouncer_formula_total_distance;
   let y: f64 = start_height * (-options.bouncer_decay_rate_modifier * t.powf(options.bouncer_amplitude_decay_rate)).exp() * ( (options.bouncer_initial_angle + options.bouncer_angular_freq * t.powf(options.bouncer_wave_decay_rate)).sin());

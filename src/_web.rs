@@ -112,7 +112,7 @@ use super::port_auto::*;
 use super::prio::*;
 use super::quest_state::*;
 use super::quick_save::*;
-use super::quote::*;
+use super::quest::*;
 use super::state::*;
 use super::truck::*;
 use super::utils::*;
@@ -642,11 +642,11 @@ pub fn start() -> Result<(), JsValue> {
       down_floor_not_corner: false,
 
       over_quest: false,
-      over_quest_visible_index: 0, // Only if over_quote
+      over_quest_visible_index: 0, // Only if over_quest
       down_quest: false,
       down_quest_visible_index: 0, // Only if down_quest
-      up_quote: false,
-      up_quest_visible_index: 0, // Only if up_quote
+      up_quest: false,
+      up_quest_visible_index: 0, // Only if up_quest
 
       over_menu_button: MenuButton::None,
       down_menu_button: MenuButton::None,
@@ -1153,7 +1153,7 @@ fn update_mouse_state(
     mouse_state.dragging_machine2x2 = false;
     mouse_state.dragging_machine3x3 = false;
     mouse_state.down_quest = false;
-    mouse_state.up_quote = false;
+    mouse_state.up_quest = false;
     mouse_state.down_save_map = false;
     mouse_state.up_save_map = false;
   }
@@ -1190,11 +1190,11 @@ fn update_mouse_state(
   match mouse_state.over_zone {
     Zone::None => panic!("cant be over on no zone"),
     ZONE_MANUAL => {} // popup
-    ZONE_QUOTES => {
+    ZONE_QUESTS => {
       mouse_state.over_quest =
-        mouse_state.world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUEST_WIDTH &&
-        (mouse_state.world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUEST_HEIGHT + UI_QUEST_MARGIN) < UI_QUEST_HEIGHT;
-      mouse_state.over_quest_visible_index = if mouse_state.over_quest { ((mouse_state.world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUEST_HEIGHT + UI_QUEST_MARGIN)) as usize } else { 0 };
+        mouse_state.world_x >= UI_QUESTS_OFFSET_X + UI_QUEST_X && mouse_state.world_x < UI_QUESTS_OFFSET_X + UI_QUEST_X + UI_QUEST_WIDTH &&
+        (mouse_state.world_y - (UI_QUESTS_OFFSET_Y + UI_QUEST_Y)) % (UI_QUEST_HEIGHT + UI_QUEST_MARGIN) < UI_QUEST_HEIGHT;
+      mouse_state.over_quest_visible_index = if mouse_state.over_quest { ((mouse_state.world_y - (UI_QUESTS_OFFSET_Y + UI_QUEST_Y)) / (UI_QUEST_HEIGHT + UI_QUEST_MARGIN)) as usize } else { 0 };
     }
     ZONE_SAVE_MAP => {
       if options.enable_quick_save_menu {
@@ -1334,11 +1334,11 @@ fn update_mouse_state(
     match mouse_state.down_zone {
       Zone::None => panic!("cant be down on no zone"),
       ZONE_MANUAL => {} // popup
-      ZONE_QUOTES => {
+      ZONE_QUESTS => {
         mouse_state.down_quest =
-          mouse_state.last_down_world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.last_down_world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUEST_WIDTH &&
-          (mouse_state.last_down_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUEST_HEIGHT + UI_QUEST_MARGIN) < UI_QUEST_HEIGHT;
-        mouse_state.down_quest_visible_index = if mouse_state.down_quest { ((mouse_state.last_down_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUEST_HEIGHT + UI_QUEST_MARGIN)) as usize } else { 0 };
+          mouse_state.last_down_world_x >= UI_QUESTS_OFFSET_X + UI_QUEST_X && mouse_state.last_down_world_x < UI_QUESTS_OFFSET_X + UI_QUEST_X + UI_QUEST_WIDTH &&
+          (mouse_state.last_down_world_y - (UI_QUESTS_OFFSET_Y + UI_QUEST_Y)) % (UI_QUEST_HEIGHT + UI_QUEST_MARGIN) < UI_QUEST_HEIGHT;
+        mouse_state.down_quest_visible_index = if mouse_state.down_quest { ((mouse_state.last_down_world_y - (UI_QUESTS_OFFSET_Y + UI_QUEST_Y)) / (UI_QUEST_HEIGHT + UI_QUEST_MARGIN)) as usize } else { 0 };
       }
       ZONE_SAVE_MAP => {
         if options.enable_quick_save_menu {
@@ -1504,11 +1504,11 @@ fn update_mouse_state(
     match mouse_state.up_zone {
       Zone::None => panic!("cant be up on no zone"),
       ZONE_MANUAL => {} // the popup
-      ZONE_QUOTES => {
-        mouse_state.up_quote =
-          mouse_state.last_up_world_x >= UI_QUOTES_OFFSET_X + UI_QUOTE_X && mouse_state.last_up_world_x < UI_QUOTES_OFFSET_X + UI_QUOTE_X + UI_QUEST_WIDTH &&
-          (mouse_state.last_up_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) % (UI_QUEST_HEIGHT + UI_QUEST_MARGIN) < UI_QUEST_HEIGHT;
-        mouse_state.up_quest_visible_index = if mouse_state.up_quote { ((mouse_state.last_up_world_y - (UI_QUOTES_OFFSET_Y + UI_QUOTE_Y)) / (UI_QUEST_HEIGHT + UI_QUEST_MARGIN)) as usize } else { 0 };
+      ZONE_QUESTS => {
+        mouse_state.up_quest =
+          mouse_state.last_up_world_x >= UI_QUESTS_OFFSET_X + UI_QUEST_X && mouse_state.last_up_world_x < UI_QUESTS_OFFSET_X + UI_QUEST_X + UI_QUEST_WIDTH &&
+          (mouse_state.last_up_world_y - (UI_QUESTS_OFFSET_Y + UI_QUEST_Y)) % (UI_QUEST_HEIGHT + UI_QUEST_MARGIN) < UI_QUEST_HEIGHT;
+        mouse_state.up_quest_visible_index = if mouse_state.up_quest { ((mouse_state.last_up_world_y - (UI_QUESTS_OFFSET_Y + UI_QUEST_Y)) / (UI_QUEST_HEIGHT + UI_QUEST_MARGIN)) as usize } else { 0 };
       }
       ZONE_SAVE_MAP => {
         if options.enable_quick_save_menu {
@@ -1654,7 +1654,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
       ZONE_FLOOR => {
         on_down_floor(mouse_state);
       }
-      ZONE_QUOTES => {
+      ZONE_QUESTS => {
         if mouse_state.down_quest {
           on_down_quest(options, state, config, factory, mouse_state);
         }
@@ -1755,8 +1755,8 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
             on_up_woop(options, state, config, factory, mouse_state);
           }
         }
-        ZONE_QUOTES => {
-          if mouse_state.up_quote {
+        ZONE_QUESTS => {
+          if mouse_state.up_quest {
             on_up_quest(options, state, config, factory, mouse_state);
           }
         }
@@ -2876,15 +2876,15 @@ fn hit_test_menu_speed_buttons(x: f64, y: f64) -> MenuButton {
     UI_SPEED_BUBBLE_OFFSET_X + 5.0 * (2.0 * UI_SPEED_BUBBLE_RADIUS) + 4.0 * UI_SPEED_BUBBLE_SPACING,
     UI_SPEED_BUBBLE_OFFSET_Y + (2.0 * UI_SPEED_BUBBLE_RADIUS)
   ) {
-    if hit_check_speed_bubble_x(x, y, BUTTON_SPEED_MIN_INDEX) {
+    if hit_test_speed_bubble_x(x, y, BUTTON_SPEED_MIN_INDEX) {
       MenuButton::SpeedMin
-    } else if hit_check_speed_bubble_x(x, y, BUTTON_SPEED_HALF_INDEX) {
+    } else if hit_test_speed_bubble_x(x, y, BUTTON_SPEED_HALF_INDEX) {
       MenuButton::SpeedHalf
-    } else if hit_check_speed_bubble_x(x, y, BUTTON_SPEED_PLAY_PAUSE_INDEX) {
+    } else if hit_test_speed_bubble_x(x, y, BUTTON_SPEED_PLAY_PAUSE_INDEX) {
       MenuButton::SpeedPlayPause
-    } else if hit_check_speed_bubble_x(x, y, BUTTON_SPEED_DOUBLE_INDEX) {
+    } else if hit_test_speed_bubble_x(x, y, BUTTON_SPEED_DOUBLE_INDEX) {
       MenuButton::SpeedDouble
-    } else if hit_check_speed_bubble_x(x, y, BUTTON_SPEED_PLUS_INDEX) {
+    } else if hit_test_speed_bubble_x(x, y, BUTTON_SPEED_PLUS_INDEX) {
       MenuButton::SpeedPlus
     } else {
       MenuButton::None
@@ -3019,7 +3019,7 @@ fn hit_test_machine3x3_button(x: f64, y: f64) -> bool {
 fn hit_test_help_button(mx: f64, my: f64) -> bool {
   return bounds_check(mx, my, UI_HELP_X, UI_HELP_Y, UI_HELP_X + UI_HELP_WIDTH, UI_HELP_Y + UI_HELP_HEIGHT);
 }
-fn hit_check_speed_bubble_x(x: f64, y: f64, index: usize) -> bool {
+fn hit_test_speed_bubble_x(x: f64, y: f64, index: usize) -> bool {
   // Note: index should be one of the BUTTON_SPEED_***_INDEX
   let diameter = 2.0 * UI_SPEED_BUBBLE_RADIUS;
   let ox = UI_SPEED_BUBBLE_OFFSET_X + (index as f64) * (diameter + UI_SPEED_BUBBLE_SPACING);
@@ -4556,7 +4556,7 @@ fn paint_bouncers(options: &Options, state: &State, config: &Config, context: &R
         let alpha = 1.0 - ((frame_age - trail_time) as f64 / fade_time as f64).max(0.0).min(1.0);
         context.set_global_alpha(alpha);
       }
-      paint_segment_part_from_config(&options, &state, &config, &context, factory.quests[quest_index].production_part_kind, x + 40.0, UI_QUOTES_OFFSET_Y + UI_QUOTES_HEIGHT + 50.0 + y, CELL_W, CELL_H);
+      paint_segment_part_from_config(&options, &state, &config, &context, factory.quests[quest_index].production_part_kind, x + 40.0, UI_QUESTS_OFFSET_Y + UI_QUESTS_HEIGHT + 50.0 + y, CELL_W, CELL_H);
       if fading {
         context.set_global_alpha(1.0);
       }
@@ -4677,7 +4677,7 @@ fn paint_quests(options: &Options, state: &State, config: &Config, context: &Rc<
   // Debug
   if options.dbg_print_quest_states {
     context.set_fill_style(&"#ffffffaa".into());
-    context.fill_rect(UI_QUOTES_OFFSET_X, UI_QUOTES_OFFSET_Y, UI_QUOTES_WIDTH, UI_QUOTES_HEIGHT);
+    context.fill_rect(UI_QUESTS_OFFSET_X, UI_QUESTS_OFFSET_Y, UI_QUESTS_WIDTH, UI_QUESTS_HEIGHT);
 
     for quest_index in 0..factory.quests.len() {
       context.set_fill_style(&"black".into()); // 100% background
@@ -4692,8 +4692,8 @@ fn paint_quests(options: &Options, state: &State, config: &Config, context: &Rc<
           factory.quests[quest_index].production_part_kind,
           factory.quests[quest_index].unlocks_todo
         ).as_str(),
-        UI_QUOTES_OFFSET_X,
-        UI_QUOTES_OFFSET_Y + 20.0 + (quest_index as f64) * 15.0
+        UI_QUESTS_OFFSET_X,
+        UI_QUESTS_OFFSET_Y + 20.0 + (quest_index as f64) * 15.0
       ).expect("oopsie fill_text");
     }
   }
@@ -4973,7 +4973,7 @@ fn paint_ui_woop_tooltip(options: &Options, state: &State, config: &Config, fact
   }
 }
 fn paint_lasers(options: &Options, state: &mut State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>) {
-  // Paint quote lasers (parts that are received draw a line to the left menu)
+  // Paint quest lasers (parts that are received draw a line to the left menu)
   let mut i = state.lasers.len();
   while i > 0 {
     i -= 1;
@@ -4986,7 +4986,7 @@ fn paint_lasers(options: &Options, state: &mut State, config: &Config, context: 
     context.set_stroke_style(&color.into());
     context.begin_path();
     context.move_to(GRID_X1 + x as f64 * CELL_W + CELL_W / 2.0, GRID_Y1 + y as f64 * CELL_H + CELL_H / 2.0);
-    context.line_to(GRID_X0 as f64 + UI_QUOTES_WIDTH as f64 / 2.0, GRID_Y1 + (UI_QUEST_HEIGHT + UI_QUEST_MARGIN) as f64 * visible_quest_index as f64 + (UI_QUEST_HEIGHT as f64) / 2.0);
+    context.line_to(GRID_X0 as f64 + UI_QUESTS_WIDTH as f64 / 2.0, GRID_Y1 + (UI_QUEST_HEIGHT + UI_QUEST_MARGIN) as f64 * visible_quest_index as f64 + (UI_QUEST_HEIGHT as f64) / 2.0);
     context.stroke();
 
     state.lasers[i].ttl -= 1;

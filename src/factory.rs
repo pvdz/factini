@@ -19,7 +19,7 @@ use super::port::*;
 use super::port_auto::*;
 use super::prio::*;
 use super::quest_state::*;
-use super::quote::*;
+use super::quest::*;
 use super::state::*;
 use super::supply::*;
 use super::truck::*;
@@ -626,7 +626,7 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
         log!("Creating trucks for these new parts: {:?}", new_parts);
 
         // We now have a set of available quests and any starting parts that they enabled.
-        // Let's create quotes and trucks for them and add them to the lists.
+        // Let's create quests and trucks for them and add them to the lists.
         new_parts.iter().enumerate().for_each(|(index, &new_part_kind)| {
           log!("Adding truck {} for {}", index, new_part_kind);
           factory.trucks.push(truck_create(
@@ -650,8 +650,8 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
 
 fn quest_get_xy(height_so_far: f64) -> ( f64, f64 ) {
   // TODO: take mouse io into account when it is not in sync with index
-  let x = UI_QUOTES_OFFSET_X + UI_QUOTE_X;
-  let y = UI_QUOTES_OFFSET_Y + height_so_far;
+  let x = UI_QUESTS_OFFSET_X + UI_QUEST_X;
+  let y = UI_QUESTS_OFFSET_Y + height_so_far;
 
   return ( x, y );
 }

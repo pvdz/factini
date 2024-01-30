@@ -37,7 +37,7 @@ pub mod port_auto;
 pub mod prio;
 pub mod quest_state;
 pub mod quick_save;
-pub mod quote;
+pub mod quest;
 pub mod sprite_config;
 pub mod sprite_frame;
 pub mod state;

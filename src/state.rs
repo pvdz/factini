@@ -118,11 +118,11 @@ pub struct MouseState {
   pub down_floor_not_corner: bool,
 
   pub over_quest: bool,
-  pub over_quest_visible_index: usize, // Only if over_quote
+  pub over_quest_visible_index: usize, // Only if over_quest
   pub down_quest: bool,
   pub down_quest_visible_index: usize, // Only if down_quest
-  pub up_quote: bool,
-  pub up_quest_visible_index: usize, // Only if up_quote
+  pub up_quest: bool,
+  pub up_quest_visible_index: usize, // Only if up_quest
 
   pub over_menu_button: MenuButton,
   pub down_menu_button: MenuButton,

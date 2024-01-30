@@ -45,13 +45,13 @@ pub const UI_FLOOR_WIDTH: f64 = FLOOR_PATH_SPACING + FLOOR_WIDTH + FLOOR_PATH_SP
 pub const UI_FLOOR_HEIGHT: f64 = FLOOR_PATH_SPACING + FLOOR_HEIGHT + FLOOR_PATH_SPACING;
 
 // Achievements on the left
-pub const UI_QUOTES_OFFSET_X: f64 = GRID_X0;
-pub const UI_QUOTES_OFFSET_Y: f64 = UI_FLOOR_OFFSET_Y;
-pub const UI_QUOTES_WIDTH: f64 = GRID_LEFT_WIDTH;
-pub const UI_QUOTES_HEIGHT: f64 = UI_FLOOR_HEIGHT;
-pub const UI_QUOTE_X: f64 = 15.0;
-pub const UI_QUOTE_Y: f64 = 0.0;
-pub const UI_QUEST_WIDTH: f64 = GRID_LEFT_WIDTH - (2.0 * UI_QUOTE_X);
+pub const UI_QUESTS_OFFSET_X: f64 = GRID_X0;
+pub const UI_QUESTS_OFFSET_Y: f64 = UI_FLOOR_OFFSET_Y;
+pub const UI_QUESTS_WIDTH: f64 = GRID_LEFT_WIDTH;
+pub const UI_QUESTS_HEIGHT: f64 = UI_FLOOR_HEIGHT;
+pub const UI_QUEST_X: f64 = 15.0;
+pub const UI_QUEST_Y: f64 = 0.0;
+pub const UI_QUEST_WIDTH: f64 = GRID_LEFT_WIDTH - (2.0 * UI_QUEST_X);
 pub const UI_QUEST_HEIGHT: f64 = CELL_H + 4.0;
 pub const UI_QUEST_MARGIN: f64 = 5.0;
 pub const QUEST_FADE_TIME: u64 = 4 * ONE_SECOND;
@@ -220,7 +220,7 @@ pub const GRID_Y3: f64 = GRID_Y2 + GRID_BOTTOM_HEIGHT + GRID_PADDING; // debug o
 pub const GRID_Y4: f64 = GRID_Y3 + GRID_BOTTOM_DEBUG_HEIGHT + GRID_PADDING;
 
 pub const ZONE_HELP: Zone = Zone::TopLeft;
-pub const ZONE_QUOTES: Zone = Zone::Left;
+pub const ZONE_QUESTS: Zone = Zone::Left;
 pub const ZONE_SAVE_MAP: Zone = Zone::BottomLeft;
 pub const ZONE_BOTTOM_BOTTOM_LEFT: Zone = Zone::BottomBottomLeft;
 pub const ZONE_FLOOR: Zone = Zone::Middle;
@@ -241,8 +241,8 @@ pub fn coord_to_zone(options: &Options, state: &State, config: &Config, x: f64, 
       // top-left, help section
       ZONE_HELP
     } else if y >= GRID_Y1 && y < GRID_Y1 + UI_FLOOR_HEIGHT {
-      // left, quotes
-      ZONE_QUOTES
+      // left, quests
+      ZONE_QUESTS
     } else if y >= GRID_Y2 && y < GRID_Y2 + GRID_BOTTOM_HEIGHT {
       // bottom-left, unused
       ZONE_SAVE_MAP
@@ -293,8 +293,8 @@ pub fn coord_to_zone(options: &Options, state: &State, config: &Config, x: f64, 
 
 pub fn get_quest_xy(visible_index: usize, delta: f64) -> (f64, f64 ) {
   // TODO: take io into account when it is not in sync with index
-  let x = UI_QUOTES_OFFSET_X + UI_QUOTE_X;
-  let y = UI_QUOTES_OFFSET_Y + delta + (visible_index as f64 * (UI_QUEST_HEIGHT + UI_QUEST_MARGIN));
+  let x = UI_QUESTS_OFFSET_X + UI_QUEST_X;
+  let y = UI_QUESTS_OFFSET_Y + delta + (visible_index as f64 * (UI_QUEST_HEIGHT + UI_QUEST_MARGIN));
 
   return ( x, y );
 }
