@@ -1947,7 +1947,7 @@ fn get_system_nodes() -> Vec<ConfigNode> {
   return v;
 }
 
-pub fn config_get_initial_unlocks(options: &Options, state: &mut State, config: &Config) -> Vec<char> {
+pub fn config_get_initial_unlocks(options: &Options, state: &State, config: &Config) -> Vec<char> {
   let mut unlocked_part_icons: Vec<char> = vec!();
 
   config.nodes.iter()

@@ -2806,25 +2806,7 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
     }
     MenuButton::Row3Button4 => {
       log!("Clearing the unlock status so you can start again");
-      let available_parts = config_get_initial_unlocks(options, state, config);
-      let all_available_in_this_story = available_parts.iter().map(|icon| ( part_icon_to_kind(config,*icon), true ) ).filter(|(part, _visible)| {
-        // Search for this part in the default story (system nodes) and the current active story.
-        // If it is part of the node list for either story then include it, otherwise exclude it.
-        for (story_index, story) in config.stories.iter().enumerate() {
-          if story_index == 0 || story_index == state.active_story_index {
-            if story.part_nodes.contains(part) {
-              return true;
-            }
-          }
-        }
-        return false;
-      }).collect::<Vec<_>>();
-      factory.available_atoms = all_available_in_this_story.iter().filter(|(part, _)| is_atom(config, *part)).map(|(p,b)|(*p,*b)).collect::<Vec<_>>();
-      factory.available_woops = all_available_in_this_story.iter().filter(|(part, _)| is_woop(config, *part)).map(|(p,b)|(*p,*b)).collect::<Vec<_>>();
-      factory.trucks = vec!();
-      factory.quests = get_fresh_quest_states(options, state, config, 0, &all_available_in_this_story.iter().map(|(kind, _visible)| *kind).collect());
-      factory.quest_updated = true;
-      factory.changed = true;
+      quest_reset_progress(options, state, config, factory);
     }
     MenuButton::Row3Button5 => {
       panic!("Hit the panic button. Or another button without implementation.")

@@ -59,7 +59,7 @@ fn quest_get_status_first_pass(options: &Options, state: &State, config: &Config
   return QuestStatus::Waiting;
 }
 
-pub fn get_fresh_quest_states(options: &Options, state: &mut State, config: &Config, ticks: u64, available_parts: &Vec<PartKind>) -> Vec<QuestState> {
+pub fn get_fresh_quest_states(options: &Options, state: &State, config: &Config, ticks: u64, available_parts: &Vec<PartKind>) -> Vec<QuestState> {
   log!("get_fresh_quest_states(options.trace_get_quest_status={})", options.trace_get_quest_status);
 
   // Map config quest nodes to fresh vector of quest states and make sure their
@@ -180,4 +180,27 @@ pub fn quest_get_active_indexes(options: &Options, state: &State, config: &Confi
     visible.push(quest_index);
   }
   return visible;
+}
+
+pub fn quest_reset_progress(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+  log!("quest_reset_progress()");
+  let available_parts = config_get_initial_unlocks(options, state, config);
+  let all_available_in_this_story = available_parts.iter().map(|icon| ( part_icon_to_kind(config,*icon), true ) ).filter(|(part, _visible)| {
+    // Search for this part in the default story (system nodes) and the current active story.
+    // If it is part of the node list for either story then include it, otherwise exclude it.
+    for (story_index, story) in config.stories.iter().enumerate() {
+      if story_index == 0 || story_index == state.active_story_index {
+        if story.part_nodes.contains(part) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }).collect::<Vec<_>>();
+  factory.available_atoms = all_available_in_this_story.iter().filter(|(part, _)| is_atom(config, *part)).map(|(p,b)|(*p,*b)).collect::<Vec<_>>();
+  factory.available_woops = all_available_in_this_story.iter().filter(|(part, _)| is_woop(config, *part)).map(|(p,b)|(*p,*b)).collect::<Vec<_>>();
+  factory.trucks = vec!();
+  factory.quests = get_fresh_quest_states(options, state, config, 0, &all_available_in_this_story.iter().map(|(kind, _visible)| *kind).collect());
+  factory.quest_updated = true;
+  factory.changed = true;
 }
