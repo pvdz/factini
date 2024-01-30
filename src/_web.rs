@@ -5006,106 +5006,6 @@ fn paint_lasers(options: &Options, state: &mut State, config: &Config, context: 
   }
 }
 
-// Examples: https://easings.net/
-fn ease_cos(v: f64) -> f64 {
-  return (1.0 - (v * std::f64::consts::PI).cos()) / 2.0;
-}
-fn ease_cubic(v: f64) -> f64 {
-  return v*v*v*v;
-}
-fn ease_sin(v: f64) -> f64 {
-  return (v * std::f64::consts::PI).sin();
-}
-fn ease_out(v: f64) -> f64 {
-  return 1.0 - (1.0 - v).powf(2.0);
-}
-
-enum Ease {
-  None,
-  Cos,
-  Cubic,
-  Sin,
-  Out,
-}
-
-fn abp(a: f64, b: f64, p: f64, ease: Ease) -> f64 {
-  let p = match ease {
-    Ease::None => p,
-    Ease::Sin => ease_sin(p),
-    Ease::Cubic => ease_cubic(p),
-    Ease::Cos => ease_cos(p),
-    Ease::Out => ease_out(p),
-  };
-  return a + p * (b - a);
-}
-
-const AT1: (f64, f64, f64, f64) = (
-  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH - (50.0), // Right side of the button but enough to hide under the button
-  UI_MENU_MACHINE_BUTTON_3X3_Y + (UI_MENU_MACHINE_BUTTON_3X3_HEIGHT / 2.0), // Bottom of button
-  0.25, // Facing right
-  50.0,
-);
-const AT2: (f64, f64, f64, f64) = (
-  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH + 10.0,
-  UI_MENU_MACHINE_BUTTON_3X3_Y,
-  -0.05, // Facing up and a little left
-  50.0,
-);
-const AT3JUMP: (f64, f64, f64, f64) = (
-  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH + 10.0 - 15.0,
-  UI_MENU_MACHINE_BUTTON_3X3_Y - 75.0,
-  0.00, // Facing up
-  80.0,
-);
-const AT3NOJUMP: (f64, f64, f64, f64) = (
-  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH + 10.0,
-  UI_MENU_MACHINE_BUTTON_3X3_Y - 75.0,
-  0.00, // Facing up
-  50.0,
-);
-const AT4: (f64, f64, f64, f64) = (
-  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH + 10.0,
-  UI_MENU_MACHINE_BUTTON_3X3_Y - 90.0,
-  0.0, // Facing up and a little left
-  50.0,
-);
-const AT5: (f64, f64, f64, f64) = (
-  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH + 10.0,
-  UI_MENU_MACHINE_BUTTON_3X3_Y - 150.0,
-  0.0, // Facing up and a little left
-  50.0,
-);
-const AT6: (f64, f64, f64, f64) = (
-  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH + 10.0,
-  UI_MENU_MACHINE_BUTTON_3X3_Y - 350.0,
-  0.0, // Facing up and a little left
-  50.0,
-);
-const BT1: (f64, f64, f64, f64) = (
-  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH - (50.0 + 5.0), // Right side of the button but enough to hide under the button
-  UI_MENU_MACHINE_BUTTON_3X3_Y + (UI_MENU_MACHINE_BUTTON_3X3_HEIGHT / 2.0) - (50.0 / 2.0), // Middle of button
-  0.25, // Facing right
-  50.0,
-);
-const BT2A: (f64, f64, f64, f64) = (
-  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH + 15.0, // Needs some forward movement for the sin
-  UI_MENU_MACHINE_BUTTON_3X3_Y + UI_MENU_MACHINE_BUTTON_3X3_HEIGHT + 15.0,
-  0.80, // Facing left and a little up
-  50.0
-);
-const BT2B: (f64, f64, f64, f64) = (
-  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH - (50.0 + 5.0), // Should be starting position of T2 due to the sin
-  UI_MENU_MACHINE_BUTTON_3X3_Y + UI_MENU_MACHINE_BUTTON_3X3_HEIGHT + 15.0,
-  0.80, // Facing left and a little up
-  50.0
-);
-const BT3: (f64, f64, f64, f64) = (
-  UI_MENU_MACHINE_BUTTON_3X3_X + UI_MENU_MACHINE_BUTTON_3X3_WIDTH - 100.0,
-  UI_MENU_MACHINE_BUTTON_3X3_Y + UI_MENU_MACHINE_BUTTON_3X3_HEIGHT + 12.0,
-  0.74, // Facing right
-  50.0
-);
-
 fn paint_truck(
   options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, part_kind: PartKind,
   xyrs1: ( f64, f64, f64, f64 ), // x y rotation size. rotation is 0..1 of 2pi where 0.0 is up-facing, 0.25 is right-facing, etc
@@ -5120,10 +5020,10 @@ fn paint_truck(
 
   let p = progress;
 
-  let truck_x = abp(x1, x2, progress, ease_x);
-  let truck_y = abp(y1, y2, progress, ease_y);
-  let truck_r = abp(r1, r2, progress, ease_r);
-  let truck_size = abp(s1, s2, progress, ease_s);
+  let truck_x = ease_progress(x1, x2, progress, ease_x);
+  let truck_y = ease_progress(y1, y2, progress, ease_y);
+  let truck_r = ease_progress(r1, r2, progress, ease_r);
+  let truck_size = ease_progress(s1, s2, progress, ease_s);
 
   context.save();
   // This is how canvas rotation works; you rotate around the center of what you're painting, paint it, then reset the translation matrix.
@@ -5154,7 +5054,7 @@ fn paint_atom_truck_at_age(options: &Options, state: &State, config: &Config, co
   // let part = CONFIG_NODE_PART_NONE;
   if age < tb1 {
     paint_truck(options, state, config, context, part,
-      BT1, BT2A,
+      ATOM_TRUCK_WP1, ATOM_TRUCK_WP2A,
       ( Ease::Sin, Ease::None, Ease::Cos, Ease::None ),
       // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
       age/ tb1 % 10.0,
@@ -5163,7 +5063,7 @@ fn paint_atom_truck_at_age(options: &Options, state: &State, config: &Config, co
   }
   else if age < tb1 + tb2 {
     paint_truck(options, state, config, context, part,
-      BT2B, BT3,
+      ATOM_TRUCK_WP2B, ATOM_TRUCK_WP3,
       ( Ease::None, Ease::None, Ease::Out, Ease::None ),
       // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
       (age- tb1)/ tb2 % 10.0,
@@ -5175,7 +5075,7 @@ fn paint_atom_truck_at_age(options: &Options, state: &State, config: &Config, co
     // let ( target_x, target_y ) = if factory.trucks[t].for_woop { get_woop_xy(factory.trucks[t].target_menu_part_position) } else { get_atom_xy(factory.trucks[t].target_menu_part_position) };
     let ( target_x, target_y ) = get_atom_xy(target_menu_part_position);
     paint_truck(options, state, config, context, part,
-      BT3, ( target_x, target_y + CELL_H + 5.0, 1.05, BT3.3 ),
+      ATOM_TRUCK_WP3, ( target_x, target_y + CELL_H + 5.0, 1.05, ATOM_TRUCK_WP3.3 ),
       ( Ease::Out, Ease::Cos, Ease::Cos, Ease::None ),
       // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
       (age-(tb1 + tb2))/ tb3 % 10.0,
@@ -5214,7 +5114,7 @@ fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, co
   if age < ta1 {
     // Curve out of the gate
     paint_truck(options, state, config, context, part,
-      AT1, AT2,
+      WOOP_TRUCK_WP1, WOOP_TRUCK_WP2,
       ( Ease::None, Ease::None, Ease::Cos, Ease::None ),
       // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
       age/ ta1 % 10.0,
@@ -5224,7 +5124,7 @@ fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, co
   else if age < ta1 + ta2 {
     // Bounce back.
     paint_truck(options, state, config, context, part,
-      AT2, if options.enable_maze_roundway_and_collection { AT3JUMP } else { AT3NOJUMP },
+      WOOP_TRUCK_WP2, if options.enable_maze_roundway_and_collection { WOOP_TRUCK_WP3_JUMP } else { WOOP_TRUCK_WP3_NOJUMP },
       ( Ease::None, Ease::None, Ease::None, Ease::None ),
       // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
       (age - ta1) / ta2 % 10.0,
@@ -5234,7 +5134,7 @@ fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, co
   else if age < ta1 + ta2 + ta3 {
     // If maze is on, jump up to go over the path, otherwise do not jump
     paint_truck(options, state, config, context, part,
-      if options.enable_maze_roundway_and_collection { AT3JUMP } else { AT3NOJUMP }, AT4,
+      if options.enable_maze_roundway_and_collection { WOOP_TRUCK_WP3_JUMP } else { WOOP_TRUCK_WP3_NOJUMP }, WOOP_TRUCK_WP4,
       ( Ease::None, Ease::None, Ease::None, Ease::None ),
       // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
       (age - (ta1 + ta2)) / ta3 % 10.0,
@@ -5244,7 +5144,7 @@ fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, co
   else if age < ta1 + ta2 + ta3 + ta4 {
     // Jump back down if jumping, else just keep moving
     paint_truck(options, state, config, context, part,
-      AT4, AT5,
+      WOOP_TRUCK_WP4, WOOP_TRUCK_WP5,
       ( Ease::None, Ease::None, Ease::None, Ease::None ),
       // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
       (age - (ta1 + ta2 + ta3)) / ta4 % 10.0,
@@ -5254,7 +5154,7 @@ fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, co
   else if age < ta1 + ta2 + ta3 + ta4 + ta5 {
     // Move straight up past the maze
     paint_truck(options, state, config, context, part,
-      AT5, AT6,
+      WOOP_TRUCK_WP5, WOOP_TRUCK_WP6,
       ( Ease::None, Ease::None, Ease::Out, Ease::None ),
       // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
       (age - (ta1 + ta2 + ta3 + ta4)) / ta5 % 10.0,
@@ -5268,10 +5168,10 @@ fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, co
     // let ( target_x, target_y ) = if factory.trucks[t].for_woop { get_woop_xy(factory.trucks[t].target_menu_part_position) } else { get_atom_xy(factory.trucks[t].target_menu_part_position) };
     let ( target_x, target_y ) = get_woop_xy(target_menu_part_position);
     // Angle is tan(y1-y2, x1-x2) in 2pi
-    let angle1 = (target_y - AT6.1).atan2(target_x - AT6.0);
+    let angle1 = (target_y - WOOP_TRUCK_WP6.1).atan2(target_x - WOOP_TRUCK_WP6.0);
     let angle = angle1 / std::f64::consts::TAU + 0.25;
     paint_truck(options, state, config, context, part,
-      AT6, ( target_x, target_y + CELL_H + 5.0, angle * 1.3, AT6.3 ),
+      WOOP_TRUCK_WP6, ( target_x, target_y + CELL_H + 5.0, angle * 1.3, WOOP_TRUCK_WP6.3 ),
       ( Ease::Cubic, Ease::None, Ease::Cos, Ease::None ),
       // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
       (age-(ta1 + ta2 + ta3 + ta4 + ta5))/ ta6 % 10.0,

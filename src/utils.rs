@@ -54,3 +54,37 @@ pub fn xorshift(z: usize) -> usize {
   let z = z ^ z << 5;
   return z;
 }
+
+// Examples: https://easings.net/
+fn ease_cos(v: f64) -> f64 {
+  return (1.0 - (v * std::f64::consts::PI).cos()) / 2.0;
+}
+fn ease_cubic(v: f64) -> f64 {
+  return v*v*v*v;
+}
+fn ease_sin(v: f64) -> f64 {
+  return (v * std::f64::consts::PI).sin();
+}
+fn ease_out(v: f64) -> f64 {
+  return 1.0 - (1.0 - v).powf(2.0);
+}
+
+#[derive(Clone, Debug)]
+pub enum Ease {
+  None,
+  Cos,
+  Cubic,
+  Sin,
+  Out,
+}
+
+pub fn ease_progress(a: f64, b: f64, p: f64, ease: Ease) -> f64 {
+  let p = match ease {
+    Ease::None => p,
+    Ease::Sin => ease_sin(p),
+    Ease::Cubic => ease_cubic(p),
+    Ease::Cos => ease_cos(p),
+    Ease::Out => ease_out(p),
+  };
+  return a + p * (b - a);
+}
