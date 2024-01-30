@@ -2431,7 +2431,6 @@ fn on_drag_end_floor_two_cells(state: &State, options: &Options, config: &Config
 
   return apply_action_between_two_cells(state, options, config, factory, action, cell_x1, cell_y1, belt_type1, cell_x2, cell_y2, belt_type2);
 }
-
 fn on_drag_end_floor_multi_cells(state: &State, options: &Options, config: &Config, factory: &mut Factory, mouse_state: &MouseState, track: Vec<((usize, usize), BeltType, Direction, Direction)>) {
   log!("Multi cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_mirrored);
 
@@ -2539,7 +2538,6 @@ fn on_drag_end_floor_multi_cells(state: &State, options: &Options, config: &Conf
     pcoord = coord;
   }
 }
-
 fn on_up_paint_toggle(state: &mut State) {
   log!("on_up_paint_toggle()");
   log!("inverting state.mouse_mode_mirrored");
@@ -2549,7 +2547,6 @@ fn on_up_paint_toggle(state: &mut State) {
   // cell_selection.on = false;
   // state.selected_area_copy = vec!(); // Or retain this?
 }
-
 fn on_up_machine1x2_button() {
   log!("on_up_machine1x2_button()");
 }
@@ -2573,7 +2570,6 @@ fn on_up_auto_build_button(options: &Options, state: &State, config: &Config, fa
     factory.auto_build.phase = AutoBuildPhase::None;
   }
 }
-
 fn on_drag_start_machine1x2_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
   log!("is_drag_start from machine1x2");
   mouse_state.dragging_machine1x2 = true;
@@ -2845,7 +2841,6 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
     }
   }
 }
-
 fn on_up_selecting(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
   log!("mouse up on floor with selection mode enabled...");
   if mouse_state.down_zone == ZONE_FLOOR {
@@ -2945,7 +2940,6 @@ fn hit_test_menu_buttons(x: f64, y: f64) -> MenuButton {
     MenuButton::None
   }
 }
-
 fn hit_test_atoms(factory: &Factory, mx: f64, my: f64) -> (bool, usize) {
   if bounds_check(mx, my, UI_ATOMS_OFFSET_X, UI_ATOMS_OFFSET_Y, UI_ATOMS_OFFSET_X + UI_WOTOM_WIDTH_PLUS_MARGIN * UI_ATOMS_PER_ROW, UI_ATOMS_OFFSET_Y + UI_WOTOM_HEIGHT_PLUS_MARGIN * (factory.available_atoms.len() as f64 / UI_ATOMS_PER_ROW).ceil()) {
     let inside_atom_and_margin_x = (mx - UI_ATOMS_OFFSET_X) / UI_WOTOM_WIDTH_PLUS_MARGIN;
@@ -4620,7 +4614,6 @@ fn paint_help_and_ai_button(options: &Options, state: &State, config: &Config, f
     context.fill_text(format!("!").as_str(), UI_AUTO_BUILD_X + 20.0, UI_AUTO_BUILD_Y + 47.0).expect("yes");
   }
 }
-
 fn paint_quests(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState) {
   let mut visible_index = 0;
 
@@ -4705,7 +4698,6 @@ fn paint_quests(options: &Options, state: &State, config: &Config, context: &Rc<
     }
   }
 }
-
 fn paint_atoms(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) -> usize {
   let ( is_mouse_over_atom, atom_hover_index ) =
     if mouse_state.is_dragging || mouse_state.was_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight atoms
@@ -4755,7 +4747,6 @@ fn paint_atom(
     context.stroke_rect(x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
   }
 }
-
 fn paint_woops(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) -> usize {
   let ( is_mouse_over_woop, woop_hover_index ) =
     if mouse_state.is_dragging || mouse_state.was_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight woops
@@ -4859,7 +4850,6 @@ fn paint_woop(
     paint_green_pixel(context, progress, 9.0, x, y, "#368f27");
   }
 }
-
 fn paint_ui_woop_tooltip(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, woop_index: usize) {
   let (part_kind, _part_interactable ) = factory.available_woops[woop_index];
   let required_parts = &config.nodes[part_kind].pattern_unique_kinds;
@@ -5005,7 +4995,6 @@ fn paint_lasers(options: &Options, state: &mut State, config: &Config, context: 
     }
   }
 }
-
 fn paint_truck(
   options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, part_kind: PartKind,
   xyrs1: ( f64, f64, f64, f64 ), // x y rotation size. rotation is 0..1 of 2pi where 0.0 is up-facing, 0.25 is right-facing, etc
@@ -5041,7 +5030,6 @@ fn paint_truck(
   paint_segment_part_from_config(&options, &state, &config, &context, part_kind, 0.0 + (truck_size / 2.0) - ((truck_size / 3.0) / 2.0), 0.0 + truck_size + -6.0 + -(truck_size / 3.0), truck_size / 3.0, truck_size / 3.0);
   context.restore();
 }
-
 fn paint_atom_truck_at_age(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory, age: f64, part: PartKind, target_menu_part_position: usize) -> bool {
   // Paint a truck that is heading to the menu on the bottom-left
 
@@ -5096,7 +5084,6 @@ fn paint_atom_truck_at_age(options: &Options, state: &State, config: &Config, co
 
   return false;
 }
-
 fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory, age: f64, part: PartKind, target_menu_part_position: usize) -> bool {
   // Paint a truck heading to the right menu
 
@@ -5193,7 +5180,6 @@ fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, co
 
   return false;
 }
-
 fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory) {
   if options.dbg_loop_woop_truck {
     paint_woop_truck_at_age(options, state, config, context, factory, factory.ticks as f64 / 10.0 % 7000.0, CONFIG_NODE_PART_NONE, 5);
@@ -5230,7 +5216,6 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
     }
   }
 }
-
 fn paint_ui_atom_woop_hover_droptarget_hint_conditionally(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) {
   let ( is_mouse_over_woop, woop_hover_index ) =
     if mouse_state.is_dragging || mouse_state.was_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight woops
@@ -5297,16 +5282,6 @@ fn paint_machines_droptarget_green(options: &Options, state: &State, config: &Co
     }
     context.fill_rect(UI_FLOOR_OFFSET_X + x as f64 * CELL_W, UI_FLOOR_OFFSET_Y + y as f64 * CELL_H, CELL_W, CELL_H);
   }
-}
-fn get_drop_color(options: &Options, ticks: u64) -> String {
-  let color_offset = options.dropzone_color_offset; // 75
-  let bounce_speed = options.dropzone_bounce_speed; // 100
-  let bounce_distance = options.dropzone_bounce_distance; // 150
-  let bounce_d2 = bounce_distance * 2;
-  let mut p = ((((ticks as f64) / options.speed_modifier_ui) as u64) / bounce_speed) % bounce_d2;
-  if p > bounce_distance { p = bounce_distance - (p - bounce_distance); } // This makes the color bounce rather than jump from black to green
-  let yo = format!("#00{:02x}0077", p+ color_offset);
-  return yo;
 }
 fn paint_green_pixel(context: &Rc<web_sys::CanvasRenderingContext2d>, progress: f64, delta: f64, x: f64, y: f64, color: &str) {
   context.set_stroke_style(&color.into());
@@ -6164,7 +6139,6 @@ fn paint_supplier(options: &Options, state: &State, config: &Config, factory: &F
 
   paint_asset(&options, &state, &config, &context, supply_config_node, factory.ticks - sprite_start_at, dx, dy, dw, dh);
 }
-
 fn paint_demander(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, dx: f64, dy: f64, dw: f64, dh: f64, last_part_at: u64, ticks: u64, coord: usize) {
   let (x, y) = to_xy(coord);
   let demand_config_node =
@@ -6181,6 +6155,17 @@ fn paint_demander(options: &Options, state: &State, config: &Config, factory: &F
     };
 
   paint_asset(&options, &state, &config, &context, demand_config_node, factory.ticks - last_part_at, dx, dy, dw, dh);
+}
+
+fn get_drop_color(options: &Options, ticks: u64) -> String {
+  let color_offset = options.dropzone_color_offset; // 75
+  let bounce_speed = options.dropzone_bounce_speed; // 100
+  let bounce_distance = options.dropzone_bounce_distance; // 150
+  let bounce_d2 = bounce_distance * 2;
+  let mut p = ((((ticks as f64) / options.speed_modifier_ui) as u64) / bounce_speed) % bounce_d2;
+  if p > bounce_distance { p = bounce_distance - (p - bounce_distance); } // This makes the color bounce rather than jump from black to green
+  let yo = format!("#00{:02x}0077", p+ color_offset);
+  return yo;
 }
 
 fn request_animation_frame(f: &Closure<dyn FnMut(f64)>) {
