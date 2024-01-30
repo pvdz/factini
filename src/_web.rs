@@ -8,9 +8,11 @@
 // - import/export
 //   - store xorshift seed in map save
 //   - finished quests restart on load. all of them.
+//   - unlocks (speed menu, save menu, etc) and quest progress should be remembered in local storage? at least optionally and by default.
 // - small problem with tick_belt_take_from_belt when a belt crossing is next to a supply and another belt; it will ignore the other belt as input. because the belt will not let a part proceed to the next port unless it's free and the processing order will process the neighbor belt first and then the crossing so by the time it's free, the part will still be at 50% whereas the supply part is always ready. fix is probably to make supply parts take a tick to be ready, or whatever.
 //   - affects machine speed so should be fixed
 // - machines
+//   - auto discover target output depending on input
 //   - putting machine down next to two dead end belts will only connect one?
 //   - make the menu-machine "process" the finished parts before text.draw_image_with_html_image_element_and_dw_angenerating trucks
 //   - missing purpose for machine is not properly displayed for 1x2. see MACHINE_1X2_UI / missing_purpose_y
@@ -34,8 +36,9 @@
 //   - can we prevent undo/redo stack changes until the end?
 // - repo
 //   - cleanup
-// - unlocks (speed menu, save menu, etc) and quest progress should be remembered in local storage? at least optionally and by default.
 // - belts need to slow down to match their parts
+// - car jumping for the wrong reason
+// - how do you unlock the plusplus?
 
 // features
 // - belts
@@ -5518,6 +5521,7 @@ fn paint_ui_button2(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state
 fn paint_ui_time_control(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   // paint_speed_buttons
   if options.enable_speed_menu {
+    context.set_font(&"12px monospace");
     paint_ui_speed_bubble(MenuButton::SpeedMin, options, state, context, mouse_state, BUTTON_SPEED_MIN_INDEX, "-");
     paint_ui_speed_bubble(MenuButton::SpeedHalf, options, state, context, mouse_state, BUTTON_SPEED_HALF_INDEX, "½");
     paint_ui_speed_bubble(MenuButton::SpeedPlayPause, options, state, context, mouse_state, BUTTON_SPEED_PLAY_PAUSE_INDEX, "⏭"); // "play" / "pause"
@@ -5572,6 +5576,7 @@ fn paint_ui_speed_bubble(button: MenuButton, options: &Options, state: &State, c
     context.set_fill_style(&BUTTON_COLOR_BACK.into());
   }
 
+  context.set_font(&"12px monospace");
   context.fill();
   context.stroke();
   context.set_fill_style(&BUTTON_COLOR_FRONT.into());
