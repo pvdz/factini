@@ -44,17 +44,17 @@ fn quest_get_status_first_pass(options: &Options, state: &State, config: &Config
   // Have you already unlocked this goal part? If not then you can't even start to unlock this quest.
   // If all parts are unlocked then this quest is considered at least active (maybe even finished)
   if quest.production_target_by_index.len() > 0 && quest.production_target_by_index.iter().all(|(_count, node_index)| available_parts.contains(node_index)) {
-    if options.trace_get_quest_status { log!("quest_get_status_first_pass: {} is active because production_target_by_index.len>0 and all of them are available", config_node_index); }
+    if options.trace_get_quest_status { log!("quest_get_status_first_pass: {} (`{}`) is active because production_target_by_index.len>0 and all of them are available", config_node_index, config.nodes[config_node_index].raw_name); }
     return QuestStatus::Active;
   }
 
   // If this quest has no requirements and all its parts aren't already unlocked then it is active
   if quest.unlocks_after_by_index.len() == 0 {
-    if options.trace_get_quest_status { log!("quest_get_status_first_pass: {} is active because production_target_by_index.len==0", config_node_index); }
+    if options.trace_get_quest_status { log!("quest_get_status_first_pass: {} (`{}`) is active because production_target_by_index.len==0", config_node_index, config.nodes[config_node_index].raw_name); }
     return QuestStatus::Active;
   }
 
-  if options.trace_get_quest_status { log!("quest_get_status_first_pass: {} is waiting", config_node_index); }
+  if options.trace_get_quest_status { log!("quest_get_status_first_pass: {} (`{}`) is waiting", config_node_index, config.nodes[config_node_index].raw_name); }
   // Start awaiting. Another loop will determine if they are active.
   return QuestStatus::Waiting;
 }
@@ -120,7 +120,7 @@ pub fn get_fresh_quest_states(options: &Options, state: &State, config: &Config,
     for quest_index in 0..quests.len() {
       let status = quests[quest_index].status;
       if status == QuestStatus::Active {
-        if options.trace_get_quest_status { log!("Quest {} is active", quest_index); }
+        if options.trace_get_quest_status { log!("Quest {} (`{}`) is active", quest_index, quests[quest_index].name); }
         // If this quest is active and at least one quest that depends on this one is
         // also active, or finished, then this quest must also be finished.
         // While this would also be true for quests that are waiting, you still need to finish
@@ -132,7 +132,7 @@ pub fn get_fresh_quest_states(options: &Options, state: &State, config: &Config,
 
             all = false;
             has_any = true;
-            if options.trace_get_quest_status { log!("Quest {} is a todo of {} which has status {:?}", quest_index, i, quests[i].status); }
+            if options.trace_get_quest_status { log!("Quest {} (`{}`) is a todo of {} which has status {:?}", quest_index, quests[quest_index].name, i, quests[i].status); }
             if quests[i].status != QuestStatus::Active && quests[i].status != QuestStatus::FadingAndBouncing {
               all = false;
               break;

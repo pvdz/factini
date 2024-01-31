@@ -410,7 +410,6 @@ pub struct ConfigNode {
   pub drm: bool, // When true, the art for this node is not owned. Use with options.show_drm=false to create safe public media with placeholders
   pub sprite_config: SpriteConfig,
 
-  // Mostly for debugging
   pub current_state: ConfigNodeState,
 }
 
@@ -439,23 +438,6 @@ pub enum ConfigNodeState {
   // Parts
   Available, // Part that can be used
 }
-
-// pub fn config_get_available_parts(config: &Config) -> Vec<PartKind>{
-//   let mut parts = vec!(
-//     CONFIG_NODE_PART_TRASH // for testing/debugging?
-//   );
-//
-//   log!("just checking: {:?}", config.stories[config.active_story_index].part_nodes);
-//   config.stories[config.active_story_index].part_nodes.iter().for_each(|&part_kind| {
-//     if config.nodes[part_kind].current_state == ConfigNodeState::Available {
-//       log!("kind: {}, pattern: {:?}", config.nodes[part_kind].raw_name, config.nodes[part_kind].pattern_by_name);
-//       parts.push(part_kind);
-//       config.nodes[part_kind].pattern_unique_kinds.iter().for_each(|&p| parts.push(p));
-//     }
-//   });
-//
-//   return parts;
-// }
 
 pub fn parse_fmd(trace_parse_fmd: bool, config: String) -> Config {
   // Parse Fake MD config
@@ -857,11 +839,13 @@ pub fn parse_fmd(trace_parse_fmd: bool, config: String) -> Config {
               nodes[current_node_index].sprite_config.frames[last].h = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
             }
             "state" => {
+              if trace_parse_fmd { log!("Forcing quest state for `{}` to {}", nodes[current_node_index].name, value_raw); }
               match value_raw {
                 "active" => nodes[current_node_index].current_state = ConfigNodeState::Active,
+                "available" => nodes[current_node_index].current_state = ConfigNodeState::Available,
                 "finished" => nodes[current_node_index].current_state = ConfigNodeState::Finished,
                 "waiting" => nodes[current_node_index].current_state = ConfigNodeState::Waiting,
-                  _ => panic!("Only valid states are valid; Expecting one if 'active', 'finished', or 'waiting', got: {}", value_raw),
+                  _ => panic!("Only valid states are valid; Expecting one if 'active', 'available', 'finished', or 'waiting', got: {}", value_raw),
               }
             }
             "frame" => {
@@ -1102,7 +1086,7 @@ pub fn parse_fmd(trace_parse_fmd: bool, config: String) -> Config {
   if trace_parse_fmd {
     log!("+ Have a total of {} config nodes:", nodes.len());
     nodes.iter_mut().enumerate().for_each(|(i, node)| {
-      log!("- node {} is {}", i, node.raw_name);
+      log!("- node {} is {}, kind={:?}, state={:?}", i, node.raw_name, node.kind, node.current_state);
     });
   }
 
@@ -2492,103 +2476,3 @@ pub fn config_to_jsvalue(config: &Config) -> JsValue {
 pub fn config_get_sprite_for_belt_type<'x>(config: &'x Config, options: &Options, belt_type: BeltType, sprite_start_at: u64, ticks: u64) -> (f64, f64, f64, f64, &'x web_sys::HtmlImageElement) {
   return config_get_sprite_details(config, options, belt_type as usize, sprite_start_at, ticks);
 }
-
-pub const EXAMPLE_CONFIG: &str = "
-  # Part_DirtWhite
-
-  - char: d
-  - file: ./img/roguelikeitems.png
-  - x: 59
-  - y: 50
-  - w: 25
-  - h: 25
-
-  # Part_Ingots
-
-  - char: d
-  - file: ./img/roguelikeitems.png
-  - x: 59
-  - y: 50
-  - w: 25
-  - h: 25
-
-  # Quest_LetsGo
-
-  - requires: 10 Part_DirtWhite, 200 Part_Ingots
-
-  # Part_IngotWhite
-
-  - parents: Quest_LetsGo
-  - char: d
-  - file: ./img/roguelikeitems.png
-  - x: 59
-  - y: 50
-  - w: 25
-  - h: 25
-
-  # Part_EmptyBottle
-
-  - parents: Quest_LetsGo
-  - char: d
-  - file: ./img/roguelikeitems.png
-  - x: 59
-  - y: 50
-  - w: 25
-  - h: 25
-
-  # Part_Rope
-
-  - parents: Quest_LetsGo
-  - char: d
-  - file: ./img/roguelikeitems.png
-  - x: 59
-  - y: 50
-  - w: 25
-  - h: 25
-
-  # Quest_IngotsForLife
-
-  - parents: Quest_LetsGo
-  - requires: 100 Part_IngotWhite
-
-  # Part_Wood
-
-  - parents: Quest_IngotsForLife
-  - char: d
-  - file: ./img/roguelikeitems.png
-  - x: 59
-  - y: 50
-  - w: 25
-  - h: 25
-
-  # Part_ShieldWood
-
-  - parents: Quest_IngotsForLife
-  - char: d
-  - file: ./img/roguelikeitems.png
-  - x: 59
-  - y: 50
-  - w: 25
-  - h: 25
-
-  # Part_DirtBlue
-
-  - parents: Quest_IngotsForLife
-  - pattern: Part_Wood Part_Wood Part_Wood Part_Wood _ Part_Wood Part_Wood Part_Wood Part_Wood
-  - char: d
-  - file: ./img/roguelikeitems.png
-  - x: 59
-  - y: 50
-  - w: 25
-  - h: 25
-
-  # Part_Paper
-
-  - parents: Quest_IngotsForLife
-  - char: d
-  - file: ./img/roguelikeitems.png
-  - x: 59
-  - y: 50
-  - w: 25
-  - h: 25
-  ";
