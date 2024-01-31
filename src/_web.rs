@@ -1116,7 +1116,7 @@ fn get_y_while_dragging_offer_machine(cell_y: f64, offer_height: usize) -> f64 {
 }
 
 fn update_mouse_state(
-  options: &mut Options, state: &State, config: &Config, factory: &Factory,
+  options: &mut Options, state: &mut State, config: &Config, factory: &Factory,
   cell_selection: &mut CellSelection, mouse_state: &mut MouseState,
   mouse_x: f64, mouse_y: f64, mouse_moved_since_app_start: bool,
   last_down_event_type: EventSourceType, // MOUSE or TOUCH event
@@ -1568,7 +1568,11 @@ fn update_mouse_state(
             log!("Ignored top-right up event");
           }
         } else {
-          if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_DEBUG_SECRET_X, UI_DEBUG_SECRET_Y, UI_DEBUG_SECRET_X + UI_DEBUG_SECRET_W, UI_DEBUG_SECRET_Y + UI_DEBUG_SECRET_H) {
+          if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_DEBUG_UNLOCK_X, UI_DEBUG_UNLOCK_Y, UI_DEBUG_UNLOCK_X + UI_DEBUG_UNLOCK_W, UI_DEBUG_UNLOCK_Y + UI_DEBUG_UNLOCK_H) {
+            log!("Forward UI progress");
+            update_game_ui_after_quest_finish(options, state);
+          }
+          else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_DEBUG_SECRET_X, UI_DEBUG_SECRET_Y, UI_DEBUG_SECRET_X + UI_DEBUG_SECRET_W, UI_DEBUG_SECRET_Y + UI_DEBUG_SECRET_H) {
             log!("Enabling secret debug menu...");
             options.dbg_show_secret_menu = true;
           }

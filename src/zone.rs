@@ -130,6 +130,11 @@ pub const UI_LOGO_X: f64 = UI_MENU_BUTTONS_OFFSET_X + 50.0;
 pub const UI_LOGO_Y: f64 = UI_MENU_BUTTONS_OFFSET_Y;
 pub const UI_LOGO_W: f64 = 210.0;
 pub const UI_LOGO_H: f64 = 75.0;
+// Target the dot on the first i as a way to quickly progress UI unlocks
+pub const UI_DEBUG_UNLOCK_X: f64 = UI_LOGO_X + UI_LOGO_W - 76.0;
+pub const UI_DEBUG_UNLOCK_Y: f64 = UI_LOGO_Y + 2.0;
+pub const UI_DEBUG_UNLOCK_W: f64 = 15.0;
+pub const UI_DEBUG_UNLOCK_H: f64 = 15.0;
 // Target the dot on the last i as secret clickable area
 pub const UI_DEBUG_SECRET_X: f64 = UI_LOGO_X + UI_LOGO_W - 21.0;
 pub const UI_DEBUG_SECRET_Y: f64 = UI_LOGO_Y + 2.0;
