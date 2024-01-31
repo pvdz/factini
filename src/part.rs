@@ -53,6 +53,12 @@ pub fn part_kind_to_icon(config: &Config, kind: PartKind) -> char {
   return config.nodes[kind].icon;
 }
 
+pub fn part_kind_to_exportable_icon(config: &Config, kind: PartKind) -> String {
+  let icon = part_kind_to_icon(config, kind);
+  if (icon >= 'a' && icon <= 'z') || (icon >= 'A' && icon <= 'Z') || (icon >= '0' && icon <= '9') { return format!("{}", icon); }
+  return format!("&{}", icon as u8);
+}
+
 pub fn part_to_sprite_coord_from_config<'x>(config: &'x Config, options: &Options, part_kind: PartKind) -> (f64, f64, f64, f64, &'x web_sys::HtmlImageElement ) {
   assert!(part_kind < config.nodes.len(), "part kind should be a node index: {} < {}", part_kind, config.nodes.len());
 

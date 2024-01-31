@@ -973,7 +973,7 @@ pub fn parse_fmd(trace_parse_fmd: bool, config: String) -> Config {
     }
   });
 
-  // Map (fully qualified) name to index on config nodes
+  // Map (fully qualified) name to index on config nodes. Also maps icon chars and &ord icons.
   let mut node_name_to_index = HashMap::new();
   // Map for getting fast pattern lookups. The icons for each part of the pattern (sorted, not none) are serialized into a string and checked against this hashmap. Faster-simpler than anything else.
   let mut node_pattern_to_index = HashMap::new();
@@ -987,6 +987,8 @@ pub fn parse_fmd(trace_parse_fmd: bool, config: String) -> Config {
     // Add mapping to icon char, too
     if node.icon != '?' {
       node_name_to_index.insert(node.icon.to_string(), i);
+      // And a mapping to the &ord notation
+      node_name_to_index.insert(format!("&{}", node.icon as u8), i);
     }
   });
   // Now assign the nodes without an icon

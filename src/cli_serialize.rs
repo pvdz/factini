@@ -396,13 +396,15 @@ pub fn serialize2(options: &Options, state: &State, config: &Config, factory: &F
       cell_params.push('=');
       for i in 0..factory.floor[coord].machine.wants.len() {
         cell_params.push(' ');
-        let icon =
-            if factory.floor[coord].machine.wants[i].kind == CONFIG_NODE_PART_NONE {
-            '.' // Explicitly an empty spot since those are relevant
-          } else {
-            factory.floor[coord].machine.wants[i].icon
-          };
-        cell_params.push(icon);
+        if factory.floor[coord].machine.wants[i].kind == CONFIG_NODE_PART_NONE {
+          // Explicitly an empty spot since those are relevant
+          cell_params.push('.');
+        } else {
+          // Use names (we can assume they refer to parts)
+          for c in config.nodes[factory.floor[coord].machine.wants[i].kind].name.as_bytes().iter() {
+            cell_params.push(*c as char);
+          }
+        }
       }
       // This could be generated but it's just a comment as the output is computed dynamically from inputs
       // cell_params.push(' ');
@@ -425,7 +427,12 @@ pub fn serialize2(options: &Options, state: &State, config: &Config, factory: &F
       cell_params.push(' ');
       cell_params.push('=');
       cell_params.push(' ');
-      cell_params.push(factory.floor[coord].supply.gives.icon);
+      if factory.floor[coord].supply.gives.kind != CONFIG_NODE_PART_NONE {
+        // Use names (we can assume they refer to parts)
+        for c in config.nodes[factory.floor[coord].supply.gives.kind].name.as_bytes().iter() {
+          cell_params.push(*c as char);
+        }
+      }
       cell_params.push(' ');
       cell_params.push('s');
       cell_params.push(':');
@@ -564,10 +571,18 @@ pub fn serialize2(options: &Options, state: &State, config: &Config, factory: &F
 
   out.push(cell_params.clone());
 
-  // $ abcdfe
-  let available_atoms = factory.available_atoms.iter().map(|(part, _visible)| part_kind_to_icon(config, *part)).collect::<String>();
-  let available_woops = factory.available_woops.iter().map(|(part, _visible)| part_kind_to_icon(config, *part)).collect::<String>();
-  let available: Vec<char> = format!("$ {}{}", available_atoms, available_woops).chars().collect();
+  // $ name name name
+  let available_atoms = factory.available_atoms.iter().map(|(part, _visible)| config.nodes[*part].name.clone()).collect::<Vec<String>>();
+  let available_woops = factory.available_woops.iter().map(|(part, _visible)| config.nodes[*part].name.clone()).collect::<Vec<String>>();
+  let available = format!(
+    "$ {}",
+    available_atoms
+      .iter()
+      .chain(available_woops.iter())
+      .cloned()
+      .collect::<Vec<String>>()
+      .join(" ")
+  ).chars().collect();
   out.push(available);
 
   let flat: Vec<char> = out.into_iter().flatten().collect();

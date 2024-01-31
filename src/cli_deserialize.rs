@@ -448,10 +448,13 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
             's' => {
               // s<n> = <p> [s:<d+>] [c:<d+>]
               // s1 = w s:100 c:100
+              // s1 = Apple s:100 c:100
+              // s1 = Part_Apple s:100 c:100
               let nth;
               let mut speed = 1;
               let mut cooldown = 1;
-              let mut gives;
+              // The "gives" can be an icon, an &ord, or a full qualified name. Resolve it later.
+              let mut raw_gives = " ".to_string();
 
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
@@ -461,10 +464,24 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
               if c != '=' { panic!("Unexpected input on line {} while parsing supply augment: first character after `s{}` must be the `=` sign, found `{}`", line_no, n_to_alnum(nth), c); }
 
-              let mut c = line.next().or(Some('#')).unwrap();
+              // Parse the part kind that this supplier gives. Icon, &ord, or name
+              let mut c = line.next().or(Some('#')).unwrap(); // First char is mandatory
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c as u8 > 127) { panic!("Unexpected input on line {} while parsing supply augment kind: input characters must be a-zA-Z or non-ascii, found `{}`", line_no, c); }
-              gives = c;
+              let mut letters: Vec<char> = vec!();
+              if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '&' || c as u8 > 127) { panic!("Unexpected input on line {} while parsing supplier output rest: input characters must be a-zA-Z0-9 or &ord or dot, found `{}`", line_no, c); }
+              loop {
+                letters.push(c);
+
+                c = *line.peek().or(Some(&'#')).unwrap();
+                if c == '#' || c == '-' || c == ':' || c == '.' || c == ' ' { break; }
+                c = line.next().or(Some('#')).unwrap();
+                if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) { panic!("Unexpected input on line {} while parsing supplier output rest: input characters must be a-zA-Z0-9, found `{}`", line_no, c); }
+              }
+              if letters.len() > 0 {
+                // Convert to a string. Deal with icon vs &ord vs raw_name later
+                // log!("collected one input: {:?}", letters);
+                raw_gives = letters.iter().collect::<String>();
+              }
 
               loop {
                 let mut c = line.next().or(Some('#')).unwrap();
@@ -512,12 +529,12 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
                     }
                   }
                   c => {
-                    if (gives == 's' || gives == 'c') && c == ':' {
+                    if (raw_gives == "s" || raw_gives == "c") && c == ':' {
                       if options.trace_map_parsing { log!("Correcting parse for the empty-part case"); }
-                      let gave = gives;
-                      gives = ' ';
+                      let gave = raw_gives;
+                      raw_gives = " ".to_string();
 
-                      if gave == 's' {
+                      if gave == "s" {
                         speed = 0;
                         let mut c = line.next().or(Some('#')).unwrap();
                         while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
@@ -532,7 +549,7 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
                           c = line.next().or(Some('#')).unwrap();
                         }
                       }
-                      else if gave == 'c' {
+                      else if gave == "c" {
                         cooldown = 0;
                         let mut c = line.next().or(Some('#')).unwrap();
                         while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
@@ -564,10 +581,13 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
               for coord in 0..FLOOR_CELLS_WH {
                 if floor[coord].kind == CellKind::Supply {
                   if n == nth {
-                    if options.trace_map_parsing { log!("Updating supply {} @{} with part {} and speed {} and cooldown {}", nth, coord, gives, speed, cooldown); }
+                    if options.trace_map_parsing { log!("Resolving raw_gives `{}` to icon", raw_gives); }
+                    let index = find_part_from_input_by_string(config, &raw_gives, line);
+                    if options.trace_map_parsing { log!("Updating supply {} @{} with part {} and speed {} and cooldown {}", nth, coord, raw_gives, speed, cooldown); }
                     floor[coord].supply.speed = speed;
                     floor[coord].supply.cooldown = cooldown;
-                    floor[coord].supply.gives = part_c(config, gives);
+                    floor[coord].supply.gives_raw = raw_gives;
+                    floor[coord].supply.gives = part_from_part_kind(config, index);
                     break;
                   }
                   n += 1;
@@ -716,13 +736,13 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
                 //    m3 = s:100 # end
                 //         ^
                 while c != '#' && c != '-' && c != ':' && c != '.' && c != ' ' {
-                  if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c as u8 > 127) { panic!("Unexpected input on line {} while parsing machine input: input characters must be a-zA-Z or dot or non-ascii, found `{}`", line_no, c); }
+                  if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= 'A' && c <= 'Z') || c == '&' || c as u8 > 127) { panic!("Unexpected input on line {} while parsing machine input: input characters must be a-zA-Z0-9 or &ord or dot, found `{}`", line_no, c); }
                   letters.push(c);
                   c = line.next().or(Some('#')).unwrap();
                 }
 
                 if letters.len() > 0 {
-                  // Convert to a string. Deal with icon vs raw_name later
+                  // Convert to a string. Deal with icon vs &ord vs raw_name later
                   // log!("collected one input: {:?}", letters);
                   wants.push(letters.iter().collect::<String>());
                 }
@@ -838,32 +858,22 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
 
               machine_meta_data[machine_index].3 = speed;
               machine_meta_data[machine_index].4 = wants.iter().map(|x| {
-                let index = config.node_name_to_index.get(x).unwrap_or_else(| | {
-                  log!("map:");
-                  log!("{}", str);
-                  log!("line:");
-                  log!("{:?}", line);
-
-                  log!("config.node_name_to_index: {:?}", config.node_name_to_index);
-                  log!("looking for: {}", x);
-
-                  panic!("pattern_by_name to index: what happened here: unlock name=`{}`", x)
-                });
-                return *index;
+                // Try the node first. Then try with `Part_` prefixed, since the export will use the name without that prefix. Then bail.
+                return find_part_from_input_by_string(config, &x, line);
               }).collect::<Vec<PartKind>>();
             },
             '$' => {
               if options.trace_map_parsing { log!("Parsing $ unlocked parts list:"); }
               // Unlocked parts icons.
-              // Expect a-zA-Z or >127. Spaces are skipped. Stops at EOL, EOF, or #
+              // Expect a-zA-Z or &ddd where d is a digit with zero or more digits. The ord value becomes the char icon.
+              // Spaces are skipped. Stops at EOL, EOF, or #
               loop {
-
-                let c = line.next().or(Some('#')).unwrap();
-                if options.trace_map_parsing { log!("unlocked part icon: `{}` : ascii {}", c, c as u32); }
-                if c == '#' { break; }
-                if c != ' ' {
-                  if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c as u8 > 127) { panic!("Unexpected input on line {} while parsing available parts ($): input characters must be a-zA-Z or non-ascii, found `{}` ({})", line_no, c, c as u8); }
-                  if !unlocked_part_icons.contains(&c) { unlocked_part_icons.push(c); }
+                let maybe_icon = parse_icon(options, state, config, line, line_no);
+                if let Some(icon) = maybe_icon {
+                  if !unlocked_part_icons.contains(&icon) { unlocked_part_icons.push(icon); }
+                }
+                else {
+                  break;
                 }
               }
             }
@@ -947,4 +957,67 @@ fn alnum_to_n(c: char) -> u8 {
     } else {
       panic!("Unexpected input while parsing index augment: first character after `s` or `d` must be a 0-9a-zA-Z indicating which supply/demand it targets, found `{}`", c);
     };
+}
+
+fn parse_icon(options: &Options, state: &State, config: &Config, line: &mut std::iter::Peekable<std::str::Chars>, line_no: i32) -> Option<char> {
+  let c = line.next().or(Some('#')).unwrap();
+  if options.trace_map_parsing { log!("unlocked part icon: `{}` : ascii {}", c, c as u32); }
+  if c == '#' { return None; }
+  if c == '&' {
+    // This will be the char code as a string, so &97 for an 'a'
+    // It means the dump can be alnum without worrying about non-printable/weird chars
+    let mut n: u8 = 0;
+    loop {
+      let c = line.peek().or(Some(&'#')).unwrap();
+      if !(*c >= '0' && *c <= '9') { break; }
+      let c = line.next().or(Some('#')).unwrap();
+      n += (n * 10) + (c as u8) - ('0' as u8);
+    }
+    // n should now be 0 <= n <= 255, we can convert it to a char
+    return Some(n as char);
+  }
+  else if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {
+    let mut letters: Vec<char> = vec!(c);
+    let mut c = *line.peek().or(Some(&'#')).unwrap();
+    while c == ' ' || c == '.' { c = line.next().or(Some('#')).unwrap(); }
+    while c != '#' && c != '-' && c != ':' && c != '.' && c != ' ' {
+      if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= 'A' && c <= 'Z')) { panic!("Unexpected input on line {} while parsing unlocks rest: input characters must be a-zA-Z0-9, found `{}`", line_no, c); }
+      line.next().or(Some('#')).unwrap(); // Consume this char.
+      letters.push(c);
+      c = *line.peek().or(Some(&'#')).unwrap();
+    }
+
+    if letters.len() == 0 {
+      return None;
+    }
+
+    // Convert to a string. Deal with icon vs &ord vs raw_name later
+    // log!("collected one input: {:?}", letters);
+    let raw_unlock = letters.iter().collect::<String>();
+    let index = find_part_from_input_by_string(config, &raw_unlock, line);
+    return Some(part_from_part_kind(config, index).icon);
+  }
+  else if c != ' ' {
+    if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c as u8 > 127) {
+      panic!("Unexpected input on line {} while parsing available parts ($): input characters must be a-zA-Z or non-ascii, found `{}` ({})", line_no, c, c as u8);
+    }
+    return Some(c);
+  }
+
+  return None;
+}
+
+fn find_part_from_input_by_string(config: &Config, raw_gives: &String, line: &std::iter::Peekable<std::str::Chars>) -> PartKind {
+  // Try the node first. Then try with `Part_` prefixed, since the export will use the name without that prefix. Then bail.
+  let kind =
+    config.node_name_to_index.get(raw_gives)
+      .or(config.node_name_to_index.get(&format!("Part_{}", raw_gives)))
+      .unwrap_or_else(| | {
+        log!("find_part_from_input_by_string failure:");
+        log!("line: {:?}", line);
+        log!("config.node_name_to_index: {:?}", config.node_name_to_index);
+        log!("looking for: `{}` and `{}`", raw_gives, format!("Part_{}", raw_gives));
+        panic!("find_part_from_input_by_string: what happened here: unlock name=`{}`", raw_gives)
+      });
+  return *kind;
 }

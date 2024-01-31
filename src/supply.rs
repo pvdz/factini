@@ -26,6 +26,7 @@ pub struct Supply {
   pub neighbor_incoming_dir: Direction,
   pub last_part_out_at: u64, // Last time a part left this supply
   pub gives: Part, // The example Part that this supply will generate
+  pub gives_raw: String, // As parsed. Either an icon, an &ord, or a full qualified name
   pub part_price: i32, // Cost when dispensing one part
 
   // Speed at which a generated part leaves the supply
@@ -46,6 +47,7 @@ pub fn supply_none(config: &Config) -> Supply {
     neighbor_incoming_dir: Direction::Up,
     last_part_out_at: 0,
     gives: part_none(config),
+    gives_raw: format!("{}", part_none(config).icon),
     part_price: 0,
     speed: 0,
     cooldown: 0,
@@ -63,6 +65,7 @@ pub fn supply_new(gives: Part, neighbor_coord: usize, outgoing_dir: Direction, n
     outgoing_dir,
     neighbor_incoming_dir,
     last_part_out_at: 0,
+    gives_raw: format!("{}", gives.icon),
     gives,
     part_price: price,
     speed,
