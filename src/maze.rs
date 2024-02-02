@@ -456,3 +456,27 @@ pub fn tick_maze(options: &Options, state: &State, config: &Config, factory: &mu
     }
   }
 }
+
+pub fn should_draw_roundway(options: &Options, factory: &Factory) -> bool {
+  // Check if there is any demander on the edge. This ultimately determines whether the truck jumps when driving over that part.
+  let mut piped = false;
+
+  if options.enable_maze_roundway_and_collection {
+    for i in 1..FLOOR_CELLS_H-1 {
+      if factory.floor[i * FLOOR_CELLS_H].kind == CellKind::Demand {
+        piped = true;
+        break;
+      }
+    }
+    if !piped {
+      for i in 1..FLOOR_CELLS_W-1 {
+        if factory.floor[i].kind == CellKind::Demand {
+          piped = true;
+          break;
+        }
+      }
+    }
+  }
+
+  return piped;
+}

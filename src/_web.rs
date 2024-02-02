@@ -36,7 +36,6 @@
 //   - can we prevent undo/redo stack changes until the end?
 // - repo
 //   - cleanup
-// - car jumping for the wrong reason
 
 // features
 // - belts
@@ -3388,6 +3387,7 @@ fn paint_floor_round_way(
       break;
     }
   }
+
   if offset2 as usize != FLOOR_CELLS_W {
     // Track left of floor
     // Start painting at the offset'th floor-cell. Paint a corner at 25% and then a path to the
@@ -3472,12 +3472,13 @@ fn paint_floor_round_way(
     paint_belt(options, state, config, context, x + roundway_len_full + 3.0 * tsize, y + roundway_len_full + 6.0 * tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
   }
 
-  // log!("painign factory.parts_in_transit: {:?}", factory.parts_in_transit);
-  for ( p, px, py, phase ) in factory.parts_in_transit.iter() {
-    paint_segment_part_from_config(options, state, config, context, *p, *px, *py, 10.0, 10.0);
+  if offset as usize != FLOOR_CELLS_H || offset2 as usize != FLOOR_CELLS_W {
+    for ( p, px, py, phase ) in factory.parts_in_transit.iter() {
+      paint_segment_part_from_config(options, state, config, context, *p, *px, *py, 10.0, 10.0);
+    }
   }
-
 }
+
 fn paint_background_tiles1(
   options: &Options,
   state: &State,
@@ -5073,7 +5074,7 @@ fn paint_atom_truck_at_age(options: &Options, state: &State, config: &Config, co
 
   return false;
 }
-fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory, age: f64, part: PartKind, target_menu_part_position: usize) -> bool {
+fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory, age: f64, part: PartKind, target_menu_part_position: usize, piped: bool) -> bool {
   // Paint a truck heading to the right menu
 
   // Basically this is the number of ticks available per segment of the truck.
@@ -5100,7 +5101,7 @@ fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, co
   else if age < ta1 + ta2 {
     // Bounce back.
     paint_truck(options, state, config, context, part,
-      WOOP_TRUCK_WP2, if options.enable_maze_roundway_and_collection { WOOP_TRUCK_WP3_JUMP } else { WOOP_TRUCK_WP3_NOJUMP },
+      WOOP_TRUCK_WP2, if piped { WOOP_TRUCK_WP3_JUMP } else { WOOP_TRUCK_WP3_NOJUMP },
       ( Ease::None, Ease::None, Ease::None, Ease::None ),
       // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
       (age - ta1) / ta2 % 10.0,
@@ -5110,7 +5111,7 @@ fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, co
   else if age < ta1 + ta2 + ta3 {
     // If maze is on, jump up to go over the path, otherwise do not jump
     paint_truck(options, state, config, context, part,
-      if options.enable_maze_roundway_and_collection { WOOP_TRUCK_WP3_JUMP } else { WOOP_TRUCK_WP3_NOJUMP }, WOOP_TRUCK_WP4,
+      if piped { WOOP_TRUCK_WP3_JUMP } else { WOOP_TRUCK_WP3_NOJUMP }, WOOP_TRUCK_WP4,
       ( Ease::None, Ease::None, Ease::None, Ease::None ),
       // (time_since_truck / truck_dur_1).min(1.0).max(0.0)
       (age - (ta1 + ta2)) / ta3 % 10.0,
@@ -5169,9 +5170,12 @@ fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, co
 
   return false;
 }
+
 fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &mut Factory) {
+  let piped = should_draw_roundway(options, factory);
+
   if options.dbg_loop_woop_truck {
-    paint_woop_truck_at_age(options, state, config, context, factory, factory.ticks as f64 / 10.0 % 7000.0, CONFIG_NODE_PART_NONE, 5);
+    paint_woop_truck_at_age(options, state, config, context, factory, factory.ticks as f64 / 10.0 % 7000.0, CONFIG_NODE_PART_NONE, 5, piped);
   }
   if options.dbg_loop_atom_truck {
     paint_atom_truck_at_age(options, state, config, context, factory, factory.ticks as f64 / 10.0 % 7000.0, CONFIG_NODE_PART_NONE, 5);
@@ -5191,7 +5195,7 @@ fn paint_trucks(options: &Options, state: &State, config: &Config, context: &Rc<
     let part = factory.trucks[t].part_kind;
 
     if factory.trucks[t].for_woop {
-      let done = paint_woop_truck_at_age(options, state, config, context, factory, age, part, target_menu_part_position);
+      let done = paint_woop_truck_at_age(options, state, config, context, factory, age, part, target_menu_part_position, piped);
       if done { factory.trucks[t].finished = done; }
     } else {
       let done = paint_atom_truck_at_age(options, state, config, context, factory, age, part, target_menu_part_position);
