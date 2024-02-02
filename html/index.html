@@ -535,6 +535,13 @@
       queuedAction = 'paste';
     });
   });
+
+  window.addEventListener('copy', e => {
+    // Ironically, this works fine even in firefox. :shrug:
+    e.preventDefault();
+    console.log('(js) received copy event');
+    queuedAction = 'copy';
+  });
 </script>
 <!-- for flow graphs of the quests -->
 

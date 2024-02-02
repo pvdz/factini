@@ -66,6 +66,8 @@
 // - experiment with bigger maps and scrolling
 // - help the player
 //   - help, okay, secret menu
+// - implement undo/redo action support
+//   - https://dev.to/chromiumdev/-native-undo--redo-for-the-web-3fl3  https://github.com/samthor/undoer
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -904,6 +906,9 @@ pub fn start() -> Result<(), JsValue> {
         "paste" => { // When you ctrl+v (or otherwise paste) in the window. This action will be triggered from the html.
           state.paste_to_load = getLastPaste();
           state.load_paste_next_frame = true;
+        }
+        "copy" => { // When you ctrl+c (or otherwise copy) in the window. This action will be triggered from the html.
+          on_copy_factory(&options, &mut state, &config, &factory);
         }
         "" => {},
         _ => panic!("getAction() returned an unsupported value: `{}`", queued_action),
@@ -2226,9 +2231,9 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
     quick_saves[mouse_state.up_save_map_index] = Some(quick_save_create(mouse_state.up_save_map_index, &document, map_snapshot, png));
   }
 }
-fn on_copy_factory(options: &Options, state: &mut State, config: &Config, factory: &mut Factory) {
+fn on_copy_factory(options: &Options, state: &mut State, config: &Config, factory: &Factory) {
   log!("on_copy_factory()");
-  let ok = copyToClipboard(generate_floor_dump(&options, &state, &config, &factory, dnow()).join("\n").into());
+  let ok = copyToClipboard(generate_floor_dump(options, state, config, factory, dnow()).join("\n").into());
   if ok {
     state.load_copy_hint_kind = LoadCopyHint::Success;
     state.load_copy_hint_since = factory.ticks;
