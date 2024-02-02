@@ -21,9 +21,9 @@ use super::supply::*;
 use super::utils::*;
 use super::log;
 
-pub fn floor_from_str(options: &Options, state: &mut State, config: &Config, str: &String) -> ( [Cell; FLOOR_CELLS_WH], Vec<char> ) {
+pub fn floor_from_str(options: &Options, state: &mut State, config: &Config, str: &String) -> ( [Cell; FLOOR_CELLS_WH], Vec<char>, u64 ) {
   if str.trim().len() == 0 {
-    return (floor_empty(config), vec!());
+    return ( floor_empty(config), vec!(), 0 );
   }
 
   // Require a Factini header and proper map here. User input should handle an error sooner.
@@ -38,7 +38,7 @@ pub fn floor_from_str(options: &Options, state: &mut State, config: &Config, str
   return str_to_floor2(options, state, config, str);
 }
 
-fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &String) -> ( [Cell; FLOOR_CELLS_WH], Vec<char> ) {
+fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &String) -> ( [Cell; FLOOR_CELLS_WH], Vec<char>, u64 ) {
   // Given a string in a grid format, generate a floor
   // The string starts with at least one line of config.
   // - For now the only modifier are the dimension of the hardcoded 11x11
@@ -56,7 +56,7 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
   // - Rest is ignored. Can be whatever.
   // Auto-layout is applied afterwards.
 
-  // d:11x11
+  // d=11x11 seed=123456456
   // # Generated 2022-07-08T22:00:01
   // ┌─────────────────────────────────────────────────┐
   // │.  .  .  .  .  .  .  .  .  .  .  .  .  .  .  sw .│
@@ -123,6 +123,7 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
   log!("str_to_floor2(options.trace_map_parsing={})", options.trace_map_parsing);
   if options.trace_map_parsing { log!("{}", str); }
 
+  let mut seed: u64 = 0;
   let mut floor: [Cell; FLOOR_CELLS_WH] = floor_empty(config);
   // Populate the unlocked icons by at least the ones that unlock by default
   let mut unlocked_part_icons: Vec<char> = config_get_initial_unlocks(options, state, config);
@@ -152,13 +153,16 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
   // We should now be at the start of the first non-comment line.
   // It is asserted to be the map header line.
 
-  // The header line is currently only expecting one modifier: the floor dimensions
+  // The header line is currently only expecting two modifiers: the floor dimensions and the rng seed
 
   loop {
     match first_line.next().or(Some('#')).unwrap() {
       '#' => {
         // EOL
         break;
+      }
+      ' ' => {
+        // Ignore spaces
       }
       '\n' => {
         // EOL
@@ -185,7 +189,7 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
           if d >= ('0' as u8) && d <= ('9' as u8) {
             h = (h * 10) + (d - ('0' as u8)) as usize;
             first_line.next();
-          } else if d == ('#' as u8) || d == ('\n' as u8) {
+          } else if d == ('#' as u8) || d == ('\n' as u8) || d == (' ' as u8) {
             break;
           } else {
             panic!("Error parsing `d` modifier in header: Expected an `x` after the width, found `{}`", d as char);
@@ -204,6 +208,34 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
 
         // Okay, we now have a proper width and height and it matches the current hardcoded values. Move along.
         if options.trace_map_parsing { log!("Map size: {} x {}", w, h); }
+      }
+      's' => {
+        // Expecting "s=dddddd" or "seed=dddddd" where dddddd is an unsigned integer
+
+        let c = first_line.next().or(Some('#')).unwrap();
+
+        if c == 'e' {
+          let e = first_line.next().or(Some('#')).unwrap();
+          let d = first_line.next().or(Some('#')).unwrap();
+          let i = first_line.next().or(Some('#')).unwrap();
+          if e != 'e' || d != 'd' || i != '=' {
+            panic!("Error parsing `s` modifier in header: The `s` should be followed by `=` or `eed=` but it was not.");
+          }
+        } else if c != '=' {
+          panic!("Error parsing `s` modifier in header: The `s` should be followed by `=` or `eed=` but it was not.");
+        }
+
+        loop {
+          let c = *first_line.peek().or(Some(&'#')).unwrap() as u8;
+          if c >= ('0' as u8) && c <= ('9' as u8) {
+            seed = (seed * 10) + (c as u64 - ('0' as u8 as u64));
+            first_line.next();
+          } else if c == ('#' as u8) || c == ('\n' as u8) || c == (' ' as u8) {
+            break;
+          } else {
+            panic!("Error parsing `seed` modifier in header: Expected a integer consisting of digits but found `{}`", c as char);
+          }
+        }
       }
       _ => {}
     }
@@ -936,7 +968,7 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
 
   if options.trace_map_parsing { log!("-- end of str_to_floor2()"); }
 
-  return ( floor, unlocked_part_icons );
+  return ( floor, unlocked_part_icons, seed );
 }
 
 fn n_to_alnum(n: u8) -> char {

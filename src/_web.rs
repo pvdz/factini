@@ -6,7 +6,6 @@
 
 // road to release
 // - import/export
-//   - store xorshift seed in map save
 //   - finished quests restart on load. all of them.
 //   - unlocks (speed menu, save menu, etc) and quest progress should be remembered in local storage? at least optionally and by default.
 //   - export should have an option to select the story that the map targets

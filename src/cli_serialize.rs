@@ -322,7 +322,7 @@ pub fn serialize2(options: &Options, state: &State, config: &Config, factory: &F
 
   let mut out: Vec<Vec<char>> = vec!(
     format!("# Factini map\n# Created {:?}\n", now).chars().collect(),
-    "d=17x17\n".chars().collect(),
+    format!("d=17x17 seed={}\n", factory.maze_seed).chars().collect(),
   );
 
   let mut line1: Vec<char> = vec!();

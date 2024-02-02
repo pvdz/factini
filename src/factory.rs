@@ -76,7 +76,7 @@ fn dnow() -> u64 {
 }
 
 pub fn create_factory(options: &Options, state: &mut State, config: &Config, floor_str: String) -> Factory {
-  let ( floor, unlocked_part_icons ) = floor_from_str(options, state, config, &floor_str);
+  let ( floor, unlocked_part_icons, map_seed ) = floor_from_str(options, state, config, &floor_str);
   let available_parts_all: Vec<PartKind> = unlocked_part_icons.iter().map(|icon| part_icon_to_kind(config,*icon)).collect();
   let available_parts_before: Vec<(PartKind, bool)> = available_parts_all.iter().filter(|part| {
     // Search for this part in the default story (system nodes) and the current active story.
@@ -105,7 +105,8 @@ pub fn create_factory(options: &Options, state: &mut State, config: &Config, flo
   log!("available quests: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| quest.name.clone()).collect::<Vec<_>>());
   log!("target quest parts: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| config.nodes[quest.production_part_kind].name.clone()).collect::<Vec<_>>());
 
-  let maze_seed = dnow();
+  let maze_seed = if map_seed == 0 { dnow() } else { map_seed };
+  // log!("map_seed: {}", maze_seed);
 
   let mut factory = Factory {
     ticks: 0,
@@ -463,9 +464,12 @@ pub fn update_game_ui_after_quest_finish(options: &mut Options, state: &mut Stat
 }
 
 pub fn factory_load_map(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, floor_str: String) {
-  let ( floor, unlocked_part_icons ) = floor_from_str(options, state, config, &floor_str);
+  let ( floor, unlocked_part_icons, map_seed ) = floor_from_str(options, state, config, &floor_str);
   log!("Active quests before: {:?}", factory.quests.iter().filter(|quest| quest.status == QuestStatus::Active));
   factory.floor = floor;
+  // log!("map_seed: {}", map_seed);
+  let map_seed = if map_seed == 0 { dnow() } else { map_seed };
+  factory.maze_seed = map_seed;
   let available_parts: Vec<PartKind> = unlocked_part_icons.iter()
     .map(|icon| part_icon_to_kind(config,*icon))
     .filter(|part| {
