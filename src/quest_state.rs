@@ -25,7 +25,7 @@ pub struct QuestState {
   pub name: String,
   pub quest_index: usize,
   pub config_node_index: usize,
-  pub unlocks_todo: Vec<usize>, // Quests left to unlock before this unlocks. Reference onto config.quest_nodes_by_index / factory.quests
+  pub unlocks_todo: Vec<usize>, // Quests left to unlock before this unlocks. Reference onto config.quest_nodes_by_index / factory.quests. Note this is the "runtime" value. The (static) config state that serves as the initial value is Config#unlocks_todo_by_index (see get_fresh_quest_states())
   pub production_part_kind: usize, // What part do you need to produce for this quest?
   pub production_progress: u32, // How many of the desired item did you produce so far?
   pub production_target: u32, // How many do you need to create to achieve this quest?

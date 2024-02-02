@@ -525,7 +525,7 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
     if factory.quests[quest_current_index].status == QuestStatus::FadingAndBouncing {
       let fade_progress = ((factory.ticks - factory.quests[quest_current_index].status_at) as f64 / (QUEST_FADE_TIME as f64 * options.speed_modifier_ui)).min(1.0);
       if fade_progress >= 1.0 {
-        log!("quest_update_status: fade also finished {}", config.nodes[factory.quests[quest_current_index].config_node_index].raw_name);
+        if options.trace_quest_status { log!("quest_update_status: fade also finished {}", config.nodes[factory.quests[quest_current_index].config_node_index].raw_name); }
         quest_update_status(factory, quest_current_index, QuestStatus::Bouncing, factory.ticks);
       }
     }
@@ -544,7 +544,7 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
       // that were unlocked by finishing this one. Make sure it's had time to schedule one frame.
       // TODO: remove from tick loop and move to paint loop
       if factory.quests[quest_current_index].status == QuestStatus::Bouncing && factory.quests[quest_current_index].bouncer.frames.len() == 0 {
-        log!("Marking quest {} as Finished", quest_current_index);
+        if options.trace_quest_status { log!("Quest {} ({}) finished bouncing. Marking as Finished", quest_current_index, factory.quests[quest_current_index].name); }
         quest_update_status(factory, quest_current_index, QuestStatus::Finished, factory.ticks);
         update_game_ui_after_quest_finish(options, state);
 
@@ -556,15 +556,18 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
         // let mut new_quests: Vec<usize> = vec!();
         let mut new_parts: Vec<PartKind> = vec!();
 
+        if options.trace_quest_status { log!("Collecting all waiting quests that depended on quests {} ({})...", quest_current_index, factory.quests[quest_current_index].name); }
         // Find all other waiting quests with this quest as unlock requirement
         for quest_unlock_search_index in 0..factory.quests.len() {
           if factory.quests[quest_unlock_search_index].status == QuestStatus::Waiting {
             // Note: unlock_requirement_indexes maps to factory.quests so we need the current quest index, not config node index
             let pos = factory.quests[quest_unlock_search_index].unlocks_todo.binary_search(&quest_current_index);
+            if options.trace_quest_status { log!("- {} ({}) -> is unlock? {:?} todo: {:?}", quest_unlock_search_index, factory.quests[quest_unlock_search_index].name, pos, factory.quests[quest_unlock_search_index].unlocks_todo); }
             if let Ok(unlock_index) = pos {
               // This quest had current_quest as a requirement. Remove it and check if it has more requirements.
               // When it doesn't, activate the quest and add all its parts to the unlocked pool.
               factory.quests[quest_unlock_search_index].unlocks_todo.remove(unlock_index);
+              if options.trace_quest_status { log!("  - this quest depends on it, checking if it's still waiting for other quests to complete... {:?}", factory.quests[quest_unlock_search_index].unlocks_todo.iter().map(|index| factory.quests[*index].name.clone()).collect::<Vec<String>>()); }
               if factory.quests[quest_unlock_search_index].unlocks_todo.len() == 0 {
                 log!("quest_update_status: unlocks todo is zero so it goes brrr {}; targets {:?} unlocks {:?}",
                   config.nodes[factory.quests[quest_unlock_search_index].config_node_index].raw_name,

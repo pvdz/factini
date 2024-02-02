@@ -3,6 +3,7 @@ use std::collections::HashSet;
 
 use wasm_bindgen::{JsValue};
 use js_sys;
+use crate::quest_state::QuestStatus;
 
 use super::belt::*;
 use super::belt_codes::*;
@@ -13,6 +14,7 @@ use super::belt_type::*;
 use super::machine::*;
 use super::options::*;
 use super::part::*;
+use super::quest::*;
 use super::sprite_config::*;
 use super::sprite_frame::*;
 use super::state::*;
@@ -387,11 +389,12 @@ pub struct ConfigNode {
   // deprecated:
   pub unlocks_after_by_name: Vec<String>, // Fully qualified name. Becomes available when these quests are finished.
   pub unlocks_after_by_index: Vec<usize>, // Becomes available when these quests are finished
-  pub unlocks_todo_by_index: Vec<usize>, // Which quests still need to be unlocked before this one unlocks?
+  pub unlocks_todo_by_index: Vec<usize>, // Which quests still need to be unlocked before this one unlocks? Note: this is only to hash out the final state for the (static) config object. The "runtime" value is QuestState#unlocks_todo
 
   // Quest
   // A quest becomes available as soon as all of its starting parts are available.
   pub quest_index: usize, // Index on the quest lists. Zero for non-quests.
+  pub quest_init_status: QuestStatus,
   pub starting_part_by_name: Vec<String>, // Fully qualified name. These parts are available when this quest becomes available
   pub starting_part_by_index: Vec<usize>, // These parts are available when this quest becomes available
   pub production_target_by_name: Vec<(u32, String)>, // Fully qualified name. count,name pairs, you need this to finish the quest
@@ -410,7 +413,7 @@ pub struct ConfigNode {
   pub drm: bool, // When true, the art for this node is not owned. Use with options.show_drm=false to create safe public media with placeholders
   pub sprite_config: SpriteConfig,
 
-  pub current_state: ConfigNodeState,
+  pub current_state: ConfigNodeState, // TODO: I think this prop is obsolete...
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -562,6 +565,7 @@ pub fn parse_fmd(trace_parse_fmd: bool, config: String) -> Config {
               name: name.to_string(),
               raw_name: rest.to_string(),
               quest_index: 0,
+              quest_init_status: QuestStatus::Waiting,
               unlocks_after_by_name: vec!(),
               unlocks_after_by_index: vec!(),
               unlocks_todo_by_index: vec!(),
@@ -839,13 +843,24 @@ pub fn parse_fmd(trace_parse_fmd: bool, config: String) -> Config {
               nodes[current_node_index].sprite_config.frames[last].h = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
             }
             "state" => {
-              if trace_parse_fmd { log!("Forcing quest state for `{}` to {}", nodes[current_node_index].name, value_raw); }
+              if trace_parse_fmd { log!("Forcing node state for `{}` to {}", nodes[current_node_index].name, value_raw); }
               match value_raw {
                 "active" => nodes[current_node_index].current_state = ConfigNodeState::Active,
                 "available" => nodes[current_node_index].current_state = ConfigNodeState::Available,
                 "finished" => nodes[current_node_index].current_state = ConfigNodeState::Finished,
                 "waiting" => nodes[current_node_index].current_state = ConfigNodeState::Waiting,
-                  _ => panic!("Only valid states are valid; Expecting one if 'active', 'available', 'finished', or 'waiting', got: {}", value_raw),
+                  _ => panic!("Only valid node states allowed; Expecting one if 'active', 'available', 'finished', or 'waiting', got: {}", value_raw),
+              }
+            }
+            "quest_status" => {
+              if trace_parse_fmd { log!("Forcing quest status for `{}` to {}", nodes[current_node_index].name, value_raw); }
+              match value_raw {
+                "active" => nodes[current_node_index].quest_init_status = QuestStatus::Active,
+                "bouncing" => nodes[current_node_index].quest_init_status = QuestStatus::Bouncing,
+                "fading_and_bouncing" => nodes[current_node_index].quest_init_status = QuestStatus::FadingAndBouncing,
+                "finished" => nodes[current_node_index].quest_init_status = QuestStatus::Finished,
+                "waiting" => nodes[current_node_index].quest_init_status = QuestStatus::Waiting,
+                _ => panic!("Only valid quest status allowed; Expecting one if 'active', 'bouncing', 'fading_and_bouncing', 'finished', or 'waiting', got: {}", value_raw),
               }
             }
             "frame" => {
@@ -1061,12 +1076,18 @@ pub fn parse_fmd(trace_parse_fmd: bool, config: String) -> Config {
     story.quest_nodes.iter().for_each(|&node_index| {
       if trace_parse_fmd { log!("    ++ quest node index = {}, name = {}, unlocks after = `{:?}`", node_index, nodes[node_index].name, nodes[node_index].unlocks_after_by_name); }
 
-      let mut indices: Vec<usize> = vec!();
+      // Note: the indicdes must be ordered for binary_search later
+      let mut indices_ordered: Vec<usize> = vec!();
       nodes[node_index].unlocks_after_by_name.iter().for_each(|name| {
-        indices.push(*node_name_to_index.get(name.as_str().clone()).unwrap_or_else(| | panic!("parent_quest_name to index: what happened here: unlock name=`{}` of names=`{:?}`", name, node_name_to_index.keys())));
+        indices_ordered.push(*node_name_to_index.get(name.as_str().clone()).unwrap_or_else(| | panic!("parent_quest_name to index: what happened here: unlock name=`{}` of names=`{:?}`", name, node_name_to_index.keys())));
       });
-      nodes[node_index].unlocks_after_by_index = indices.clone();
-      nodes[node_index].unlocks_todo_by_index = indices; // This one depletes as quests are finished. When the vec is empty, this quest becomes available.
+
+      // Make sure the set is ordered
+      indices_ordered.sort();
+
+      nodes[node_index].unlocks_after_by_index = indices_ordered.clone(); // Never depletes
+      // Note: this set may be reduced below when the quest initial status is determined
+      nodes[node_index].unlocks_todo_by_index = indices_ordered; // This one depletes as quests are configured to start as finished (at parse time, not runtime). When this vec is empty, this quest starts available (if not finished).
 
       let mut indices: Vec<usize> = vec!();
       nodes[node_index].starting_part_by_name.iter().for_each(|name| {
@@ -1116,35 +1137,74 @@ pub fn parse_fmd(trace_parse_fmd: bool, config: String) -> Config {
     });
   });
 
-  if trace_parse_fmd { log!("+ Initialize the quest node states"); }
+  if trace_parse_fmd { log!("+ Initialize the quest node statuses and quest todos"); }
   stories.iter().for_each(|story| {
-    if trace_parse_fmd { log!("  - Story: {}", nodes[story.story_node_index].name); }
-    story.quest_nodes.iter().for_each(|&quest_index| {
-      if trace_parse_fmd { log!("    - state loop"); }
-      // If the config specified an initial state then just roll with that
-      let mut changed = true;
-      while changed {
-        if trace_parse_fmd { log!("      - state inner loop"); }
-        // Repeat the process until there's no further changes. This loop is guaranteed to halt.
-        changed = false;
-        if nodes[quest_index].current_state == ConfigNodeState::Waiting {
-          if nodes[quest_index].unlocks_after_by_index.iter().all(|&other_index| nodes[other_index].current_state == ConfigNodeState::Finished) {
-            if trace_parse_fmd { log!("        - Quest `{}` is available because `{:?}` are all finished", nodes[quest_index].name, nodes[quest_index].unlocks_after_by_name); }
-            nodes[quest_index].current_state = ConfigNodeState::Available;
+    if trace_parse_fmd { log!("- Story: {}", nodes[story.story_node_index].raw_name); }
+
+    let mut again= true;
+    let mut loop_i = 0;
+    while again {
+      again = false;
+      loop_i += 1;
+
+      if trace_parse_fmd { log!("  + {} #{}; Initialize the quest node statuses", nodes[story.story_node_index].raw_name, loop_i); }
+      story.quest_nodes.iter().for_each(|&quest_index| {
+        if trace_parse_fmd { log!("    - state loop"); }
+        // If the config specified an initial state then just roll with that
+        let mut changed = true;
+        while changed {
+          if trace_parse_fmd { log!("      - state inner loop"); }
+          // Repeat the process until there's no further changes. This loop is guaranteed to halt.
+          changed = false;
+          if
+            nodes[quest_index].quest_init_status == QuestStatus::Waiting &&
+            nodes[quest_index].unlocks_after_by_index.iter().all(|&other_index| nodes[other_index].quest_init_status == QuestStatus::Finished)
+          {
+            if trace_parse_fmd { log!("        - Quest `{}` is available because `{:?}` are all finished", nodes[quest_index].raw_name, nodes[quest_index].unlocks_after_by_name); }
+            nodes[quest_index].unlocks_todo_by_index.clear();
+            nodes[quest_index].quest_init_status = QuestStatus::Active;
             changed = true;
           }
         }
+      });
+
+      if trace_parse_fmd { log!("  + {} #{}; Remove immediately finished quests from any quest todo that depends on it", loop_i, nodes[story.story_node_index].raw_name); }
+      for quest_index in 0..story.quest_nodes.len() {
+        let quest_node_index = story.quest_nodes[quest_index];
+        if nodes[quest_node_index].quest_init_status != QuestStatus::Waiting && nodes[quest_node_index].quest_init_status != QuestStatus::Active {
+          if trace_parse_fmd { log!("    - Find quests blocked by quest {} / node {} ({}) because init status is {:?}", quest_index, quest_node_index, nodes[quest_node_index].raw_name, nodes[quest_node_index].quest_init_status); }
+          for other_quest_index in 0..story.quest_nodes.len() {
+            let other_quest_node_index = story.quest_nodes[other_quest_index];
+            // if trace_parse_fmd { log!("      - Quest node {}, node index {} ({}): {:?} {:?}", other_quest_index, other_quest_node_index, nodes[other_quest_node_index].raw_name, nodes[other_quest_node_index].unlocks_after_by_name, nodes[other_quest_node_index].unlocks_after_by_index); }
+            if trace_parse_fmd { if nodes[other_quest_node_index].unlocks_after_by_index.contains(&quest_node_index) { log!("      - Quest {} ({}) did depend on this quest... current todos: {:?}", other_quest_node_index, nodes[other_quest_node_index].raw_name, nodes[other_quest_node_index].unlocks_todo_by_index); } }
+            // If the finished quest was still part of the todo list, remove it now. It may already have been removed.
+            let pos = nodes[other_quest_node_index].unlocks_todo_by_index.binary_search(&quest_node_index);
+            if let Ok(unlock_index) = pos {
+              if trace_parse_fmd { log!("        - Removed {} from the quests todo for {} ({}), todos: {:?}", quest_node_index, other_quest_node_index, nodes[other_quest_node_index].raw_name, nodes[other_quest_node_index].unlocks_todo_by_index); }
+              nodes[other_quest_node_index].unlocks_todo_by_index.remove(unlock_index);
+              if trace_parse_fmd { log!("        - After removal: {:?}", nodes[other_quest_node_index].unlocks_todo_by_index); }
+              if nodes[other_quest_node_index].unlocks_todo_by_index.len() == 0 {
+                if trace_parse_fmd { log!("        - This means {} ({}) is no longer blocked. Initial status was {:?}", other_quest_node_index, nodes[other_quest_node_index].raw_name, nodes[other_quest_node_index].quest_init_status); }
+                if nodes[other_quest_node_index].quest_init_status == QuestStatus::Waiting {
+                  if trace_parse_fmd { log!("        - Quest {} ({}) was still waiting with nothing left to wait for so setting it to Active...", other_quest_node_index, nodes[other_quest_node_index].raw_name); }
+                  nodes[other_quest_node_index].quest_init_status = QuestStatus::Active;
+                  again = true; // Need to reevaluate the initial status now
+                }
+              }
+            }
+          }
+        }
       }
-    });
+    }
   });
 
-  if trace_parse_fmd { log!("+ Initialize the part node states"); }
+  if trace_parse_fmd { log!("+ Initialize the Part node states"); }
   stories.iter().for_each(|story| {
     if trace_parse_fmd { log!("  - Story: {}", nodes[story.story_node_index].name); }
     story.quest_nodes.iter().for_each(|&quest_index| {
       // Clone the list of numbers because otherwise it moves. So be it.
       if trace_parse_fmd { log!("    - Quest Part {} is {:?} and would enable parts {:?} ({:?})", nodes[quest_index].name, nodes[quest_index].current_state, nodes[quest_index].starting_part_by_name, nodes[quest_index].starting_part_by_index); }
-      if nodes[quest_index].current_state != ConfigNodeState::Waiting {
+      if nodes[quest_index].quest_init_status != QuestStatus::Waiting && nodes[quest_index].quest_init_status != QuestStatus::Bouncing { // TODO: abstract this check
         nodes[quest_index].starting_part_by_index.clone().iter().for_each(|&part_kind| {
           if trace_parse_fmd { log!("      - Part {} is available because Quest {} is available", nodes[part_kind].name, nodes[quest_index].name); }
           nodes[part_kind].current_state = ConfigNodeState::Available;
@@ -1154,13 +1214,13 @@ pub fn parse_fmd(trace_parse_fmd: bool, config: String) -> Config {
   });
 
   if trace_parse_fmd {
-    log!("+ Collect available Quests and Parts from the start:");
+    log!("+ Collected available Quests and Parts from the start:");
     nodes.iter().for_each(|node| {
-      if node.current_state != ConfigNodeState::Waiting {
+      if node.current_state != ConfigNodeState::Waiting || node.quest_init_status != QuestStatus::Waiting {
         match node.kind {
           ConfigNodeKind::Asset => {}
           ConfigNodeKind::Part => log!("  - Part {} will be {:?} from the start", node.raw_name, node.current_state),
-          ConfigNodeKind::Quest => log!("  - Quest {} will be {:?} from the start", node.raw_name, node.current_state),
+          ConfigNodeKind::Quest => log!("  - Quest {}, quest init status: {:?}, node state: {:?}", node.raw_name, node.quest_init_status, node.current_state),
           ConfigNodeKind::Demand => {}
           ConfigNodeKind::Supply => {}
           ConfigNodeKind::Dock => {}
@@ -1934,11 +1994,13 @@ fn get_system_nodes() -> Vec<ConfigNode> {
 }
 
 pub fn config_get_initial_unlocks(options: &Options, state: &State, config: &Config) -> Vec<char> {
+  if options.trace_quest_status { log!("config_get_initial_unlocks()"); }
   let mut unlocked_part_icons: Vec<char> = vec!();
 
   config.nodes.iter()
     .filter(|node| {
-      return node.unlocks_after_by_index.len() == 0
+      if options.trace_quest_status && node.kind == ConfigNodeKind::Quest { log!("- quest {} ({}); part available: {}", node.index, node.raw_name, node.unlocks_todo_by_index.len() == 0); }
+      return node.unlocks_todo_by_index.len() == 0
     })
     .for_each(|node| {
       node.starting_part_by_index.iter().for_each(|index| {
@@ -1966,6 +2028,7 @@ fn config_node_part(index: PartKind, name: String, icon: char) -> ConfigNode {
   return ConfigNode {
     index,
     quest_index: 0,
+    quest_init_status: QuestStatus::Waiting,
     kind: ConfigNodeKind::Part,
     name,
     raw_name,
@@ -2016,6 +2079,7 @@ fn config_node_supply(index: PartKind, name: String) -> ConfigNode {
   return ConfigNode {
     index,
     quest_index: 0,
+    quest_init_status: QuestStatus::Waiting,
     kind: ConfigNodeKind::Supply,
     name,
     raw_name,
@@ -2066,6 +2130,7 @@ fn config_node_demand(index: PartKind, name: String) -> ConfigNode {
   return ConfigNode {
     index,
     quest_index: 0,
+    quest_init_status: QuestStatus::Waiting,
     kind: ConfigNodeKind::Demand,
     name,
     raw_name,
@@ -2116,6 +2181,7 @@ fn config_node_dock(index: PartKind, name: String) -> ConfigNode {
   return ConfigNode {
     index,
     quest_index: 0,
+    quest_init_status: QuestStatus::Waiting,
     kind: ConfigNodeKind::Dock,
     name,
     raw_name,
@@ -2166,6 +2232,7 @@ fn config_node_machine(index: PartKind, name: &str, file: &str) -> ConfigNode {
   return ConfigNode {
     index,
     quest_index: 0,
+    quest_init_status: QuestStatus::Waiting,
     kind: ConfigNodeKind::Machine,
     name: name.to_string(),
     raw_name,
@@ -2219,6 +2286,7 @@ fn config_node_belt(index: PartKind, name: &str) -> ConfigNode {
   return ConfigNode {
     index,
     quest_index: 0,
+    quest_init_status: QuestStatus::Waiting,
     kind: ConfigNodeKind::Belt,
     name: name.to_string(),
     raw_name,
@@ -2269,6 +2337,7 @@ fn config_node_asset(index: PartKind, name: &str) -> ConfigNode {
   return ConfigNode {
     index,
     quest_index: 0,
+    quest_init_status: QuestStatus::Waiting,
     kind: ConfigNodeKind::Asset,
     name: name.to_string(),
     raw_name,
@@ -2319,6 +2388,7 @@ fn config_node_story(index: PartKind, name: &str) -> ConfigNode {
   return ConfigNode {
     index,
     quest_index: 0,
+    quest_init_status: QuestStatus::Waiting,
     kind: ConfigNodeKind::Story,
     name: name.to_string(),
     raw_name,
