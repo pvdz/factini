@@ -37,7 +37,6 @@
 //   - can we prevent undo/redo stack changes until the end?
 // - repo
 //   - cleanup
-// - belts need to slow down to match their parts
 // - car jumping for the wrong reason
 
 // features
