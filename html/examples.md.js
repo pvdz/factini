@@ -3,7 +3,7 @@
 const GAME_EXAMPLES = [
   `
     # Factini map
-    # Created 1685277707784
+    # Created 1706892029191
     d=17x17
     ┌─────────────────────────────────────────────────┐
     │.  .  s  s  s  s  s  s  s  s  s  s  s  s  s  .  .│
@@ -56,66 +56,67 @@ const GAME_EXAMPLES = [
     │ └────v──^──^──v──^──v──v──v──^──^──^──^─────^─┘ │
     │.  .  d  s  s  d  s  d  d  d  s  s  s  s  .  s  .│
     └─────────────────────────────────────────────────┘
-    s1 =  s:0 c:500
-    s2 =  s:0 c:500
-    s3 =  s:0 c:500
-    s4 =  s:0 c:500
-    s5 =  s:0 c:500
-    s6 =  s:0 c:500
-    s7 =  s:0 c:500
-    s8 =  s:0 c:500
-    s9 =  s:0 c:500
-    sa =  s:0 c:500
-    sb =  s:0 c:500
-    sc =  s:0 c:500
-    sd =  s:0 c:500
-    se =  s:0 c:500
-    m4 =   . . s:2000
-    m3 =   . . s:2000
-    m2 =   . . s:2000
-    m5 =   . . s:2000
-    me =   s:2000
-    sf =  s:0 c:500
+    s1 = BucketRed s:0 c:500
+    s2 = BucketBlue s:0 c:500
+    s3 = BucketBlue s:0 c:500
+    s4 = BucketYellow s:0 c:500
+    s5 = BucketWhite s:0 c:500
+    s6 = BucketBlue s:0 c:500
+    s7 = BucketYellow s:0 c:500
+    s8 = BucketRed s:0 c:500
+    s9 = BucketBlack s:0 c:500
+    sa = BucketWhite s:0 c:500
+    sb = BucketBlack s:0 c:500
+    sc = BucketRed s:0 c:500
+    sd = BucketYellow s:0 c:500
+    se = BucketBlue s:0 c:500
+    m4 = BucketRed BucketBlue . . s:2000
+    m3 = BucketBlue BucketYellow . . s:2000
+    m2 = BucketBlack BucketWhite . . s:2000
+    m5 = BucketRed BucketYellow . . s:2000
+    me = BucketRed BucketBlue s:2000
+    sf = BucketRed s:0 c:500
     d1
     d2
-    m1 =          s:2000
+    m1 = BucketRed BucketBlue BucketYellow BucketBlack BucketWhite BucketGrey BucketGreen BucketPurple BucketOrange s:2000
     d3
-    mf =   s:2000
-    sg =  s:0 c:500
-    sh =  s:0 c:500
+    mf = BucketBlue BucketYellow s:2000
+    sg = BucketBlue s:0 c:500
+    sh = BucketYellow s:0 c:500
     d4
-    m8 =   . . s:2000
-    si =  s:0 c:500
-    m6 =  . . . s:2000
-    md =   s:2000
-    sj =  s:0 c:500
-    mc =   . . s:2000
+    m8 = BucketBlue Plus . . s:2000
+    si = BucketBlue s:0 c:500
+    m6 = BucketRainbow . . . s:2000
+    md = BucketBlue BucketYellow s:2000
+    sj = BucketBlack s:0 c:500
+    mc = BucketBlack Plus . . s:2000
     d5
     d6
-    m7 =   . . s:2000
-    m9 =   . . s:2000
-    mb =   . . s:2000
-    sk =  s:0 c:500
-    mh =   s:2000
-    ma =   s:2000
+    m7 = BucketYellow Plus . . s:2000
+    m9 = BucketRed Plus . . s:2000
+    mb = BucketWhite Plus . . s:2000
+    sk = BucketRed s:0 c:500
+    mh = BucketRed BucketYellow s:2000
+    ma = BucketRed BucketWhite s:2000
     d7
     d8
-    sl =  s:0 c:500
-    sm =  s:0 c:500
+    sl = BucketYellow s:0 c:500
+    sm = BucketYellow s:0 c:500
     d9
-    sn =  s:0 c:500
+    sn = BucketRed s:0 c:500
     da
     db
     dc
-    so =  s:0 c:500
-    sp =  s:0 c:500
-    sq =  s:0 c:500
-    sr =  s:0 c:500
-    ss =  s:0 c:500
+    so = BucketWhite s:0 c:500
+    sp = BucketYellow s:0 c:500
+    sq = BucketBlue s:0 c:500
+    sr = BucketRed s:0 c:500
+    ss = BucketWhite s:0 c:500
+    $ BucketBlue BucketYellow BucketRed BucketGreen BucketOrange BucketPurple
   `,
   `
     # Factini map
-    # Created 1684402221235
+    # Created 1706892045118
     d=17x17
     ┌─────────────────────────────────────────────────┐
     │.  .  .  .  .  .  .  .  d  .  .  .  .  .  .  .  .│
@@ -169,7 +170,8 @@ const GAME_EXAMPLES = [
     │.  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .│
     └─────────────────────────────────────────────────┘
     d1
-    m1 =   . . s:2000
+    m1 = BucketBlue BucketYellow . . s:2000
+    $ BucketBlue BucketYellow BucketRed BucketGreen BucketOrange BucketPurple
   `,
   `
     # Factini map
