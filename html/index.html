@@ -317,8 +317,6 @@
           showSprite();
           break;
       }
-
-      $config_node_current_state.innerText = node.current_state;
     }
     function createSprite(frameIndex) {
       const rawName = $config_node_list.children[$config_node_list.selectedIndex].value;
@@ -410,7 +408,6 @@
       // y: 0.0,
       // w: 0.0,
       // h: 0.0,
-      // current_state: ConfigNodeState::Waiting,
 
       const finalWidth = 64;
       const finalHeight = 64;
@@ -607,7 +604,6 @@
           <div id="$p_config_node_y" style="white-space: pre;"><span class="key">y:</span><span id="$config_node_y" class="value"></span></div>
           <div id="$p_config_node_w" style="white-space: pre;"><span class="key">w:</span><span id="$config_node_w" class="value"></span></div>
           <div id="$p_config_node_h" style="white-space: pre;"><span class="key">h:</span><span id="$config_node_h" class="value"></span></div>
-          <div id="$p_config_node_current_state" style="white-space: pre;"><span class="key">current_state:</span><span id="$config_node_current_state" class="value"></span></div>
         </div>
       </div>
     </div>

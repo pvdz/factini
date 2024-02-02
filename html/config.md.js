@@ -56,7 +56,7 @@ These are the known node kinds:
 * "after": A list of zero or more quests that are required to unlock this quest
 * "parts": (Legacy) A list of zero or more parts that unlock when this quest unlocks. Note that the input parts for any target parts are auto-enabled. In most cases you don't need to specify this property in your quests.
 * "targets": One or more pairs of counts and parts, the requirements to finish this quest
-* "state": Only valid stats are "active", "finished", and "waiting". Generally you omit this.
+* "quest_status": Starts the quest in a particular state rather than "waiting". Used for quickly debugging later on in a quest. One of "active", "bouncing", "fading_and_bouncing", "finished", or "waiting"
 * "active": No value. Mark the current story (whatever it is) as the active one. Will crash hard if more than one story is active.
 
 ## Part properties

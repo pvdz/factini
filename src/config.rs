@@ -412,8 +412,6 @@ pub struct ConfigNode {
 
   pub drm: bool, // When true, the art for this node is not owned. Use with options.show_drm=false to create safe public media with placeholders
   pub sprite_config: SpriteConfig,
-
-  pub current_state: ConfigNodeState, // TODO: I think this prop is obsolete...
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -427,19 +425,6 @@ pub enum ConfigNodeKind {
   Machine,
   Belt,
   Story,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum ConfigNodeState {
-  Waiting, // Waiting for eligibility to be active
-
-  // Quests
-  LFG, // Ready to be added to be given to the user but not yet given to the user
-  Active, // Currently given to the user, enabled to be finished
-  Finished, // Already finished
-
-  // Parts
-  Available, // Part that can be used
 }
 
 pub fn parse_fmd(trace_parse_fmd: bool, config: String) -> Config {
@@ -601,7 +586,6 @@ pub fn parse_fmd(trace_parse_fmd: bool, config: String) -> Config {
                   h: 0.0
                 }]
               },
-              current_state: ConfigNodeState::Waiting,
             };
             nodes.push(current_node);
           }
@@ -841,16 +825,6 @@ pub fn parse_fmd(trace_parse_fmd: bool, config: String) -> Config {
               // height in the sprite file of this sprite
               let last = nodes[current_node_index].sprite_config.frames.len() - 1;
               nodes[current_node_index].sprite_config.frames[last].h = value_raw.parse::<f64>().or::<Result<u32, &str>>(Ok(0.0)).unwrap();
-            }
-            "state" => {
-              if trace_parse_fmd { log!("Forcing node state for `{}` to {}", nodes[current_node_index].name, value_raw); }
-              match value_raw {
-                "active" => nodes[current_node_index].current_state = ConfigNodeState::Active,
-                "available" => nodes[current_node_index].current_state = ConfigNodeState::Available,
-                "finished" => nodes[current_node_index].current_state = ConfigNodeState::Finished,
-                "waiting" => nodes[current_node_index].current_state = ConfigNodeState::Waiting,
-                  _ => panic!("Only valid node states allowed; Expecting one if 'active', 'available', 'finished', or 'waiting', got: {}", value_raw),
-              }
             }
             "quest_status" => {
               if trace_parse_fmd { log!("Forcing quest status for `{}` to {}", nodes[current_node_index].name, value_raw); }
@@ -1107,7 +1081,7 @@ pub fn parse_fmd(trace_parse_fmd: bool, config: String) -> Config {
   if trace_parse_fmd {
     log!("+ Have a total of {} config nodes:", nodes.len());
     nodes.iter_mut().enumerate().for_each(|(i, node)| {
-      log!("- node {} is {}, kind={:?}, state={:?}", i, node.raw_name, node.kind, node.current_state);
+      log!("- node {} is {}, kind={:?}", i, node.raw_name, node.kind);
     });
   }
 
@@ -1198,29 +1172,14 @@ pub fn parse_fmd(trace_parse_fmd: bool, config: String) -> Config {
     }
   });
 
-  if trace_parse_fmd { log!("+ Initialize the Part node states"); }
-  stories.iter().for_each(|story| {
-    if trace_parse_fmd { log!("  - Story: {}", nodes[story.story_node_index].name); }
-    story.quest_nodes.iter().for_each(|&quest_index| {
-      // Clone the list of numbers because otherwise it moves. So be it.
-      if trace_parse_fmd { log!("    - Quest Part {} is {:?} and would enable parts {:?} ({:?})", nodes[quest_index].name, nodes[quest_index].current_state, nodes[quest_index].starting_part_by_name, nodes[quest_index].starting_part_by_index); }
-      if nodes[quest_index].quest_init_status != QuestStatus::Waiting && nodes[quest_index].quest_init_status != QuestStatus::Bouncing { // TODO: abstract this check
-        nodes[quest_index].starting_part_by_index.clone().iter().for_each(|&part_kind| {
-          if trace_parse_fmd { log!("      - Part {} is available because Quest {} is available", nodes[part_kind].name, nodes[quest_index].name); }
-          nodes[part_kind].current_state = ConfigNodeState::Available;
-        });
-      }
-    });
-  });
-
   if trace_parse_fmd {
     log!("+ Collected available Quests and Parts from the start:");
     nodes.iter().for_each(|node| {
-      if node.current_state != ConfigNodeState::Waiting || node.quest_init_status != QuestStatus::Waiting {
+      if node.quest_init_status != QuestStatus::Waiting {
         match node.kind {
           ConfigNodeKind::Asset => {}
-          ConfigNodeKind::Part => log!("  - Part {} will be {:?} from the start", node.raw_name, node.current_state),
-          ConfigNodeKind::Quest => log!("  - Quest {}, quest init status: {:?}, node state: {:?}", node.raw_name, node.quest_init_status, node.current_state),
+          ConfigNodeKind::Part => {}
+          ConfigNodeKind::Quest => log!("  - Quest {}, quest init status: {:?}", node.raw_name, node.quest_init_status),
           ConfigNodeKind::Demand => {}
           ConfigNodeKind::Supply => {}
           ConfigNodeKind::Dock => {}
@@ -2070,8 +2029,6 @@ fn config_node_part(index: PartKind, name: String, icon: char) -> ConfigNode {
         }
       )
     },
-
-    current_state: ConfigNodeState::Available,
   };
 }
 fn config_node_supply(index: PartKind, name: String) -> ConfigNode {
@@ -2121,8 +2078,6 @@ fn config_node_supply(index: PartKind, name: String) -> ConfigNode {
         }
       )
     },
-
-    current_state: ConfigNodeState::Available,
   };
 }
 fn config_node_demand(index: PartKind, name: String) -> ConfigNode {
@@ -2172,8 +2127,6 @@ fn config_node_demand(index: PartKind, name: String) -> ConfigNode {
         }
       )
     },
-
-    current_state: ConfigNodeState::Available,
   };
 }
 fn config_node_dock(index: PartKind, name: String) -> ConfigNode {
@@ -2223,8 +2176,6 @@ fn config_node_dock(index: PartKind, name: String) -> ConfigNode {
         }
       )
     },
-
-    current_state: ConfigNodeState::Available,
   };
 }
 fn config_node_machine(index: PartKind, name: &str, file: &str) -> ConfigNode {
@@ -2274,9 +2225,6 @@ fn config_node_machine(index: PartKind, name: &str, file: &str) -> ConfigNode {
         }
       )
     },
-
-    // This hints where on this machine tile the output part icon of this machine should be painted
-    current_state: ConfigNodeState::Available,
   };
 }
 fn config_node_belt(index: PartKind, name: &str) -> ConfigNode {
@@ -2328,8 +2276,6 @@ fn config_node_belt(index: PartKind, name: &str) -> ConfigNode {
         }
       )
     },
-
-    current_state: ConfigNodeState::Available,
   };
 }
 fn config_node_asset(index: PartKind, name: &str) -> ConfigNode {
@@ -2379,8 +2325,6 @@ fn config_node_asset(index: PartKind, name: &str) -> ConfigNode {
         }
       )
     },
-
-    current_state: ConfigNodeState::Available,
   };
 }
 fn config_node_story(index: PartKind, name: &str) -> ConfigNode {
@@ -2430,8 +2374,6 @@ fn config_node_story(index: PartKind, name: &str) -> ConfigNode {
         }
       )
     },
-
-    current_state: ConfigNodeState::Available,
   };
 }
 
@@ -2531,8 +2473,6 @@ fn config_node_to_jsvalue(node: &ConfigNode) -> JsValue {
           ).iter().collect::<js_sys::Array>())
       }).collect::<js_sys::Array>().into()
     ),
-
-    convert_js_to_pair("current_state", JsValue::from(format!("{:?}", node.current_state))),
   ).iter().collect::<js_sys::Array>().into();
 }
 pub fn config_to_jsvalue(config: &Config) -> JsValue {
