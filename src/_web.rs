@@ -32,8 +32,6 @@
 //   - when next ui-phase unlocks, use an animation where ui elements drift into their place
 // - maze
 //   - maze fuel could blow-up-fade-out when collected, with a 3x for the better one, maybe rainbow wiggle etc? or just 1x 2x 3x instead of icon
-// - auto build
-//   - can we prevent undo/redo stack changes until the end?
 // - repo
 //   - cleanup
 
@@ -989,8 +987,11 @@ pub fn start() -> Result<(), JsValue> {
           log!("Updated prio list: {:?}", prio);
           factory.prio = prio;
 
-          if !state.load_snapshot_next_frame {
-
+          if state.load_snapshot_next_frame {
+            // Do not change undo stack
+          } else if factory.auto_build.phase != AutoBuildPhase::None {
+            // Do not change for bot changes
+          } else {
             if state.snapshot_undo_pointer != state.snapshot_pointer {
               log!("snapshot pointer was in the past({} < {}). its snapshot should be one ahead. move past it to {}", state.snapshot_undo_pointer, state.snapshot_pointer, state.snapshot_pointer + 1);
               state.snapshot_pointer += 1;
@@ -2092,6 +2093,8 @@ fn on_up_undo(options: &Options, state: &mut State, config: &Config, factory: &F
     log!("Going back one snapshot from {} to {}, setting load_snapshot_next_frame=true", state.snapshot_undo_pointer, state.snapshot_undo_pointer - 1);
     state.snapshot_undo_pointer -= 1;
     state.load_snapshot_next_frame = true;
+  } else {
+    log!("ignored because there is no prior undo history");
   }
 }
 fn on_up_trash(options: &Options, state: &State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState) {

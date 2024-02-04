@@ -141,6 +141,13 @@ pub fn auto_build_next_step(options: &Options, state: &State, config: &Config, f
   factory.auto_build.mouse_offset_x = factory.auto_build.mouse_target_x;
   factory.auto_build.mouse_offset_y = factory.auto_build.mouse_target_y;
   auto_build_init(options, state, config, factory);
+
+  if factory.auto_build.phase == AutoBuildPhase::None {
+    log!("Marking factory as dirty so the final state is pushed onto the undo stack");
+    // This will cause the last state to be popped onto the undo stack
+    // We need to do this because it will be disabled while auto-build is on
+    factory.changed = true;
+  }
 }
 
 pub fn auto_build_start(options: &Options, state: &State, config: &Config, factory: &mut Factory, ox: f64, oy: f64) {
