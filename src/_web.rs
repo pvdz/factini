@@ -149,6 +149,7 @@ const BUTTON_COLOR_BORDER_DARK: &str = "#24142c";
 const BUTTON_COLOR_BORDER_LIGHT: &str = "#928fb8";
 const BUTTON_COLOR_BACK: &str = "#392946";
 const BUTTON_COLOR_FRONT: &str = "#ffcf8e"; // Same as floor
+const MACHINE_ORANGE: &str = "#c99110";
 
 // Exports from web (on a non-module context, define a global "log" and "dnow" function)
 // Not sure how this works in threads. Probably the same. TBD.
@@ -4717,7 +4718,7 @@ fn paint_atom(
   let ( x, y ) = get_atom_xy(inc);
 
   if is_machine_part {
-    context.set_fill_style(&"#c99110".into());
+    context.set_fill_style(&MACHINE_ORANGE.into());
     context.fill_rect(x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
   } else {
     paint_dock_stripes(options, state, config, factory, context, CONFIG_NODE_DOCK_UP, x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
@@ -4766,7 +4767,7 @@ fn paint_woop(
   let ( x, y ) = get_woop_xy(inc);
 
   if is_machine_part {
-    context.set_fill_style(&"#c99110".into());
+    context.set_fill_style(&MACHINE_ORANGE.into());
     context.fill_rect(x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
   } else {
     paint_dock_stripes(options, state, config, factory, context, CONFIG_NODE_DOCK_UP, x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
