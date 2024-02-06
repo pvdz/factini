@@ -21,6 +21,11 @@ use super::supply::*;
 use super::utils::*;
 use super::log;
 
+
+const COMMENT: &char = &'#';
+const CHAR_AT: &char = &'@';
+const SPACE: &char = &' ';
+
 pub fn floor_from_str(options: &Options, state: &mut State, config: &Config, str: &String) -> ( [Cell; FLOOR_CELLS_WH], Vec<char>, u64 ) {
   if str.trim().len() == 0 {
     return ( floor_empty(config), vec!(), 0 );
@@ -35,10 +40,10 @@ pub fn floor_from_str(options: &Options, state: &mut State, config: &Config, str
     panic!("Error: Input is not a Factini map. Should start with a line `# Factini map` and it didn't...");
   }
 
-  return str_to_floor2(options, state, config, str);
+  return str_to_floor(options, state, config, str);
 }
 
-fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &String) -> ( [Cell; FLOOR_CELLS_WH], Vec<char>, u64 ) {
+fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &String) -> ([Cell; FLOOR_CELLS_WH], Vec<char>, u64 ) {
   // Given a string in a grid format, generate a floor
   // The string starts with at least one line of config.
   // - For now the only modifier are the dimension of the hardcoded 11x11
@@ -56,8 +61,9 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
   // - Rest is ignored. Can be whatever.
   // Auto-layout is applied afterwards.
 
-  // d=11x11 seed=123456456
+  // # Factini map
   // # Generated 2022-07-08T22:00:01
+  // d=11x11 seed=123456456
   // ┌─────────────────────────────────────────────────┐
   // │.  .  .  .  .  .  .  .  .  .  .  .  .  .  .  sw .│
   // │ ┌───────────────────────────────────────────v─┐ │
@@ -119,17 +125,15 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
   // om = b         -> g s:0  d:3x3
   // om = b         -> g s:0  d:4x4
   // $ abc
+  // @ 0
 
-  log!("str_to_floor2(options.trace_map_parsing={})", options.trace_map_parsing);
+  log!("str_to_floor(options.trace_map_parsing={})", options.trace_map_parsing);
   if options.trace_map_parsing { log!("{}", str); }
 
   let mut seed: u64 = 0;
   let mut floor: [Cell; FLOOR_CELLS_WH] = floor_empty(config);
   // Populate the unlocked icons by at least the ones that unlock by default
   let mut unlocked_part_icons: Vec<char> = config_get_initial_unlocks(options, state, config);
-
-  let hash: &char = &'#';
-  let space: &u8 = &32u8;
 
   let mut lines = str.lines().collect::<Vec<&str>>();
 
@@ -141,9 +145,9 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
 
   if options.trace_map_parsing { log!("first First line: {:?}", first_line); }
   loop {
-    while first_line.peek().or(Some(&'#')).unwrap() == &' ' { first_line.next(); }
+    skip_spaces(first_line);
     // Keep skipping lines that start with comments and empty lines (only containing spaces)
-    if first_line.peek().or(Some(&'#')).unwrap() != &'#' {
+    if first_line.peek().or(Some(COMMENT)).unwrap() != COMMENT {
       break;
     }
     first_line = lines.next().unwrap(); // Bust if there's no more input.
@@ -185,7 +189,7 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
         }
         let mut h: usize = 0;
         loop {
-          let d = *first_line.peek().or(Some(&'#')).unwrap() as u8;
+          let d = *first_line.peek().or(Some(COMMENT)).unwrap() as u8;
           if d >= ('0' as u8) && d <= ('9' as u8) {
             h = (h * 10) + (d - ('0' as u8)) as usize;
             first_line.next();
@@ -226,7 +230,7 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
         }
 
         loop {
-          let c = *first_line.peek().or(Some(&'#')).unwrap() as u8;
+          let c = *first_line.peek().or(Some(COMMENT)).unwrap() as u8;
           if c >= ('0' as u8) && c <= ('9' as u8) {
             seed = (seed * 10) + (c as u64 - ('0' as u8 as u64));
             first_line.next();
@@ -239,37 +243,6 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
       }
       _ => {}
     }
-  }
-
-  fn add_machine(options: &Options, state: &State, config: &Config, floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, x: usize, y: usize, machine_id: char, machine_meta_data: &mut Vec<(usize, usize, char, u64, Vec<PartKind>)>, port_u: char, port_r: char, port_d: char, port_l: char) {
-    // Auto layout will have to reconcile the individual machine parts into one machine
-    // Any modifiers as well as the input and output parameters of this machine are
-    // listed below the floor model. Expect them to be filled in later.
-    let mn = (machine_id as u8 - ('0' as u8)) as usize;
-
-    let mut index = machine_meta_data.len();
-    machine_meta_data.iter_mut().enumerate().any(|(i, obj)| {
-      if obj.2 != machine_id {
-        return false;
-      }
-
-      obj.1 = coord; // Coords are walked left-to-right top-to-bottom so the next coord is always higher than the current.
-      index = i;
-      return true;
-    });
-
-    if index == machine_meta_data.len() {
-      machine_meta_data.push((coord, coord, machine_id, 1, vec!()));
-    }
-
-    let mut cell = machine_any_cell(options, state, config, machine_id as char, x, y, 1, 1, MachineKind::Unknown, vec!(), part_c(config, ' '), 1, 1, 1);
-    cell.port_u = match port_u as char { '^' => Port::Outbound, 'v' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port up indicators must be `^`, `v`, `?` or a space, this was `{}`", port_u)};
-    cell.port_r = match port_r as char { '>' => Port::Outbound, '<' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port right indicators must be `<`, `>`, `?` or a space, this was `{}`", port_u)};
-    cell.port_d = match port_d as char { 'v' => Port::Outbound, '^' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port down indicators must be `^`, `v`, `?` or a space, this was `{}`", port_u)};
-    cell.port_l = match port_l as char { '<' => Port::Outbound, '>' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port left indicators must be `<`, `>`, `?` or a space, this was `{}`", port_u)};
-    floor[coord] = cell;
-
-    if options.trace_map_parsing { log!("This was a machine [{}]: cell @{}, main_coord @{}, with id {}", index, coord, machine_meta_data[index].2, machine_id); }
   }
 
   let mut machine_meta_data: Vec<(
@@ -287,27 +260,27 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
 
     let mut line1 = lines.next().unwrap();
     loop {
-      while line1.peek().or(Some(&'#')).unwrap() == &' ' { line1.next(); }
+      skip_spaces(line1);
       // Keep skipping lines that start with comments and empty lines (only containing spaces)
-      if line1.peek().or(Some(&'#')).unwrap() != &'#' {
+      if line1.peek().or(Some(COMMENT)).unwrap() != COMMENT {
         break;
       }
       line1 = lines.next().unwrap(); // Bust if there's no more input.
     }
     let mut line2 = lines.next().unwrap();
     loop {
-      while line2.peek().or(Some(&'#')).unwrap() == &' ' { line2.next(); }
+      skip_spaces(line2);
       // Keep skipping lines that start with comments and empty lines (only containing spaces)
-      if line2.peek().or(Some(&'#')).unwrap() != &'#' {
+      if line2.peek().or(Some(COMMENT)).unwrap() != COMMENT {
         break;
       }
       line2 = lines.next().unwrap(); // Bust if there's no more input.
     }
     let mut line3 = lines.next().unwrap();
     loop {
-      while line3.peek().or(Some(&'#')).unwrap() == &' ' { line3.next(); }
+      skip_spaces(line3);
       // Keep skipping lines that start with comments and empty lines (only containing spaces)
-      if line3.peek().or(Some(&'#')).unwrap() != &'#' {
+      if line3.peek().or(Some(COMMENT)).unwrap() != COMMENT {
         break;
       }
       line3 = lines.next().unwrap(); // Bust if there's no more input.
@@ -472,9 +445,9 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
       Some(line) => {
         let bak = line.clone();
         if options.trace_map_parsing { log!("Next line({}): {}", line_no, line.clone().collect::<String>()); }
-        while line.peek().or(Some(&'#')).unwrap() == &' ' { line.next(); }
+        skip_spaces(line);
         // Keep skipping lines that start with comments and empty lines (only containing spaces)
-        if line.peek().or(Some(&'#')).unwrap() != &'#' {
+        if line.peek().or(Some(COMMENT)).unwrap() != COMMENT {
           let c = line.next().or(Some('#')).unwrap();
           match c {
             's' => {
@@ -504,7 +477,7 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
               loop {
                 letters.push(c);
 
-                c = *line.peek().or(Some(&'#')).unwrap();
+                c = *line.peek().or(Some(COMMENT)).unwrap();
                 if c == '#' || c == '-' || c == ':' || c == '.' || c == ' ' { break; }
                 c = line.next().or(Some('#')).unwrap();
                 if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) { panic!("Unexpected input on line {} while parsing supplier output rest: input characters must be a-zA-Z0-9, found `{}`", line_no, c); }
@@ -971,6 +944,41 @@ fn str_to_floor2(options: &Options, state: &mut State, config: &Config, str: &St
   return ( floor, unlocked_part_icons, seed );
 }
 
+fn add_machine(options: &Options, state: &State, config: &Config, floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, x: usize, y: usize, machine_id: char, machine_meta_data: &mut Vec<(usize, usize, char, u64, Vec<PartKind>)>, port_u: char, port_r: char, port_d: char, port_l: char) {
+  // Auto layout will have to reconcile the individual machine parts into one machine
+  // Any modifiers as well as the input and output parameters of this machine are
+  // listed below the floor model. Expect them to be filled in later.
+  let mn = (machine_id as u8 - ('0' as u8)) as usize;
+
+  let mut index = machine_meta_data.len();
+  machine_meta_data.iter_mut().enumerate().any(|(i, obj)| {
+    if obj.2 != machine_id {
+      return false;
+    }
+
+    obj.1 = coord; // Coords are walked left-to-right top-to-bottom so the next coord is always higher than the current.
+    index = i;
+    return true;
+  });
+
+  if index == machine_meta_data.len() {
+    machine_meta_data.push((coord, coord, machine_id, 1, vec!()));
+  }
+
+  let mut cell = machine_any_cell(options, state, config, machine_id as char, x, y, 1, 1, MachineKind::Unknown, vec!(), part_c(config, ' '), 1, 1, 1);
+  cell.port_u = match port_u as char { '^' => Port::Outbound, 'v' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port up indicators must be `^`, `v`, `?` or a space, this was `{}`", port_u)};
+  cell.port_r = match port_r as char { '>' => Port::Outbound, '<' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port right indicators must be `<`, `>`, `?` or a space, this was `{}`", port_u)};
+  cell.port_d = match port_d as char { 'v' => Port::Outbound, '^' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port down indicators must be `^`, `v`, `?` or a space, this was `{}`", port_u)};
+  cell.port_l = match port_l as char { '<' => Port::Outbound, '>' => Port::Inbound, '?' => Port::Unknown, ' ' => Port::None, '─' => Port::None, '│' => Port::None, _ => panic!("Port left indicators must be `<`, `>`, `?` or a space, this was `{}`", port_u)};
+  floor[coord] = cell;
+
+  if options.trace_map_parsing { log!("This was a machine [{}]: cell @{}, main_coord @{}, with id {}", index, coord, machine_meta_data[index].2, machine_id); }
+}
+
+fn skip_spaces(line: &mut std::iter::Peekable<std::str::Chars>) {
+  while line.peek().or(Some(COMMENT)).unwrap() == SPACE { line.next(); }
+}
+
 fn n_to_alnum(n: u8) -> char {
   return
     if n <= 9 { ('0' as u8 + n) as char }
@@ -1000,7 +1008,7 @@ fn parse_icon(options: &Options, state: &State, config: &Config, line: &mut std:
     // It means the dump can be alnum without worrying about non-printable/weird chars
     let mut n: u8 = 0;
     loop {
-      let c = line.peek().or(Some(&'#')).unwrap();
+      let c = line.peek().or(Some(COMMENT)).unwrap();
       if !(*c >= '0' && *c <= '9') { break; }
       let c = line.next().or(Some('#')).unwrap();
       n += (n * 10) + (c as u8) - ('0' as u8);
@@ -1010,13 +1018,13 @@ fn parse_icon(options: &Options, state: &State, config: &Config, line: &mut std:
   }
   else if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {
     let mut letters: Vec<char> = vec!(c);
-    let mut c = *line.peek().or(Some(&'#')).unwrap();
+    let mut c = *line.peek().or(Some(COMMENT)).unwrap();
     while c == ' ' || c == '.' { c = line.next().or(Some('#')).unwrap(); }
     while c != '#' && c != '-' && c != ':' && c != '.' && c != ' ' {
       if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= 'A' && c <= 'Z')) { panic!("Unexpected input on line {} while parsing unlocks rest: input characters must be a-zA-Z0-9, found `{}`", line_no, c); }
       line.next().or(Some('#')).unwrap(); // Consume this char.
       letters.push(c);
-      c = *line.peek().or(Some(&'#')).unwrap();
+      c = *line.peek().or(Some(COMMENT)).unwrap();
     }
 
     if letters.len() == 0 {
