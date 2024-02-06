@@ -14,6 +14,7 @@
 // - machines
 //   - auto discover target output depending on input
 //   - putting machine down next to two dead end belts will only connect one?
+//   - add hint that two machines next to each other do not share port?
 //   - make the menu-machine "process" the finished parts before text.draw_image_with_html_image_element_and_dw_angenerating trucks
 //   - missing purpose for machine is not properly displayed for 1x2. see MACHINE_1X2_UI / missing_purpose_y
 //   - should machines auto-configure based on inputs? that would prevent complex patterns if there are shorter patterns that are a subset.. maybe that's fine?
@@ -5394,7 +5395,6 @@ fn paint_ui_button2(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state
 fn paint_ui_time_control(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   // paint_speed_buttons
   if options.enable_speed_menu {
-    context.set_font(&"12px monospace");
     paint_ui_speed_bubble(MenuButton::SpeedMin, options, state, context, mouse_state, BUTTON_SPEED_MIN_INDEX, "-");
     paint_ui_speed_bubble(MenuButton::SpeedHalf, options, state, context, mouse_state, BUTTON_SPEED_HALF_INDEX, "½");
     paint_ui_speed_bubble(MenuButton::SpeedPlayPause, options, state, context, mouse_state, BUTTON_SPEED_PLAY_PAUSE_INDEX, "⏭"); // "play" / "pause"
@@ -5424,6 +5424,15 @@ fn paint_ui_speed_bubble(button: MenuButton, options: &Options, state: &State, c
     context.set_stroke_style(&BUTTON_COLOR_BORDER_LIGHT.into()); // border
   }
 
+  let dx = match text  {
+    "⏭" => 11.0,
+    "½" => 13.0,
+    "2" => 8.0,
+    "-" => 6.0,
+    "+" => 10.0,
+    _ => panic!("update me in paint_ui_speed_bubble()..."),
+  };
+
   if text == "⏭" && options.speed_modifier_floor == 0.0 {
     context.set_fill_style(&"tomato".into());
   }
@@ -5449,11 +5458,11 @@ fn paint_ui_speed_bubble(button: MenuButton, options: &Options, state: &State, c
     context.set_fill_style(&BUTTON_COLOR_BACK.into());
   }
 
-  context.set_font(&"12px monospace");
+  context.set_font(&"26px Verdana");
   context.fill();
   context.stroke();
   context.set_fill_style(&BUTTON_COLOR_FRONT.into());
-  context.fill_text(text, cx - 4.0, cy + 4.0).expect("to paint");
+  context.fill_text(text, cx - dx, cy + 9.0).expect("to paint");
 
   context.restore();
 }
