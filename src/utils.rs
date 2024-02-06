@@ -1,6 +1,9 @@
 #[cfg(not(target_arch = "wasm32"))]
 use web_sys::{HtmlCanvasElement, HtmlImageElement};
 
+// LocalStorage keys. Keep in sync with html.
+pub const LS_LAST_MAP: &str = &"factini.lastMap";
+
 pub fn progress(ticks: u64, since: u64, range: u64) -> f64 {
   return ((ticks - since) as f64).max(0.00001) / (range as f64);
 }

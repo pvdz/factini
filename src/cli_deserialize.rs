@@ -26,9 +26,9 @@ const COMMENT: &char = &'#';
 const CHAR_AT: &char = &'@';
 const SPACE: &char = &' ';
 
-pub fn floor_from_str(options: &Options, state: &mut State, config: &Config, str: &String) -> ( [Cell; FLOOR_CELLS_WH], Vec<char>, u64 ) {
+pub fn floor_from_str(options: &Options, state: &mut State, config: &Config, str: &String) -> ( [Cell; FLOOR_CELLS_WH], Vec<char>, u8, u64 ) {
   if str.trim().len() == 0 {
-    return ( floor_empty(config), vec!(), 0 );
+    return ( floor_empty(config), vec!(), 0, 0 );
   }
 
   // Require a Factini header and proper map here. User input should handle an error sooner.
@@ -43,7 +43,7 @@ pub fn floor_from_str(options: &Options, state: &mut State, config: &Config, str
   return str_to_floor(options, state, config, str);
 }
 
-fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &String) -> ([Cell; FLOOR_CELLS_WH], Vec<char>, u64 ) {
+fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &String) -> ([Cell; FLOOR_CELLS_WH], Vec<char>, u8, u64 ) {
   // Given a string in a grid format, generate a floor
   // The string starts with at least one line of config.
   // - For now the only modifier are the dimension of the hardcoded 11x11
@@ -434,6 +434,8 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
       }
     }
   }
+
+  let mut ui_unlock_progress = 0;
 
   // Keep parsing config lines while skipping comments. These are optional and augment
   // things on the floor that don't really fit inside the schematic cleanly
@@ -873,13 +875,27 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
               // Expect a-zA-Z or &ddd where d is a digit with zero or more digits. The ord value becomes the char icon.
               // Spaces are skipped. Stops at EOL, EOF, or #
               loop {
+                skip_spaces(line);
                 let maybe_icon = parse_icon(options, state, config, line, line_no);
                 if let Some(icon) = maybe_icon {
+                  if options.trace_map_parsing { log!("  - icon: `{}` ({})", icon, icon as u8); }
                   if !unlocked_part_icons.contains(&icon) { unlocked_part_icons.push(icon); }
                 }
                 else {
                   break;
                 }
+              }
+            }
+            '@' => {
+              if options.trace_map_parsing { log!("Parsing @ unlocked UI list:"); }
+              // Expecting a digit which tells us the UI progression
+              skip_spaces(line);
+              let c = line.next().or(Some('#')).unwrap();
+              if c >= '0' && c <= '9' {
+                ui_unlock_progress = (c as u8) - ('0' as u8);
+                log!("  - Progress starts at {}", ui_unlock_progress);
+              } else {
+                panic!("The @ should be followed by a digit, found `{}` ({}), at line {}", c, c as u8, line_no);
               }
             }
             _ => panic!("Unexpected input on line {} while parsing input augments: wanted start of augment line, found `{}`", line_no, c),
@@ -941,7 +957,7 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
 
   if options.trace_map_parsing { log!("-- end of str_to_floor2()"); }
 
-  return ( floor, unlocked_part_icons, seed );
+  return ( floor, unlocked_part_icons, ui_unlock_progress, seed );
 }
 
 fn add_machine(options: &Options, state: &State, config: &Config, floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, x: usize, y: usize, machine_id: char, machine_meta_data: &mut Vec<(usize, usize, char, u64, Vec<PartKind>)>, port_u: char, port_r: char, port_d: char, port_l: char) {
@@ -1001,9 +1017,10 @@ fn alnum_to_n(c: char) -> u8 {
 
 fn parse_icon(options: &Options, state: &State, config: &Config, line: &mut std::iter::Peekable<std::str::Chars>, line_no: i32) -> Option<char> {
   let c = line.next().or(Some('#')).unwrap();
-  if options.trace_map_parsing { log!("unlocked part icon: `{}` : ascii {}", c, c as u32); }
+  if options.trace_map_parsing { log!("- unlocked part start: `{}` (ord={})", c, c as u32); }
   if c == '#' { return None; }
   if c == '&' {
+    if options.trace_map_parsing { log!("  - this is an &ord"); }
     // This will be the char code as a string, so &97 for an 'a'
     // It means the dump can be alnum without worrying about non-printable/weird chars
     let mut n: u8 = 0;
@@ -1019,22 +1036,19 @@ fn parse_icon(options: &Options, state: &State, config: &Config, line: &mut std:
   else if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {
     let mut letters: Vec<char> = vec!(c);
     let mut c = *line.peek().or(Some(COMMENT)).unwrap();
-    while c == ' ' || c == '.' { c = line.next().or(Some('#')).unwrap(); }
     while c != '#' && c != '-' && c != ':' && c != '.' && c != ' ' {
       if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= 'A' && c <= 'Z')) { panic!("Unexpected input on line {} while parsing unlocks rest: input characters must be a-zA-Z0-9, found `{}`", line_no, c); }
       line.next().or(Some('#')).unwrap(); // Consume this char.
       letters.push(c);
       c = *line.peek().or(Some(COMMENT)).unwrap();
     }
-
-    if letters.len() == 0 {
-      return None;
-    }
+    if options.trace_map_parsing { log!("  - all letters of this word: {:?}", letters); }
 
     // Convert to a string. Deal with icon vs &ord vs raw_name later
     // log!("collected one input: {:?}", letters);
     let raw_unlock = letters.iter().collect::<String>();
     let index = find_part_from_input_by_string(config, &raw_unlock, line);
+    if options.trace_map_parsing { log!("  - part index of this word: {} -> {}", raw_unlock, index); }
     return Some(part_from_part_kind(config, index).icon);
   }
   else if c != ' ' {

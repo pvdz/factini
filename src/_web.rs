@@ -6,8 +6,6 @@
 
 // road to release
 // - import/export
-//   - finished quests restart on load. all of them.
-//   - unlocks (speed menu, save menu, etc) and quest progress should be remembered in local storage? at least optionally and by default.
 //   - export should have an option to select the story that the map targets
 // - small problem with tick_belt_take_from_belt when a belt crossing is next to a supply and another belt; it will ignore the other belt as input. because the belt will not let a part proceed to the next port unless it's free and the processing order will process the neighbor belt first and then the crossing so by the time it's free, the part will still be at 50% whereas the supply part is always ready. fix is probably to make supply parts take a tick to be ready, or whatever.
 //   - affects machine speed so should be fixed
@@ -528,7 +526,7 @@ pub fn start() -> Result<(), JsValue> {
   let initial_map_from_source;
   let initial_map = {
     let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
-    let last_map = local_storage.get_item("factini.lastMap").unwrap();
+    let last_map = local_storage.get_item(LS_LAST_MAP).unwrap();
     match last_map {
       Some(last_map) => {
         log!("Init map: Loading last known map from local storage...");
@@ -1025,8 +1023,9 @@ pub fn start() -> Result<(), JsValue> {
 
           let last_map = state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].as_str();
           let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
-          local_storage.set_item("factini.lastMap", last_map).unwrap();
-          log!("Stored last map to local storage ({} bytes)", last_map.len());
+          local_storage.set_item(LS_LAST_MAP, last_map).unwrap();
+          log!("Stored last map to local storage ({} bytes) into `{}`", last_map.len(), LS_LAST_MAP);
+          if options.trace_map_parsing { log!("Stored map:\n{}", last_map); }
         }
 
         // Paint the world (we should not do input or world mutations after this point)
@@ -2705,7 +2704,7 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
       log!("pressed blow button. blowing the localStorage cache");
       let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
       local_storage.remove_item("factini.options").unwrap();
-      local_storage.remove_item("factini.lastMap").unwrap();
+      local_storage.remove_item(LS_LAST_MAP).unwrap();
       local_storage.remove_item("factini.save.snap0").unwrap();
       local_storage.remove_item("factini.save.png0").unwrap();
       local_storage.remove_item("factini.save.snap1").unwrap();

@@ -75,8 +75,8 @@ fn dnow() -> u64 {
   js_sys::Date::now() as u64
 }
 
-pub fn create_factory(options: &Options, state: &mut State, config: &Config, floor_str: String) -> Factory {
-  let ( floor, unlocked_part_icons, map_seed ) = floor_from_str(options, state, config, &floor_str);
+pub fn create_factory(options: &mut Options, state: &mut State, config: &Config, floor_str: String) -> Factory {
+  let ( floor, unlocked_part_icons, ui_unlock_progress, map_seed ) = floor_from_str(options, state, config, &floor_str);
   let available_parts_all: Vec<PartKind> = unlocked_part_icons.iter().map(|icon| part_icon_to_kind(config,*icon)).collect();
   let available_parts_before: Vec<(PartKind, bool)> = available_parts_all.iter().filter(|part| {
     // Search for this part in the default story (system nodes) and the current active story.
@@ -132,6 +132,7 @@ pub fn create_factory(options: &Options, state: &mut State, config: &Config, flo
     fuel_in_flight: (0, 0, 0, 0),
     auto_build: auto_build_create(),
   };
+  state_set_ui_unlock_progress(options, state, ui_unlock_progress);
 
   // log!("The maze: {:?}", factory.maze);
 
@@ -424,6 +425,7 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
                 log!("quest_update_status: fade finished {}", config.nodes[factory.quests[quest_index].config_node_index].raw_name);
                 quest_update_status(factory, quest_index, QuestStatus::Finished, factory.ticks);
                 update_game_ui_after_quest_finish(options, state);
+                factory.changed = true; // Update saved map
               }
             }
           }
@@ -444,27 +446,23 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
 pub fn update_game_ui_after_quest_finish(options: &mut Options, state: &mut State) {
   if state.ui_unlock_progress == 0 {
     log!("Moving to UI stage 1; {} {} {}", options.enable_speed_menu, options.enable_quick_save_menu, options.enable_maze_full);
-    // Move to stage 1: showing the .... speed controls
-    options.enable_speed_menu = true;
-    state.ui_unlock_progress = 1;
+    state_set_ui_unlock_progress(options, state, 1);
   }
   else if state.ui_unlock_progress == 1 {
     log!("Moving to UI stage 2");
-    options.enable_quick_save_menu = true;
-    state.ui_unlock_progress = 2;
+    state_set_ui_unlock_progress(options, state, 2);
   }
   else if state.ui_unlock_progress == 2 {
-    log!("Moving to UI stage 3");
     // TODO: Probably want the user to use a bigger machine for that
     // TODO: should first unlock the meter. The maze should unlock once each input on the meter has at least one bar.
-    options.enable_maze_roundway_and_collection = true;
-    state.ui_unlock_progress = 3;
+    log!("Moving to UI stage 3");
+    state_set_ui_unlock_progress(options, state, 3);
   }
   // Note: enable_maze_full is set once you have at least one cell in all four bars
 }
 
 pub fn factory_load_map(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, floor_str: String) {
-  let ( floor, unlocked_part_icons, map_seed ) = floor_from_str(options, state, config, &floor_str);
+  let ( floor, unlocked_part_icons, ui_unlock_progress, map_seed ) = floor_from_str(options, state, config, &floor_str);
   log!("Active quests before: {:?}", factory.quests.iter().filter(|quest| quest.status == QuestStatus::Active));
   factory.floor = floor;
   // log!("map_seed: {}", map_seed);
@@ -516,6 +514,8 @@ pub fn factory_load_map(options: &mut Options, state: &mut State, config: &Confi
   factory.parts_in_transit.clear();
   // Clear trucks to prevent indexing problems
   factory.trucks = vec!();
+
+  state_set_ui_unlock_progress(options, state, ui_unlock_progress);
 }
 
 pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
@@ -551,6 +551,7 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
         if options.trace_quest_status { log!("Quest {} ({}) finished bouncing. Marking as Finished", quest_current_index, factory.quests[quest_current_index].name); }
         quest_update_status(factory, quest_current_index, QuestStatus::Finished, factory.ticks);
         update_game_ui_after_quest_finish(options, state);
+        factory.changed = true;
 
         // - Find out which quests were unlocked by finishing this one
         // - Find out which parts are newly available by unlocking that quest

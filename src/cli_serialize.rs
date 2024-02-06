@@ -575,7 +575,7 @@ pub fn serialize2(options: &Options, state: &State, config: &Config, factory: &F
   let available_atoms = factory.available_atoms.iter().map(|(part, _visible)| config.nodes[*part].name.clone()).collect::<Vec<String>>();
   let available_woops = factory.available_woops.iter().map(|(part, _visible)| config.nodes[*part].name.clone()).collect::<Vec<String>>();
   let available = format!(
-    "$ {}",
+    "$ {}\n",
     available_atoms
       .iter()
       .chain(available_woops.iter())
@@ -584,6 +584,9 @@ pub fn serialize2(options: &Options, state: &State, config: &Config, factory: &F
       .join(" ")
   ).chars().collect();
   out.push(available);
+
+  // @ digit
+  out.push(format!("@ {}\n", state.ui_unlock_progress).chars().collect());
 
   let flat: Vec<char> = out.into_iter().flatten().collect();
   return flat.iter().collect();

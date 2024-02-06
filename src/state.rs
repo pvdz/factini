@@ -282,3 +282,10 @@ pub fn mouse_button_to_action(state: &State, mouse_state: &MouseState) -> Action
   let left_button = if state.mouse_mode_mirrored { 2 } else { 1 };
   return if mouse_state.last_down_button == left_button { Action::Add } else { Action::Remove }
 }
+
+pub fn state_set_ui_unlock_progress(options: &mut Options, state: &mut State, ui_unlock_progress: u8) {
+  state.ui_unlock_progress = ui_unlock_progress;
+  if ui_unlock_progress > 0 { options.enable_speed_menu = true; }
+  if ui_unlock_progress > 1 { options.enable_quick_save_menu = true; }
+  if ui_unlock_progress > 2 { options.enable_maze_roundway_and_collection = true; }
+}
