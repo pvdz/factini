@@ -294,7 +294,7 @@ pub fn start() -> Result<(), JsValue> {
   let saved_options = {
     log!("onload: Reading options from localStorage");
     let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
-    local_storage.get_item("factini.options").unwrap()
+    local_storage.get_item(LS_OPTIONS).unwrap()
   };
   let ( option_string, options_started_from_source ) = match saved_options {
     Some(str) => {
@@ -555,14 +555,14 @@ pub fn start() -> Result<(), JsValue> {
   let ( saved_map1, saved_png1, saved_map2, saved_png2, saved_map3, saved_png3, saved_map4, saved_png4 ) = {
     let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
     (
-      local_storage.get_item("factini.save.snap0").unwrap(),
-      local_storage.get_item("factini.save.png0").unwrap(),
-      local_storage.get_item("factini.save.snap1").unwrap(),
-      local_storage.get_item("factini.save.png1").unwrap(),
-      local_storage.get_item("factini.save.snap2").unwrap(),
-      local_storage.get_item("factini.save.png2").unwrap(),
-      local_storage.get_item("factini.save.snap3").unwrap(),
-      local_storage.get_item("factini.save.png3").unwrap(),
+      local_storage.get_item(LS_SAVE_SNAP0).unwrap(),
+      local_storage.get_item(LS_SAVE_PNG0).unwrap(),
+      local_storage.get_item(LS_SAVE_SNAP1).unwrap(),
+      local_storage.get_item(LS_SAVE_PNG1).unwrap(),
+      local_storage.get_item(LS_SAVE_SNAP2).unwrap(),
+      local_storage.get_item(LS_SAVE_PNG2).unwrap(),
+      local_storage.get_item(LS_SAVE_SNAP3).unwrap(),
+      local_storage.get_item(LS_SAVE_PNG3).unwrap(),
     )
   };
 
@@ -2162,8 +2162,8 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
       log!("  deleting saved map");
       quick_saves[mouse_state.up_save_map_index] = None;
       let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
-      local_storage.remove_item(format!("factini.save.snap{}", mouse_state.up_save_map_index).as_str()).unwrap();
-      local_storage.remove_item(format!("factini.save.png{}", mouse_state.up_save_map_index).as_str()).unwrap();
+      local_storage.remove_item(format!("LS_SAVE_SNAPX{}", mouse_state.up_save_map_index).as_str()).unwrap();
+      local_storage.remove_item(format!("LS_SAVE_PNGX{}", mouse_state.up_save_map_index).as_str()).unwrap();
     }
     else {
       log!("  loading saved map, snapshot pointer to {}, undo pointer too, setting load_snapshot_next_frame=true", state.snapshot_pointer);
@@ -2227,8 +2227,8 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
 
     // Store it there and in local storage
     let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
-    local_storage.set_item(format!("factini.save.snap{}", mouse_state.up_save_map_index).as_str(), &map_snapshot).unwrap();
-    local_storage.set_item(format!("factini.save.png{}", mouse_state.up_save_map_index).as_str(), &png).unwrap();
+    local_storage.set_item(format!("LS_SAVE_SNAPX{}", mouse_state.up_save_map_index).as_str(), &map_snapshot).unwrap();
+    local_storage.set_item(format!("LS_SAVE_PNGX{}", mouse_state.up_save_map_index).as_str(), &png).unwrap();
 
     quick_saves[mouse_state.up_save_map_index] = Some(quick_save_create(mouse_state.up_save_map_index, &document, map_snapshot, png));
   }
@@ -2703,16 +2703,16 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
     MenuButton::Row2Button0 => {
       log!("pressed blow button. blowing the localStorage cache");
       let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
-      local_storage.remove_item("factini.options").unwrap();
+      local_storage.remove_item(LS_OPTIONS).unwrap();
       local_storage.remove_item(LS_LAST_MAP).unwrap();
-      local_storage.remove_item("factini.save.snap0").unwrap();
-      local_storage.remove_item("factini.save.png0").unwrap();
-      local_storage.remove_item("factini.save.snap1").unwrap();
-      local_storage.remove_item("factini.save.png1").unwrap();
-      local_storage.remove_item("factini.save.snap2").unwrap();
-      local_storage.remove_item("factini.save.png2").unwrap();
-      local_storage.remove_item("factini.save.snap3").unwrap();
-      local_storage.remove_item("factini.save.png3").unwrap();
+      local_storage.remove_item(LS_SAVE_SNAP0).unwrap();
+      local_storage.remove_item(LS_SAVE_PNG0).unwrap();
+      local_storage.remove_item(LS_SAVE_SNAP1).unwrap();
+      local_storage.remove_item(LS_SAVE_PNG1).unwrap();
+      local_storage.remove_item(LS_SAVE_SNAP2).unwrap();
+      local_storage.remove_item(LS_SAVE_PNG2).unwrap();
+      local_storage.remove_item(LS_SAVE_SNAP3).unwrap();
+      local_storage.remove_item(LS_SAVE_PNG3).unwrap();
       log!("Done! Must reload to take effect");
     }
     MenuButton::Row2Button1 => {
@@ -6220,7 +6220,7 @@ fn parse_and_save_options_string(option_string: String, options: &mut Options, s
   let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
   if !on_load {
     log!("parse_and_save_options_string: Storing options into browser localStorage... ({} bytes)", exp.len());
-    local_storage.set_item("factini.options", exp.as_str()).unwrap();
+    local_storage.set_item(LS_OPTIONS, exp.as_str()).unwrap();
   }
 
   // Update UI to reflect actually loaded options

@@ -3,6 +3,17 @@ use web_sys::{HtmlCanvasElement, HtmlImageElement};
 
 // LocalStorage keys. Keep in sync with html.
 pub const LS_LAST_MAP: &str = &"factini.lastMap";
+pub const LS_OPTIONS: &str = &"factini.options";
+pub const LS_SAVE_SNAPX: &str = &"factini.save.snap";
+pub const LS_SAVE_PNGX: &str = &"factini.save.png";
+pub const LS_SAVE_SNAP0: &str = &"factini.save.snap0";
+pub const LS_SAVE_PNG0: &str = &"factini.save.png0";
+pub const LS_SAVE_SNAP1: &str = &"factini.save.snap1";
+pub const LS_SAVE_PNG1: &str = &"factini.save.png1";
+pub const LS_SAVE_SNAP2: &str = &"factini.save.snap2";
+pub const LS_SAVE_PNG2: &str = &"factini.save.png2";
+pub const LS_SAVE_SNAP3: &str = &"factini.save.snap3";
+pub const LS_SAVE_PNG3: &str = &"factini.save.png3";
 
 pub fn progress(ticks: u64, since: u64, range: u64) -> f64 {
   return ((ticks - since) as f64).max(0.00001) / (range as f64);
