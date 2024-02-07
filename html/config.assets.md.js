@@ -83,40 +83,25 @@ Source of cog unclear: https://pixelartmaker.com/art/b1c49e7f345d87d
 - w: 50
 - h: 50
 
-# Asset_Machine1
-- file: ./img/machine_2_2.png
-- w: 128
-- h: 64
-
-# Asset_Machine2
-- file: ./img/machine_3_2.png
-- w: 192
-- h: 128
-
-# Asset_Machine3
-- file: ./img/machine3.png
+# Asset_Machine_1_2
+- file: ./img/machines/machine_1_2.png
 - w: 64
-- h: 64
-
-# Asset_Machine4
-- file: ./img/machine4.png
-- w: 64
-- h: 64
-
-# Asset_Machine_1_1
-- file: ./img/machine_1_1.png
-- w: 320
-- h: 320
+- h: 48
 
 # Asset_Machine_2_1
-- file: ./img/machine_2_2.png
+- file: ./img/machines/machine_2_1.png
 - w: 128
 - h: 64
 
-# Asset_Machine_3_2
-- file: ./img/machine_3_2.png
-- w: 192
-- h: 128
+# Asset_Machine_2_2
+- file: ./img/machines/machine_2_2.png
+- w: 64
+- h: 64
+
+# Asset_Machine_3_3
+- file: ./img/machines/machine_3_3.png
+- w: 320
+- h: 320
 
 # Asset_DumpTruck
 Public domain from https://opengameart.org/content/yellow-racing-car

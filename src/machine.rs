@@ -399,15 +399,23 @@ pub fn machine_discover_output_wants(options: &Options, state: &State, config: &
 
 pub fn machine_size_to_asset_index(width: usize, height: usize) -> usize {
   return match ( width, height ) {
-    ( 1, 1 ) => CONFIG_NODE_ASSET_MACHINE1,
-    ( 2, 2 ) => CONFIG_NODE_ASSET_MACHINE2,
-    ( 3, 3 ) => CONFIG_NODE_ASSET_MACHINE_1_1,
-    ( 3, 4 ) => CONFIG_NODE_ASSET_MACHINE3,
-    ( 4, 4 ) => CONFIG_NODE_ASSET_MACHINE4,
+    ( 1, 1 ) => CONFIG_NODE_ASSET_MACHINE_1_1,
+    ( 1, 2 ) => CONFIG_NODE_ASSET_MACHINE_1_2,
+    ( 1, 3 ) => CONFIG_NODE_ASSET_MACHINE_1_3,
+    ( 1, 4 ) => CONFIG_NODE_ASSET_MACHINE_1_4,
     ( 2, 1 ) => CONFIG_NODE_ASSET_MACHINE_2_1,
-    ( 4, 2 ) => CONFIG_NODE_ASSET_MACHINE_2_1,
+    ( 2, 2 ) => CONFIG_NODE_ASSET_MACHINE_2_2,
+    ( 2, 3 ) => CONFIG_NODE_ASSET_MACHINE_2_3,
+    ( 2, 4 ) => CONFIG_NODE_ASSET_MACHINE_2_4,
+    ( 3, 1 ) => CONFIG_NODE_ASSET_MACHINE_3_1,
     ( 3, 2 ) => CONFIG_NODE_ASSET_MACHINE_3_2,
-    _ => CONFIG_NODE_ASSET_MACHINE_1_1,
+    ( 3, 3 ) => CONFIG_NODE_ASSET_MACHINE_3_3,
+    ( 3, 4 ) => CONFIG_NODE_ASSET_MACHINE_3_4,
+    ( 4, 1 ) => CONFIG_NODE_ASSET_MACHINE_4_1,
+    ( 4, 2 ) => CONFIG_NODE_ASSET_MACHINE_4_2,
+    ( 4, 3 ) => CONFIG_NODE_ASSET_MACHINE_4_3,
+    ( 4, 4 ) => CONFIG_NODE_ASSET_MACHINE_4_4,
+    _ => CONFIG_NODE_ASSET_MACHINE_FALLBACK,
   };
 }
 

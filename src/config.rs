@@ -303,68 +303,78 @@ pub const CONFIG_NODE_ASSET_WEE_WOO: usize = 275;
 pub const CONFIG_NODE_ASSET_MISSING_INPUTS: usize = 276;
 pub const CONFIG_NODE_ASSET_MISSING_OUTPUTS: usize = 277;
 pub const CONFIG_NODE_ASSET_MISSING_PURPOSE: usize = 278;
-pub const CONFIG_NODE_ASSET_MACHINE1: usize = 279;
-pub const CONFIG_NODE_ASSET_MACHINE2: usize = 280;
-pub const CONFIG_NODE_ASSET_MACHINE3: usize = 281;
-pub const CONFIG_NODE_ASSET_MACHINE4: usize = 282;
-pub const CONFIG_NODE_ASSET_MACHINE_1_1: usize = 283;
-pub const CONFIG_NODE_ASSET_MACHINE_2_1: usize = 284;
-pub const CONFIG_NODE_ASSET_MACHINE_3_2: usize = 285;
-pub const CONFIG_NODE_ASSET_DUMP_TRUCK: usize = 286;
-pub const CONFIG_NODE_ASSET_SAND: usize = 287;
-pub const CONFIG_NODE_ASSET_HELP_BLACK: usize = 288;
-pub const CONFIG_NODE_ASSET_HELP_RED: usize = 289;
-pub const CONFIG_NODE_ASSET_MANUAL: usize = 290;
-pub const CONFIG_NODE_ASSET_LMB: usize = 291;
-pub const CONFIG_NODE_ASSET_RMB: usize = 292;
-pub const CONFIG_NODE_ASSET_SAVE_DARK: usize = 293;
-pub const CONFIG_NODE_ASSET_QUEST_FRAME: usize = 294;
-pub const CONFIG_NODE_ASSET_DOUBLE_ARROW_RIGHT: usize = 295;
-pub const CONFIG_NODE_ASSET_SINGLE_ARROW_DOWN: usize = 296;
-pub const CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT: usize = 297;
-pub const CONFIG_NODE_ASSET_SCREEN_LOADER: usize = 298;
-pub const CONFIG_NODE_ASSET_SCREEN_MAIN: usize = 299;
-pub const CONFIG_NODE_ASSET_BUTTON_UP_1: usize = 300; // 9-slice, in order
-pub const CONFIG_NODE_ASSET_BUTTON_UP_2: usize = 301;
-pub const CONFIG_NODE_ASSET_BUTTON_UP_3: usize = 302;
-pub const CONFIG_NODE_ASSET_BUTTON_UP_4: usize = 303;
-pub const CONFIG_NODE_ASSET_BUTTON_UP_6: usize = 304;
-pub const CONFIG_NODE_ASSET_BUTTON_UP_7: usize = 305;
-pub const CONFIG_NODE_ASSET_BUTTON_UP_8: usize = 306;
-pub const CONFIG_NODE_ASSET_BUTTON_UP_9: usize = 307;
-pub const CONFIG_NODE_ASSET_BUTTON_DOWN_1: usize = 308; // 9-slice, in order
-pub const CONFIG_NODE_ASSET_BUTTON_DOWN_2: usize = 309;
-pub const CONFIG_NODE_ASSET_BUTTON_DOWN_3: usize = 310;
-pub const CONFIG_NODE_ASSET_BUTTON_DOWN_4: usize = 311;
-pub const CONFIG_NODE_ASSET_BUTTON_DOWN_6: usize = 312;
-pub const CONFIG_NODE_ASSET_BUTTON_DOWN_7: usize = 313;
-pub const CONFIG_NODE_ASSET_BUTTON_DOWN_8: usize = 314;
-pub const CONFIG_NODE_ASSET_BUTTON_DOWN_9: usize = 315;
-pub const CONFIG_NODE_ASSET_SAVE_LIGHT: usize = 316;
-pub const CONFIG_NODE_ASSET_SAVE_GREY: usize = 317;
-pub const CONFIG_NODE_ASSET_TRASH_DARK: usize = 318;
-pub const CONFIG_NODE_ASSET_TRASH_LIGHT: usize = 319;
-pub const CONFIG_NODE_ASSET_TRASH_GREY: usize = 320;
-pub const CONFIG_NODE_ASSET_TRASH_RED: usize = 321;
-pub const CONFIG_NODE_ASSET_TRASH_GREEN: usize = 322;
-pub const CONFIG_NODE_STORY_DEFAULT: usize = 323;
-pub const CONFIG_NDOE_ASSET_TREASURE: usize = 324;
-pub const CONFIG_NODE_ASSET_PICKAXE: usize = 325;
-pub const CONFIG_NODE_ASSET_DRM_PLACEHOLDER: usize = 326;
-pub const CONFIG_NODE_ASSET_BRUSH_DARK: usize = 327;
-pub const CONFIG_NODE_ASSET_BRUSH_LIGHT: usize = 328;
-pub const CONFIG_NODE_ASSET_BRUSH_RED: usize = 329;
-pub const CONFIG_NODE_ASSET_BRUSH_GREEN: usize = 330;
-pub const CONFIG_NODE_ASSET_BRUSH_GREY: usize = 331;
-pub const CONFIG_NODE_ASSET_UNDO_LIGHT: usize = 332;
-pub const CONFIG_NODE_ASSET_UNDO_GREY: usize = 333;
-pub const CONFIG_NODE_ASSET_REDO_LIGHT: usize = 334;
-pub const CONFIG_NODE_ASSET_REDO_GREY: usize = 335;
-pub const CONFIG_NODE_ASSET_LOGO: usize = 336;
-pub const CONFIG_NODE_ASSET_COPY_GREY: usize = 337;
-pub const CONFIG_NODE_ASSET_PASTE_GREY: usize = 338;
-pub const CONFIG_NODE_ASSET_COPY_GREEN: usize = 339;
-pub const CONFIG_NODE_ASSET_PASTE_GREEN: usize = 340;
+pub const CONFIG_NODE_ASSET_MACHINE_1_1: usize = 279;
+pub const CONFIG_NODE_ASSET_MACHINE_1_2: usize = 280;
+pub const CONFIG_NODE_ASSET_MACHINE_1_3: usize = 281;
+pub const CONFIG_NODE_ASSET_MACHINE_1_4: usize = 282;
+pub const CONFIG_NODE_ASSET_MACHINE_2_1: usize = 283;
+pub const CONFIG_NODE_ASSET_MACHINE_2_2: usize = 284;
+pub const CONFIG_NODE_ASSET_MACHINE_2_3: usize = 285;
+pub const CONFIG_NODE_ASSET_MACHINE_2_4: usize = 286;
+pub const CONFIG_NODE_ASSET_MACHINE_3_1: usize = 287;
+pub const CONFIG_NODE_ASSET_MACHINE_3_2: usize = 288;
+pub const CONFIG_NODE_ASSET_MACHINE_3_3: usize = 289;
+pub const CONFIG_NODE_ASSET_MACHINE_3_4: usize = 290;
+pub const CONFIG_NODE_ASSET_MACHINE_4_1: usize = 291;
+pub const CONFIG_NODE_ASSET_MACHINE_4_2: usize = 292;
+pub const CONFIG_NODE_ASSET_MACHINE_4_3: usize = 293;
+pub const CONFIG_NODE_ASSET_MACHINE_4_4: usize = 294;
+pub const CONFIG_NODE_ASSET_MACHINE_FALLBACK: usize = 295;
+pub const CONFIG_NODE_ASSET_DUMP_TRUCK: usize = 296;
+pub const CONFIG_NODE_ASSET_SAND: usize = 297;
+pub const CONFIG_NODE_ASSET_HELP_BLACK: usize = 298;
+pub const CONFIG_NODE_ASSET_HELP_RED: usize = 299;
+pub const CONFIG_NODE_ASSET_MANUAL: usize = 300;
+pub const CONFIG_NODE_ASSET_LMB: usize = 301;
+pub const CONFIG_NODE_ASSET_RMB: usize = 302;
+pub const CONFIG_NODE_ASSET_SAVE_DARK: usize = 303;
+pub const CONFIG_NODE_ASSET_QUEST_FRAME: usize = 304;
+pub const CONFIG_NODE_ASSET_DOUBLE_ARROW_RIGHT: usize = 305;
+pub const CONFIG_NODE_ASSET_SINGLE_ARROW_DOWN: usize = 306;
+pub const CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT: usize = 307;
+pub const CONFIG_NODE_ASSET_SCREEN_LOADER: usize = 308;
+pub const CONFIG_NODE_ASSET_SCREEN_MAIN: usize = 309;
+pub const CONFIG_NODE_ASSET_BUTTON_UP_1: usize = 310; // 9-slice, in order
+pub const CONFIG_NODE_ASSET_BUTTON_UP_2: usize = 311;
+pub const CONFIG_NODE_ASSET_BUTTON_UP_3: usize = 312;
+pub const CONFIG_NODE_ASSET_BUTTON_UP_4: usize = 313;
+pub const CONFIG_NODE_ASSET_BUTTON_UP_6: usize = 314;
+pub const CONFIG_NODE_ASSET_BUTTON_UP_7: usize = 315;
+pub const CONFIG_NODE_ASSET_BUTTON_UP_8: usize = 316;
+pub const CONFIG_NODE_ASSET_BUTTON_UP_9: usize = 317;
+pub const CONFIG_NODE_ASSET_BUTTON_DOWN_1: usize = 318; // 9-slice, in order
+pub const CONFIG_NODE_ASSET_BUTTON_DOWN_2: usize = 319;
+pub const CONFIG_NODE_ASSET_BUTTON_DOWN_3: usize = 320;
+pub const CONFIG_NODE_ASSET_BUTTON_DOWN_4: usize = 321;
+pub const CONFIG_NODE_ASSET_BUTTON_DOWN_6: usize = 322;
+pub const CONFIG_NODE_ASSET_BUTTON_DOWN_7: usize = 323;
+pub const CONFIG_NODE_ASSET_BUTTON_DOWN_8: usize = 324;
+pub const CONFIG_NODE_ASSET_BUTTON_DOWN_9: usize = 325;
+pub const CONFIG_NODE_ASSET_SAVE_LIGHT: usize = 326;
+pub const CONFIG_NODE_ASSET_SAVE_GREY: usize = 327;
+pub const CONFIG_NODE_ASSET_TRASH_DARK: usize = 328;
+pub const CONFIG_NODE_ASSET_TRASH_LIGHT: usize = 329;
+pub const CONFIG_NODE_ASSET_TRASH_GREY: usize = 330;
+pub const CONFIG_NODE_ASSET_TRASH_RED: usize = 331;
+pub const CONFIG_NODE_ASSET_TRASH_GREEN: usize = 332;
+pub const CONFIG_NODE_STORY_DEFAULT: usize = 333;
+pub const CONFIG_NDOE_ASSET_TREASURE: usize = 334;
+pub const CONFIG_NODE_ASSET_PICKAXE: usize = 335;
+pub const CONFIG_NODE_ASSET_DRM_PLACEHOLDER: usize = 336;
+pub const CONFIG_NODE_ASSET_BRUSH_DARK: usize = 337;
+pub const CONFIG_NODE_ASSET_BRUSH_LIGHT: usize = 338;
+pub const CONFIG_NODE_ASSET_BRUSH_RED: usize = 339;
+pub const CONFIG_NODE_ASSET_BRUSH_GREEN: usize = 340;
+pub const CONFIG_NODE_ASSET_BRUSH_GREY: usize = 341;
+pub const CONFIG_NODE_ASSET_UNDO_LIGHT: usize = 342;
+pub const CONFIG_NODE_ASSET_UNDO_GREY: usize = 343;
+pub const CONFIG_NODE_ASSET_REDO_LIGHT: usize = 344;
+pub const CONFIG_NODE_ASSET_REDO_GREY: usize = 345;
+pub const CONFIG_NODE_ASSET_LOGO: usize = 346;
+pub const CONFIG_NODE_ASSET_COPY_GREY: usize = 347;
+pub const CONFIG_NODE_ASSET_PASTE_GREY: usize = 348;
+pub const CONFIG_NODE_ASSET_COPY_GREEN: usize = 349;
+pub const CONFIG_NODE_ASSET_PASTE_GREEN: usize = 350;
 
 #[derive(Debug)]
 pub struct Config {
@@ -1262,13 +1272,23 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Asset_MissingInputs" => CONFIG_NODE_ASSET_MISSING_INPUTS,
     "Asset_MissingOutputs" => CONFIG_NODE_ASSET_MISSING_OUTPUTS,
     "Asset_MissingPurpose" => CONFIG_NODE_ASSET_MISSING_PURPOSE,
-    "Asset_Machine1" => CONFIG_NODE_ASSET_MACHINE1,
-    "Asset_Machine2" => CONFIG_NODE_ASSET_MACHINE2,
-    "Asset_Machine3" => CONFIG_NODE_ASSET_MACHINE3,
-    "Asset_Machine4" => CONFIG_NODE_ASSET_MACHINE4,
     "Asset_Machine_1_1" => CONFIG_NODE_ASSET_MACHINE_1_1,
+    "Asset_Machine_1_2" => CONFIG_NODE_ASSET_MACHINE_1_2,
+    "Asset_Machine_1_3" => CONFIG_NODE_ASSET_MACHINE_1_3,
+    "Asset_Machine_1_4" => CONFIG_NODE_ASSET_MACHINE_1_4,
     "Asset_Machine_2_1" => CONFIG_NODE_ASSET_MACHINE_2_1,
+    "Asset_Machine_2_2" => CONFIG_NODE_ASSET_MACHINE_2_2,
+    "Asset_Machine_2_3" => CONFIG_NODE_ASSET_MACHINE_2_3,
+    "Asset_Machine_2_4" => CONFIG_NODE_ASSET_MACHINE_2_4,
+    "Asset_Machine_3_1" => CONFIG_NODE_ASSET_MACHINE_3_1,
     "Asset_Machine_3_2" => CONFIG_NODE_ASSET_MACHINE_3_2,
+    "Asset_Machine_3_3" => CONFIG_NODE_ASSET_MACHINE_3_3,
+    "Asset_Machine_3_4" => CONFIG_NODE_ASSET_MACHINE_3_4,
+    "Asset_Machine_4_1" => CONFIG_NODE_ASSET_MACHINE_4_1,
+    "Asset_Machine_4_2" => CONFIG_NODE_ASSET_MACHINE_4_2,
+    "Asset_Machine_4_3" => CONFIG_NODE_ASSET_MACHINE_4_3,
+    "Asset_Machine_4_4" => CONFIG_NODE_ASSET_MACHINE_4_4,
+    "Asset_MACHINE_FALLBACK" => CONFIG_NODE_ASSET_MACHINE_FALLBACK,
     "Asset_DumpTruck" => CONFIG_NODE_ASSET_DUMP_TRUCK,
     "Asset_Sand" => CONFIG_NODE_ASSET_SAND,
     "Asset_HelpBlack" => CONFIG_NODE_ASSET_HELP_BLACK,
@@ -1627,9 +1647,9 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_dock(CONFIG_NODE_DOCK_RIGHT, "Right".to_string()),
     config_node_dock(CONFIG_NODE_DOCK_DOWN, "Down".to_string()),
     config_node_dock(CONFIG_NODE_DOCK_LEFT, "Left".to_string()),
-    config_node_machine(CONFIG_NODE_MACHINE_1X1, "1x1", "./img/machine_1_1.png"),
-    config_node_machine(CONFIG_NODE_MACHINE_2X2, "2x2", "./img/machine_2_2.png"),
-    config_node_machine(CONFIG_NODE_MACHINE_3X3, "3x3", "./img/machine_1_1.png"),
+    config_node_machine(CONFIG_NODE_MACHINE_1X1, "1x1", "./img/machines/machine_1_1.png"),
+    config_node_machine(CONFIG_NODE_MACHINE_2X2, "2x2", "./img/machines/machine_2_2.png"),
+    config_node_machine(CONFIG_NODE_MACHINE_3X3, "3x3", "./img/machines/machine_3_3.png"),
     config_node_belt(CONFIG_NODE_BELT_NONE, "NONE"),
     config_node_belt(CONFIG_NODE_BELT_UNKNOWN, "UNKNOWN"),
     config_node_belt(CONFIG_NODE_BELT_INVALID, "INVALID"),
@@ -1892,13 +1912,23 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_asset(CONFIG_NODE_ASSET_MISSING_INPUTS, "MISSING_INPUTS"),
     config_node_asset(CONFIG_NODE_ASSET_MISSING_OUTPUTS, "MISSING_OUTPUTS"),
     config_node_asset(CONFIG_NODE_ASSET_MISSING_PURPOSE, "MISSING_PURPOSE"),
-    config_node_asset(CONFIG_NODE_ASSET_MACHINE1, "MACHINE1"),
-    config_node_asset(CONFIG_NODE_ASSET_MACHINE2, "MACHINE2"),
-    config_node_asset(CONFIG_NODE_ASSET_MACHINE3, "MACHINE3"),
-    config_node_asset(CONFIG_NODE_ASSET_MACHINE4, "MACHINE4"),
     config_node_asset(CONFIG_NODE_ASSET_MACHINE_1_1, "MACHINE_1_1"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_1_2, "MACHINE_1_2"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_1_3, "MACHINE_1_3"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_1_4, "MACHINE_1_4"),
     config_node_asset(CONFIG_NODE_ASSET_MACHINE_2_1, "MACHINE_2_1"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_2_2, "MACHINE_2_2"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_2_3, "MACHINE_2_3"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_2_4, "MACHINE_2_4"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_3_1, "MACHINE_3_1"),
     config_node_asset(CONFIG_NODE_ASSET_MACHINE_3_2, "MACHINE_3_2"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_3_3, "MACHINE_3_3"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_3_4, "MACHINE_3_4"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_4_1, "MACHINE_4_1"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_4_2, "MACHINE_4_2"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_4_3, "MACHINE_4_3"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_4_4, "MACHINE_4_4"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_FALLBACK, "MACHINE_FALLBACK"),
     config_node_asset(CONFIG_NODE_ASSET_DUMP_TRUCK, "DUMP_TRUCK"),
     config_node_asset(CONFIG_NODE_ASSET_SAND, "SAND"),
     config_node_asset(CONFIG_NODE_ASSET_HELP_BLACK, "HELP_BLACK"),
@@ -1956,7 +1986,7 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_asset(CONFIG_NODE_ASSET_PASTE_GREEN, "PASTE_GREEN"),
   );
 
-  v.iter().enumerate().for_each(|(i, node)| assert!(node.index == i, "system node indexes must match their global constant value; mismatch for index {} in get_system_nodes()", i));
+  v.iter().enumerate().for_each(|(i, node)| assert!(node.index == i, "system node indexes must match their global constant value; mismatch for index {} in get_system_nodes(), node.index= {}", i, node.index));
 
   return v;
 }

@@ -6,7 +6,7 @@ Note: These names are hardcoded.
 
 
 # Machine_3x3
-- file: ./img/machine_1_1.png
+- file: ./img/machines/machine_3_3.png
 - part_x: 5
 - part_y: 5
 - part_w: 20

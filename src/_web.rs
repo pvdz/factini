@@ -60,6 +60,8 @@
 //   - help, okay, secret menu
 // - implement undo/redo action support
 //   - https://dev.to/chromiumdev/-native-undo--redo-for-the-web-3fl3  https://github.com/samthor/undoer
+// - cleanup
+//   - get rid of CONFIG_NODE_MACHINE_1X1 in favor of CONFIG_NODE_ASSET_MACHINE_3_3 etc
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -5532,9 +5534,9 @@ fn paint_asset_raw(options: &Options, state: &State, config: &Config, context: &
 
   assert!(
     config.nodes[config_node_index].kind == ConfigNodeKind::Asset ||
-      config.nodes[config_node_index].kind == ConfigNodeKind::Dock ||
-      config.nodes[config_node_index].kind == ConfigNodeKind::Supply ||
-      config.nodes[config_node_index].kind == ConfigNodeKind::Demand
+    config.nodes[config_node_index].kind == ConfigNodeKind::Dock ||
+    config.nodes[config_node_index].kind == ConfigNodeKind::Supply ||
+    config.nodes[config_node_index].kind == ConfigNodeKind::Demand
     , "assets should refer to Asset, Dock, Supply, or Demand nodes but received index: {}, kind: {:?}, node: {:?}", config_node_index, config.nodes[config_node_index].kind, config.nodes[config_node_index]);
 
   let (spx, spy, spw, sph, canvas) = config_get_sprite_details(config, options, config_node_index, 0, ticks);
