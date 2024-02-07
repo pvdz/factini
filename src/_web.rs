@@ -5,8 +5,6 @@
 // Compile with --profile to try and get some sense of shit
 
 // road to release
-// - import/export
-//   - export should have an option to select the story that the map targets
 // - small problem with tick_belt_take_from_belt when a belt crossing is next to a supply and another belt; it will ignore the other belt as input. because the belt will not let a part proceed to the next port unless it's free and the processing order will process the neighbor belt first and then the crossing so by the time it's free, the part will still be at 50% whereas the supply part is always ready. fix is probably to make supply parts take a tick to be ready, or whatever.
 //   - affects machine speed so should be fixed
 // - machines
@@ -542,7 +540,7 @@ pub fn start() -> Result<(), JsValue> {
   };
   let initial_map_from_source = if initial_map_from_source { 0 } else { initial_map.len() as u64 };
   options.initial_map_from_source = initial_map_from_source;
-  let ( mut state, mut factory ) = init(&mut options, &config, initial_map);
+  let ( mut state, mut factory ) = init(&mut options, &mut config, initial_map);
   state.showing_debug_bottom = options.dbg_show_bottom_info;
   let mut quick_saves: [Option<QuickSave>; 9] = [(); 9].map(|_| None);
 
@@ -798,7 +796,7 @@ pub fn start() -> Result<(), JsValue> {
         context.fill_text(format!("Images {}: {} of {}", if loading == 0 { "loaded" } else { "loading" }, config.sprite_cache_canvas.len() - loading, config.sprite_cache_canvas.len()).as_str(), UI_FLOOR_OFFSET_X + (UI_FLOOR_WIDTH / 2.0) - 150.0, UI_FLOOR_OFFSET_Y + (UI_FLOOR_HEIGHT / 2.0) + 35.0 + 200.0).expect("it to work");
 
         context.set_font(&"12px monospace");
-        paint_debug_app(&options, &state, &context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
+        paint_debug_app(&options, &state, &config, &context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
         paint_debug_auto_build(&options, &state, &context, &factory, &mouse_state);
 
         if loading == 0 {
@@ -840,14 +838,18 @@ pub fn start() -> Result<(), JsValue> {
         state.load_example_next_frame = false;
         let map = state.examples[state.example_pointer % state.examples.len()].clone();
         log!("Loading example[{}]; size: {} bytes", state.example_pointer, map.len());
-        factory_load_map(&mut options, &mut state, &config, &mut factory, map);
+        factory_load_map(&mut options, &mut state, &mut config, &mut factory, map);
         state.example_pointer += 1;
       }
       if state.reset_next_frame {
         state.reset_next_frame = false;
         let map = getGameMap();
-        log!("Loading getGameMap(); size: {} bytes", map.len());
-        factory_load_map(&mut options, &mut state, &config, &mut factory, map);
+        if map.trim().len() > 0 {
+          log!("Loading getGameMap(); size: {} bytes", map.len());
+          factory_load_map(&mut options, &mut state, &mut config, &mut factory, map);
+        } else {
+          log!("Skipped attempt at loading an empty map");
+        }
       }
       if state.load_paste_next_frame {
         state.load_paste_next_frame = false;
@@ -866,7 +868,7 @@ pub fn start() -> Result<(), JsValue> {
             state.load_paste_hint_kind = LoadPasteHint::Invalid;
           } else {
             log!("Loading map from paste; size: {} bytes", paste.len());
-            factory_load_map(&mut options, &mut state, &config, &mut factory, paste);
+            factory_load_map(&mut options, &mut state, &mut config, &mut factory, paste);
             state.load_paste_hint_kind = LoadPasteHint::Success;
           }
         }
@@ -875,7 +877,7 @@ pub fn start() -> Result<(), JsValue> {
         // Note: state.load_snapshot_next_frame remains true because factory.changed has special undo-stack behavior for it
         let map = state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].clone();
         log!("Loading snapshot[{} / {}]; size: {} bytes", state.snapshot_undo_pointer, state.snapshot_pointer, map.len());
-        factory_load_map(&mut options, &mut state, &config, &mut factory, map);
+        factory_load_map(&mut options, &mut state, &mut config, &mut factory, map);
       }
 
       let queued_action = getAction();
@@ -1058,7 +1060,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_belt_dbg_id(&options, &state, &config, &context, &factory);
         paint_machine_craft_menu(&options, &state, &config, &context, &factory, &cell_selection, &mouse_state);
         paint_ui_atom_woop_hover_droptarget_hint_conditionally(&options, &state, &config, &context, &mut factory, &mouse_state, &cell_selection);
-        paint_debug_app(&options, &state, &context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
+        paint_debug_app(&options, &state, &config, &context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
         paint_debug_auto_build(&options, &state, &context, &factory, &mouse_state);
         paint_debug_selected_belt_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_debug_selected_machine_cell(&context, &factory, &cell_selection, &mouse_state);
@@ -3084,7 +3086,7 @@ fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, c
     }
   }
 }
-fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, fps: &VecDeque<f64>, now: f64, since_prev: f64, ticks_todo: u64, estimated_fps: f64, rounded_fps: u64, factory: &Factory, mouse_state: &MouseState) {
+fn paint_debug_app(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, fps: &VecDeque<f64>, now: f64, since_prev: f64, ticks_todo: u64, estimated_fps: f64, rounded_fps: u64, factory: &Factory, mouse_state: &MouseState) {
 
   context.set_font(&"12px monospace");
 
@@ -3157,6 +3159,10 @@ fn paint_debug_app(options: &Options, state: &State, context: &Rc<web_sys::Canva
   ui_lines += 1.0;
   context.set_fill_style(&"black".into());
   context.fill_text(format!("down event type: {}", if mouse_state.last_down_event_type == EventSourceType::Mouse { "Mouse" } else { "Touch" }).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
+
+  ui_lines += 1.0;
+  context.set_fill_style(&"black".into());
+  context.fill_text(format!("active story: {}", state.active_story_index).as_str(), UI_DEBUG_APP_OFFSET_X + UI_DEBUG_APP_SPACING, UI_DEBUG_APP_OFFSET_Y + (ui_lines * UI_DEBUG_APP_LINE_H) + UI_DEBUG_APP_FONT_H).expect("something error fill_text");
 
   assert_eq!(ui_lines, UI_DEBUG_LINES, "keep these in sync for simplicity");
 }

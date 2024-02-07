@@ -75,14 +75,21 @@ fn dnow() -> u64 {
   js_sys::Date::now() as u64
 }
 
-pub fn create_factory(options: &mut Options, state: &mut State, config: &Config, floor_str: String) -> Factory {
-  let ( floor, unlocked_part_icons, ui_unlock_progress, map_seed ) = floor_from_str(options, state, config, &floor_str);
+pub fn create_factory(options: &mut Options, state: &mut State, config: &mut Config, floor_str: String) -> Factory {
+  let ( floor, unlocked_part_icons, ui_unlock_progress, map_seed, map_story_index) = floor_from_str(options, state, config, &floor_str);
+
+  // TODO: improve the active story state because doing it in state is way too implicit
+  if state.active_story_index != map_story_index {
+    if options.trace_story_changes { log!("active_story_index in create_factory: {}", map_story_index); }
+    state.active_story_index = map_story_index
+  }
+
   let available_parts_all: Vec<PartKind> = unlocked_part_icons.iter().map(|icon| part_icon_to_kind(config,*icon)).collect();
   let available_parts_before: Vec<(PartKind, bool)> = available_parts_all.iter().filter(|part| {
     // Search for this part in the default story (system nodes) and the current active story.
     // If it is part of the node list for either story then include it, otherwise exclude it.
     for (story_index, story) in config.stories.iter().enumerate() {
-      if story_index == 0 || story_index == state.active_story_index {
+      if story_index == 0 || story_index == map_story_index {
         if story.part_nodes.contains(&(**part as usize)) {
           return true;
         }
@@ -99,11 +106,11 @@ pub fn create_factory(options: &mut Options, state: &mut State, config: &Config,
     }
   }
   let quests = get_fresh_quest_states(options, state, config, 0, &available_parts_all);
-  log!("initial available_parts (all): {:?}", available_parts_all.iter().map(|index| (index, config.nodes[*index].name.clone())).collect::<Vec<_>>());
-  log!("initial available_parts (active story): {:?}", available_parts_active_story.iter().map(|(index, _)| config.nodes[*index].name.clone()).collect::<Vec<_>>());
-  log!("active story {} nodes: {:?}", state.active_story_index, config.stories[state.active_story_index].part_nodes);
-  log!("available quests: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| quest.name.clone()).collect::<Vec<_>>());
-  log!("target quest parts: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| config.nodes[quest.production_part_kind].name.clone()).collect::<Vec<_>>());
+  if options.trace_quest_status { log!("initial available_parts (all): {:?}", available_parts_all.iter().map(|index| (index, config.nodes[*index].name.clone())).collect::<Vec<_>>()); }
+  if options.trace_map_parsing { log!("initial available_parts (active story): {:?}", available_parts_active_story.iter().map(|(index, _)| config.nodes[*index].name.clone()).collect::<Vec<_>>()); }
+  if options.trace_map_parsing { log!("active story {} nodes: {:?}", map_story_index, config.stories[map_story_index].part_nodes); }
+  if options.trace_quest_status { log!("available quests: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| quest.name.clone()).collect::<Vec<_>>()); }
+  if options.trace_quest_status { log!("target quest parts: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| config.nodes[quest.production_part_kind].name.clone()).collect::<Vec<_>>()); }
 
   let maze_seed = if map_seed == 0 { dnow() } else { map_seed };
   // log!("map_seed: {}", maze_seed);
@@ -461,8 +468,14 @@ pub fn update_game_ui_after_quest_finish(options: &mut Options, state: &mut Stat
   // Note: enable_maze_full is set once you have at least one cell in all four bars
 }
 
-pub fn factory_load_map(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, floor_str: String) {
-  let ( floor, unlocked_part_icons, ui_unlock_progress, map_seed ) = floor_from_str(options, state, config, &floor_str);
+pub fn factory_load_map(options: &mut Options, state: &mut State, config: &mut Config, factory: &mut Factory, floor_str: String) {
+  let ( floor, unlocked_part_icons, ui_unlock_progress, map_seed, map_story_index) = floor_from_str(options, state, config, &floor_str);
+
+  if state.active_story_index != map_story_index {
+    if options.trace_story_changes { log!("active_story_index switching to {}", map_story_index); }
+    state.active_story_index = map_story_index;
+  }
+
   log!("Active quests before: {:?}", factory.quests.iter().filter(|quest| quest.status == QuestStatus::Active));
   factory.floor = floor;
   // log!("map_seed: {}", map_seed);

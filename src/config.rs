@@ -370,7 +370,7 @@ pub const CONFIG_NODE_ASSET_PASTE_GREEN: usize = 340;
 pub struct Config {
   pub nodes: Vec<ConfigNode>,
   pub stories: Vec<Story>,
-  pub active_story_index: usize, // Defaults to 0. Use `- active` in any one story to activate it. Rejects for multiple occurrences (to prevent accidental issues)
+  pub initial_active_story_index: usize, // Maps to config.stories[], see state.active_story_index
   pub node_name_to_index: HashMap<String, PartKind>,
   pub node_pattern_to_index: HashMap<String, PartKind>,
   pub sprite_cache_lookup: HashMap<String, usize>, // indexes into sprite_cache_canvas
@@ -390,6 +390,9 @@ pub struct ConfigNode {
   pub unlocks_after_by_name: Vec<String>, // Fully qualified name. Becomes available when these quests are finished.
   pub unlocks_after_by_index: Vec<usize>, // Becomes available when these quests are finished
   pub unlocks_todo_by_index: Vec<usize>, // Which quests still need to be unlocked before this one unlocks? Note: this is only to hash out the final state for the (static) config object. The "runtime" value is QuestState#unlocks_todo
+
+  // Story
+  pub story_index: usize, // Index on config.stories[]. If not a Story then this node belongs to the Story pointed to.
 
   // Quest
   // A quest becomes available as soon as all of its starting parts are available.
@@ -464,7 +467,7 @@ pub fn parse_fmd(trace_parse_fmd: bool, config: String) -> Config {
   // - parents: Quest_A, Quest_B
   // - requires: 10 Part_A, 200 Part_B
 
-  let mut current_story_index = 0; // Start with the first one
+  let mut current_story_index = 0; // Start with the first one. Maps to config.stories[]
 
   let mut nodes: Vec<ConfigNode> = get_system_nodes();
   let mut stories: Vec<Story> = vec!(Story {
@@ -549,6 +552,7 @@ pub fn parse_fmd(trace_parse_fmd: bool, config: String) -> Config {
               },
               name: name.to_string(),
               raw_name: rest.to_string(),
+              story_index: active_story_index,
               quest_index: 0,
               quest_init_status: QuestStatus::Waiting,
               unlocks_after_by_name: vec!(),
@@ -612,12 +616,14 @@ pub fn parse_fmd(trace_parse_fmd: bool, config: String) -> Config {
             "Belt" => {},
             "Story" => {
               let mut next_story_index = stories.len();
+              // This story node may override an existing one so we search for that first
               for (story_index, story) in stories.iter().enumerate() {
                 if story.story_node_index == node_index {
                   next_story_index = story_index;
                 }
               }
               current_story_index = next_story_index;
+              // Note: if two nodes with the same name appear the later one overrides the first one, hence this check
               if next_story_index == stories.len() {
                 if trace_parse_fmd { log!("Added new Story, index {}, name {}", next_story_index, nodes[node_index].raw_name); }
                 stories.push(Story {
@@ -625,6 +631,8 @@ pub fn parse_fmd(trace_parse_fmd: bool, config: String) -> Config {
                   part_nodes: vec!(),
                   quest_nodes: vec!(),
                 });
+                let len = nodes.len();
+                nodes[len - 1].story_index = next_story_index;
               }
               if trace_parse_fmd { log!("Changing to quest_index {} ({})", current_story_index, nodes[node_index].raw_name); }
             },
@@ -1233,11 +1241,12 @@ pub fn parse_fmd(trace_parse_fmd: bool, config: String) -> Config {
   // log!("parsed nodes: {:?}", &nodes[1..]);
   if trace_parse_fmd { log!("parsed map: {:?}", node_name_to_index); }
   if trace_parse_fmd { node_pattern_to_index.iter_mut().for_each(|(str, &mut kind)| log!("- node_pattern_to_index: {} = pattern({}) -> kind: {}", nodes[kind].raw_name, str, kind)); }
+  if trace_parse_fmd { log!("active_story_index final => {}", active_story_index); }
 
   return Config {
     nodes,
     stories,
-    active_story_index,
+    initial_active_story_index: active_story_index,
     node_name_to_index,
     node_pattern_to_index,
     sprite_cache_lookup,
@@ -1986,6 +1995,7 @@ fn config_node_part(index: PartKind, name: String, icon: char) -> ConfigNode {
   let raw_name = format!("Part_{}", name);
   return ConfigNode {
     index,
+    story_index: 0,
     quest_index: 0,
     quest_init_status: QuestStatus::Waiting,
     kind: ConfigNodeKind::Part,
@@ -2035,6 +2045,7 @@ fn config_node_supply(index: PartKind, name: String) -> ConfigNode {
   let raw_name = format!("Supply_{}", name);
   return ConfigNode {
     index,
+    story_index: 0,
     quest_index: 0,
     quest_init_status: QuestStatus::Waiting,
     kind: ConfigNodeKind::Supply,
@@ -2084,6 +2095,7 @@ fn config_node_demand(index: PartKind, name: String) -> ConfigNode {
   let raw_name = format!("Demand_{}", name);
   return ConfigNode {
     index,
+    story_index: 0,
     quest_index: 0,
     quest_init_status: QuestStatus::Waiting,
     kind: ConfigNodeKind::Demand,
@@ -2133,6 +2145,7 @@ fn config_node_dock(index: PartKind, name: String) -> ConfigNode {
   let raw_name = format!("Dock_{}", name);
   return ConfigNode {
     index,
+    story_index: 0,
     quest_index: 0,
     quest_init_status: QuestStatus::Waiting,
     kind: ConfigNodeKind::Dock,
@@ -2182,6 +2195,7 @@ fn config_node_machine(index: PartKind, name: &str, file: &str) -> ConfigNode {
   let raw_name = format!("Machine_{}", name);
   return ConfigNode {
     index,
+    story_index: 0,
     quest_index: 0,
     quest_init_status: QuestStatus::Waiting,
     kind: ConfigNodeKind::Machine,
@@ -2233,6 +2247,7 @@ fn config_node_belt(index: PartKind, name: &str) -> ConfigNode {
   let belt_meta = belt_type_to_belt_meta(belt_type);
   return ConfigNode {
     index,
+    story_index: 0,
     quest_index: 0,
     quest_init_status: QuestStatus::Waiting,
     kind: ConfigNodeKind::Belt,
@@ -2282,6 +2297,7 @@ fn config_node_asset(index: PartKind, name: &str) -> ConfigNode {
   let raw_name = format!("Asset_{}", name);
   return ConfigNode {
     index,
+    story_index: 0,
     quest_index: 0,
     quest_init_status: QuestStatus::Waiting,
     kind: ConfigNodeKind::Asset,
@@ -2331,6 +2347,7 @@ fn config_node_story(index: PartKind, name: &str) -> ConfigNode {
   let raw_name = format!("Story_{}", name);
   return ConfigNode {
     index,
+    story_index: 0,
     quest_index: 0,
     quest_init_status: QuestStatus::Waiting,
     kind: ConfigNodeKind::Story,

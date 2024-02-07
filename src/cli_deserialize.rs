@@ -18,6 +18,7 @@ use super::port::*;
 use super::port_auto::*;
 use super::state::*;
 use super::supply::*;
+use super::story::*;
 use super::utils::*;
 use super::log;
 
@@ -26,9 +27,9 @@ const COMMENT: &char = &'#';
 const CHAR_AT: &char = &'@';
 const SPACE: &char = &' ';
 
-pub fn floor_from_str(options: &Options, state: &mut State, config: &Config, str: &String) -> ( [Cell; FLOOR_CELLS_WH], Vec<char>, u8, u64 ) {
+pub fn floor_from_str(options: &Options, state: &mut State, config: &Config, str: &String) -> ( [Cell; FLOOR_CELLS_WH], Vec<char>, u8, u64, usize ) {
   if str.trim().len() == 0 {
-    return ( floor_empty(config), vec!(), 0, 0 );
+    return ( floor_empty(config), vec!(), 0, 0, state.active_story_index );
   }
 
   // Require a Factini header and proper map here. User input should handle an error sooner.
@@ -43,7 +44,7 @@ pub fn floor_from_str(options: &Options, state: &mut State, config: &Config, str
   return str_to_floor(options, state, config, str);
 }
 
-fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &String) -> ([Cell; FLOOR_CELLS_WH], Vec<char>, u8, u64 ) {
+fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &String) -> ([Cell; FLOOR_CELLS_WH], Vec<char>, u8, u64, usize ) {
   // Given a string in a grid format, generate a floor
   // The string starts with at least one line of config.
   // - For now the only modifier are the dimension of the hardcoded 11x11
@@ -131,6 +132,7 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
   if options.trace_map_parsing { log!("{}", str); }
 
   let mut seed: u64 = 0;
+  let mut story_index = state.active_story_index;
   let mut floor: [Cell; FLOOR_CELLS_WH] = floor_empty(config);
   // Populate the unlocked icons by at least the ones that unlock by default
   let mut unlocked_part_icons: Vec<char> = config_get_initial_unlocks(options, state, config);
@@ -174,6 +176,7 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
       }
       'd' => {
         // Expecting `d=axb` where a and b are consecutive digits
+        // We need this first because we use it to parse the map
         if first_line.next().or(Some('#')).unwrap() != '=' { panic!("Error parsing `d` modifier in header: The `d` should be followed by `=` but was not."); }
 
         let mut w: usize = 0;
@@ -213,35 +216,10 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
         // Okay, we now have a proper width and height and it matches the current hardcoded values. Move along.
         if options.trace_map_parsing { log!("Map size: {} x {}", w, h); }
       }
-      's' => {
-        // Expecting "s=dddddd" or "seed=dddddd" where dddddd is an unsigned integer
-
-        let c = first_line.next().or(Some('#')).unwrap();
-
-        if c == 'e' {
-          let e = first_line.next().or(Some('#')).unwrap();
-          let d = first_line.next().or(Some('#')).unwrap();
-          let i = first_line.next().or(Some('#')).unwrap();
-          if e != 'e' || d != 'd' || i != '=' {
-            panic!("Error parsing `s` modifier in header: The `s` should be followed by `=` or `eed=` but it was not.");
-          }
-        } else if c != '=' {
-          panic!("Error parsing `s` modifier in header: The `s` should be followed by `=` or `eed=` but it was not.");
-        }
-
-        loop {
-          let c = *first_line.peek().or(Some(COMMENT)).unwrap() as u8;
-          if c >= ('0' as u8) && c <= ('9' as u8) {
-            seed = (seed * 10) + (c as u64 - ('0' as u8 as u64));
-            first_line.next();
-          } else if c == ('#' as u8) || c == ('\n' as u8) || c == (' ' as u8) {
-            break;
-          } else {
-            panic!("Error parsing `seed` modifier in header: Expected a integer consisting of digits but found `{}`", c as char);
-          }
-        }
+      _ => {
+        // Ignore the rest (TOFIX)
+        break;
       }
-      _ => {}
     }
   }
 
@@ -454,138 +432,179 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
           match c {
             's' => {
               // s<n> = <p> [s:<d+>] [c:<d+>]
+              // seed [=] <d+>
+              // story [=] <alnum+>
               // s1 = w s:100 c:100
               // s1 = Apple s:100 c:100
               // s1 = Part_Apple s:100 c:100
-              let nth;
-              let mut speed = 1;
-              let mut cooldown = 1;
-              // The "gives" can be an icon, an &ord, or a full qualified name. Resolve it later.
-              let mut raw_gives = " ".to_string();
+              // seed = 1234
+              // se = w s:100 c:100
+              // story = Buckets
+              // st = w s:100 c:100
 
-              let mut c = line.next().or(Some('#')).unwrap();
-              while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              nth = alnum_to_n(c);
+              let mut t = line.clone(); // clones iterator, not entire string, so we can peek safely
+              let c2 = t.next().or(Some('#')).unwrap();
+              let c3 = t.next().or(Some('#')).unwrap();
+              let c4 = t.next().or(Some('#')).unwrap();
+              let c5 = t.next().or(Some('#')).unwrap();
 
-              let mut c = line.next().or(Some('#')).unwrap();
-              while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              if c != '=' { panic!("Unexpected input on line {} while parsing supply augment: first character after `s{}` must be the `=` sign, found `{}`", line_no, n_to_alnum(nth), c); }
-
-              // Parse the part kind that this supplier gives. Icon, &ord, or name
-              let mut c = line.next().or(Some('#')).unwrap(); // First char is mandatory
-              while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-              let mut letters: Vec<char> = vec!();
-              if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '&' || c as u8 > 127) { panic!("Unexpected input on line {} while parsing supplier output rest: input characters must be a-zA-Z0-9 or &ord or dot, found `{}`", line_no, c); }
-              loop {
-                letters.push(c);
-
-                c = *line.peek().or(Some(COMMENT)).unwrap();
-                if c == '#' || c == '-' || c == ':' || c == '.' || c == ' ' { break; }
-                c = line.next().or(Some('#')).unwrap();
-                if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) { panic!("Unexpected input on line {} while parsing supplier output rest: input characters must be a-zA-Z0-9, found `{}`", line_no, c); }
+              if c2 == 'e' && c3 == 'e' && c4 == 'd' {
+                // seed
+                line.next();
+                line.next();
+                line.next();
+                skip_spaces(line);
+                skip_optional_eq(line);
+                loop {
+                  let c = *line.peek().or(Some(COMMENT)).unwrap() as u8;
+                  if c >= ('0' as u8) && c <= ('9' as u8) {
+                    seed = (seed * 10) + (c as u64 - ('0' as u8 as u64));
+                    line.next();
+                  } else if c == ('#' as u8) || c == ('\n' as u8) || c == (' ' as u8) {
+                    break;
+                  } else {
+                    panic!("Error parsing `seed` modifier: Expected a integer consisting of digits but found `{}`", c as char);
+                  }
+                }
+                if options.trace_map_parsing { log!("Seed: {}", seed); }
               }
-              if letters.len() > 0 {
-                // Convert to a string. Deal with icon vs &ord vs raw_name later
-                // log!("collected one input: {:?}", letters);
-                raw_gives = letters.iter().collect::<String>();
+              else if c2 == 't' && c3 == 'o' && c4 == 'r' && c5 == 'y' {
+                // story
+                line.next();
+                line.next();
+                line.next();
+                line.next();
+                skip_spaces(line);
+                skip_optional_eq(line);
+                let raw_name = parse_word(line);
+                if options.trace_map_parsing { log!("Story index: {}", story_index); }
+                let resolved_story_node_index = config.node_name_to_index.get(&raw_name);
+                if options.trace_story_changes { log!("active_story_index resolved_story_index {:?}", resolved_story_node_index); }
+                log!("config.node_name_to_index: {:?}", config.node_name_to_index);
+                if let Some(resolved_story_index) = resolved_story_node_index {
+                  if options.trace_map_parsing { log!("- resolved_story_index: {}, story_index: {}", resolved_story_index, config.nodes[*resolved_story_index].story_index); }
+                  story_index = config.nodes[*resolved_story_index].story_index;
+                } else {
+                  if options.trace_map_parsing { log!("- Story not found... (ignoring?)"); }
+                }
               }
+              else {
+                let nth;
+                let mut speed = 1;
+                let mut cooldown = 1;
+                // The "gives" can be an icon, an &ord, or a full qualified name. Resolve it later.
+                let raw_gives = " ".to_string();
 
-              loop {
                 let mut c = line.next().or(Some('#')).unwrap();
                 while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                match c {
-                  '#' => break, // EOL or start of line comment
-                  's' => {
-                    // speed modifier
-                    let mut c = line.next().or(Some('#')).unwrap();
-                    while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                    if c != ':' { panic!("Unexpected input on line {} while parsing supply augment speed modifier: first character after `s` must be a `:`, found `{}`", line_no, c); }
+                nth = alnum_to_n(c);
 
-                    speed = 0;
-                    let mut c = line.next().or(Some('#')).unwrap();
-                    while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                    loop {
-                      if c >= '0' && c <= '9' {
-                        speed = (speed * 10) + ((c as u8) - ('0' as u8)) as u64; // This can lead to overflow fatal. :shrug:
-                      } else if c == '#' || c == ' ' {
-                        break;
-                      } else {
-                        panic!("Unexpected input on line {} while parsing supply augment speed modifier: speed value consists of digits, found `{}`", line_no, c);
-                      }
-                      c = line.next().or(Some('#')).unwrap();
-                    }
-                  }
-                  'c' => {
-                    // cooldown modifier
-                    let mut c = line.next().or(Some('#')).unwrap();
-                    while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                    if c != ':' { panic!("Unexpected input on line {} while parsing supply augment cooldown modifier: first character after `c` must be a `:`, found `{}`", line_no, c); }
+                let mut c = line.next().or(Some('#')).unwrap();
+                while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+                if c != '=' { panic!("Unexpected input on line {} while parsing supply augment: first character after `s{}` must be the `=` sign, or 'seed', or 'story', found `{}` `{}` `{}` `{}` `{}` ({} {} {} {} {})", line_no, n_to_alnum(nth), c, c2, c3, c4, c5, c as u8, c2 as u8, c3 as u8, c4 as u8, c5 as u8); }
 
-                    cooldown = 0;
-                    let mut c = line.next().or(Some('#')).unwrap();
-                    while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                    loop {
-                      if c >= '0' && c <= '9' {
-                        cooldown = (cooldown * 10) + ((c as u8) - ('0' as u8)) as u64; // This can lead to overflow fatal. :shrug:
-                      } else if c == '#' || c == ' ' {
-                        break;
-                      } else {
-                        panic!("Unexpected input on line {} while parsing supply augment cooldown modifier: cooldown value consists of digits, found `{}`", line_no, c);
-                      }
-                      c = line.next().or(Some('#')).unwrap();
-                    }
-                  }
-                  c => {
-                    if (raw_gives == "s" || raw_gives == "c") && c == ':' {
-                      if options.trace_map_parsing { log!("Correcting parse for the empty-part case"); }
-                      let gave = raw_gives;
-                      raw_gives = " ".to_string();
+                // Parse the part kind that this supplier gives. Icon, &ord, or name
+                skip_spaces(line);
+                let mut raw_gives = parse_word(line);
+                // Must parse at least something here... empty machines have dots for parts.
+                if raw_gives == "" { panic!("Unexpected input on line {} while parsing supplier output rest: input characters must be a-zA-Z0-9 or &ord or dot, found `{}`", line_no, c); }
 
-                      if gave == "s" {
-                        speed = 0;
-                        let mut c = line.next().or(Some('#')).unwrap();
-                        while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                        loop {
-                          if c >= '0' && c <= '9' {
-                            speed = (speed * 10) + ((c as u8) - ('0' as u8)) as u64; // This can lead to overflow fatal. :shrug:
-                          } else if c == '#' || c == ' ' {
-                            break;
-                          } else {
-                            panic!("Unexpected input on line {} while parsing supply augment speed modifier: speed value consists of digits, found `{}`", line_no, c);
-                          }
-                          c = line.next().or(Some('#')).unwrap();
+                loop {
+                  let mut c = line.next().or(Some('#')).unwrap();
+                  while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+                  match c {
+                    '#' => break, // EOL or start of line comment
+                    's' => {
+                      // speed modifier
+                      let mut c = line.next().or(Some('#')).unwrap();
+                      while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+                      if c != ':' { panic!("Unexpected input on line {} while parsing supply augment speed modifier: first character after `s` must be a `:`, found `{}`", line_no, c); }
+
+                      speed = 0;
+                      let mut c = line.next().or(Some('#')).unwrap();
+                      while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+                      loop {
+                        if c >= '0' && c <= '9' {
+                          speed = (speed * 10) + ((c as u8) - ('0' as u8)) as u64; // This can lead to overflow fatal. :shrug:
+                        } else if c == '#' || c == ' ' {
+                          break;
+                        } else {
+                          panic!("Unexpected input on line {} while parsing supply augment speed modifier: speed value consists of digits, found `{}`", line_no, c);
                         }
+                        c = line.next().or(Some('#')).unwrap();
                       }
-                      else if gave == "c" {
-                        cooldown = 0;
-                        let mut c = line.next().or(Some('#')).unwrap();
-                        while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                        loop {
-                          if c >= '0' && c <= '9' {
-                            cooldown = (cooldown * 10) + ((c as u8) - ('0' as u8)) as u64; // This can lead to overflow fatal. :shrug:
-                          } else if c == '#' || c == ' ' {
-                            break;
-                          } else {
-                            panic!("Unexpected input on line {} while parsing supply augment cooldown modifier: cooldown value consists of digits, found `{}`", line_no, c);
+                    }
+                    'c' => {
+                      // cooldown modifier
+                      let mut c = line.next().or(Some('#')).unwrap();
+                      while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+                      if c != ':' { panic!("Unexpected input on line {} while parsing supply augment cooldown modifier: first character after `c` must be a `:`, found `{}`", line_no, c); }
+
+                      cooldown = 0;
+                      let mut c = line.next().or(Some('#')).unwrap();
+                      while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+                      loop {
+                        if c >= '0' && c <= '9' {
+                          cooldown = (cooldown * 10) + ((c as u8) - ('0' as u8)) as u64; // This can lead to overflow fatal. :shrug:
+                        } else if c == '#' || c == ' ' {
+                          break;
+                        } else {
+                          panic!("Unexpected input on line {} while parsing supply augment cooldown modifier: cooldown value consists of digits, found `{}`", line_no, c);
+                        }
+                        c = line.next().or(Some('#')).unwrap();
+                      }
+                    }
+                    c => {
+                      if (raw_gives == "s" || raw_gives == "c") && c == ':' {
+                        if options.trace_map_parsing { log!("Correcting parse for the empty-part case"); }
+                        let gave = raw_gives;
+                        raw_gives = " ".to_string();
+
+                        if gave == "s" {
+                          speed = 0;
+                          let mut c = line.next().or(Some('#')).unwrap();
+                          while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+                          loop {
+                            if c >= '0' && c <= '9' {
+                              speed = (speed * 10) + ((c as u8) - ('0' as u8)) as u64; // This can lead to overflow fatal. :shrug:
+                            } else if c == '#' || c == ' ' {
+                              break;
+                            } else {
+                              panic!("Unexpected input on line {} while parsing supply augment speed modifier: speed value consists of digits, found `{}`", line_no, c);
+                            }
+                            c = line.next().or(Some('#')).unwrap();
                           }
-                          c = line.next().or(Some('#')).unwrap();
+                        }
+                        else if gave == "c" {
+                          cooldown = 0;
+                          let mut c = line.next().or(Some('#')).unwrap();
+                          while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+                          loop {
+                            if c >= '0' && c <= '9' {
+                              cooldown = (cooldown * 10) + ((c as u8) - ('0' as u8)) as u64; // This can lead to overflow fatal. :shrug:
+                            } else if c == '#' || c == ' ' {
+                              break;
+                            } else {
+                              panic!("Unexpected input on line {} while parsing supply augment cooldown modifier: cooldown value consists of digits, found `{}`", line_no, c);
+                            }
+                            c = line.next().or(Some('#')).unwrap();
+                          }
+                        }
+                        else {
+                          panic!("nope. you forgot something here: gave={}", gave);
                         }
                       }
                       else {
-                        panic!("nope. you forgot something here: gave={}", gave);
+                        log!("Error line: `{:?}`", bak);
+                        panic!("Unexpected input on line {} while parsing supply augment modifier: expecting `s`, `c`, '#', or EOL, found `{}`", line_no, c)
                       }
-                    }
-                    else {
-                      log!("Error line: `{:?}`", bak);
-                      panic!("Unexpected input on line {} while parsing supply augment modifier: expecting `s`, `c`, '#', or EOL, found `{}`", line_no, c)
-                    }
-                  },
+                    },
+                  }
                 }
-              }
 
-              let mut n = 1;
-              // Find the nth supply. Not super optimal but at this scale no real issue.
-              for coord in 0..FLOOR_CELLS_WH {
+                let mut n = 1;
+                // Find the nth supply. Not super optimal but at this scale no real issue.
+                for coord in 0..FLOOR_CELLS_WH {
                 if floor[coord].kind == CellKind::Supply {
                   if n == nth {
                     if options.trace_map_parsing { log!("Resolving raw_gives `{}` to icon", raw_gives); }
@@ -599,6 +618,7 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
                   }
                   n += 1;
                 }
+              }
               }
             },
             'd' => {
@@ -957,7 +977,21 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
 
   if options.trace_map_parsing { log!("-- end of str_to_floor2()"); }
 
-  return ( floor, unlocked_part_icons, ui_unlock_progress, seed );
+  return ( floor, unlocked_part_icons, ui_unlock_progress, seed, story_index );
+}
+
+
+fn parse_word(line: &mut std::iter::Peekable<std::str::Chars>) -> String {
+  // Parses a "word"; all letters, numbers, and underscores until the next character that isn't any of them
+
+  let mut letters: Vec<char> = vec!();
+  loop {
+    let c = *line.peek().or(Some(COMMENT)).unwrap();
+    if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') { break; }
+    letters.push(c);
+    line.next().or(Some('#')).unwrap();
+  }
+  return letters.iter().collect::<String>();
 }
 
 fn add_machine(options: &Options, state: &State, config: &Config, floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, x: usize, y: usize, machine_id: char, machine_meta_data: &mut Vec<(usize, usize, char, u64, Vec<PartKind>)>, port_u: char, port_r: char, port_d: char, port_l: char) {
@@ -993,6 +1027,14 @@ fn add_machine(options: &Options, state: &State, config: &Config, floor: &mut [C
 
 fn skip_spaces(line: &mut std::iter::Peekable<std::str::Chars>) {
   while line.peek().or(Some(COMMENT)).unwrap() == SPACE { line.next(); }
+}
+
+fn skip_optional_eq(line: &mut std::iter::Peekable<std::str::Chars>) {
+  let i = *line.peek().or(Some(COMMENT)).unwrap();
+  if i == '=' {
+    line.next();
+    skip_spaces(line);
+  }
 }
 
 fn n_to_alnum(n: u8) -> char {

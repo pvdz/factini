@@ -9,6 +9,7 @@ Note: Quest names are arbitrary and not hardcoded.
 ===
 
 # Story_Dev
+(Activating this story to have nodes in this file be put under it)
 
 # Quest_Start
 - after: 

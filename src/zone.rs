@@ -172,7 +172,7 @@ pub const UI_DEBUG_APP_WIDTH: f64 = 240.0;
 pub const UI_DEBUG_APP_LINE_H: f64 = 25.0;
 pub const UI_DEBUG_APP_FONT_H: f64 = 16.0;
 pub const UI_DEBUG_APP_SPACING: f64 = 6.0;
-pub const UI_DEBUG_LINES: f64 = 11.0; // Update after adding more lines
+pub const UI_DEBUG_LINES: f64 = 12.0; // Update after adding more lines
 // Debug for AutoBuild mode
 pub const UI_DEBUG_AUTO_BUILD_OFFSET_X: f64 = GRID_X1 + 5.0;
 pub const UI_DEBUG_AUTO_BUILD_OFFSET_Y: f64 = GRID_Y3 + 10.0;

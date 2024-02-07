@@ -18,6 +18,7 @@ const GAME_OPTIONS = `
 - trace_priority_step: false
 - trace_porting_step: false
 - trace_map_parsing: false
+- trace_story_changes: false
 - dbg_paint_tile_priority: false
 - dbg_onload_dump_factory: false
 - trace_auto_builder: false

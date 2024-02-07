@@ -42,7 +42,7 @@ pub fn cli_main(options: &mut Options, state: &mut State) {
     d3 = g\n\
     d4 = g\n\
   ";
-  let mut factory = create_factory(options, state, map.to_string(), vec!(PartKind::Sapphire, PartKind::WoodenStick));
+  let mut factory = create_factory(options, state, config, map.to_string(), vec!(PartKind::Sapphire, PartKind::WoodenStick));
   if options.dbg_onload_dump_factory {
     println!("prio: {:?}", factory.prio);
     print_floor_with_views(options, state, &mut factory);

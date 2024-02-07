@@ -322,7 +322,7 @@ pub fn serialize2(options: &Options, state: &State, config: &Config, factory: &F
 
   let mut out: Vec<Vec<char>> = vec!(
     format!("# Factini map\n# Created {:?}\n", now).chars().collect(),
-    format!("d=17x17 seed={}\n", factory.maze_seed).chars().collect(),
+    format!("d=17x17\n").chars().collect(),
   );
 
   let mut line1: Vec<char> = vec!();
@@ -449,9 +449,10 @@ pub fn serialize2(options: &Options, state: &State, config: &Config, factory: &F
     }
     else if factory.floor[coord].kind == CellKind::Demand {
       demand_count += 1;
-      cell_params.push('d');
-      cell_params.push(n_to_alnum(demand_count));
-      cell_params.push('\n');
+      // No need to export them as long as we don't have special properties for demanders
+      // cell_params.push('d');
+      // cell_params.push(n_to_alnum(demand_count));
+      // cell_params.push('\n');
     }
 
     line1.push(
@@ -587,6 +588,12 @@ pub fn serialize2(options: &Options, state: &State, config: &Config, factory: &F
 
   // @ digit
   out.push(format!("@ {}\n", state.ui_unlock_progress).chars().collect());
+
+  // seed numbers
+  out.push(format!("seed = {}\n", factory.maze_seed).chars().collect());
+
+  // seed raw_name
+  out.push(format!("story = {}\n", config.nodes[config.stories[state.active_story_index].story_node_index].raw_name).chars().collect());
 
   let flat: Vec<char> = out.into_iter().flatten().collect();
   return flat.iter().collect();

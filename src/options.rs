@@ -50,6 +50,8 @@ pub struct Options {
   pub trace_priority_step: bool,
   pub trace_porting_step: bool,
   pub trace_map_parsing: bool,
+  pub trace_story_changes: bool,
+
   pub dbg_paint_tile_priority: bool, // Print the prio index of a tile in the game (debug, web)
   pub dbg_onload_dump_factory: bool, // Print the CLI version of the floor after generating it initially?
   pub trace_auto_builder: bool,
@@ -145,6 +147,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     trace_priority_step: false,
     trace_porting_step: false,
     trace_map_parsing: false,
+    trace_story_changes: false,
     dbg_paint_tile_priority: false,
     dbg_onload_dump_factory: false,
     trace_auto_builder: false,
@@ -328,6 +331,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "trace_priority_step" => options.trace_priority_step = parse_bool(value, name, strict, options.trace_priority_step, verbose),
             "trace_porting_step" => options.trace_porting_step = parse_bool(value, name, strict, options.trace_porting_step, verbose),
             "trace_map_parsing" => options.trace_map_parsing = parse_bool(value, name, strict, options.trace_map_parsing, verbose),
+            "trace_story_changes" => options.trace_story_changes = parse_bool(value, name, strict, options.trace_story_changes, verbose),
             "dbg_paint_tile_priority" => options.dbg_paint_tile_priority = parse_bool(value, name, strict, options.dbg_paint_tile_priority, verbose),
             "dbg_onload_dump_factory" => options.dbg_onload_dump_factory = parse_bool(value, name, strict, options.dbg_onload_dump_factory, verbose),
             "trace_auto_builder" => options.trace_auto_builder = parse_bool(value, name, strict, options.trace_auto_builder, verbose),
@@ -418,6 +422,7 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- trace_priority_step: {}", options.trace_priority_step));
   arr.push(format!("- trace_porting_step: {}", options.trace_porting_step));
   arr.push(format!("- trace_map_parsing: {}", options.trace_map_parsing));
+  arr.push(format!("- trace_story_changes: {}", options.trace_story_changes));
   arr.push(format!("- dbg_paint_tile_priority: {}", options.dbg_paint_tile_priority));
   arr.push(format!("- dbg_onload_dump_factory: {}", options.dbg_onload_dump_factory));
   arr.push(format!("- trace_auto_builder: {}", options.trace_auto_builder));
