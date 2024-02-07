@@ -9,9 +9,8 @@
 //   - affects machine speed so should be fixed
 // - machines
 //   - auto discover target output depending on input
-//   - putting machine down next to two dead end belts will only connect one?
 //   - add hint that two machines next to each other do not share port?
-//   - make the menu-machine "process" the finished parts before text.draw_image_with_html_image_element_and_dw_angenerating trucks
+//   - make the menu-machine "process" the finished parts before generating trucks
 //   - missing purpose for machine is not properly displayed for 1x2. see MACHINE_1X2_UI / missing_purpose_y
 //   - should machines auto-configure based on inputs? that would prevent complex patterns if there are shorter patterns that are a subset.. maybe that's fine?
 // - what's up with these assertion traps :(
@@ -216,6 +215,12 @@ pub fn start() -> Result<(), JsValue> {
   canvas.style().set_property("height", format!("{}px", CANVAS_CSS_HEIGHT as u32).as_str())?;
   canvas.style().set_property("background-image", "url(./img/sand.png)").expect("should work");
   canvas.style().set_property("id", "sand_bg").expect("should work");
+
+  // TODO: this may improve perf a little bit but requires rewiring the background stuff
+  // let context_options = js_sys::Object::new();
+  // js_sys::Reflect::set(&context_options, &JsValue::from_str("alpha"), &JsValue::from_bool(false)).unwrap();
+  // let context = canvas.get_context_with_context_options("2d", &context_options)?.unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>()?;
+
   let context = canvas.get_context("2d")?.unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>()?;
   let context = Rc::new(context);
 
