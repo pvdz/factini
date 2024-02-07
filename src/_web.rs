@@ -305,7 +305,7 @@ pub fn start() -> Result<(), JsValue> {
   let old = options.dbg_show_bottom_info;
   parse_and_save_options_string(option_string.clone(), &mut options, true, options_started_from_source, true);
 
-  let mut config = parse_fmd(options.trace_parse_fmd, getGameConfig());
+  let mut config = parse_config_md(options.trace_parse_config_md, getGameConfig());
   load_config(options.trace_img_loader, &mut config);
 
   if old != options.dbg_show_bottom_info {
@@ -898,7 +898,7 @@ pub fn start() -> Result<(), JsValue> {
         },
         "load_map" => state.reset_next_frame = true, // implicitly will call getGameMap() which loads the map from UI indirectly
         "load_config" => {
-          let mut config = parse_fmd(options.trace_parse_fmd, getGameConfig());
+          let mut config = parse_config_md(options.trace_parse_config_md, getGameConfig());
           load_config(options.trace_img_loader, &mut config);
         }, // Might crash the game
         "paste" => { // When you ctrl+v (or otherwise paste) in the window. This action will be triggered from the html.

@@ -144,6 +144,7 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
   let mut lines = lines.iter_mut(); // hafta or the compiler complains
 
   let mut first_line = lines.next().unwrap(); // Bust if there's no input.
+  let mut line_no = 1; // Manually increment this every time lines.next is called (Rust has no way to get the iterator index directly in this approach)
 
   if options.trace_map_parsing { log!("first First line: {:?}", first_line); }
   loop {
@@ -153,6 +154,7 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
       break;
     }
     first_line = lines.next().unwrap(); // Bust if there's no more input.
+    line_no += 1;
   }
   if options.trace_map_parsing { log!("First line after comments: {:?}", first_line); }
 
@@ -237,6 +239,7 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
     // Now get the next three lines, skip leading spaces and skip empty lines or ones starting with a hash
 
     let mut line1 = lines.next().unwrap();
+    line_no += 1;
     loop {
       skip_spaces(line1);
       // Keep skipping lines that start with comments and empty lines (only containing spaces)
@@ -244,8 +247,10 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
         break;
       }
       line1 = lines.next().unwrap(); // Bust if there's no more input.
+      line_no += 1;
     }
     let mut line2 = lines.next().unwrap();
+    line_no += 1;
     loop {
       skip_spaces(line2);
       // Keep skipping lines that start with comments and empty lines (only containing spaces)
@@ -253,8 +258,10 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
         break;
       }
       line2 = lines.next().unwrap(); // Bust if there's no more input.
+      line_no += 1;
     }
     let mut line3 = lines.next().unwrap();
+    line_no += 1;
     loop {
       skip_spaces(line3);
       // Keep skipping lines that start with comments and empty lines (only containing spaces)
@@ -262,6 +269,7 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
         break;
       }
       line3 = lines.next().unwrap(); // Bust if there's no more input.
+      line_no += 1;
     }
 
     if options.trace_map_parsing {
@@ -417,7 +425,6 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
 
   // Keep parsing config lines while skipping comments. These are optional and augment
   // things on the floor that don't really fit inside the schematic cleanly
-  let mut line_no = 0;
   loop {
     line_no += 1;
     match lines.next() {
@@ -507,7 +514,11 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
                 skip_spaces(line);
                 let mut raw_gives = parse_word(line);
                 // Must parse at least something here... empty machines have dots for parts.
-                if raw_gives == "" { panic!("Unexpected input on line {} while parsing supplier output rest: input characters must be a-zA-Z0-9 or &ord or dot, found `{}`", line_no, c); }
+                if raw_gives == "" {
+                  log!("Started parsing a line starting with `s` `{}` `{}` `{}` `{}` `{}` ({} {} {} {} {} {})", c, c2, c3, c4, c5, 's' as u8, c as u8, c2 as u8, c3 as u8, c4 as u8, c5 as u8);
+                  log!("Line: {:?}", line);
+                  panic!("Unexpected input on line {} while parsing supplier output rest: input characters must be a-zA-Z0-9 or &ord or dot, found `{}`", line_no, c);
+                }
 
                 loop {
                   let mut c = line.next().or(Some('#')).unwrap();
@@ -987,7 +998,7 @@ fn parse_word(line: &mut std::iter::Peekable<std::str::Chars>) -> String {
   let mut letters: Vec<char> = vec!();
   loop {
     let c = *line.peek().or(Some(COMMENT)).unwrap();
-    if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') { break; }
+    if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || (c as u8) > 127) { break; }
     letters.push(c);
     line.next().or(Some('#')).unwrap();
   }

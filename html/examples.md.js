@@ -314,10 +314,12 @@ const GAME_EXAMPLES = [
     │ └─────────────────────────────────────────────┘ │
     │.  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .│
     └─────────────────────────────────────────────────┘
-    s1 = n s:0 c:500
-    m1 = n n n n n n . . . s:2000
-    d1
-    $ nQc  
+    s1 = DirtWhite s:0 c:500
+    m1 = DirtWhite DirtWhite DirtWhite DirtWhite DirtWhite DirtWhite . . . s:2000
+    $ DirtWhite Wool IngotWhite SilverCoin Thread
+    @ 0
+    seed = 1707299579374
+    story = Story_Dev
   `,
   `
     # Factini map
@@ -374,6 +376,8 @@ const GAME_EXAMPLES = [
     │ └─────────────────────────────────────────────┘ │
     │.  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .│
     └─────────────────────────────────────────────────┘
+    seed = 1707299604511
+    story = Story_Dev
   `,
   `
     # Factini map
@@ -598,9 +602,12 @@ const GAME_EXAMPLES = [
     │ └───────────────────^─────────────────────────┘ │
     │.  .  .  .  .  .  .  s  .  .  .  .  .  .  .  .  .│
     └─────────────────────────────────────────────────┘
-    m1 = n n -> ς s:2000
-    d1
-    s1 = W s:0 c:500
+    m1 = DirtWhite DirtWhite . . . . . . . s:2000
+    s1 = PotionBlue s:0 c:500
+    $ DirtWhite Wool IngotWhite SilverCoin Thread
+    @ 0
+    seed = 1707299641322
+    story = Story_Dev
   `,
   `
     # Factini map
@@ -649,7 +656,7 @@ const GAME_EXAMPLES = [
     │.│ .  .  .  .  .  ║  .  .  .  .  .  .  .  .  . │.│
     │ │                v                            │ │
     │ │                v                            │ │
-    │.│ .  .  .  .  .  ╹  .  .  .  .  .  .  .  .  . │.│
+    │.│ .  .  .  .  .  ╵  .  .  .  .  .  .  .  .  . │.│
     │ │                                             │ │
     │ │                                             │ │
     │.│ .  .  .  .  .  .  .  .  .  .  .  .  .  .  . │.│
@@ -657,9 +664,13 @@ const GAME_EXAMPLES = [
     │ └─────────────────────────────────────────────┘ │
     │.  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .│
     └─────────────────────────────────────────────────┘
-    s1 = t s:0 c:500
-    s2 = n s:0 c:500
-    m1 = . . . n n n n n n -> Q s:2000
+    s1 = Trash s:0 c:500
+    s2 = DirtWhite s:0 c:500
+    m1 = DirtWhite DirtWhite DirtWhite DirtWhite DirtWhite DirtWhite . . . s:2000
+    $ DirtWhite Wool IngotWhite SilverCoin Thread
+    @ 0
+    seed = 1707299665405
+    story = Story_Dev
   `,
   `
     # Factini map
@@ -717,11 +728,14 @@ const GAME_EXAMPLES = [
     │ └──────────v──────────────────────────────────┘ │
     │.  .  .  .  d  .  .  .  .  .  .  .  .  .  .  .  .│
     └─────────────────────────────────────────────────┘
-    s1 = t s:0 c:500
-    m1 = . . . n n n n n n -> Q s:2000
-    s2 = n s:0 c:500
-    m2 = Q . . . Q . . . Q -> t s:2000
-    d1
+    s1 = Trash s:0 c:500
+    m1 = DirtWhite DirtWhite DirtWhite DirtWhite DirtWhite DirtWhite . . . s:2000
+    s2 = DirtWhite s:0 c:500
+    m2 = IngotWhite IngotWhite IngotWhite . . . . . . s:2000
+    $ DirtWhite Wool IngotWhite SilverCoin Thread
+    @ 0
+    seed = 1707299688742
+    story = Story_Dev
   `,
   `
     # Factini map
@@ -778,41 +792,39 @@ const GAME_EXAMPLES = [
     │ └───────^──v─────^──^──^─────^──────────────v─┘ │
     │.  .  .  s  d  .  s  s  s  .  s  .  .  .  .  d  .│
     └─────────────────────────────────────────────────┘
-    s1 = r s:0 c:100
-    s2 = i s:0 c:100
-    s3 = p s:0 c:100
-    s4 = e s:0 c:100
-    m1 = . r . . e . . r . -> W s:2000
-    m2 = i p p i p p i p p -> D s:2000
-    s5 = W s:0 c:500
-    d1
-    s6 = D s:0 c:500
-    m3 = . W . W D W . W . -> C s:2000
-    m4 = . . . C o . . . . -> K s:2000
-    d2
-    m5 = . . . W l W . . . -> o s:2000
-    m6 = . . . n n n n n n -> Q s:2000
-    m7 = . Q . k k k k k k -> l s:2000
-    d3
-    s7 = n s:0 c:100
-    s8 = C s:0 c:500
-    s9 = n s:0 c:100
-    m8 = . r . . e . . r . -> W s:2000
-    d4
-    sa = l s:0 c:500
-    d5
-    sb = o s:0 c:500
-    sc = k s:0 c:100
-    sd = r s:0 c:100
-    se = e s:0 c:100
-    d6
+    s1 = DirtBlue s:0 c:100
+    s2 = Rope s:0 c:100
+    s3 = Paper s:0 c:100
+    s4 = EmptyBottle s:0 c:100
+    m1 = DirtBlue EmptyBottle DirtBlue . . . . . . s:2000
+    m2 = Rope Paper Paper Rope Paper Paper Rope Paper Paper s:2000
+    s5 = PotionBlue s:0 c:500
+    s6 = BookWhite s:0 c:500
+    m3 = PotionBlue PotionBlue BookWhite PotionBlue PotionBlue . . . . s:2000
+    m4 = BookBlue ShieldBlue . . . . . . . s:2000
+    m5 = PotionBlue ShieldWood PotionBlue . . . . . . s:2000
+    m6 = DirtWhite DirtWhite DirtWhite DirtWhite DirtWhite DirtWhite . . . s:2000
+    m7 = IngotWhite Wood Wood Wood Wood Wood Wood . . s:2000
+    s7 = DirtWhite s:0 c:100
+    s8 = BookBlue s:0 c:500
+    s9 = DirtWhite s:0 c:100
+    m8 = DirtBlue EmptyBottle DirtBlue . . . . . . s:2000
+    sa = ShieldWood s:0 c:500
+    sb = ShieldBlue s:0 c:500
+    sc = Wood s:0 c:100
+    sd = DirtBlue s:0 c:100
+    se = EmptyBottle s:0 c:100
+    $ DirtWhite Wool IngotWhite SilverCoin Thread
+    @ 0
+    seed = 1707299718740
+    story = Story_Dev
   `,
   `
     # Factini map
     # Created 1665316374944
     d=17x17
     ┌─────────────────────────────────────────────────┐
-    │.  .  .  .  .> d  .  s  .  s  s  .  .  .  .  .  .│
+    │.  .  .  .  .  d  .  s  .  s  s  .  .  .  .  .  .│
     │ ┌─────────────^─────v─────v──v────────────────┐ │
     │ │             ^     v     v  v                │ │
     │s>>═>>╦>>╦>>╗  ╠<<╗  ╚>>╗  ╠<<╬>>╦>>═>>╗  .  . │.│
@@ -825,7 +837,7 @@ const GAME_EXAMPLES = [
     │ │ v  v     v  ^  ^  v  v     v  v  ^  v  ^  v │ │
     │ │ v  v     v  ^  ^  v  v     v  v  ^  v  ^  v │ │
     │d<<╣  ╠>>═>>╬<<╬<<╬<<╣  ║  ╔<<╬>>╬<<╬<<╬>>╬>>╬>>d│
-    │^│ v  v     v  ^  ^  ^  v  v  v  v  ^  ^  ^  v │ │
+    │ │ v  v     v  ^  ^  ^  v  v  v  v  ^  ^  ^  v │ │
     │ │ v  v     v  ^  ^  ^  v  v  v  v  ^  ^  ^  v │ │
     │s>>╬>>╣  ╔<<╬<<╣  ║  ╠<<╬<<╬<<╬<<╝  ║  ║  ║  ║ │.│
     │ │ v  v  v  v  ^  ^  ^  v  v  ^     v  ^  ^  v │ │
@@ -862,33 +874,25 @@ const GAME_EXAMPLES = [
     │ └───────^──v──v──^──^──^──v──^─────v────────v─┘ │
     │.  .  .  s  d  d  s  s  s  d  s  .  d  .  .  d  .│
     └─────────────────────────────────────────────────┘
-    d1
-    s1 = r s:0 c:100
-    s2 = i s:0 c:100
-    s3 = p s:0 c:100
-    s4 = e s:0 c:100
-    s5 = W s:0 c:500
-    d2
-    d3
-    s6 = D s:0 c:500
-    d4
-    s7 = t s:0 c:0
-    d5
-    d6
-    s8 = n s:0 c:100
-    s9 = C s:0 c:500
-    sa = n s:0 c:100
-    d7
-    sb = l s:0 c:500
-    d8
-    d9
-    sc = o s:0 c:500
-    sd = k s:0 c:100
-    se = r s:0 c:100
-    da
-    sf = e s:0 c:100
-    db
-    dc
+    s1 = DirtBlue s:0 c:100
+    s2 = Rope s:0 c:100
+    s3 = Paper s:0 c:100
+    s4 = EmptyBottle s:0 c:100
+    s5 = PotionBlue s:0 c:500
+    s6 = BookWhite s:0 c:500
+    s7 = Trash s:0 c:0
+    s8 = DirtWhite s:0 c:100
+    s9 = BookBlue s:0 c:500
+    sa = DirtWhite s:0 c:100
+    sb = ShieldWood s:0 c:500
+    sc = ShieldBlue s:0 c:500
+    sd = Wood s:0 c:100
+    se = DirtBlue s:0 c:100
+    sf = EmptyBottle s:0 c:100
+    $ DirtWhite Wool IngotWhite SilverCoin Thread
+    @ 0
+    seed = 1707299737946
+    story = Story_Dev
   `,
   `
     # Factini map
@@ -994,6 +998,10 @@ const GAME_EXAMPLES = [
     mB = . . . . s:2000
     mC = . . . . s:2000
     mN = . . . . s:2000
+    $ DirtWhite Wool IngotWhite SilverCoin Thread
+    @ 0
+    seed = 1707299754931
+    story = Story_Dev
   `,
   `
     # Factini map
@@ -1110,6 +1118,10 @@ const GAME_EXAMPLES = [
     md = . . s:2000
     me = . . s:2000
     mf = . . s:2000
+    $ DirtWhite Wool IngotWhite SilverCoin Thread
+    @ 0
+    seed = 1707299774370
+    story = Story_Dev
   `,
   `
     # Factini map
@@ -1166,42 +1178,36 @@ const GAME_EXAMPLES = [
     │ └─^──v──^─────^──v──^─────^──v──^─────^──v──^─┘ │
     │.  s  d  s  .  s  d  s  .  s  d  s  .  s  d  s  .│
     └─────────────────────────────────────────────────┘
-    d1
-    s1 =  s:0 c:500
-    s2 =  s:0 c:500
-    d2
-    s3 =  s:0 c:500
-    m1 =   . . . . . . . s:2000
-    d3
-    m2 =  . . . . . . . . s:2000
-    s4 =  s:0 c:500
-    m3 =          s:2000
-    m4 =   . . . . . . . s:2000
-    s5 =  s:0 c:500
-    s6 =  s:0 c:500
-    d4
-    s7 =  s:0 c:500
-    m5 =   . . . . . . . s:2000
-    s8 =  s:0 c:500
-    d5
-    s9 =  s:0 c:500
-    m6 =   . . . . . . . s:2000
-    m7 =   . . . . . . . s:2000
-    m8 =   . . . . . . . s:2000
-    m9 =   . . . . . . . s:2000
-    sa =  s:0 c:500
-    d6
-    sb =  s:0 c:500
-    sc =  s:0 c:500
-    d7
-    sd =  s:0 c:500
-    se =  s:0 c:500
-    d8
-    sf =  s:0 c:500
-    sg =  s:0 c:500
-    d9
-    sh =  s:0 c:500
-    $   
+    s1 = BucketBlack s:0 c:500
+    s2 = BucketWhite s:0 c:500
+    s3 = BucketRed s:0 c:500
+    m1 = BucketRed Plus . . . . . . . s:2000
+    m2 = BucketRainbow . . . . . . . . s:2000
+    s4 = BucketRed s:0 c:500
+    m3 = BucketRed BucketBlue BucketYellow BucketBlack BucketWhite BucketGrey BucketGreen BucketPurple BucketOrange s:2000
+    m4 = BucketYellow Plus . . . . . . . s:2000
+    s5 = BucketYellow s:0 c:500
+    s6 = BucketBlue s:0 c:500
+    s7 = BucketYellow s:0 c:500
+    m5 = BucketBlack BucketWhite . . . . . . . s:2000
+    s8 = BucketBlack s:0 c:500
+    s9 = BucketWhite s:0 c:500
+    m6 = BucketBlue BucketYellow . . . . . . . s:2000
+    m7 = BucketRed BucketYellow . . . . . . . s:2000
+    m8 = BucketRed BucketBlue . . . . . . . s:2000
+    m9 = BucketRed BucketWhite . . . . . . . s:2000
+    sa = BucketBlue s:0 c:500
+    sb = BucketYellow s:0 c:500
+    sc = BucketRed s:0 c:500
+    sd = BucketYellow s:0 c:500
+    se = BucketRed s:0 c:500
+    sf = BucketBlue s:0 c:500
+    sg = BucketRed s:0 c:500
+    sh = BucketWhite s:0 c:500
+    $ DirtWhite Wool IngotWhite SilverCoin Thread
+    @ 0
+    seed = 1707299791594
+    story = Story_Dev
   `,
   `
     # Factini map
@@ -1255,51 +1261,45 @@ const GAME_EXAMPLES = [
     │ │          ^  v  ^  v  v  v  ^  ^  ^          │ │
     │.│ .  .  .  ║  ║  ║  ║  ║  ║  ║  ║  ║  .  .  . │.│
     │ │          ^  v  ^  v  v  v  ^  ^  ^          │ │
-    │ └──────────^──v──^──v──v──v──^──^──?──────────┘ │
-    │.  .  .  .  s  d  s  d  d  d  s  s> s> .  .  .  .│
+    │ └──────────^──v──^──v──v──v──^──^──^──────────┘ │
+    │.  .  .  .  s  d  s  d  d  d  s  s  s  .  .  .  .│
     └─────────────────────────────────────────────────┘
-    s1 =  s:0 c:500
-    s2 =  s:0 c:500
-    s3 =  s:0 c:500
-    s4 =  s:0 c:500
-    s5 =  s:0 c:500
-    s6 =  s:0 c:500
-    s7 =  s:0 c:500
-    s8 =  s:0 c:500
-    s9 =  s:0 c:500
-    sa =  s:0 c:500
-    sb =  s:0 c:500
-    sc =  s:0 c:500
-    sd =  s:0 c:500
-    m4 =   . . s:2000
-    m3 =   . . s:2000
-    m2 =   . . s:2000
-    m5 =   . . s:2000
-    d1
-    d2
-    m1 =          s:2000
-    d3
-    m8 =   . . s:2000
-    se =  s:0 c:500
-    m6 =  . . . s:2000
-    md =   s:2000
-    sf =  s:0 c:500
-    mc =   . . s:2000
-    d4
-    d5
-    m7 =   . . s:2000
-    m9 =   . . s:2000
-    mb =   . . s:2000
-    sg =  s:0 c:500
-    d6
-    sh =  s:0 c:500
-    d7
-    d8
-    d9
-    si =  s:0 c:500
-    sj =  s:0 c:500
-    sk =  s:0 c:500
-    $   
+    s1 = BucketRed s:0 c:500
+    s2 = BucketBlue s:0 c:500
+    s3 = BucketBlue s:0 c:500
+    s4 = BucketYellow s:0 c:500
+    s5 = BucketWhite s:0 c:500
+    s6 = BucketBlue s:0 c:500
+    s7 = BucketYellow s:0 c:500
+    s8 = BucketRed s:0 c:500
+    s9 = BucketBlack s:0 c:500
+    sa = BucketWhite s:0 c:500
+    sb = BucketBlack s:0 c:500
+    sc = BucketRed s:0 c:500
+    sd = BucketYellow s:0 c:500
+    m4 = BucketRed BucketBlue . . s:2000
+    m3 = BucketBlue BucketYellow . . s:2000
+    m2 = BucketBlack BucketWhite . . s:2000
+    m5 = BucketRed BucketYellow . . s:2000
+    m1 = BucketRed BucketBlue BucketYellow BucketBlack BucketWhite BucketGrey BucketGreen BucketPurple BucketOrange s:2000
+    m8 = BucketBlue Plus . . s:2000
+    se = BucketBlue s:0 c:500
+    m6 = BucketRainbow . . . s:2000
+    md = BucketBlue BucketYellow s:2000
+    sf = BucketBlack s:0 c:500
+    mc = BucketBlack Plus . . s:2000
+    m7 = BucketYellow Plus . . s:2000
+    m9 = BucketRed Plus . . s:2000
+    mb = BucketWhite Plus . . s:2000
+    sg = BucketYellow s:0 c:500
+    sh = BucketRed s:0 c:500
+    si = BucketWhite s:0 c:500
+    sj = BucketYellow s:0 c:500
+    sk = BucketBlue s:0 c:500
+    $ DirtWhite Wool IngotWhite SilverCoin Thread
+    @ 0
+    seed = 1707299809636
+    story = Story_Dev
   `,
   `
     # Factini map
@@ -1368,6 +1368,9 @@ const GAME_EXAMPLES = [
     mq = . . s:2000
     mu = . . s:2000
     mf = . . s:2000
-    $ 
+    $ DirtWhite Wool IngotWhite SilverCoin Thread
+    @ 0
+    seed = 1707299823629
+    story = Story_Dev
   `
 ];

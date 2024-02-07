@@ -12,7 +12,7 @@ const GAME_OPTIONS = `
 - trace_auto_layout: false
 - trace_cell_connect: false
 - trace_cell_set_port: false
-- trace_parse_fmd: false
+- trace_parse_config_md: false
 - trace_get_quote_status: false
 - trace_img_loader: false
 - trace_priority_step: false
