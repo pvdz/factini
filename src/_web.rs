@@ -5,27 +5,26 @@
 // Compile with --profile to try and get some sense of shit
 
 // road to release
-// - small problem with tick_belt_take_from_belt when a belt crossing is next to a supply and another belt; it will ignore the other belt as input. because the belt will not let a part proceed to the next port unless it's free and the processing order will process the neighbor belt first and then the crossing so by the time it's free, the part will still be at 50% whereas the supply part is always ready. fix is probably to make supply parts take a tick to be ready, or whatever.
-//   - affects machine speed so should be fixed
 // - machines
 //   - auto discover target output depending on input
 //   - add hint that two machines next to each other do not share port?
-//   - make the menu-machine "process" the finished parts before generating trucks
 //   - missing purpose for machine is not properly displayed for 1x2. see MACHINE_1X2_UI / missing_purpose_y
 //   - should machines auto-configure based on inputs? that would prevent complex patterns if there are shorter patterns that are a subset.. maybe that's fine?
 // - ui
 //   - hover over craftable offer should highlight craft-inputs (offers)
 //   - full screen button etc
+// - animations
+//   - when next ui-phase unlocks, use an animation where ui elements drift into their place
 // - unblock animations
 //   - fix item animation in and out of suppliers/demanders. looks ugly rn
 //   - machine top layer should paint _over_ the parts
+// - roundway
+//   - mini belts are painted ugly, interlacing
+// - maze
+//   - maze fuel could blow-up-fade-out when collected, with a 3x for the better one, maybe rainbow wiggle etc? or just 1x 2x 3x instead of icon
 // - help the player
 //   - update tutorial with current status
 //   - something with that ikea help icon
-// - animations
-//   - when next ui-phase unlocks, use an animation where ui elements drift into their place
-// - maze
-//   - maze fuel could blow-up-fade-out when collected, with a 3x for the better one, maybe rainbow wiggle etc? or just 1x 2x 3x instead of icon
 // - repo
 //   - cleanup
 
@@ -39,6 +38,7 @@
 //   - throughput problem. part has to wait at 50% for next part to clear, causing delays. if there's enough outputs there's always room and no such delay. if supply-to-machine is one belt there's also no queueing so it's faster
 //   - animate machines at work
 //   - paint the prepared parts of a machine while not selected?
+//   - make the menu-machine "process" (-> animation) the finished parts before generating trucks
 // - import export
 //   - do we want/need to support serialization of maps with more than 60 machines? 2x2 can only go up to 49. but 2x1 or 1x2 would double that, up to 84. if not we should gracefully handle it rather than let it throw
 // - animations
@@ -4935,7 +4935,7 @@ fn paint_ui_woop_tooltip(options: &Options, state: &State, config: &Config, fact
   }
 
   paint_asset_raw(options, state, config, &context, CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT, factory.ticks,
-    (machine_ox - 18.0 + (factory.ticks / 500 % 3) as f64).floor(),
+    (machine_ox - 18.0 + (factory.ticks as f64 / (ONE_SECOND as f64 / 4.0) % 3.0)).floor(),
     (machine_oy + 3.0).floor(),
     13.0,
     38.0
@@ -4963,7 +4963,7 @@ fn paint_ui_woop_tooltip(options: &Options, state: &State, config: &Config, fact
     }
   } else {
     paint_asset_raw(options, state, config, &context, CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT, factory.ticks,
-      (machine_ox + CELL_W * 1.5 + 5.0 + (factory.ticks / 500 % 3) as f64).floor(),
+      (machine_ox + CELL_W * 1.5 + 5.0 + (factory.ticks as f64 / (ONE_SECOND as f64 / 4.0) % 3.0)).floor(),
       (machine_oy + 3.0).floor(),
       13.0,
       38.0
