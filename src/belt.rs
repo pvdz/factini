@@ -152,12 +152,9 @@ fn tick_belt_give_to_demand(options: &mut Options, state: &mut State, config: &C
 fn tick_belt_one_outbound_dir(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, curr_coord: usize, curr_dir_towards_neighbor: Direction, to_coord: usize, to_dir_coming_from_curr: Direction) -> bool {
   match factory.floor[to_coord].kind {
     CellKind::Empty => {
-      // if !state.test {
-        panic!("empty cells should not be part of .outs vector")
-        // log!("TODO: empty cells should not be part of .outs vector");
-        // state.test = true;
-      // }
-      // return false;
+      // Note: There is a race condition where a cell is cleared but this state is not finalized until later. This could lead to this situation. wontfix.
+      log!("Unexpected state (acceptable as a one-of right after mutating the floor): Empty cells should not be part of .outs vector; {:?}", factory.floor[curr_coord].outs);
+      return false;
     },
     CellKind::Belt => {
       // noop
@@ -169,8 +166,12 @@ fn tick_belt_one_outbound_dir(options: &mut Options, state: &mut State, config: 
       return false; // Did not take here
     }
     CellKind::Supply => {
-      panic!("Supply can not be outbound");
-      // tick_belt_take_from_supply(options, state, factory, curr_coord, to_coord, curr_dir)
+      // TODO:
+      // There appears to be some kind of bug (a race condition of sorts?) where this triggers.
+      // I was able to produce it by adding random demanders to the right-middle of the floor
+      // At some point it triggered this bug. Not sure how. Also not sure whether I should just ignore this case rather than panic it.
+      log!("Unexpected state (acceptable as a one-of right after mutating the floor): Supply can not be part of .outs vector; {:?}", factory.floor[curr_coord].outs);
+      return false;
     }
     CellKind::Demand => {
       return tick_belt_give_to_demand(options, state, config, factory, curr_coord, curr_dir_towards_neighbor, to_coord, to_dir_coming_from_curr)

@@ -60,6 +60,7 @@ pub fn port_disconnect_cell(options: &Options, state: &State, config: &Config, f
 }
 pub fn change_none_belt_to_empty_cell(config: &Config, factory: &mut Factory, coord: usize) {
   if factory.floor[coord].kind == CellKind::Belt && factory.floor[coord].belt.meta.btype == BeltType::NONE {
+    // TOFIX: this should be done in a special step during the factory.changed check
     log!("change_none_belt_to_empty_cell: changing @{} to empty cell because it is a none belt", coord);
     let (x, y) = to_xy(coord);
     factory.floor[coord] = empty_cell(config, x, y);

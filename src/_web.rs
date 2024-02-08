@@ -13,8 +13,6 @@
 //   - make the menu-machine "process" the finished parts before generating trucks
 //   - missing purpose for machine is not properly displayed for 1x2. see MACHINE_1X2_UI / missing_purpose_y
 //   - should machines auto-configure based on inputs? that would prevent complex patterns if there are shorter patterns that are a subset.. maybe that's fine?
-// - what's up with these assertion traps :(
-//   - `let (received_part_kind, received_count) = factory.floor[coord].demand.received[i];` threw oob (1 while len=0). i thin it's somehow related to dropping a demander on the edge
 // - ui
 //   - hover over craftable offer should highlight craft-inputs (offers)
 //   - full screen button etc

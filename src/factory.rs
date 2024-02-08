@@ -396,8 +396,6 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
       CellKind::Belt => {} // Ignore
       CellKind::Demand => {
         for i in 0..factory.floor[coord].demand.received.len() {
-          if factory.floor.len() <= coord  { log!("coord was incorrect... {} {}", factory.floor.len(), coord); }
-          if factory.floor[coord].demand.received.len() <= i { log!("i was incorrect... {} {}", factory.floor[coord].demand.received.len(), i); }
           let (received_part_kind, received_count) = factory.floor[coord].demand.received[i];
 
           // Update the quest counts (expensive search but these arrays should be small
