@@ -16,7 +16,6 @@
 //   - fix item animation in and out of suppliers/demanders. looks ugly rn
 //   - machine top layer should paint _over_ the parts
 //   - when next ui-phase unlocks, use an animation where ui elements drift into their place
-//   - use original bucket and tool to change paint colors
 //   - roundway mini belts are painted ugly, interlacing
 // - maze
 //   - maze fuel could blow-up-fade-out when collected, with a 3x for the better one, maybe rainbow wiggle etc? or just 1x 2x 3x instead of icon

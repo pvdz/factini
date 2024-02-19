@@ -12,26 +12,31 @@ Desc: Simple example story
 
   # Part_BucketRed
   - file: ./img/parts/bucket_simple_red.png
+  - file: ./img/parts/bucket_v2_red.png
   - w: 32
   - h: 32
   
   # Part_BucketBlue
   - file: ./img/parts/bucket_simple_blue.png
+  - file: ./img/parts/bucket_v2_blue.png
   - w: 32
   - h: 32
   
   # Part_BucketYellow
   - file: ./img/parts/bucket_simple_yellow.png
+  - file: ./img/parts/bucket_v2_yellow.png
   - w: 32
   - h: 32
   
   # Part_BucketBlack
   - file: ./img/parts/bucket_simple_black.png
+  - file: ./img/parts/bucket_v2_black.png
   - w: 32
   - h: 32
   
   # Part_BucketWhite
   - file: ./img/parts/bucket_simple_white.png
+  - file: ./img/parts/bucket_v2_white.png
   - w: 32
   - h: 32
 
@@ -47,6 +52,7 @@ Desc: Simple example story
     # Part_BucketGrey
     - pattern: Part_BucketWhite Part_BucketBlack
     - file: ./img/parts/bucket_simple_grey.png
+    - file: ./img/parts/bucket_v2_grey.png
     - w: 32
     - h: 32
     
@@ -54,6 +60,7 @@ Desc: Simple example story
     - special: e 1
     - pattern: Part_BucketBlue Part_BucketYellow
     - file: ./img/parts/bucket_simple_green.png
+    - file: ./img/parts/bucket_v2_green.png
     - w: 32
     - h: 32
     
@@ -61,6 +68,7 @@ Desc: Simple example story
     - special: v 1
     - pattern: Part_BucketBlue Part_BucketRed
     - file: ./img/parts/bucket_simple_purple.png
+    - file: ./img/parts/bucket_v2_purple.png
     - w: 32
     - h: 32
     
@@ -68,6 +76,7 @@ Desc: Simple example story
     - special: s 1
     - pattern: Part_BucketYellow Part_BucketRed
     - file: ./img/parts/bucket_simple_orange.png
+    - file: ./img/parts/bucket_v2_orange.png
     - w: 32
     - h: 32
     
@@ -75,6 +84,7 @@ Desc: Simple example story
     - special: p 1
     - pattern: Part_BucketWhite Part_BucketRed
     - file: ./img/parts/bucket_simple_pink.png
+    - file: ./img/parts/bucket_v2_pink.png
     - w: 32
     - h: 32
 
@@ -86,12 +96,13 @@ Desc: Simple example story
     # Part_BucketRainbow
     - pattern: Part_BucketWhite Part_BucketBlack Part_BucketRed Part_BucketBlue Part_BucketYellow Part_BucketGrey Part_BucketGreen Part_BucketPurple Part_BucketOrange
     - file: ./img/parts/bucket_simple_rainbow.png
+    - file: ./img/parts/bucket_v2_rainbow.png
     - w: 32
     - h: 32
 
   ===
     Level 1.3
-    Convert rainbows to stars
+    Convert rainbows to upgrades
   ===
 
     # Part_Plus
@@ -99,57 +110,67 @@ Desc: Simple example story
     - file: ./img/parts/plus.png
     - w: 32
     - h: 32
+    - file: ./img/parts/badge.v4.png
+    - w: 64
+    - h: 64
     
   ===
     Level 2.1
-    Created 5 starred basic colors
+    Created 5 upgraded basic colors
   ===
 
     # Part_BucketRedPlus
     - pattern: Part_BucketRed Part_Plus
     - file: ./img/parts/bucket_simple_red_plus.png
+    - file: ./img/parts/bucket_v2_red_plus.png
     - w: 32
     - h: 32
     
     # Part_BucketBluePlus
     - pattern: Part_BucketBlue Part_Plus
     - file: ./img/parts/bucket_simple_blue_plus.png
+    - file: ./img/parts/bucket_v2_blue_plus.png
     - w: 32
     - h: 32
     
     # Part_BucketYellowPlus
     - pattern: Part_BucketYellow Part_Plus
     - file: ./img/parts/bucket_simple_yellow_plus.png
+    - file: ./img/parts/bucket_v2_yellow_plus.png
     - w: 32
     - h: 32
     
     # Part_BucketBlackPlus
     - pattern: Part_BucketBlack Part_Plus
     - file: ./img/parts/bucket_simple_black_plus.png
+    - file: ./img/parts/bucket_v2_black_plus.png
     - w: 32
     - h: 32
     
     # Part_BucketWhitePlus
     - pattern: Part_BucketWhite Part_Plus
     - file: ./img/parts/bucket_simple_white_plus.png
+    - file: ./img/parts/bucket_v2_white_plus.png
     - w: 32
     - h: 32
 
   ===
     Level 2.2
-    Combine starred basic colors into starred mixed colors
+    Combine upgraded basic colors into upgraded mixed colors
   ===
 
     # Part_BucketGreenPlus
     - special: e 2
     - pattern: Part_BucketBluePlus Part_BucketYellowPlus
     - file: ./img/parts/bucket_simple_green_plus.png
+    - file: ./img/parts/bucket_v2_green_plus.png
     - w: 32
     - h: 32
     
     # Part_BucketGreyPlus
     - pattern: Part_BucketBlackPlus Part_BucketWhitePlus
     - file: ./img/parts/bucket_simple_grey_plus.png
+    - file: ./img/parts/bucket_v2_grey_plus.png
     - w: 32
     - h: 32
     
@@ -157,6 +178,7 @@ Desc: Simple example story
     - special: v 2
     - pattern: Part_BucketBluePlus Part_BucketRedPlus
     - file: ./img/parts/bucket_simple_purple_plus.png
+    - file: ./img/parts/bucket_v2_purple_plus.png
     - w: 32
     - h: 32
     
@@ -164,6 +186,7 @@ Desc: Simple example story
     - special: s 2
     - pattern: Part_BucketRedPlus Part_BucketYellowPlus
     - file: ./img/parts/bucket_simple_orange_plus.png
+    - file: ./img/parts/bucket_v2_orange_plus.png
     - w: 32
     - h: 32
     
@@ -171,53 +194,59 @@ Desc: Simple example story
     - special: p 2
     - pattern: Part_BucketRedPlus Part_BucketWhitePlus
     - file: ./img/parts/bucket_simple_pink_plus.png
+    - file: ./img/parts/bucket_v2_pink_plus.png
     - w: 32
     - h: 32
 
   ===
     Level 3.1
-    Combine mixed colors into double starred basic colors
-    TODO: Use plus or maybe a starred rainbow?
+    Combine mixed colors into double upgraded basic colors
   ===
 
     # Part_BucketRedPlusPlus
     - pattern: Part_BucketRedPlus Part_Plus
     - file: ./img/parts/bucket_simple_red_plusplus.png
+    - file: ./img/parts/bucket_v2_red_plusplus.png
     - w: 32
     - h: 32
     
     # Part_BucketBluePlusPlus
     - pattern: Part_BucketBluePlus Part_Plus
     - file: ./img/parts/bucket_simple_blue_plusplus.png
+    - file: ./img/parts/bucket_v2_blue_plusplus.png
     - w: 32
     - h: 32
     
     # Part_BucketYellowPlusPlus
     - pattern: Part_BucketYellowPlus Part_Plus
     - file: ./img/parts/bucket_simple_yellow_plusplus.png
+    - file: ./img/parts/bucket_v2_yellow_plusplus.png
     - w: 32
     - h: 32
     
     # Part_BucketBlackPlusPlus
     - pattern: Part_BucketBlackPlus Part_Plus
     - file: ./img/parts/bucket_simple_black_plusplus.png
+    - file: ./img/parts/bucket_v2_black_plusplus.png
     - w: 32
     - h: 32
     
     # Part_BucketWhitePlusPlus
     - pattern: Part_BucketWhitePlus Part_Plus
     - file: ./img/parts/bucket_simple_white_plusplus.png
+    - file: ./img/parts/bucket_v2_white_plusplus.png
     - w: 32
     - h: 32
 
   ===
     Level 3.2
-    Combined double starred basic colors into mixed double star colors
+    Combined double upgraded basic colors into mixed double upgraded colors
   ===
 
     # Part_BucketGreyPlusPlus
     - pattern: Part_BucketBlackPlusPlus Part_BucketWhitePlusPlus
     - file: ./img/parts/bucket_simple_grey_plusplus.png
+    - file: ./img/parts/bucket_v2_grey_plusplus.png
     - w: 32
     - h: 32
     
@@ -225,6 +254,7 @@ Desc: Simple example story
     - special: e 3
     - pattern: Part_BucketBluePlusPlus Part_BucketYellowPlusPlus
     - file: ./img/parts/bucket_simple_green_plusplus.png
+    - file: ./img/parts/bucket_v2_green_plusplus.png
     - w: 32
     - h: 32
     
@@ -232,6 +262,7 @@ Desc: Simple example story
     - special: v 3
     - pattern: Part_BucketBluePlusPlus Part_BucketRedPlusPlus
     - file: ./img/parts/bucket_simple_purple_plusplus.png
+    - file: ./img/parts/bucket_v2_purple_plusplus.png
     - w: 32
     - h: 32
     
@@ -239,6 +270,7 @@ Desc: Simple example story
     - special: s 3
     - pattern: Part_BucketRedPlusPlus Part_BucketYellowPlusPlus
     - file: ./img/parts/bucket_simple_orange_plusplus.png
+    - file: ./img/parts/bucket_v2_orange_plusplus.png
     - w: 32
     - h: 32
     
@@ -246,6 +278,7 @@ Desc: Simple example story
     - special: p 3
     - pattern: Part_BucketRedPlusPlus Part_BucketWhitePlusPlus
     - file: ./img/parts/bucket_simple_pink_plusplus.png
+    - file: ./img/parts/bucket_v2_pink_plusplus.png
     - w: 32
     - h: 32
 
@@ -280,7 +313,7 @@ Desc: Simple example story
   
   ===
     Phase 2
-    Create Rainbow and stars
+    Create Rainbow and upgrade
   ===
       
     # Quest_Rainbow
@@ -293,7 +326,7 @@ Desc: Simple example story
     
   ===
     Phase 3
-    Create starred basic colors
+    Create upgraded basic colors
   ===
   
     # Quest_BlackPlus
@@ -318,7 +351,7 @@ Desc: Simple example story
     
   ===
     Phase 4
-    Create starred mixed colors
+    Create upgraded mixed colors
   ===
     
     # Quest_GreenPlus
@@ -343,7 +376,7 @@ Desc: Simple example story
     
   ===
     Phase 5
-    Create double starred basic colors
+    Create double upgraded basic colors
   ===
   
     # Quest_BlackPlusPlus
@@ -368,7 +401,7 @@ Desc: Simple example story
     
   ===
     Phase 6
-    Create double starred mixed colors
+    Create double upgraded mixed colors
   ===
     
     # Quest_GreenPlusPlus
