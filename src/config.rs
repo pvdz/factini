@@ -1026,6 +1026,8 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
   for i in 0..nodes.len() {
     let node = &mut nodes[i];
 
+    if trace_parse_config_md { log!("{}: {}: pattern_by_name= {:?}", i, nodes[i].raw_name, nodes[i].pattern_by_name); }
+
     // First resolve the target index, regardless of whether the name or icon was used
     let pattern_by_index =
       nodes[i].pattern_by_name.iter()
@@ -1057,6 +1059,7 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
     // If we do the same for the machines then we can do string comparisons.
     let mut kinds = pattern_by_index.clone();
     kinds.dedup();
+    if trace_parse_config_md { log!("{}: {}: len={} kinds= {:?}", i, nodes[i].raw_name, pattern_by_index.len(), kinds); }
     nodes[i].pattern_unique_kinds = kinds;
     nodes[i].pattern_by_index = pattern_by_index;
   }

@@ -194,13 +194,17 @@ pub const UI_WOOPS_OFFSET_Y: f64 = UI_FLOOR_OFFSET_Y;
 pub const UI_WOOPS_PER_ROW: f64 = 6.0;
 pub const UI_WOOPS_WIDTH: f64 = UI_WOTOM_WIDTH + ((UI_WOOPS_PER_ROW - 1.0) * UI_WOTOM_WIDTH_PLUS_MARGIN);
 
+// woop / atom
 pub const UI_WOTOM_WIDTH: f64 = 50.0;
 pub const UI_WOTOM_HEIGHT: f64 = 50.0;
 pub const UI_WOTOM_WIDTH_PLUS_MARGIN: f64 = UI_WOTOM_WIDTH + 10.0;
 pub const UI_WOTOM_HEIGHT_PLUS_MARGIN: f64 = UI_WOTOM_HEIGHT + 10.0;
 
-pub const UI_OFFER_TOOLTIP_WIDTH: f64 = 185.0;
-pub const UI_OFFER_TOOLTIP_HEIGHT: f64 = 3.0 + (0.75 * CELL_H) + 5.0 + (0.75 * CELL_H) + 5.0 + (0.75 * CELL_H) + 3.0;
+pub const UI_WOOP_TOOLTIP_X: f64 = UI_WOOPS_OFFSET_X + UI_WOTOM_WIDTH * 1.5; // Start in the middle of the second woops from the left
+pub const UI_WOOP_TOOLTIP_Y_HIGH: f64 = UI_WOOPS_OFFSET_Y + UI_WOTOM_HEIGHT * 0.5; // Start in the middle of the top woops
+pub const UI_WOOP_TOOLTIP_Y_LOW: f64 = UI_WOOP_TOOLTIP_Y_HIGH + UI_WOOP_TOOLTIP_HEIGHT + 10.0; // Start below where the other tooltip would be painted
+pub const UI_WOOP_TOOLTIP_WIDTH: f64 = 185.0;
+pub const UI_WOOP_TOOLTIP_HEIGHT: f64 = 3.0 + (0.75 * CELL_H) + 5.0 + (0.75 * CELL_H) + 5.0 + (0.75 * CELL_H) + 3.0;
 
 pub const UI_ATOMS_OFFSET_X: f64 = GRID_X1 + 70.0;
 pub const UI_ATOMS_OFFSET_Y: f64 = GRID_Y2 + 10.0;

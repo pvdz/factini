@@ -72,10 +72,11 @@ pub struct Options {
   pub speed_modifier_ui: f64, // Same as speed_modifier_floor but for rest of the UI (buttons, bouncers, trucks, dropzone pulse, etc)
   pub touch_drag_compensation: bool, // Show the mouse pointer 50x50 away from the actual pointer? helpful for dragging on touch screen but can be annoying
 
-  // Dropzone hint for offers
+  // Dropzone hint for woops and atoms
   pub dropzone_color_offset: u64, // In a 255 color range, what's the "zero" bounce value?
   pub dropzone_bounce_speed: u64, // The rgb color value will "bounce" up and down
   pub dropzone_bounce_distance: u64, // Range that the color bounces
+  pub show_woop_hover_hint: bool, // Attempt at showing a hint when hovering over woops
 
   pub bouncer_time_to_factory: f64, // After how much time should the bouncer be considered complete?
   pub bouncer_decay_rate_modifier: f64, // General decay modifier
@@ -119,6 +120,7 @@ pub struct Options {
   pub enable_maze_roundway_and_collection: bool,
   pub enable_maze_full: bool,
   pub enable_speed_menu: bool,
+
   pub dbg_show_secret_menu: bool,
   pub dbg_show_bottom_info: bool,
   pub dbg_show_fps: bool,
@@ -167,6 +169,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     dropzone_color_offset: 75,
     dropzone_bounce_speed: 100,
     dropzone_bounce_distance: 150,
+    show_woop_hover_hint: false,
     bouncer_decay_rate_modifier: 3.0,
     bouncer_amplitude_decay_rate: 1.0,
     bouncer_wave_decay_rate: 1.0,
@@ -368,6 +371,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "dropzone_color_offset" => options.dropzone_color_offset = parse_u64(value, name, strict, options.dropzone_color_offset, verbose),
             "dropzone_bounce_speed" => options.dropzone_bounce_speed = parse_u64(value, name, strict, options.dropzone_bounce_speed, verbose),
             "dropzone_bounce_distance" => options.dropzone_bounce_distance = parse_u64(value, name, strict, options.dropzone_bounce_distance, verbose),
+            "show_woop_hover_hint" => options.show_woop_hover_hint = parse_bool(value, name, strict, options.show_woop_hover_hint, verbose),
             "dbg_animate_cli_output_in_web" => options.dbg_animate_cli_output_in_web = parse_bool(value, name, strict, options.dbg_animate_cli_output_in_web, verbose),
             "initial_event_type_swapped" => options.initial_event_type_swapped = parse_bool(value, name, strict, options.initial_event_type_swapped, verbose),
             "dbg_trash_is_joker" => options.dbg_trash_is_joker = parse_bool(value, name, strict, options.dbg_trash_is_joker, verbose),
@@ -442,6 +446,7 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- dropzone_color_offset: {}", options.dropzone_color_offset));
   arr.push(format!("- dropzone_bounce_speed: {}", options.dropzone_bounce_speed));
   arr.push(format!("- dropzone_bounce_distance: {}", options.dropzone_bounce_distance));
+  arr.push(format!("- show_woop_hover_hint: {}", options.show_woop_hover_hint));
   arr.push(format!("- bouncer_time_to_factory: {}", options.bouncer_time_to_factory));
   arr.push(format!("- bouncer_decay_rate_modifier: {}", options.bouncer_decay_rate_modifier));
   arr.push(format!("- bouncer_amplitude_decay_rate: {}", options.bouncer_amplitude_decay_rate));

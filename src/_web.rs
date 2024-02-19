@@ -6,20 +6,18 @@
 
 // road to release
 // - machines
-//   - auto discover target output depending on input
+//   - machines are fixed to a certain output. dragging a woop creates a specific machine.
 //   - add hint that two machines next to each other do not share port?
 //   - missing purpose for machine is not properly displayed for 1x2. see MACHINE_1X2_UI / missing_purpose_y
 //   - should machines auto-configure based on inputs? that would prevent complex patterns if there are shorter patterns that are a subset.. maybe that's fine?
 // - ui
-//   - hover over craftable offer should highlight craft-inputs (offers)
 //   - full screen button etc
-// - animations
-//   - when next ui-phase unlocks, use an animation where ui elements drift into their place
-// - unblock animations
+// - graphics
 //   - fix item animation in and out of suppliers/demanders. looks ugly rn
 //   - machine top layer should paint _over_ the parts
-// - roundway
-//   - mini belts are painted ugly, interlacing
+//   - when next ui-phase unlocks, use an animation where ui elements drift into their place
+//   - use original bucket and tool to change paint colors
+//   - roundway mini belts are painted ugly, interlacing
 // - maze
 //   - maze fuel could blow-up-fade-out when collected, with a 3x for the better one, maybe rainbow wiggle etc? or just 1x 2x 3x instead of icon
 // - help the player
@@ -27,6 +25,8 @@
 //   - something with that ikea help icon
 // - repo
 //   - cleanup
+// - bug: without local storage data woops and atoms dont appear
+// - is pattern_unique_kinds not used anymore? or why does it not work
 
 // features
 // - belts
@@ -1053,7 +1053,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_help_and_ai_button(&options, &state, &config, &factory, &mouse_state, &context, &button_canvii);
         paint_quests(&options, &state, &config, &context, &factory, &mouse_state);
         paint_atoms(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
-        let highlight_index = paint_woops(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
+        let ( highlight_index, highlight_x, highlight_y ) = paint_woops(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
         paint_lasers(&options, &mut state, &config, &context);
         paint_ui_time_control(&options, &state, &context, &mouse_state);
         paint_secret_menu_or_logo(&options, &state, &config, &factory, &context, &button_canvii, &mouse_state);
@@ -1091,9 +1091,8 @@ pub fn start() -> Result<(), JsValue> {
         // Paint 3x3 machine button now so bouncers go behind it
         paint_machine3x3(&options, &state, &config, &factory, &context, &mouse_state);
 
-        // Paint woop tooltip above bouncers and trucks, but under mouse cursor
         if highlight_index > 0 {
-          paint_ui_woop_tooltip(&options, &state, &config, &factory, &context, highlight_index - 1);
+          paint_ui_woop_tooltip(&options, &state, &config, &factory, &context, highlight_index - 1, highlight_x, highlight_y);
         }
 
         // Over all the UI stuff
@@ -4752,34 +4751,37 @@ fn paint_atom(
     context.stroke_rect(x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
   }
 }
-fn paint_woops(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) -> usize {
+fn paint_woops(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) -> ( usize, f64, f64 ) {
   let ( is_mouse_over_woop, woop_hover_index ) =
     if mouse_state.is_dragging || mouse_state.was_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight woops
     else { ( mouse_state.woop_hover, mouse_state.woop_hover_woop_index ) };
 
   let mut highlight_index = 0;
+  let mut highlight_x = 0.0;
+  let mut highlight_y = 0.0;
 
   let mut inc = 0;
   for woop_index in 0..factory.available_woops.len() {
     let (part_kind, part_interactable ) = factory.available_woops[woop_index];
     if part_interactable {
       let highlight = if is_mouse_over_woop { is_mouse_over_woop && woop_index == woop_hover_index } else { mouse_state.woop_selected && mouse_state.woop_selected_index == woop_index };
+      let ( x, y ) = get_woop_xy(inc);
       if highlight {
         highlight_index = woop_index + 1;
+        highlight_x = x;
+        highlight_y = y;
       }
-      paint_woop(options, state, config, context, factory, mouse_state, cell_selection, woop_index, part_kind, inc, highlight, config.nodes[part_kind].pattern_unique_kinds.len() > 0);
+      paint_woop(options, state, config, context, factory, mouse_state, cell_selection, woop_index, part_kind, x, y, highlight, config.nodes[part_kind].pattern_unique_kinds.len() > 0);
       inc += 1;
     }
   }
 
-  return highlight_index;
+  return ( highlight_index, highlight_x, highlight_y );
 }
 fn paint_woop(
   options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection,
-  woop_index: usize, part_kind: PartKind, inc: usize, highlight: bool, is_machine_part: bool
+  woop_index: usize, part_kind: PartKind, x: f64, y: f64, highlight: bool, is_machine_part: bool
 ) {
-  let ( x, y ) = get_woop_xy(inc);
-
   if is_machine_part {
     context.set_fill_style(&MACHINE_ORANGE.into());
     context.fill_rect(x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
@@ -4855,7 +4857,9 @@ fn paint_woop(
     paint_green_pixel(context, progress, 9.0, x, y, "#368f27");
   }
 }
-fn paint_ui_woop_tooltip(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, woop_index: usize) {
+fn paint_ui_woop_tooltip(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, woop_index: usize, highlight_x: f64, highlight_y: f64) {
+  // Paint the woop tooltip / popup
+
   let (part_kind, _part_interactable ) = factory.available_woops[woop_index];
   let required_parts = &config.nodes[part_kind].pattern_unique_kinds;
 
@@ -4865,13 +4869,104 @@ fn paint_ui_woop_tooltip(options: &Options, state: &State, config: &Config, fact
 
   let (part_kind, _part_interactable ) = factory.available_woops[woop_index];
 
-  let ttox = UI_WOOPS_OFFSET_X + (UI_WOOPS_WIDTH / 2.0) - (UI_OFFER_TOOLTIP_WIDTH / 2.0) - 3.0;
-  let ttoy = GRID_Y2 + 10.0;
+  if options.show_woop_hover_hint {
+    // TODO: This rays idea does not work because lines of woops on the same horizontal line will just overlap
+    //       Keeping it because I liked the idea and who knows.
+
+    // Paint rays from the input parts
+    let ray_interval = ONE_SECOND as f64 * 3.0;
+    let tesla_interval = ONE_SECOND as f64 * 0.8;
+    let ray_progress = (factory.ticks % ray_interval as u64) as f64 / ray_interval;
+    let tesla_progress = (factory.ticks % tesla_interval as u64) as f64 / tesla_interval;
+    let tesla_amp = 15.0;
+    for index in 0..required_parts.len() {
+      let req_part_kind = required_parts[index];
+      let ( ox, oy ) = if is_atom(config, req_part_kind) {
+        // Must be found so init is irrelevant
+        let mut req_atom_index = 0;
+        for i in 0..factory.available_atoms.len() {
+          if factory.available_atoms[i].0 == req_part_kind {
+            req_atom_index = i;
+          }
+        }
+        get_atom_xy(req_atom_index)
+      } else {
+        // Must be found so init is irrelevant
+        let mut req_woop_index = 0;
+        for i in 0..factory.available_woops.len() {
+          if factory.available_woops[i].0 == req_part_kind {
+            req_woop_index = i;
+          }
+        }
+        get_woop_xy(req_woop_index)
+      };
+
+      // Draw a line from ox/y to highlight_x/y with twirly effect
+      context.save();
+
+      // This is how canvas rotation works; you rotate around the center of what you're painting, paint it, then reset the translation matrix.
+      // For this reason we must find the center of the atom/woop, rotate around that point, and draw a straight line up to the selected atom
+      // By rotating it we can paint the twirly effect without having to worry about angles (any further than we already have to)
+
+      let ray_angle = (oy - highlight_y).atan2(ox - highlight_x); // radians (zero to std::f64::consts::TAU), 0.0 is right
+      let ray_len = -((highlight_x - ox).powf(2.0) + (highlight_y - oy).powf(2.0)).sqrt();
+
+      let offset = ray_len * ray_progress;
+      let sin = (tesla_progress * std::f64::consts::PI).sin();
+      let tesla_y = sin * tesla_amp - (tesla_amp * 0.5);
+
+
+      context.translate(ox + UI_WOTOM_WIDTH / 2.0, oy + UI_WOTOM_HEIGHT / 2.0).expect("oopsie translate");
+      // tau=2*pi. r=0.0 is right. This rotates the entire canvas so you can just paint like normal
+      // but it's as if you temporarily rotated your screen. So we draw the line from left to right.
+      context.rotate(ray_angle).expect("oopsie rotate");
+
+      // If the tesla effect should go behind the ray, paint it now
+      if tesla_progress < 0.5 {
+        context.begin_path();
+        context.move_to(offset, tesla_y);
+        context.line_to(offset + 3.0, tesla_y);
+        context.set_stroke_style(&"green".into());
+        context.set_line_width(8.0);
+        context.stroke();
+      }
+
+      // The actual line
+      context.begin_path();
+      context.move_to(0.0, 0.0);
+      context.line_to(ray_len, 0.0);
+      context.set_stroke_style(&"white".into());
+      context.set_line_width(5.0);
+      context.stroke();
+
+      // If the tesla effect should go over the ray, paint it now
+      if tesla_progress >= 0.5 {
+        context.begin_path();
+        context.move_to(offset, tesla_y);
+        context.line_to(offset + 3.0, tesla_y);
+        context.set_stroke_style(&"green".into());
+        context.set_line_width(8.0);
+        context.stroke();
+      }
+
+      context.restore();
+    }
+  }
+
+  // Vertical offset: either above, starting slightly in the middle of the top woops, and if the
+  // selection is in the area where the tooltip would be painted then paint it one tooltip-height lower.
+
+  let ( ttox, ttoy ) =
+    if highlight_y < UI_WOOP_TOOLTIP_Y_LOW {
+      ( UI_WOOP_TOOLTIP_X, UI_WOOP_TOOLTIP_Y_LOW )
+    } else {
+      ( UI_WOOP_TOOLTIP_X, UI_WOOP_TOOLTIP_Y_HIGH )
+    };
 
   let machine_ox = ttox + 3.0 + (CELL_W * 0.75 + 5.0) * 2.0 + 20.0;
   let machine_oy = ttoy + 22.0;
 
-  canvas_round_rect_rc(context, ttox, ttoy, UI_OFFER_TOOLTIP_WIDTH + 5.0, UI_OFFER_TOOLTIP_HEIGHT + 7.0);
+  canvas_round_rect_rc(context, ttox, ttoy, UI_WOOP_TOOLTIP_WIDTH + 5.0, UI_WOOP_TOOLTIP_HEIGHT + 7.0);
   context.set_fill_style(&"#dddddddd".into());
   context.fill();
   context.set_stroke_style(&"#000000ee".into());
@@ -4941,8 +5036,6 @@ fn paint_ui_woop_tooltip(options: &Options, state: &State, config: &Config, fact
     38.0
   );
 
-  // If there's no machine the tooltip should indicate that
-
   let machine_img = &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].file_canvas_cache_index];
   context.draw_image_with_html_image_element_and_dw_and_dh(machine_img,
     machine_ox,
@@ -4951,31 +5044,19 @@ fn paint_ui_woop_tooltip(options: &Options, state: &State, config: &Config, fact
     (CELL_H * 1.5).floor()
   ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
 
-  if factory.machines.len() == 0 {
-    if (factory.ticks as f64 / (ONE_SECOND as f64)) as u64 % 2 == 0 {
-      context.save();
-      context.set_font(&"48px monospace");
-      context.set_fill_style(&"red".into());
-      context.fill_text(&"?", machine_ox + 10.0, (machine_oy + CELL_H * 1.3).floor()).expect("not to fail");
-      context.set_stroke_style(&"white".into());
-      context.stroke_text(&"?", machine_ox + 10.0, (machine_oy + CELL_H * 1.3).floor()).expect("not to fail");
-      context.restore();
-    }
-  } else {
-    paint_asset_raw(options, state, config, &context, CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT, factory.ticks,
-      (machine_ox + CELL_W * 1.5 + 5.0 + (factory.ticks as f64 / (ONE_SECOND as f64 / 4.0) % 3.0)).floor(),
-      (machine_oy + 3.0).floor(),
-      13.0,
-      38.0
-    );
+  paint_asset_raw(options, state, config, &context, CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT, factory.ticks,
+    (machine_ox + CELL_W * 1.5 + 5.0 + (factory.ticks as f64 / (ONE_SECOND as f64 / 4.0) % 3.0)).floor(),
+    (machine_oy + 3.0).floor(),
+    13.0,
+    38.0
+  );
 
-    paint_segment_part_from_config(options, state, config, context, part_kind,
-      machine_ox + CELL_W * 1.5 + (CELL_H * 0.75),
-      machine_oy + 3.0 + 3.0,
-      CELL_W,
-      CELL_H,
-    );
-  }
+  paint_segment_part_from_config(options, state, config, context, part_kind,
+    machine_ox + CELL_W * 1.5 + (CELL_H * 0.75),
+    machine_oy + 3.0 + 3.0,
+    CELL_W,
+    CELL_H,
+  );
 }
 fn paint_lasers(options: &Options, state: &mut State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>) {
   // Paint quest lasers (parts that are received draw a line to the left menu)
@@ -5160,7 +5241,7 @@ fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, co
     // let ( target_x, target_y ) = if factory.trucks[t].for_woop { get_woop_xy(factory.trucks[t].target_menu_part_position) } else { get_atom_xy(factory.trucks[t].target_menu_part_position) };
     let ( target_x, target_y ) = get_woop_xy(target_menu_part_position);
     // Angle is tan(y1-y2, x1-x2) in 2pi
-    let angle1 = (target_y - WOOP_TRUCK_WP6.1).atan2(target_x - WOOP_TRUCK_WP6.0);
+    let angle1 = (target_y - WOOP_TRUCK_WP6.1).atan2(target_x - WOOP_TRUCK_WP6.0); // radians (zero to std::f64::consts::TAU), 0.0 is right
     let angle = angle1 / std::f64::consts::TAU + 0.25;
     paint_truck(options, state, config, context, part,
       WOOP_TRUCK_WP6, ( target_x, target_y + CELL_H + 5.0, angle * 1.3, WOOP_TRUCK_WP6.3 ),
