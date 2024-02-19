@@ -116,6 +116,98 @@ const GAME_EXAMPLES = [
   `,
   `
     # Factini map
+    # Created 1708381118261
+    d=17x17
+    ┌─────────────────────────────────────────────────┐
+    │.  s  s  s  s  s  s  s  s  s  s  s  s  s  s  s  .│
+    │ ┌─v──v──v──v──v──v──v──v──v──v──v──v──v──v──v─┐ │
+    │ │ v  v  v  v  v  v  v  v  v  v  v  v  v  v  v │ │
+    │.│ ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║ │.│
+    │ │ v  v  v  v  v  v  v  v  v  v  v  v  v  v  v │ │
+    │ │ v  v  v  v  v  v  v  v  v  v  v  v  v  v  v │ │
+    │.│ ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║ │.│
+    │ │ v  v  v  v  v  v  v  v  v  v  v  v  v  v  v │ │
+    │ │ v  v  v  v  v  v  v  v  v  v  v  v  v  v  v │ │
+    │.│ ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║ │.│
+    │ │ v  v  v  v  v  v  v  v  v  v  v  v  v  v  v │ │
+    │ │ v  v  v  v  v  v  v  v  v  v  v  v  v  v  v │ │
+    │.│ ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║ │.│
+    │ │ v  v  v  v  v  v  v  v  v  v  v  v  v  v  v │ │
+    │ │ v  v  v  v  v  v  v  v  v  v  v  v  v  v  v │ │
+    │.│ ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║ │.│
+    │ │ v  v  v  v  v  v  v  v  v  v  v  v  v  v  v │ │
+    │ │ v  v  v  v  v  v  v  v  v  v  v  v  v  v  v │ │
+    │.│ ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║ │.│
+    │ │ v  v  v  v  v  v  v  v  v  v  v  v  v  v  v │ │
+    │ │ ^  v  v  v  v  v  v  v  v  v  v  v  v  v  ^ │ │
+    │d<<╩<<╩<<╩<<╩<<╩<<╩<<╩<<╣  ╠>>╩>>╩>>╩>>╩>>╩>>╩>>d│
+    │ │                      ^  ^                   │ │
+    │ │                      ^  ^                   │ │
+    │s>>═>>═>>═>>═>>═>>═>>═>>╣  ╠<<═<<═<<═<<═<<═<<═<<s│
+    │ │                      v  v                   │ │
+    │ │                      v  v                   │ │
+    │d<<╦<<╦<<╦<<╦<<╦<<╦<<╦<<╣  ╠>>╦>>╦>>╦>>╦>>╦<<╦>>d│
+    │ │ ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^ │ │
+    │ │ ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^ │ │
+    │.│ ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║ │.│
+    │ │ ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^ │ │
+    │ │ ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^ │ │
+    │.│ ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║ │.│
+    │ │ ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^ │ │
+    │ │ ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^ │ │
+    │.│ ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║ │.│
+    │ │ ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^ │ │
+    │ │ ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^ │ │
+    │.│ ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║ │.│
+    │ │ ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^ │ │
+    │ │ ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^ │ │
+    │.│ ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║ │.│
+    │ │ ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^ │ │
+    │ │ ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^ │ │
+    │.│ ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║  ║ │.│
+    │ │ ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^  ^ │ │
+    │ └─^──^──^──^──^──^──^──^──^──^──^──^──^──^──^─┘ │
+    │.  s  s  s  s  s  s  s  s  s  s  s  s  s  s  s  .│
+    └─────────────────────────────────────────────────┘
+    s1 = BucketGreen s:0 c:500
+    s2 = BucketOrange s:0 c:500
+    s3 = BucketPurple s:0 c:500
+    s4 = BucketPink s:0 c:500
+    s5 = BucketGrey s:0 c:500
+    s6 = BucketRainbow s:0 c:500
+    s7 = Plus s:0 c:500
+    s8 = BucketBlackPlus s:0 c:500
+    s9 = BucketRedPlus s:0 c:500
+    sa = BucketBluePlus s:0 c:500
+    sb = BucketYellowPlus s:0 c:500
+    sc = BucketWhitePlus s:0 c:500
+    sd = BucketPurplePlus s:0 c:500
+    se = BucketGreenPlus s:0 c:500
+    sf = BucketOrangePlus s:0 c:500
+    sg = BucketGreyPlusPlus s:0 c:500
+    sh = BucketPinkPlusPlus s:0 c:500
+    si = BucketGreyPlus s:0 c:500
+    sj = BucketPinkPlus s:0 c:500
+    sk = BucketBlackPlusPlus s:0 c:500
+    sl = BucketRedPlusPlus s:0 c:500
+    sm = BucketBluePlusPlus s:0 c:500
+    sn = BucketYellowPlusPlus s:0 c:500
+    so = BucketWhitePlusPlus s:0 c:500
+    sp = BucketPurplePlusPlus s:0 c:500
+    sq = BucketGreenPlusPlus s:0 c:500
+    sr = BucketOrangePlusPlus s:0 c:500
+    ss = BucketBlack s:0 c:500
+    st = BucketWhite s:0 c:500
+    su = BucketBlue s:0 c:500
+    sv = BucketYellow s:0 c:500
+    sw = BucketRed s:0 c:500
+    $ BucketBlue BucketYellow BucketRed BucketWhite BucketBlack BucketGreen BucketOrange BucketPurple BucketPink BucketGrey BucketRainbow Plus BucketBlackPlus BucketRedPlus BucketBluePlus BucketYellowPlus BucketWhitePlus BucketPurplePlus BucketGreenPlus BucketOrangePlus BucketGreyPlus BucketPinkPlus BucketBlackPlusPlus BucketRedPlusPlus BucketBluePlusPlus BucketYellowPlusPlus BucketWhitePlusPlus BucketPurplePlusPlus BucketGreenPlusPlus BucketOrangePlusPlus BucketGreyPlusPlus BucketPinkPlusPlus
+    @ 3
+    seed = 1708380105066
+    story = Story_Buckets
+  `,
+  `
+    # Factini map
     # Created 1670200685070
     d=17x17
     ┌─────────────────────────────────────────────────┐

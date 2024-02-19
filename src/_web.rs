@@ -9,7 +9,6 @@
 //   - machines are fixed to a certain output. dragging a woop creates a specific machine.
 //   - add hint that two machines next to each other do not share port?
 //   - missing purpose for machine is not properly displayed for 1x2. see MACHINE_1X2_UI / missing_purpose_y
-//   - should machines auto-configure based on inputs? that would prevent complex patterns if there are shorter patterns that are a subset.. maybe that's fine?
 // - ui
 //   - full screen button etc
 // - graphics
@@ -31,7 +30,6 @@
 // - belts
 //   - does snaking bother me when a belt should move all at once or not at all? should we change the algo? probably not that hard to move all connected cells between intersections/entry/exit points at once. if one moves, all move, etc.
 //   - a part that reaches 100% of a cell but can't be moved to the side should not block the next part from entering the cell until all ports are taken like that. the part can sit in the port and a belt can only take parts if it has an available port.
-//   - paint belts lighter
 // - machines
 //   - investigate different machine speeds at different configs
 //   - throughput problem. part has to wait at 50% for next part to clear, causing delays. if there's enough outputs there's always room and no such delay. if supply-to-machine is one belt there's also no queueing so it's faster
