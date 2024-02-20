@@ -17,7 +17,6 @@ use super::init::*;
 use super::options::*;
 use super::machine::*;
 use super::maze::*;
-use super::offer::*;
 use super::part::*;
 use super::paste::*;
 use super::port::*;
@@ -33,4 +32,11 @@ use super::zone::*;
 
 pub fn woop_is_visible(factory: &Factory, woop_down_woop_index: usize) -> bool {
   return factory.available_woops[woop_down_woop_index].1;
+}
+
+pub fn get_woop_xy(index: usize) -> (f64, f64 ) {
+  let x = UI_WOOPS_OFFSET_X + (index as f64 % UI_WOOPS_PER_ROW).floor() * UI_WOTOM_WIDTH_PLUS_MARGIN;
+  let y = UI_WOOPS_OFFSET_Y + (index as f64 / UI_WOOPS_PER_ROW).floor() * UI_WOTOM_HEIGHT_PLUS_MARGIN;
+
+  return ( x, y );
 }

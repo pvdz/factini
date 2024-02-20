@@ -16,7 +16,6 @@ use super::init::*;
 use super::options::*;
 use super::machine::*;
 use super::maze::*;
-use super::offer::*;
 use super::part::*;
 use super::paste::*;
 use super::port::*;
@@ -33,4 +32,11 @@ use super::zone::*;
 
 pub fn atom_is_visible(factory: &Factory, woop_down_atom_index: usize) -> bool {
   return factory.available_atoms[woop_down_atom_index].1;
+}
+
+pub fn get_atom_xy(index: usize) -> (f64, f64 ) {
+  let x = UI_ATOMS_OFFSET_X + (index as f64 % UI_ATOMS_PER_ROW).floor() * UI_WOTOM_WIDTH_PLUS_MARGIN;
+  let y = UI_ATOMS_OFFSET_Y + (index as f64 / UI_ATOMS_PER_ROW).floor() * UI_WOTOM_HEIGHT_PLUS_MARGIN;
+
+  return ( x, y );
 }

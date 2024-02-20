@@ -30,7 +30,6 @@ pub mod init;
 pub mod machine;
 pub mod maze;
 pub mod options;
-pub mod offer;
 pub mod part;
 pub mod paste;
 pub mod port;

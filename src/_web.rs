@@ -5,8 +5,6 @@
 // Compile with --profile to try and get some sense of shit
 
 // road to release
-// - machines
-//   - add hint that two machines next to each other do not share port?
 // - ui
 //   - full screen button etc
 // - graphics
@@ -20,12 +18,15 @@
 //   - update tutorial with current status
 //   - something with that ikea help icon
 //   - when clicking on the edge and there's a belt going into it, create a demander not a supplier
+//   - hover over machine should show woop hint
+//   - add hint that two machines next to each other do not share port?
+//   - woop hint can show target in the "machine" area rather than to the right of it
+//   - machine icons should be repositioned and controllable through MD
 // - cleanup
 //   - repo
 //   - is pattern_unique_kinds not used anymore? or why does it not work
 //   - machine_dims_to_button_coords no longer needs to support multiples etc
 //   - update AI after woop machine change
-//   - "offer"
 //   - missing purpose indicator for machines is obsolete
 //   - drop woop highlight / dropzone hint
 // - bug: without local storage data woops and atoms dont appear
@@ -98,7 +99,6 @@ use super::init::*;
 use super::options::*;
 use super::machine::*;
 use super::maze::*;
-use super::offer::*;
 use super::part::*;
 use super::paste::*;
 use super::port::*;
@@ -1944,7 +1944,7 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
         cell_selection.on = false;
 
         // - find the first visible unlocked part that has no pattern (an atom)
-        // - find the coord of its atom offer
+        // - find the coord of its atom square
         // - record the current mouse coordinate
         // - record the start time and compute the time it should take to move to the current coordinate
         // - every frame while the animation is active, paint a shadow of the atom at the progress
