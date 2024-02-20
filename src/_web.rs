@@ -20,7 +20,6 @@
 //   - when clicking on the edge and there's a belt going into it, create a demander not a supplier
 //   - hover over machine should show woop hint
 //   - add hint that two machines next to each other do not share port?
-//   - woop hint can show target in the "machine" area rather than to the right of it
 //   - machine icons should be repositioned and controllable through MD
 // - cleanup
 //   - repo
@@ -4604,7 +4603,7 @@ fn paint_woop(
   }
 }
 fn paint_woop_tooltip(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, woop_index: usize, highlight_x: f64, highlight_y: f64) {
-  // Paint the woop tooltip / popup
+  // Paint the woop tooltip / popup, paint_woop_hint
 
   let (part_kind, _part_interactable ) = factory.available_woops[woop_index];
   let required_parts = &config.nodes[part_kind].pattern_unique_kinds;
@@ -4709,16 +4708,24 @@ fn paint_woop_tooltip(options: &Options, state: &State, config: &Config, factory
   // selection is in the area where the tooltip would be painted then paint it one tooltip-height lower.
 
   let ( ttox, ttoy ) =
-    if highlight_y < UI_WOOP_TOOLTIP_Y_LOW {
+    if highlight_y < UI_WOOP_TOOLTIP_Y_HIGH + UI_WOOP_TOOLTIP_HEIGHT {
       ( UI_WOOP_TOOLTIP_X, UI_WOOP_TOOLTIP_Y_LOW )
     } else {
       ( UI_WOOP_TOOLTIP_X, UI_WOOP_TOOLTIP_Y_HIGH )
     };
 
-  let machine_ox = ttox + 3.0 + (CELL_W * 0.75 + 5.0) * 2.0 + 20.0;
-  let machine_oy = ttoy + 22.0;
+  // Relative width/height of the painted machine
+  let bwp = w as f64 / w.max(h) as f64;
+  let bhp = h as f64 / h.max(w) as f64;
 
-  canvas_round_rect_rc(context, ttox, ttoy, UI_WOOP_TOOLTIP_WIDTH + 5.0, UI_WOOP_TOOLTIP_HEIGHT + 7.0);
+  let machine_full_w = CELL_W * 2.5;
+  let machine_full_h = CELL_H * 2.5;
+  let machine_ox = ttox + 3.0 + (CELL_W * 0.75 + 5.0) * 2.0 + 20.0;
+  let machine_oy = ttoy + 0.25 * CELL_H;
+  let machine_w = (machine_full_w * bwp).floor();
+  let machine_h = (machine_full_h * bhp).floor();
+
+  canvas_round_rect_rc(context, (ttox).floor() + 0.5, (ttoy).floor() + 0.5, UI_WOOP_TOOLTIP_WIDTH + 5.0, UI_WOOP_TOOLTIP_HEIGHT + 7.0);
   context.set_fill_style(&"#dddddddd".into());
   context.fill();
   context.set_stroke_style(&"#000000ee".into());
@@ -4729,42 +4736,42 @@ fn paint_woop_tooltip(options: &Options, state: &State, config: &Config, factory
   match required_parts.len() {
     1 => {
       paint_segment_part_from_config(options, state, config, context, required_parts[0],
-        ttox + 3.0 + 13.0,
-        machine_oy + 3.0 + 3.0,
+        (ttox + 3.0 + 13.0).floor() + 0.5,
+        (ttoy + 3.0 + CELL_H * 0.75 + 5.0).floor() + 0.5,
         CELL_W,
         CELL_H
       );
     }
     2 => {
       paint_segment_part_from_config(options, state, config, context, required_parts[0],
-        ttox + 3.0 + 13.0,
-        ttoy + 3.0 + 8.0,
+        (ttox + 3.0 + 13.0).floor() + 0.5,
+        (ttoy + 3.0 + 8.0).floor() + 0.5,
         CELL_W,
         CELL_H
       );
       paint_segment_part_from_config(options, state, config, context, required_parts[1],
-        ttox + 3.0 + 13.0,
-        ttoy + 3.0 + CELL_H + 5.0 + 11.0,
+        (ttox + 3.0 + 13.0).floor() + 0.5,
+        (ttoy + 3.0 + CELL_H + 5.0 + 11.0).floor() + 0.5,
         CELL_W,
         CELL_H
       );
     }
     3 => {
       paint_segment_part_from_config(options, state, config, context, required_parts[0],
-        ttox + 3.0 + 16.0,
-        ttoy + 3.0,
+        (ttox + 3.0 + 16.0).floor() + 0.5,
+        (ttoy + 3.0).floor() + 0.5,
         CELL_W * 0.75,
         CELL_H * 0.75
       );
       paint_segment_part_from_config(options, state, config, context, required_parts[1],
-        ttox + 3.0 + 16.0,
-        ttoy + 3.0 + CELL_H * 0.75 + 5.0,
+        (ttox + 3.0 + 16.0).floor() + 0.5,
+        (ttoy + 3.0 + CELL_H * 0.75 + 5.0).floor() + 0.5,
         CELL_W * 0.75,
         CELL_H * 0.75
       );
       paint_segment_part_from_config(options, state, config, context, required_parts[2],
-        ttox + 3.0 + 16.0,
-        ttoy + 3.0 + CELL_H * 0.75 + 5.0 + CELL_H * 0.75 + 5.0,
+        (ttox + 3.0 + 16.0).floor() + 0.5,
+        (ttoy + 3.0 + CELL_H * 0.75 + 5.0 + CELL_H * 0.75 + 5.0).floor() + 0.5,
         CELL_W * 0.75,
         CELL_H * 0.75
       );
@@ -4772,8 +4779,8 @@ fn paint_woop_tooltip(options: &Options, state: &State, config: &Config, factory
     | _ => {
       for i in 0..required_parts.len().min(8) {
         paint_segment_part_from_config(options, state, config, context, required_parts[i],
-          ttox + 3.0 + if i == 6 || i == 7 { CELL_W * 0.37 + 2.5 } else { (CELL_W * 0.75 + 5.0) * (i % 2) as f64 },
-          ttoy + 3.0 + if i == 6 || i == 7 { (CELL_H * 0.37 + 2.5) + (CELL_H * 0.75 + 5.0) * (i % 2) as f64 } else { (CELL_H * 0.75 + 5.0) * (i / 2) as f64 },
+          (ttox + 3.0 + if i == 6 || i == 7 { CELL_W * 0.37 + 2.5 } else { (CELL_W * 0.75 + 5.0) * (i % 2) as f64 }).floor() + 0.5,
+          (ttoy + 3.0 + if i == 6 || i == 7 { (CELL_H * 0.37 + 2.5) + (CELL_H * 0.75 + 5.0) * (i % 2) as f64 } else { (CELL_H * 0.75 + 5.0) * (i / 2) as f64 }).floor() + 0.5,
           0.75 * CELL_W,
           0.75 * CELL_H
         );
@@ -4781,32 +4788,44 @@ fn paint_woop_tooltip(options: &Options, state: &State, config: &Config, factory
     }
   }
 
+  // Arrow
   paint_asset_raw(options, state, config, &context, CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT, factory.ticks,
-    (machine_ox - 18.0 + (factory.ticks as f64 / (ONE_SECOND as f64 / 4.0) % 3.0)).floor(),
-    (machine_oy + 3.0).floor(),
+    (machine_ox - 21.0 + (factory.ticks as f64 / (ONE_SECOND as f64 / 4.0) % 3.0)).floor() + 0.5,
+    (machine_oy + (machine_full_h / 2.0) - 19.0).floor() + 0.5,
     13.0,
     38.0
   );
+
+  let mx = machine_ox + (machine_full_w - machine_w) / 2.0;
+  let my = machine_oy + (machine_full_h - machine_h) / 2.0;
 
   // Note: We paint the indicated machine centered within a given box, regardless of actual size
   let machine_img = &config.sprite_cache_canvas[config.nodes[machine_asset_node_index].sprite_config.frames[0].file_canvas_cache_index];
   context.draw_image_with_html_image_element_and_dw_and_dh(machine_img,
-    machine_ox,
-    machine_oy,
-    (CELL_W * 1.5).floor(),
-    (CELL_H * 1.5).floor()
+    mx.floor() + 0.5,
+    my.floor() + 0.5,
+    machine_w,
+    machine_h
   ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
 
-  paint_asset_raw(options, state, config, &context, CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT, factory.ticks,
-    (machine_ox + CELL_W * 1.5 + 5.0 + (factory.ticks as f64 / (ONE_SECOND as f64 / 4.0) % 3.0)).floor(),
-    (machine_oy + 3.0).floor(),
-    13.0,
-    38.0
-  );
+  // Next two loops paint a small grid behind the machine to indicate cell size
+  let s = machine_w / w as f64;
+  context.begin_path();
+  for i in 0..w {
+    context.move_to((mx + (i as f64) * s).floor() + 0.5, my.floor() + 0.5);
+    context.line_to((mx + (i as f64) * s).floor() + 0.5, (my + machine_h).floor() + 0.5);
+  }
+  let s = machine_h / h as f64;
+  for i in 0..h {
+    context.move_to(mx.floor() + 0.5, (my + (i as f64) * s).floor() + 0.5);
+    context.line_to((mx + machine_w).floor() + 0.5, (my + (i as f64) * s).floor() + 0.5);
+  }
+  context.set_stroke_style(&"#eeeeee99".into());
+  context.stroke();
 
   paint_segment_part_from_config(options, state, config, context, part_kind,
-    machine_ox + CELL_W * 1.5 + (CELL_H * 0.75),
-    machine_oy + 3.0 + 3.0,
+    (mx + machine_w / 2.0 - CELL_W / 2.0).floor() + 0.5,
+    (my + machine_h / 2.0 - CELL_H / 2.0).floor() + 0.5,
     CELL_W,
     CELL_H,
   );
