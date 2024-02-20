@@ -28,7 +28,6 @@
 //   - machine_dims_to_button_coords no longer needs to support multiples etc
 //   - update AI after woop machine change
 //   - missing purpose indicator for machines is obsolete
-//   - drop woop highlight / dropzone hint
 // - bug: without local storage data woops and atoms dont appear
 
 // features
@@ -5103,9 +5102,10 @@ fn paint_ui_atom_woop_hover_droptarget_hint_conditionally(options: &Options, sta
   paint_ui_hover_droptarget_hint(options, state, config, context, factory, hover_part_kind);
 }
 fn paint_ui_hover_droptarget_hint(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, part_kind: PartKind) {
-  // Parts with patterns go to machines. Parts without patterns (or empty patterns) are suppliers.
-  // Machines will accept in both cases (one case adds the part, the other sets the pattern)
-  paint_machines_droptarget_green(options, state, config, context, factory, config.nodes[part_kind].pattern_by_index.len());
+  // Only show for atoms. We used to for woops too at some point but it's no longer relevant.
+  if config.nodes[part_kind].pattern_unique_kinds.len() == 0 {
+    paint_machines_droptarget_green(options, state, config, context, factory, config.nodes[part_kind].pattern_by_index.len());
+  }
 }
 fn paint_machines_droptarget_green(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, pattern_len: usize) {
   let for_pattern = pattern_len > 0;
