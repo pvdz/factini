@@ -140,7 +140,6 @@ pub struct MouseState {
   pub woop_down_woop_index: usize, // Kept until the next up, used for dragging
   pub woop_selected: bool,
   pub woop_selected_index: usize, // woop index, not part index
-  pub dragging_woop: bool,
 
   pub atom_hover: bool,
   pub atom_hover_atom_index: usize, // Only relevant when atom_hover = true
@@ -153,6 +152,7 @@ pub struct MouseState {
   pub is_dragging_machine: bool,
   pub dragging_machine_w: u8,
   pub dragging_machine_h: u8,
+  pub dragging_machine_part: PartKind, // The part that the machine being dragged will construct
 
   // https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/buttons
   // bitwise field; 1=left, 2=right, 3=left|right, 4=middle, etc
@@ -210,10 +210,6 @@ pub enum MenuButton {
   RedoButton,
   ClearButton,
   PaintToggleButton,
-  Machine1x2Button,
-  Machine2x1Button,
-  Machine2x2Button,
-  Machine3x3Button,
   AutoBuildButton,
   CopyFactory,
   PasteFactory,

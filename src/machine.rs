@@ -543,7 +543,7 @@ pub fn get_machine_ui_config(w: usize, h: usize) -> MachineUIConfig {
   return MACHINE_1X1_UI;
 }
 
-pub fn machine_add_to_factory(options: &Options, state: &State, config: &Config, factory: &mut Factory, cx: usize, cy: usize, machine_cell_width: usize, machine_cell_height: usize) {
+pub fn machine_add_to_factory(options: &Options, state: &State, config: &Config, factory: &mut Factory, cx: usize, cy: usize, machine_cell_width: usize, machine_cell_height: usize, machine_part: PartKind) {
   let ccoord = to_coord(cx, cy);
 
   // Get all machines and then get the first unused ID. First we round up all the existing
@@ -603,6 +603,7 @@ pub fn machine_add_to_factory(options: &Options, state: &State, config: &Config,
       }
 
       if i == 0 && j == 0 {
+        log!("Spawning machine that produces {} which require these parts: {:?}", machine_part, config.nodes[machine_part].pattern_unique_kinds);
         // Top-left cell is the main_coord here
         factory.floor[coord] = machine_main_cell(
           options,
@@ -611,8 +612,8 @@ pub fn machine_add_to_factory(options: &Options, state: &State, config: &Config,
           found,
           x, y,
           machine_cell_width, machine_cell_height,
-          vec!(), // Could fill with trash but no need I guess
-          part_c(config, 't'),
+          config.nodes[machine_part].pattern_unique_kinds.iter().map(|p| part_from_part_kind(config, *p)).collect(),
+          part_from_part_kind(config, machine_part),
           2000,
           1, 1
         );

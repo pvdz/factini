@@ -157,7 +157,7 @@ pub const UI_MENU_MACHINE_BUTTON_2X2_WIDTH: f64 = 47.0;
 pub const UI_MENU_MACHINE_BUTTON_2X2_HEIGHT: f64 = 47.0;
 
 pub const UI_MENU_MACHINE_BUTTON_3X3_X: f64 = GRID_X1 + 500.0;
-pub const UI_MENU_MACHINE_BUTTON_3X3_Y: f64 = UI_BOTTOM_OFFSET_Y + 10.0;
+pub const UI_MENU_MACHINE_BUTTON_3X3_Y: f64 = UI_BOTTOM_OFFSET_Y + 14.0;
 pub const UI_MENU_MACHINE_BUTTON_3X3_WIDTH: f64 = 70.0;
 pub const UI_MENU_MACHINE_BUTTON_3X3_HEIGHT: f64 = 70.0;
 
@@ -309,6 +309,7 @@ pub fn get_quest_xy(visible_index: usize, delta: f64) -> (f64, f64 ) {
 }
 
 pub fn machine_dims_to_button_coords(width: usize, height: usize) -> (f64, f64, f64, f64) {
+  // TODO: other machines are no longer painted. can remove stuff for it.
   match (width, height) {
     (1, 2) => (UI_MENU_MACHINE_BUTTON_1X2_X, UI_MENU_MACHINE_BUTTON_1X2_Y, UI_MENU_MACHINE_BUTTON_1X2_WIDTH, UI_MENU_MACHINE_BUTTON_1X2_HEIGHT),
     (2, 1) => (UI_MENU_MACHINE_BUTTON_2X1_X, UI_MENU_MACHINE_BUTTON_2X1_Y, UI_MENU_MACHINE_BUTTON_2X1_WIDTH, UI_MENU_MACHINE_BUTTON_2X1_HEIGHT),

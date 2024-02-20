@@ -428,7 +428,7 @@ fn auto_build_init_drag_machine(options: &Options, state: &State, config: &Confi
 fn auto_build_init_place_machine(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
   factory.auto_build.phase_pause = 0;
 
-  machine_add_to_factory(options, state, config, factory, factory.auto_build.machine_x, factory.auto_build.machine_y, factory.auto_build.machine_w, factory.auto_build.machine_h);
+  machine_add_to_factory(options, state, config, factory, factory.auto_build.machine_x, factory.auto_build.machine_y, factory.auto_build.machine_w, factory.auto_build.machine_h, factory.auto_build.machine_draggin_part_kind);
 
   if options.trace_auto_builder { log!("AutoBuild: Put the {}x{} machine down at {}x{}", factory.auto_build.machine_w, factory.auto_build.machine_h, factory.auto_build.machine_x, factory.auto_build.machine_y); }
 }
