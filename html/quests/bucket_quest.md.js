@@ -1,7 +1,7 @@
 const CONFIG_BUCKET_QUEST = `
 
 # Story_Buckets
-- title: bucket coloring sotry
+- title: Bucket coloring story
 Author: Peter van der Zee
 Desc: Simple example story
 - active
@@ -55,6 +55,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_grey.png
     - w: 32
     - h: 32
+    - machine: 1x2 Asset_Factory
     
     # Part_BucketGreen
     - special: e 1
@@ -63,6 +64,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_green.png
     - w: 32
     - h: 32
+    - machine: 2x2 Asset_Machine_2_2
     
     # Part_BucketPurple
     - special: v 1
@@ -71,6 +73,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_purple.png
     - w: 32
     - h: 32
+    - machine: 2x1 Asset_Machine_2_1
     
     # Part_BucketOrange
     - special: s 1
@@ -79,6 +82,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_orange.png
     - w: 32
     - h: 32
+    - machine: 2x2 Asset_Machine_2_2
     
     # Part_BucketPink
     - special: p 1
@@ -87,6 +91,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_pink.png
     - w: 32
     - h: 32
+    - machine: 1x2 Asset_Machine_1_2
 
   ===
     Level 1.2
@@ -99,6 +104,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_rainbow.png
     - w: 32
     - h: 32
+    - machine: 3x3 Asset_Machine_3_3
 
   ===
     Level 1.3
@@ -113,6 +119,7 @@ Desc: Simple example story
     - file: ./img/parts/badge.v4.png
     - w: 64
     - h: 64
+    - machine: 2x2 Asset_Machine_2_2
     
   ===
     Level 2.1
@@ -125,6 +132,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_red_plus.png
     - w: 32
     - h: 32
+    - machine: 2x1 Asset_Machine_2_1
     
     # Part_BucketBluePlus
     - pattern: Part_BucketBlue Part_Plus
@@ -132,6 +140,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_blue_plus.png
     - w: 32
     - h: 32
+    - machine: 1x2 Asset_Machine_1_2
     
     # Part_BucketYellowPlus
     - pattern: Part_BucketYellow Part_Plus
@@ -139,6 +148,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_yellow_plus.png
     - w: 32
     - h: 32
+    - machine: 2x1 Asset_Machine_2_1
     
     # Part_BucketBlackPlus
     - pattern: Part_BucketBlack Part_Plus
@@ -146,6 +156,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_black_plus.png
     - w: 32
     - h: 32
+    - machine: 1x2 Asset_Machine_1_2
     
     # Part_BucketWhitePlus
     - pattern: Part_BucketWhite Part_Plus
@@ -153,6 +164,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_white_plus.png
     - w: 32
     - h: 32
+    - machine: 2x1 Asset_Machine_2_1
 
   ===
     Level 2.2
@@ -166,6 +178,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_green_plus.png
     - w: 32
     - h: 32
+    - machine: 2x2 Asset_Machine_2_2
     
     # Part_BucketGreyPlus
     - pattern: Part_BucketBlackPlus Part_BucketWhitePlus
@@ -173,6 +186,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_grey_plus.png
     - w: 32
     - h: 32
+    - machine: 1x2 Asset_Machine_1_2
     
     # Part_BucketPurplePlus
     - special: v 2
@@ -181,6 +195,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_purple_plus.png
     - w: 32
     - h: 32
+    - machine: 2x1 Asset_Machine_2_1
     
     # Part_BucketOrangePlus
     - special: s 2
@@ -189,6 +204,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_orange_plus.png
     - w: 32
     - h: 32
+    - machine: 2x2 Asset_Machine_2_2
     
     # Part_BucketPinkPlus
     - special: p 2
@@ -197,6 +213,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_pink_plus.png
     - w: 32
     - h: 32
+    - machine: 1x2 Asset_Machine_1_2
 
   ===
     Level 3.1
@@ -209,6 +226,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_red_plusplus.png
     - w: 32
     - h: 32
+    - machine: 2x1 Asset_Machine_2_1
     
     # Part_BucketBluePlusPlus
     - pattern: Part_BucketBluePlus Part_Plus
@@ -216,6 +234,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_blue_plusplus.png
     - w: 32
     - h: 32
+    - machine: 1x2 Asset_Machine_1_2
     
     # Part_BucketYellowPlusPlus
     - pattern: Part_BucketYellowPlus Part_Plus
@@ -223,6 +242,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_yellow_plusplus.png
     - w: 32
     - h: 32
+    - machine: 2x2 Asset_Machine_2_2
     
     # Part_BucketBlackPlusPlus
     - pattern: Part_BucketBlackPlus Part_Plus
@@ -230,6 +250,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_black_plusplus.png
     - w: 32
     - h: 32
+    - machine: 2x1 Asset_Machine_2_1
     
     # Part_BucketWhitePlusPlus
     - pattern: Part_BucketWhitePlus Part_Plus
@@ -237,6 +258,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_white_plusplus.png
     - w: 32
     - h: 32
+    - machine: 2x2 Asset_Machine_2_2
 
   ===
     Level 3.2
@@ -249,6 +271,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_grey_plusplus.png
     - w: 32
     - h: 32
+    - machine: 2x2 Asset_Machine_2_2
     
     # Part_BucketGreenPlusPlus
     - special: e 3
@@ -257,6 +280,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_green_plusplus.png
     - w: 32
     - h: 32
+    - machine: 2x2 Asset_Machine_2_2
     
     # Part_BucketPurplePlusPlus
     - special: v 3
@@ -265,6 +289,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_purple_plusplus.png
     - w: 32
     - h: 32
+    - machine: 2x2 Asset_Machine_2_2
     
     # Part_BucketOrangePlusPlus
     - special: s 3
@@ -273,6 +298,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_orange_plusplus.png
     - w: 32
     - h: 32
+    - machine: 2x2 Asset_Machine_2_2
     
     # Part_BucketPinkPlusPlus
     - special: p 3
@@ -281,6 +307,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v2_pink_plusplus.png
     - w: 32
     - h: 32
+    - machine: 2x2 Asset_Machine_2_2
 
 ===
   Quests

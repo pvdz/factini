@@ -24,11 +24,10 @@
 //   - repo
 //   - is pattern_unique_kinds not used anymore? or why does it not work
 //   - machine_dims_to_button_coords no longer needs to support multiples etc
-//   - make dropping woops on the edge an option for debugging see on_drag_end_machine_over_floor
 //   - update AI after woop machine change
 //   - "offer"
 //   - missing purpose indicator for machines is obsolete
-//   - add machine size to MD
+//   - drop woop highlight / dropzone hint
 // - bug: without local storage data woops and atoms dont appear
 
 // features
@@ -1087,11 +1086,11 @@ pub fn start() -> Result<(), JsValue> {
         paint_border_hint(&options, &state, &config, &factory, &context);
         // In front of all game stuff
         paint_bouncers(&options, &state, &config, &context, &mut factory);
-        // Paint 3x3 machine button now so bouncers go behind it
-        paint_machine3x3(&options, &state, &config, &factory, &context, &mouse_state);
+        // Paint the factory icon now so bouncers go behind it
+        paint_factory_img(&options, &state, &config, &factory, &context, &mouse_state);
 
         if highlight_index > 0 {
-          paint_ui_woop_tooltip(&options, &state, &config, &factory, &context, highlight_index - 1, highlight_x, highlight_y);
+          paint_woop_tooltip(&options, &state, &config, &factory, &context, highlight_index - 1, highlight_x, highlight_y);
         }
 
         // Over all the UI stuff
@@ -1797,7 +1796,13 @@ fn on_drag_start_woop(options: &mut Options, state: &mut State, config: &Config,
   if woop_is_visible(factory, mouse_state.woop_down_woop_index) {
     // Need to remember which woop we are currently dragging (-> woop_down_woop_index).
     log!("is_drag_start from woop {} ({:?})", mouse_state.woop_down_woop_index, factory.available_woops[mouse_state.woop_down_woop_index].0);
-    on_drag_start_machine(options, state, config, mouse_state, cell_selection, 3, 3, factory.available_woops[mouse_state.woop_down_woop_index].0);
+
+    // Config determines which machine to use and what asset
+    let node = &config.nodes[factory.available_woops[mouse_state.woop_down_woop_index].0];
+    let w = node.machine_width;
+    let h = node.machine_height;
+
+    on_drag_start_machine(options, state, config, mouse_state, cell_selection, w, h, factory.available_woops[mouse_state.woop_down_woop_index].0);
   }
 }
 fn on_up_atom(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
@@ -4599,7 +4604,7 @@ fn paint_woop(
     paint_green_pixel(context, progress, 9.0, x, y, "#368f27");
   }
 }
-fn paint_ui_woop_tooltip(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, woop_index: usize, highlight_x: f64, highlight_y: f64) {
+fn paint_woop_tooltip(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, woop_index: usize, highlight_x: f64, highlight_y: f64) {
   // Paint the woop tooltip / popup
 
   let (part_kind, _part_interactable ) = factory.available_woops[woop_index];
@@ -4610,6 +4615,12 @@ fn paint_ui_woop_tooltip(options: &Options, state: &State, config: &Config, fact
   }
 
   let (part_kind, _part_interactable ) = factory.available_woops[woop_index];
+
+  // Config determines which machine to use and what asset
+  let woop_config_node = &config.nodes[part_kind];
+  let w = woop_config_node.machine_width;
+  let h = woop_config_node.machine_height;
+  let machine_asset_node_index = woop_config_node.machine_asset_index;
 
   if options.show_woop_hover_hint {
     // TODO: This rays idea does not work because lines of woops on the same horizontal line will just overlap
@@ -4778,7 +4789,8 @@ fn paint_ui_woop_tooltip(options: &Options, state: &State, config: &Config, fact
     38.0
   );
 
-  let machine_img = &config.sprite_cache_canvas[config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].file_canvas_cache_index];
+  // Note: We paint the indicated machine centered within a given box, regardless of actual size
+  let machine_img = &config.sprite_cache_canvas[config.nodes[machine_asset_node_index].sprite_config.frames[0].file_canvas_cache_index];
   context.draw_image_with_html_image_element_and_dw_and_dh(machine_img,
     machine_ox,
     machine_oy,
@@ -5139,8 +5151,16 @@ fn paint_secret_menu_or_logo(options: &Options, state: &State, config: &Config, 
     paint_logo(options, state, config, context, mouse_state);
   }
 }
-fn paint_machine3x3(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  paint_machine_button(options, state, config, factory, context, 3, 3);
+fn paint_factory_img(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  let (bx, by, bw, bh) = machine_dims_to_button_coords(3, 3);
+
+  context.set_fill_style(&"#aaa".into());
+  context.fill_rect(bx, by, bw, bh);
+
+  paint_asset(options, state, config, context, CONFIG_NODE_ASSET_FACTORY, factory.ticks, bx, by, bw, bh);
+
+  context.set_stroke_style(&"black".into());
+  context.stroke_rect(bx, by, bw, bh);
 }
 fn paint_machine_button(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, width: usize, height: usize) {
   let (bx, by, bw, bh) = machine_dims_to_button_coords(width, height);

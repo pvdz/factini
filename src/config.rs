@@ -375,6 +375,7 @@ pub const CONFIG_NODE_ASSET_COPY_GREY: usize = 347;
 pub const CONFIG_NODE_ASSET_PASTE_GREY: usize = 348;
 pub const CONFIG_NODE_ASSET_COPY_GREEN: usize = 349;
 pub const CONFIG_NODE_ASSET_PASTE_GREEN: usize = 350;
+pub const CONFIG_NODE_ASSET_FACTORY: usize = 351;
 
 #[derive(Debug)]
 pub struct Config {
@@ -422,7 +423,12 @@ pub struct ConfigNode {
   pub pattern_unique_kinds: Vec<PartKind>, // Unique non-empty part kinds. We can use this to quickly find machines that have received these parts.
   pub icon: char, // Single (unique) character that also represents this part internally
   pub special: (char, u8), // (special kind, special level). for the maze runner.
+  pub machine_width: usize, // When creating a machine for this part, this is the dimension
+  pub machine_height: usize, // When creating a machine for this part, this is the dimension
+  pub machine_asset_name: String, // Asset to use when painting this machine. Only used at config parse time. See machine_asset_index for actual usage.
+  pub machine_asset_index: usize, // Asset (config.nodes index) to use when painting this machine.
 
+  // Graphics
   pub drm: bool, // When true, the art for this node is not owned. Use with options.show_drm=false to create safe public media with placeholders
   pub sprite_config: SpriteConfig,
 }
@@ -579,6 +585,10 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
               pattern: "".to_string(),
               pattern_unique_kinds: vec!(),
               icon,
+              machine_width: 0,
+              machine_height: 0,
+              machine_asset_name: "Asset_Machine_3_3".to_string(),
+              machine_asset_index: CONFIG_NODE_ASSET_MACHINE_3_3,
               special: ('n', 0),
               drm: false,
               sprite_config: SpriteConfig {
@@ -753,6 +763,36 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
                     nodes[current_node_index].pattern_by_name.push(name.trim().to_string());
                   }
                 }
+              }
+            }
+            "machine" => {
+              // Machine specification for a woop part
+              // The format is `- machine: [\dx\d] [name]`, like `- machine 3x3 Asset_Machine`
+              // Otherwise it defaults to the smallest dimension that fits the input count (later)
+              // Each dim will have its own default asset too, in case the name is not given
+
+              let mut split = value_raw.split(' ');
+
+              let mut chunk = split.next().or(Some("")).unwrap().trim();
+              let mut bytes = chunk.bytes();
+              let w = bytes.next().or(Some('?' as u8)).unwrap() as char;
+              let x = bytes.next().or(Some('?' as u8)).unwrap() as char;
+              let h = bytes.next().or(Some('?' as u8)).unwrap() as char;
+
+              if (w >= '0' && w <= '9') && x == 'x' && (h >= '0' && h <= '9') {
+                chunk = split.next_back().or(Some("")).unwrap().trim();
+
+                nodes[current_node_index].machine_width = (w as u8 - '0' as u8) as usize;
+                nodes[current_node_index].machine_height = (h as u8 - '0' as u8) as usize;
+              }
+
+              // Either
+              // - There were two chunks. Then `chunk` will contain the second chunk now
+              // - There was one chunk and it was a dimension, `chunk` will be the empty string now
+              // - There was one chunk and it was not a dimension, `chunk` will be the first chunk
+
+              if chunk != "" {
+                nodes[current_node_index].machine_asset_name = chunk.to_string(); // Validate later, when we parsed all the configs, otherwise the node name may not bbe available yet.
               }
             }
             "char" => {
@@ -1064,6 +1104,64 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
     nodes[i].pattern_by_index = pattern_by_index;
   }
 
+  if trace_parse_config_md { log!("+ Resolving part machine customizations"); }
+  for i in 0..nodes.len() {
+    let node = &mut nodes[i];
+
+    assert!(node.machine_width <= 9);
+    assert!(node.machine_height <= 9);
+
+    let len = node.pattern_unique_kinds.len();
+    if len > 0 && (node.machine_width == 0 || node.machine_height == 0) {
+      // Auto discover
+      if len <= 6 { // 1x2 2x1
+        node.machine_width = 1;
+        node.machine_height = 2;
+      } else if len <= 8 { // 1x3 2x2 3x1
+        node.machine_width = 2;
+        node.machine_height = 2;
+      } else if len <= 10 { // 2x3 3x2 1x4 4x1
+        node.machine_width = 2;
+        node.machine_height = 3;
+      } else if len <= 12 { // 2x4 4x2 3x3 1x5 5x1
+        node.machine_width = 3;
+        node.machine_height = 3;
+      } else if len <= 14 { // 1x6 6x1 2x5 5x2 3x4 4x3
+        node.machine_width = 3;
+        node.machine_height = 4;
+      } else if len <= 16 { // 1x7 7x1 2x6 6x2 3x5 5x3 4x4
+        node.machine_width = 4;
+        node.machine_height = 4;
+      } else if len <= 18 { // 1x8 8x1 2x7 7x2 3x6 6x3 4x5 5x4
+        node.machine_width = 4;
+        node.machine_height = 5;
+      } else if len <= 20 { // 1x9 9x1 2x8 8x2 3x7 7x3 4x6 6x4 5x5
+        node.machine_width = 5;
+        node.machine_height = 5;
+      } else {
+        // Biggest machine :shrug: You'll have to share inputs.
+        node.machine_width = 5;
+        node.machine_height = 5;
+      }
+
+      log!("  - {} defined the machine size to {}x{}", node.raw_name, node.machine_width, node.machine_height);
+    }
+
+    if node.machine_asset_name == "" {
+      log!("  - Warning: {} had an empty machine asset name, defaulting to 3x3 asset", node.raw_name);
+      node.machine_asset_index = CONFIG_NODE_ASSET_MACHINE_3_3;
+    } else if node.machine_asset_name == "Asset_Machine_3_3" {
+      node.machine_asset_index = CONFIG_NODE_ASSET_MACHINE_3_3;
+    } else if let Some(&node_index) = full_name_to_node_index.get(&node.machine_asset_name) {
+      log!("  - {} had {} which resolves to index {}", node.raw_name, node.machine_asset_name, node.machine_asset_index);
+      node.machine_asset_index = node_index;
+    } else {
+      log!("  - Warning: {} had `{}` which could not be resolved, using defaults [{:?}] [{:?}]", node.raw_name, node.machine_asset_name, node_name_to_index.get(&node.machine_asset_name.clone()), node_name_to_index.get(&"Asset_Machine_2_2".to_string()));
+      node.machine_asset_name = "Asset_Machine_3_3".to_string();
+      node.machine_asset_index = CONFIG_NODE_ASSET_MACHINE_3_3;
+    }
+  }
+
   if trace_parse_config_md { log!("+ Create quest unlocks_after_by_index and starting_part_by_index pointers"); }
   stories.iter().for_each(|story| {
     if trace_parse_config_md { log!("  - Story: {}", nodes[story.story_node_index].name); }
@@ -1291,7 +1389,8 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Asset_Machine_4_2" => CONFIG_NODE_ASSET_MACHINE_4_2,
     "Asset_Machine_4_3" => CONFIG_NODE_ASSET_MACHINE_4_3,
     "Asset_Machine_4_4" => CONFIG_NODE_ASSET_MACHINE_4_4,
-    "Asset_MACHINE_FALLBACK" => CONFIG_NODE_ASSET_MACHINE_FALLBACK,
+    "Asset_Factory" => CONFIG_NODE_ASSET_FACTORY,
+    "Asset_Machine_Fallback" => CONFIG_NODE_ASSET_MACHINE_FALLBACK,
     "Asset_DumpTruck" => CONFIG_NODE_ASSET_DUMP_TRUCK,
     "Asset_Sand" => CONFIG_NODE_ASSET_SAND,
     "Asset_HelpBlack" => CONFIG_NODE_ASSET_HELP_BLACK,
@@ -1653,9 +1752,9 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_machine(CONFIG_NODE_MACHINE_1X1, "1x1", "./img/machines/machine_1_1.png"),
     config_node_machine(CONFIG_NODE_MACHINE_2X2, "2x2", "./img/machines/machine_2_2.png"),
     config_node_machine(CONFIG_NODE_MACHINE_3X3, "3x3", "./img/machines/machine_3_3.png"),
-    config_node_belt(CONFIG_NODE_BELT_NONE, "NONE"),
-    config_node_belt(CONFIG_NODE_BELT_UNKNOWN, "UNKNOWN"),
-    config_node_belt(CONFIG_NODE_BELT_INVALID, "INVALID"),
+    config_node_belt(CONFIG_NODE_BELT_NONE, "None"),
+    config_node_belt(CONFIG_NODE_BELT_UNKNOWN, "Unknown"),
+    config_node_belt(CONFIG_NODE_BELT_INVALID, "Invalid"),
     config_node_belt(CONFIG_NODE_BELT_L_, "L_"),
     config_node_belt(CONFIG_NODE_BELT__L, "_L"),
     config_node_belt(CONFIG_NODE_BELT___L, "__L"),
@@ -1911,82 +2010,83 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_belt(CONFIG_NODE_BELT_L__DRU, "L__DRU"),
     config_node_belt(CONFIG_NODE_BELT__L_DRU, "_L_DRU"),
     config_node_belt(CONFIG_NODE_BELT___DLRU, "__DLRU"),
-    config_node_asset(CONFIG_NODE_ASSET_WEE_WOO, "WEE_WOO"),
-    config_node_asset(CONFIG_NODE_ASSET_MISSING_INPUTS, "MISSING_INPUTS"),
-    config_node_asset(CONFIG_NODE_ASSET_MISSING_OUTPUTS, "MISSING_OUTPUTS"),
-    config_node_asset(CONFIG_NODE_ASSET_MISSING_PURPOSE, "MISSING_PURPOSE"),
-    config_node_asset(CONFIG_NODE_ASSET_MACHINE_1_1, "MACHINE_1_1"),
-    config_node_asset(CONFIG_NODE_ASSET_MACHINE_1_2, "MACHINE_1_2"),
-    config_node_asset(CONFIG_NODE_ASSET_MACHINE_1_3, "MACHINE_1_3"),
-    config_node_asset(CONFIG_NODE_ASSET_MACHINE_1_4, "MACHINE_1_4"),
-    config_node_asset(CONFIG_NODE_ASSET_MACHINE_2_1, "MACHINE_2_1"),
-    config_node_asset(CONFIG_NODE_ASSET_MACHINE_2_2, "MACHINE_2_2"),
-    config_node_asset(CONFIG_NODE_ASSET_MACHINE_2_3, "MACHINE_2_3"),
-    config_node_asset(CONFIG_NODE_ASSET_MACHINE_2_4, "MACHINE_2_4"),
-    config_node_asset(CONFIG_NODE_ASSET_MACHINE_3_1, "MACHINE_3_1"),
-    config_node_asset(CONFIG_NODE_ASSET_MACHINE_3_2, "MACHINE_3_2"),
-    config_node_asset(CONFIG_NODE_ASSET_MACHINE_3_3, "MACHINE_3_3"),
-    config_node_asset(CONFIG_NODE_ASSET_MACHINE_3_4, "MACHINE_3_4"),
-    config_node_asset(CONFIG_NODE_ASSET_MACHINE_4_1, "MACHINE_4_1"),
-    config_node_asset(CONFIG_NODE_ASSET_MACHINE_4_2, "MACHINE_4_2"),
-    config_node_asset(CONFIG_NODE_ASSET_MACHINE_4_3, "MACHINE_4_3"),
-    config_node_asset(CONFIG_NODE_ASSET_MACHINE_4_4, "MACHINE_4_4"),
-    config_node_asset(CONFIG_NODE_ASSET_MACHINE_FALLBACK, "MACHINE_FALLBACK"),
-    config_node_asset(CONFIG_NODE_ASSET_DUMP_TRUCK, "DUMP_TRUCK"),
-    config_node_asset(CONFIG_NODE_ASSET_SAND, "SAND"),
-    config_node_asset(CONFIG_NODE_ASSET_HELP_BLACK, "HELP_BLACK"),
-    config_node_asset(CONFIG_NODE_ASSET_HELP_RED, "HELP_RED"),
-    config_node_asset(CONFIG_NODE_ASSET_MANUAL, "MANUAL"),
-    config_node_asset(CONFIG_NODE_ASSET_LMB, "LMB"),
-    config_node_asset(CONFIG_NODE_ASSET_RMB, "RMB"),
-    config_node_asset(CONFIG_NODE_ASSET_SAVE_DARK, "SAVE_DARK"),
-    config_node_asset(CONFIG_NODE_ASSET_QUEST_FRAME, "QUEST_FRAME"),
-    config_node_asset(CONFIG_NODE_ASSET_DOUBLE_ARROW_RIGHT, "DOUBLE_ARROW_RIGHT"),
-    config_node_asset(CONFIG_NODE_ASSET_SINGLE_ARROW_DOWN, "SINGLE_ARROW_DOWN"),
-    config_node_asset(CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT, "SINGLE_ARROW_RIGHT"),
-    config_node_asset(CONFIG_NODE_ASSET_SCREEN_LOADER, "SCREEN_LOADER"),
-    config_node_asset(CONFIG_NODE_ASSET_SCREEN_MAIN, "SCREEN_MAIN"),
-    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_1, "BUTTON_UP_1"),
-    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_2, "BUTTON_UP_2"),
-    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_3, "BUTTON_UP_3"),
-    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_4, "BUTTON_UP_4"),
-    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_6, "BUTTON_UP_6"),
-    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_7, "BUTTON_UP_7"),
-    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_8, "BUTTON_UP_8"),
-    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_9, "BUTTON_UP_9"),
-    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_1, "BUTTON_DOWN_1"),
-    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_2, "BUTTON_DOWN_2"),
-    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_3, "BUTTON_DOWN_3"),
-    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_4, "BUTTON_DOWN_4"),
-    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_6, "BUTTON_DOWN_6"),
-    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_7, "BUTTON_DOWN_7"),
-    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_8, "BUTTON_DOWN_8"),
-    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_9, "BUTTON_DOWN_9"),
-    config_node_asset(CONFIG_NODE_ASSET_SAVE_LIGHT, "SAVE_DARK"),
-    config_node_asset(CONFIG_NODE_ASSET_SAVE_GREY, "SAVE_DARK"),
-    config_node_asset(CONFIG_NODE_ASSET_TRASH_DARK, "TRASH_DARK"),
-    config_node_asset(CONFIG_NODE_ASSET_TRASH_LIGHT, "TRASH_LIGHT"),
-    config_node_asset(CONFIG_NODE_ASSET_TRASH_GREY, "TRASH_GREY"),
-    config_node_asset(CONFIG_NODE_ASSET_TRASH_RED, "TRASH_RED"),
-    config_node_asset(CONFIG_NODE_ASSET_TRASH_GREEN, "TRASH_GREEN"),
-    config_node_story(CONFIG_NODE_STORY_DEFAULT, "DEFAULT"),
-    config_node_asset(CONFIG_NDOE_ASSET_TREASURE, "TREASURE"),
-    config_node_asset(CONFIG_NODE_ASSET_PICKAXE, "PICKAXE"),
-    config_node_asset(CONFIG_NODE_ASSET_DRM_PLACEHOLDER, "DRM_PLACEHOLDER"),
-    config_node_asset(CONFIG_NODE_ASSET_BRUSH_DARK, "BRUSH_DARK"),
-    config_node_asset(CONFIG_NODE_ASSET_BRUSH_LIGHT, "BRUSH_LIGHT"),
-    config_node_asset(CONFIG_NODE_ASSET_BRUSH_RED, "BRUSH_RED"),
-    config_node_asset(CONFIG_NODE_ASSET_BRUSH_GREEN, "BRUSH_GREEN"),
-    config_node_asset(CONFIG_NODE_ASSET_BRUSH_GREY, "BRUSH_GREY"),
-    config_node_asset(CONFIG_NODE_ASSET_UNDO_LIGHT, "UNDO_LIGHT"),
-    config_node_asset(CONFIG_NODE_ASSET_UNDO_GREY, "UNDO_GREY"),
-    config_node_asset(CONFIG_NODE_ASSET_REDO_LIGHT, "REDO_LIGHT"),
-    config_node_asset(CONFIG_NODE_ASSET_REDO_GREY, "REDO_GREY"),
-    config_node_asset(CONFIG_NODE_ASSET_LOGO, "LOGO"),
-    config_node_asset(CONFIG_NODE_ASSET_COPY_GREY, "COPY_GREY"),
-    config_node_asset(CONFIG_NODE_ASSET_PASTE_GREY, "PASTE_GREY"),
-    config_node_asset(CONFIG_NODE_ASSET_COPY_GREEN, "COPY_GREEN"),
-    config_node_asset(CONFIG_NODE_ASSET_PASTE_GREEN, "PASTE_GREEN"),
+    config_node_asset(CONFIG_NODE_ASSET_WEE_WOO, "Wee_Woo"),
+    config_node_asset(CONFIG_NODE_ASSET_MISSING_INPUTS, "Missing_Inputs"),
+    config_node_asset(CONFIG_NODE_ASSET_MISSING_OUTPUTS, "Missing_Outputs"),
+    config_node_asset(CONFIG_NODE_ASSET_MISSING_PURPOSE, "Missing_Purpose"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_1_1, "Machine_1_1"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_1_2, "Machine_1_2"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_1_3, "Machine_1_3"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_1_4, "Machine_1_4"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_2_1, "Machine_2_1"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_2_2, "Machine_2_2"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_2_3, "Machine_2_3"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_2_4, "Machine_2_4"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_3_1, "Machine_3_1"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_3_2, "Machine_3_2"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_3_3, "Machine_3_3"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_3_4, "Machine_3_4"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_4_1, "Machine_4_1"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_4_2, "Machine_4_2"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_4_3, "Machine_4_3"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_4_4, "Machine_4_4"),
+    config_node_asset(CONFIG_NODE_ASSET_MACHINE_FALLBACK, "Machine_Fallback"),
+    config_node_asset(CONFIG_NODE_ASSET_DUMP_TRUCK, "Dump_Truck"),
+    config_node_asset(CONFIG_NODE_ASSET_SAND, "Sand"),
+    config_node_asset(CONFIG_NODE_ASSET_HELP_BLACK, "Help_Black"),
+    config_node_asset(CONFIG_NODE_ASSET_HELP_RED, "Help_Red"),
+    config_node_asset(CONFIG_NODE_ASSET_MANUAL, "Manual"),
+    config_node_asset(CONFIG_NODE_ASSET_LMB, "Lmb"),
+    config_node_asset(CONFIG_NODE_ASSET_RMB, "Rmb"),
+    config_node_asset(CONFIG_NODE_ASSET_SAVE_DARK, "Save_Dark"),
+    config_node_asset(CONFIG_NODE_ASSET_QUEST_FRAME, "Quest_Frame"),
+    config_node_asset(CONFIG_NODE_ASSET_DOUBLE_ARROW_RIGHT, "Double_Arrow_Right"),
+    config_node_asset(CONFIG_NODE_ASSET_SINGLE_ARROW_DOWN, "Single_Arrow_Down"),
+    config_node_asset(CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT, "Single_Arrow_Right"),
+    config_node_asset(CONFIG_NODE_ASSET_SCREEN_LOADER, "Screen_Loader"),
+    config_node_asset(CONFIG_NODE_ASSET_SCREEN_MAIN, "Screen_Main"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_1, "Button_Up_1"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_2, "Button_Up_2"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_3, "Button_Up_3"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_4, "Button_Up_4"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_6, "Button_Up_6"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_7, "Button_Up_7"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_8, "Button_Up_8"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_9, "Button_Up_9"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_1, "Button_Down_1"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_2, "Button_Down_2"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_3, "Button_Down_3"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_4, "Button_Down_4"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_6, "Button_Down_6"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_7, "Button_Down_7"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_8, "Button_Down_8"),
+    config_node_asset(CONFIG_NODE_ASSET_BUTTON_DOWN_9, "Button_Down_9"),
+    config_node_asset(CONFIG_NODE_ASSET_SAVE_LIGHT, "Save_Dark"),
+    config_node_asset(CONFIG_NODE_ASSET_SAVE_GREY, "Save_Dark"),
+    config_node_asset(CONFIG_NODE_ASSET_TRASH_DARK, "Trash_Dark"),
+    config_node_asset(CONFIG_NODE_ASSET_TRASH_LIGHT, "Trash_Light"),
+    config_node_asset(CONFIG_NODE_ASSET_TRASH_GREY, "Trash_Grey"),
+    config_node_asset(CONFIG_NODE_ASSET_TRASH_RED, "Trash_Red"),
+    config_node_asset(CONFIG_NODE_ASSET_TRASH_GREEN, "Trash_Green"),
+    config_node_story(CONFIG_NODE_STORY_DEFAULT, "Default"),
+    config_node_asset(CONFIG_NDOE_ASSET_TREASURE, "Treasure"),
+    config_node_asset(CONFIG_NODE_ASSET_PICKAXE, "Pickaxe"),
+    config_node_asset(CONFIG_NODE_ASSET_DRM_PLACEHOLDER, "Drm_Placeholder"),
+    config_node_asset(CONFIG_NODE_ASSET_BRUSH_DARK, "Brush_Dark"),
+    config_node_asset(CONFIG_NODE_ASSET_BRUSH_LIGHT, "Brush_Light"),
+    config_node_asset(CONFIG_NODE_ASSET_BRUSH_RED, "Brush_Red"),
+    config_node_asset(CONFIG_NODE_ASSET_BRUSH_GREEN, "Brush_Green"),
+    config_node_asset(CONFIG_NODE_ASSET_BRUSH_GREY, "Brush_Grey"),
+    config_node_asset(CONFIG_NODE_ASSET_UNDO_LIGHT, "Undo_Light"),
+    config_node_asset(CONFIG_NODE_ASSET_UNDO_GREY, "Undo_Grey"),
+    config_node_asset(CONFIG_NODE_ASSET_REDO_LIGHT, "Redo_Light"),
+    config_node_asset(CONFIG_NODE_ASSET_REDO_GREY, "Redo_Grey"),
+    config_node_asset(CONFIG_NODE_ASSET_LOGO, "Logo"),
+    config_node_asset(CONFIG_NODE_ASSET_COPY_GREY, "Copy_Grey"),
+    config_node_asset(CONFIG_NODE_ASSET_PASTE_GREY, "Paste_Grey"),
+    config_node_asset(CONFIG_NODE_ASSET_COPY_GREEN, "Copy_Green"),
+    config_node_asset(CONFIG_NODE_ASSET_PASTE_GREEN, "Paste_Green"),
+    config_node_asset(CONFIG_NODE_ASSET_FACTORY, "Factory"),
   );
 
   v.iter().enumerate().for_each(|(i, node)| assert!(node.index == i, "system node indexes must match their global constant value; mismatch for index {} in get_system_nodes(), node.index= {}", i, node.index));
@@ -2048,6 +2148,10 @@ fn config_node_part(index: PartKind, name: String, icon: char) -> ConfigNode {
     pattern: "".to_string(),
     pattern_unique_kinds: vec!(),
     icon,
+    machine_width: 0,
+    machine_height: 0,
+    machine_asset_name: "Asset_Machine_3_3".to_string(),
+    machine_asset_index: CONFIG_NODE_ASSET_MACHINE_3_3,
     special: ('n', 0),
 
     drm: false,
@@ -2098,6 +2202,10 @@ fn config_node_supply(index: PartKind, name: String) -> ConfigNode {
     pattern_by_icon: vec!(),
     pattern: "".to_string(),
     icon: '?',
+    machine_width: 0,
+    machine_height: 0,
+    machine_asset_name: "Asset_Machine_3_3".to_string(),
+    machine_asset_index: CONFIG_NODE_ASSET_MACHINE_3_3,
     special: ('n', 0),
 
     drm: false,
@@ -2148,6 +2256,10 @@ fn config_node_demand(index: PartKind, name: String) -> ConfigNode {
     pattern_by_icon: vec!(),
     pattern: "".to_string(),
     icon: '?',
+    machine_width: 0,
+    machine_height: 0,
+    machine_asset_name: "Asset_Machine_3_3".to_string(),
+    machine_asset_index: CONFIG_NODE_ASSET_MACHINE_3_3,
     special: ('n', 0),
 
     drm: false,
@@ -2198,6 +2310,10 @@ fn config_node_dock(index: PartKind, name: String) -> ConfigNode {
     pattern_by_icon: vec!(),
     pattern: "".to_string(),
     icon: '?',
+    machine_width: 0,
+    machine_height: 0,
+    machine_asset_name: "Asset_Machine_3_3".to_string(),
+    machine_asset_index: CONFIG_NODE_ASSET_MACHINE_3_3,
     special: ('n', 0),
 
     drm: false,
@@ -2248,6 +2364,10 @@ fn config_node_machine(index: PartKind, name: &str, file: &str) -> ConfigNode {
     pattern_by_icon: vec!(),
     pattern: "".to_string(),
     icon: '?',
+    machine_width: 0,
+    machine_height: 0,
+    machine_asset_name: "Asset_Machine_3_3".to_string(),
+    machine_asset_index: CONFIG_NODE_ASSET_MACHINE_3_3,
     special: ('n', 0),
 
     drm: false,
@@ -2300,6 +2420,10 @@ fn config_node_belt(index: PartKind, name: &str) -> ConfigNode {
     pattern_by_icon: vec!(),
     pattern: "".to_string(),
     icon: '?',
+    machine_width: 0,
+    machine_height: 0,
+    machine_asset_name: "Asset_Machine_3_3".to_string(),
+    machine_asset_index: CONFIG_NODE_ASSET_MACHINE_3_3,
     special: ('n', 0),
 
     drm: false,
@@ -2350,6 +2474,10 @@ fn config_node_asset(index: PartKind, name: &str) -> ConfigNode {
     pattern_by_icon: vec!(),
     pattern: "".to_string(),
     icon: '?',
+    machine_width: 0,
+    machine_height: 0,
+    machine_asset_name: "Asset_Machine_3_3".to_string(),
+    machine_asset_index: CONFIG_NODE_ASSET_MACHINE_3_3,
     special: ('n', 0),
 
     drm: false,
@@ -2400,6 +2528,10 @@ fn config_node_story(index: PartKind, name: &str) -> ConfigNode {
     pattern_by_icon: vec!(),
     pattern: "".to_string(),
     icon: '?',
+    machine_width: 0,
+    machine_height: 0,
+    machine_asset_name: "Asset_Machine_3_3".to_string(),
+    machine_asset_index: CONFIG_NODE_ASSET_MACHINE_3_3,
     special: ('n', 0),
 
     drm: false,
