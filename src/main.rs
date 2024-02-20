@@ -9,6 +9,7 @@ use std::collections::VecDeque;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod _cli;
 
+pub mod atom;
 pub mod auto;
 pub mod belt;
 pub mod belt_codes;
@@ -45,6 +46,7 @@ pub mod story;
 pub mod supply;
 pub mod truck;
 pub mod utils;
+pub mod woop;
 pub mod zone;
 
 #[cfg(target_arch = "wasm32")]

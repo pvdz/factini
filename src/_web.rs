@@ -78,6 +78,7 @@ use wasm_bindgen::JsCast;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 
+use super::atom::*;
 use super::auto::*;
 use super::belt::*;
 use super::belt_type::*;
@@ -105,6 +106,7 @@ use super::quest::*;
 use super::state::*;
 use super::truck::*;
 use super::utils::*;
+use super::woop::*;
 use super::zone::*;
 
 // This explicitly import shoulnd't be necessary anymore according to https://stackoverflow.com/questions/26731243/how-do-i-use-a-macro-across-module-files but ... well I did at the time of writing.
@@ -1474,13 +1476,14 @@ fn update_mouse_state(
 
     match mouse_state.down_zone {
       ZONE_FLOOR => {
+        log!("drag start, floor");
         let is_machine_selected = cell_selection.on && factory.floor[cell_selection.coord].kind == CellKind::Machine;
         if is_machine_selected {
           cell_selection.on = false;
         }
       }
       _ => {
-        log!("drag start, non-craft; {}-{} and {}-{}", mouse_state.last_down_world_x, mouse_state.world_x, mouse_state.last_down_world_y, mouse_state.world_y);
+        log!("drag start, non-floor");
       }
     }
   }
@@ -1867,8 +1870,9 @@ fn on_drag_end_floor(options: &mut Options, state: &mut State, config: &Config, 
   on_drag_end_floor_other(options, state, config, factory, cell_selection, mouse_state);
 }
 fn on_drag_start_atom(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
+  log!("on_drag_start_atom()");
   // Is that atom visible / interactive yet?
-  if factory.available_atoms[mouse_state.atom_down_atom_index].1 {
+  if atom_is_visible(factory, mouse_state.atom_down_atom_index) {
     // Need to remember which atom we are currently dragging (-> atom_down_atom_index).
     log!("is_drag_start from atom {} ({:?})", mouse_state.atom_down_atom_index, factory.available_atoms[mouse_state.atom_down_atom_index].0);
     mouse_state.dragging_atom = true;
@@ -1877,13 +1881,14 @@ fn on_drag_start_atom(options: &mut Options, state: &mut State, config: &Config,
   }
 }
 fn on_drag_start_woop(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
+  log!("on_drag_start_woop()");
   // Is that woop visible / interactive yet?
-  if factory.available_woops[mouse_state.woop_down_woop_index].1 {
+  if woop_is_visible(factory, mouse_state.woop_down_woop_index) {
     // Need to remember which woop we are currently dragging (-> woop_down_woop_index).
     log!("is_drag_start from woop {} ({:?})", mouse_state.woop_down_woop_index, factory.available_woops[mouse_state.woop_down_woop_index].0);
     mouse_state.dragging_woop = true;
     state.mouse_mode_selecting = false;
-    log!("not closing machine while dragging atomic part");
+    log!("not closing machine while dragging woop part");
   }
 }
 fn on_up_atom(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
