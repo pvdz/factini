@@ -17,10 +17,10 @@
 // - help the player
 //   - update tutorial with current status
 //   - something with that ikea help icon
-//   - when clicking on the edge and there's a belt going into it, create a demander not a supplier
 //   - hover over machine should show woop hint
 //   - add hint that two machines next to each other do not share port?
 //   - machine icons should be repositioned and controllable through MD
+//   - does machine hover show what can be built or what is required to build the target?
 // - cleanup
 //   - repo
 //   - is pattern_unique_kinds not used anymore? or why does it not work
@@ -1961,16 +1961,6 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
           return false;
         });
 
-        factory.edge_hint = (
-          part_kind,
-          (UI_FLOOR_OFFSET_X + last_mouse_up_cell_x * CELL_W, UI_FLOOR_OFFSET_Y + last_mouse_up_cell_y * CELL_H),
-          get_atom_xy(atom_index),
-          factory.ticks,
-          2 * (ONE_SECOND as f64 * options.speed_modifier_ui) as u64
-        );
-
-        log!("edge_hint is now: {:?}", factory.edge_hint);
-
         let dir = match (
           last_mouse_up_cell_x == 0.0, // left
           last_mouse_up_cell_y == 0.0, // up
@@ -1984,7 +1974,26 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
           _ => panic!("Should always ever be one side"),
         };
 
-        set_empty_edge_to_supplier(options, state, config, factory, part_kind, coord, dir);
+        // If the cell next to this edge cell is a dead end with only inports then create a demander instead
+        let (x, y) = to_xy(coord);
+        let neighbor_coord = get_edge_neighbor(x, y, coord);
+        if factory.floor[neighbor_coord.0].kind != CellKind::Empty && !port_has_outbound(&factory, coord) {
+          log!("Neighbor of edge is not empty but has no outgoing; creating a demander here");
+          set_empty_edge_to_demander(options, state, config, factory, part_kind, coord, dir);
+        } else {
+          log!("Neighbor of edge is empty or has outgoing; creating a supplier here");
+
+          factory.edge_hint = (
+            part_kind,
+            (UI_FLOOR_OFFSET_X + last_mouse_up_cell_x * CELL_W, UI_FLOOR_OFFSET_Y + last_mouse_up_cell_y * CELL_H),
+            get_atom_xy(atom_index),
+            factory.ticks,
+            2 * (ONE_SECOND as f64 * options.speed_modifier_ui) as u64
+          );
+          log!("edge_hint is now: {:?}", factory.edge_hint);
+
+          set_empty_edge_to_supplier(options, state, config, factory, part_kind, coord, dir);
+        }
       } else {
         log!("Clicked on empty cell. Not selecting it. Removing current selection.");
         cell_selection.on = false;

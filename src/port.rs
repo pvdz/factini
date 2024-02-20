@@ -80,6 +80,10 @@ pub fn port_count(factory: &Factory, coord: usize) -> u8 {
     if factory.floor[coord].port_l != Port::None { 1 } else { 0 };
 }
 
+pub fn port_has_outbound(factory: &Factory, coord: usize) -> bool {
+  return factory.floor[coord].port_u == Port::Outbound || factory.floor[coord].port_r == Port::Outbound || factory.floor[coord].port_d == Port::Outbound || factory.floor[coord].port_l == Port::Outbound;
+}
+
 pub fn port_to_char(port: Port) -> char {
   return match port {
     Port::Inbound => { 'i' },

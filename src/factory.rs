@@ -667,14 +667,6 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
   }
 }
 
-fn quest_get_xy(height_so_far: f64) -> ( f64, f64 ) {
-  // TODO: take mouse io into account when it is not in sync with index
-  let x = UI_QUESTS_OFFSET_X + UI_QUEST_X;
-  let y = UI_QUESTS_OFFSET_Y + height_so_far;
-
-  return ( x, y );
-}
-
 pub fn factory_tick_trucks(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
   for t in 0..factory.trucks.len() {
     // TODO: fix this hack
@@ -712,15 +704,19 @@ pub fn factory_collect_machines(floor: &[Cell; FLOOR_CELLS_WH]) -> Vec<usize> {
 pub fn set_empty_edge_to_supplier(options: &Options, state: &State, config: &Config, factory: &mut Factory, dragged_part_kind: PartKind, coord: usize, dir: Direction) {
   // Note: this does not deal with existing state and it does not (re)connect the demander to the neighbor belt. Caller must do this.
   log!("set_empty_edge_to_supplier(@{}, {:?}, {})", coord, dir, dragged_part_kind);
-  let (last_mouse_up_cell_x, last_mouse_up_cell_y) = to_xy(coord);
-  factory.floor[coord] = supply_cell(config, last_mouse_up_cell_x, last_mouse_up_cell_y, part_from_part_kind(config, dragged_part_kind), 2000, 500, 1);
+  let (x, y) = to_xy(coord);
+  factory.floor[coord] = supply_cell(config, x, y, part_from_part_kind(config, dragged_part_kind), 2000, 500, 1);
   connect_to_neighbor_dead_end_belts(options, state, config, factory, coord);
-  match dir {
-    Direction::Down => factory.floor[coord].port_d = Port::Outbound,
-    Direction::Left => factory.floor[coord].port_l = Port::Outbound,
-    Direction::Up => factory.floor[coord].port_u = Port::Outbound,
-    Direction::Right => factory.floor[coord].port_r = Port::Outbound,
-  }
+  set_dir_to(factory, coord, dir, Port::Outbound);
+  factory.changed = true;
+}
+
+pub fn set_empty_edge_to_demander(options: &Options, state: &State, config: &Config, factory: &mut Factory, dragged_part_kind: PartKind, coord: usize, dir: Direction) {
+  let (x, y) = to_xy(coord);
+  factory.floor[coord] = demand_cell(config, x, y, options.default_demand_speed, options.default_demand_cooldown);
+  connect_to_neighbor_dead_end_belts(options, state, config, factory, coord);
+  fix_belt_meta(options, state, config, factory, coord);
+  set_dir_to(factory, coord, dir, Port::Inbound);
   factory.changed = true;
 }
 
