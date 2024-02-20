@@ -150,10 +150,9 @@ pub struct MouseState {
   pub atom_selected_index: usize, // Atom index, not part index
   pub dragging_atom: bool,
 
-  pub dragging_machine1x2: bool,
-  pub dragging_machine2x1: bool,
-  pub dragging_machine2x2: bool,
-  pub dragging_machine3x3: bool,
+  pub is_dragging_machine: bool,
+  pub dragging_machine_w: u8,
+  pub dragging_machine_h: u8,
 
   // https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/buttons
   // bitwise field; 1=left, 2=right, 3=left|right, 4=middle, etc

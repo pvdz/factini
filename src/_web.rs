@@ -671,10 +671,9 @@ pub fn start() -> Result<(), JsValue> {
       atom_selected_index: 0, // Atom index, not part index
       dragging_atom: false,
 
-      dragging_machine1x2: false,
-      dragging_machine2x1: false,
-      dragging_machine2x2: false,
-      dragging_machine3x3: false,
+      is_dragging_machine: false,
+      dragging_machine_w: 0,
+      dragging_machine_h: 0,
 
       was_dragging: false,
       is_up: false,
@@ -1157,10 +1156,7 @@ fn update_mouse_state(
     mouse_state.up_menu_button = MenuButton::None;
     mouse_state.dragging_atom = false;
     mouse_state.dragging_woop = false;
-    mouse_state.dragging_machine1x2 = false;
-    mouse_state.dragging_machine2x1 = false;
-    mouse_state.dragging_machine2x2 = false;
-    mouse_state.dragging_machine3x3 = false;
+    mouse_state.is_dragging_machine = false;
     mouse_state.down_quest = false;
     mouse_state.up_quest = false;
     mouse_state.down_save_map = false;
@@ -1704,34 +1700,35 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
             on_drag_end_woop_over_floor(options, state, config, factory, mouse_state, cell_selection);
           }
           else if mouse_state.down_menu_button == MenuButton::Machine1x2Button {
-            if mouse_state.dragging_machine1x2 {
+            if mouse_state.dragging_machine_w == 1 && mouse_state.dragging_machine_h == 2 {
               on_drag_end_machine1x2_over_floor(options, state, config, factory, mouse_state);
             } else {
               log!("drag end 1x2 on floor but was not dragging 1x2?");
             }
           }
           else if mouse_state.down_menu_button == MenuButton::Machine2x1Button {
-            if mouse_state.dragging_machine2x1 {
+            if mouse_state.dragging_machine_w == 2 && mouse_state.dragging_machine_h == 1 {
               on_drag_end_machine2x1_over_floor(options, state, config, factory, mouse_state);
             } else {
               log!("drag end 2x1 on floor but was not dragging 2x1?");
             }
           }
           else if mouse_state.down_menu_button == MenuButton::Machine2x2Button {
-            if mouse_state.dragging_machine2x2 {
+            if mouse_state.dragging_machine_w == 2 && mouse_state.dragging_machine_h == 2 {
               on_drag_end_machine2x2_over_floor(options, state, config, factory, mouse_state);
             } else {
               log!("drag end 2x2 on floor but was not dragging 2x2?");
             }
           }
           else if mouse_state.down_menu_button == MenuButton::Machine3x3Button {
-            if mouse_state.dragging_machine3x3 {
+            if mouse_state.dragging_machine_w == 3 && mouse_state.dragging_machine_h == 3 {
               on_drag_end_machine3x3_over_floor(options, state, config, factory, mouse_state);
             } else {
               log!("drag end 3x3 on floor but was not dragging 3x3?");
             }
           }
           else {
+            log!("Was not dragging a known machine size... {}x{}", mouse_state.dragging_machine_w, mouse_state.dragging_machine_h);
             on_drag_end_floor(options, state, config, factory, cell_selection, mouse_state);
           }
         }
@@ -2590,10 +2587,9 @@ fn on_up_auto_build_button(options: &Options, state: &State, config: &Config, fa
 }
 fn on_drag_start_machine1x2_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
   log!("is_drag_start from machine1x2");
-  mouse_state.dragging_machine1x2 = true;
-  mouse_state.dragging_machine2x1 = false;
-  mouse_state.dragging_machine2x2 = false;
-  mouse_state.dragging_machine3x3 = false;
+  mouse_state.is_dragging_machine = true;
+  mouse_state.dragging_machine_w = 1;
+  mouse_state.dragging_machine_h = 2;
   state.mouse_mode_selecting = false;
   mouse_state.atom_selected = false;
   mouse_state.woop_selected = false;
@@ -2601,10 +2597,9 @@ fn on_drag_start_machine1x2_button(options: &mut Options, state: &mut State, con
 }
 fn on_drag_start_machine2x1_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
   log!("is_drag_start from machine2x1");
-  mouse_state.dragging_machine1x2 = false;
-  mouse_state.dragging_machine2x1 = true;
-  mouse_state.dragging_machine2x2 = true;
-  mouse_state.dragging_machine3x3 = false;
+  mouse_state.is_dragging_machine = true;
+  mouse_state.dragging_machine_w = 2;
+  mouse_state.dragging_machine_h = 1;
   state.mouse_mode_selecting = false;
   mouse_state.atom_selected = false;
   mouse_state.woop_selected = false;
@@ -2612,10 +2607,9 @@ fn on_drag_start_machine2x1_button(options: &mut Options, state: &mut State, con
 }
 fn on_drag_start_machine2x2_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
   log!("is_drag_start from machine2x2");
-  mouse_state.dragging_machine1x2 = false;
-  mouse_state.dragging_machine2x1 = false;
-  mouse_state.dragging_machine2x2 = true;
-  mouse_state.dragging_machine3x3 = false;
+  mouse_state.is_dragging_machine = true;
+  mouse_state.dragging_machine_w = 2;
+  mouse_state.dragging_machine_h = 2;
   state.mouse_mode_selecting = false;
   mouse_state.atom_selected = false;
   mouse_state.woop_selected = false;
@@ -2623,10 +2617,9 @@ fn on_drag_start_machine2x2_button(options: &mut Options, state: &mut State, con
 }
 fn on_drag_start_machine3x3_button(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
   log!("is_drag_start from machine3x3");
-  mouse_state.dragging_machine1x2 = false;
-  mouse_state.dragging_machine2x1 = false;
-  mouse_state.dragging_machine2x2 = false;
-  mouse_state.dragging_machine3x3 = true;
+  mouse_state.is_dragging_machine = true;
+  mouse_state.dragging_machine_w = 3;
+  mouse_state.dragging_machine_h = 3;
   state.mouse_mode_selecting = false;
   mouse_state.atom_selected = false;
   mouse_state.woop_selected = false;
@@ -3978,7 +3971,7 @@ fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory
           let auto_build_mouse_y = (factory.auto_build.mouse_target_y - factory.auto_build.mouse_offset_y) * factory.auto_build.phase_progress;
           let x = factory.auto_build.mouse_offset_x + auto_build_mouse_x.floor();
           let y = factory.auto_build.mouse_offset_y + auto_build_mouse_y.floor();
-          paint_mouse_while_dragging_machine_at_cell(options, state, factory, context, x, y, factory.auto_build.machine_w, factory.auto_build.machine_h);
+          paint_mouse_while_dragging_machine_at_cell(options, state, factory, context, x, y, factory.auto_build.machine_w as usize, factory.auto_build.machine_h as usize);
         }
       }
       _ => {}
@@ -3993,17 +3986,8 @@ fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory
   else if mouse_state.dragging_woop {
     paint_mouse_while_dragging_woop(options, state, config, factory, context, mouse_state, cell_selection);
   }
-  else if mouse_state.dragging_machine1x2 {
-    paint_mouse_while_dragging_machine1x2(options, state, factory, context, mouse_state);
-  }
-  else if mouse_state.dragging_machine2x1 {
-    paint_mouse_while_dragging_machine2x1(options, state, factory, context, mouse_state);
-  }
-  else if mouse_state.dragging_machine2x2 {
-    paint_mouse_while_dragging_machine2x2(options, state, factory, context, mouse_state);
-  }
-  else if mouse_state.dragging_machine3x3 {
-    paint_mouse_while_dragging_machine3x3(options, state, factory, context, mouse_state);
+  else if mouse_state.is_dragging_machine {
+    paint_mouse_while_dragging_machine(options, state, factory, context, mouse_state, mouse_state.dragging_machine_w as usize, mouse_state.dragging_machine_h as usize);
   }
   else if mouse_state.over_floor_not_corner {
     paint_mouse_cell_location_on_floor(&context, &factory, &cell_selection, &mouse_state);
@@ -4065,18 +4049,6 @@ fn paint_mouse_in_selection_mode(options: &Options, state: &State, config: &Conf
       context.stroke_rect(UI_FLOOR_OFFSET_X + mouse_state.cell_x_floored * CELL_W, UI_FLOOR_OFFSET_Y + mouse_state.cell_y_floored * CELL_H, CELL_W, CELL_H);
     }
   }
-}
-fn paint_mouse_while_dragging_machine1x2(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  paint_mouse_while_dragging_machine(options, state, factory, context, mouse_state, 1, 2);
-}
-fn paint_mouse_while_dragging_machine2x1(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  paint_mouse_while_dragging_machine(options, state, factory, context, mouse_state, 2, 1);
-}
-fn paint_mouse_while_dragging_machine2x2(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  paint_mouse_while_dragging_machine(options, state, factory, context, mouse_state, 2, 2);
-}
-fn paint_mouse_while_dragging_machine3x3(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  paint_mouse_while_dragging_machine(options, state, factory, context, mouse_state, 3, 3);
 }
 fn paint_mouse_while_dragging_machine(options: &Options, state: &State, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, machine_cells_width: usize, machine_cells_height: usize) {
   paint_mouse_while_dragging_machine_at_cell(options, state, factory, context, mouse_state.world_x, mouse_state.world_y, machine_cells_width, machine_cells_height);
