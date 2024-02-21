@@ -17,14 +17,15 @@
 // - help the player
 //   - update tutorial with current status
 //   - something with that ikea help icon
-//   - hover over machine should show woop hint
 //   - add hint that two machines next to each other do not share port?
 // - cleanup
 //   - repo
 //   - is pattern_unique_kinds not used anymore? or why does it not work
 //   - machine_dims_to_button_coords no longer needs to support multiples etc
 //   - update AI after woop machine change
-// - bug: without local storage data woops and atoms dont appear
+// - bug
+//   - without local storage data woops and atoms dont appear
+//   - finished quests reappear after reload
 
 // features
 // - belts
@@ -1086,7 +1087,21 @@ pub fn start() -> Result<(), JsValue> {
         paint_factory_img(&options, &state, &config, &factory, &context, &mouse_state);
 
         if highlight_index > 0 {
+          // Hovering over / selected a woop
           paint_woop_tooltip(&options, &state, &config, &factory, &context, highlight_index - 1, highlight_x, highlight_y);
+        }
+        else if cell_selection.on && factory.floor[cell_selection.coord].kind == CellKind::Machine {
+          // Selected a machine
+          let main_coord = factory.floor[cell_selection.coord].machine.main_coord;
+          paint_woop_tooltip_with_part(&options, &state, &config, &factory, &context, 0.0, 0.0, factory.floor[main_coord].machine.output_want.kind);
+        }
+        else if !cell_selection.on && mouse_state.over_zone == ZONE_FLOOR && !mouse_state.is_down && !mouse_state.is_up && !mouse_state.is_dragging && is_floor(mouse_state.cell_x_floored, mouse_state.cell_y_floored) {
+          let hover_coord = to_coord(mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize);
+          let main_coord = factory.floor[hover_coord].machine.main_coord;
+          if factory.floor[main_coord].kind == CellKind::Machine {
+            // Hovering over a machine
+            paint_woop_tooltip_with_part(&options, &state, &config, &factory, &context, 0.0, 0.0, factory.floor[main_coord].machine.output_want.kind);
+          }
         }
 
         // Over all the UI stuff
@@ -4587,7 +4602,7 @@ fn highlight_atom_woop(options: &Options, state: &State, config: &Config, factor
     let hover_coord = to_coord(mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize);
     let hover_main_coord = factory.floor[hover_coord].machine.main_coord;
     if
-    factory.floor[hover_main_coord].kind == CellKind::Machine &&
+      factory.floor[hover_main_coord].kind == CellKind::Machine &&
       // // Check if the machine received all pattern parts for this woop. If so, it can build it and we should highlight it.
       // config.nodes[part_kind].pattern_unique_kinds.iter().all(|part_kind| {
       //   return factory.floor[hover_main_coord].machine.last_received_parts.contains(part_kind);
@@ -4622,15 +4637,18 @@ fn highlight_atom_woop(options: &Options, state: &State, config: &Config, factor
 }
 fn paint_woop_tooltip(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, woop_index: usize, highlight_x: f64, highlight_y: f64) {
   // Paint the woop tooltip / popup, paint_woop_hint
-
   let (part_kind, _part_interactable ) = factory.available_woops[woop_index];
   let required_parts = &config.nodes[part_kind].pattern_unique_kinds;
 
-  if required_parts.len() == 0 {
-    return;
+  if required_parts.len() > 0 {
+    paint_woop_tooltip_with_part(options, state, config, factory, context, highlight_x, highlight_y, part_kind);
   }
+}
+fn paint_woop_tooltip_with_part(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, highlight_x: f64, highlight_y: f64, part_kind: PartKind) {
+  // Paint the woop tooltip / popup, paint_woop_hint, given a part.
+  // Set highlight_x to 0 if not for a particular woop iteraction.
 
-  let (part_kind, _part_interactable ) = factory.available_woops[woop_index];
+  let required_parts = &config.nodes[part_kind].pattern_unique_kinds;
 
   // Config determines which machine to use and what asset
   let woop_config_node = &config.nodes[part_kind];
@@ -4638,7 +4656,7 @@ fn paint_woop_tooltip(options: &Options, state: &State, config: &Config, factory
   let h = woop_config_node.machine_height;
   let machine_asset_node_index = woop_config_node.machine_asset_index;
 
-  if options.show_woop_hover_hint {
+  if options.show_woop_hover_hint && highlight_x > 0.0 {
     // TODO: This rays idea does not work because lines of woops on the same horizontal line will just overlap
     //       Keeping it because I liked the idea and who knows.
 
@@ -4725,25 +4743,18 @@ fn paint_woop_tooltip(options: &Options, state: &State, config: &Config, factory
   // Vertical offset: either above, starting slightly in the middle of the top woops, and if the
   // selection is in the area where the tooltip would be painted then paint it one tooltip-height lower.
 
-  let ( ttox, ttoy ) =
-    if highlight_y < UI_WOOP_TOOLTIP_Y_HIGH + UI_WOOP_TOOLTIP_HEIGHT {
-      ( UI_WOOP_TOOLTIP_X, UI_WOOP_TOOLTIP_Y_LOW )
-    } else {
-      ( UI_WOOP_TOOLTIP_X, UI_WOOP_TOOLTIP_Y_HIGH )
-    };
-
   // Relative width/height of the painted machine
   let bwp = w as f64 / w.max(h) as f64;
   let bhp = h as f64 / h.max(w) as f64;
 
   let machine_full_w = CELL_W * 2.5;
   let machine_full_h = CELL_H * 2.5;
-  let machine_ox = ttox + 3.0 + (CELL_W * 0.75 + 5.0) * 2.0 + 20.0;
-  let machine_oy = ttoy + 0.25 * CELL_H;
+  let machine_ox = UI_WOOP_TOOLTIP_X + 3.0 + (CELL_W * 0.75 + 5.0) * 2.0 + 20.0;
+  let machine_oy = UI_WOOP_TOOLTIP_Y + 0.25 * CELL_H;
   let machine_w = (machine_full_w * bwp).floor();
   let machine_h = (machine_full_h * bhp).floor();
 
-  canvas_round_rect_rc(context, (ttox).floor() + 0.5, (ttoy).floor() + 0.5, UI_WOOP_TOOLTIP_WIDTH + 5.0, UI_WOOP_TOOLTIP_HEIGHT + 7.0);
+  canvas_round_rect_rc(context, UI_WOOP_TOOLTIP_X + 0.5, UI_WOOP_TOOLTIP_Y + 0.5, UI_WOOP_TOOLTIP_WIDTH + 5.0, UI_WOOP_TOOLTIP_HEIGHT + 7.0);
   context.set_fill_style(&"#dddddddd".into());
   context.fill();
   context.set_stroke_style(&"#000000ee".into());
@@ -4754,42 +4765,42 @@ fn paint_woop_tooltip(options: &Options, state: &State, config: &Config, factory
   match required_parts.len() {
     1 => {
       paint_segment_part_from_config(options, state, config, context, required_parts[0],
-        (ttox + 3.0 + 13.0).floor() + 0.5,
-        (ttoy + 3.0 + CELL_H * 0.75 + 5.0).floor() + 0.5,
+        (UI_WOOP_TOOLTIP_X + 3.0 + 13.0).floor() + 0.5,
+        (UI_WOOP_TOOLTIP_Y + 3.0 + CELL_H * 0.75 + 5.0).floor() + 0.5,
         CELL_W,
         CELL_H
       );
     }
     2 => {
       paint_segment_part_from_config(options, state, config, context, required_parts[0],
-        (ttox + 3.0 + 13.0).floor() + 0.5,
-        (ttoy + 3.0 + 8.0).floor() + 0.5,
+        (UI_WOOP_TOOLTIP_X + 3.0 + 13.0).floor() + 0.5,
+        (UI_WOOP_TOOLTIP_Y + 3.0 + 8.0).floor() + 0.5,
         CELL_W,
         CELL_H
       );
       paint_segment_part_from_config(options, state, config, context, required_parts[1],
-        (ttox + 3.0 + 13.0).floor() + 0.5,
-        (ttoy + 3.0 + CELL_H + 5.0 + 11.0).floor() + 0.5,
+        (UI_WOOP_TOOLTIP_X + 3.0 + 13.0).floor() + 0.5,
+        (UI_WOOP_TOOLTIP_Y + 3.0 + CELL_H + 5.0 + 11.0).floor() + 0.5,
         CELL_W,
         CELL_H
       );
     }
     3 => {
       paint_segment_part_from_config(options, state, config, context, required_parts[0],
-        (ttox + 3.0 + 16.0).floor() + 0.5,
-        (ttoy + 3.0).floor() + 0.5,
+        (UI_WOOP_TOOLTIP_X + 3.0 + 16.0).floor() + 0.5,
+        (UI_WOOP_TOOLTIP_Y + 3.0).floor() + 0.5,
         CELL_W * 0.75,
         CELL_H * 0.75
       );
       paint_segment_part_from_config(options, state, config, context, required_parts[1],
-        (ttox + 3.0 + 16.0).floor() + 0.5,
-        (ttoy + 3.0 + CELL_H * 0.75 + 5.0).floor() + 0.5,
+        (UI_WOOP_TOOLTIP_X + 3.0 + 16.0).floor() + 0.5,
+        (UI_WOOP_TOOLTIP_Y + 3.0 + CELL_H * 0.75 + 5.0).floor() + 0.5,
         CELL_W * 0.75,
         CELL_H * 0.75
       );
       paint_segment_part_from_config(options, state, config, context, required_parts[2],
-        (ttox + 3.0 + 16.0).floor() + 0.5,
-        (ttoy + 3.0 + CELL_H * 0.75 + 5.0 + CELL_H * 0.75 + 5.0).floor() + 0.5,
+        (UI_WOOP_TOOLTIP_X + 3.0 + 16.0).floor() + 0.5,
+        (UI_WOOP_TOOLTIP_Y + 3.0 + CELL_H * 0.75 + 5.0 + CELL_H * 0.75 + 5.0).floor() + 0.5,
         CELL_W * 0.75,
         CELL_H * 0.75
       );
@@ -4797,8 +4808,8 @@ fn paint_woop_tooltip(options: &Options, state: &State, config: &Config, factory
     | _ => {
       for i in 0..required_parts.len().min(8) {
         paint_segment_part_from_config(options, state, config, context, required_parts[i],
-          (ttox + 3.0 + if i == 6 || i == 7 { CELL_W * 0.37 + 2.5 } else { (CELL_W * 0.75 + 5.0) * (i % 2) as f64 }).floor() + 0.5,
-          (ttoy + 3.0 + if i == 6 || i == 7 { (CELL_H * 0.37 + 2.5) + (CELL_H * 0.75 + 5.0) * (i % 2) as f64 } else { (CELL_H * 0.75 + 5.0) * (i / 2) as f64 }).floor() + 0.5,
+          (UI_WOOP_TOOLTIP_X + 3.0 + if i == 6 || i == 7 { CELL_W * 0.37 + 2.5 } else { (CELL_W * 0.75 + 5.0) * (i % 2) as f64 }).floor() + 0.5,
+          (UI_WOOP_TOOLTIP_Y + 3.0 + if i == 6 || i == 7 { (CELL_H * 0.37 + 2.5) + (CELL_H * 0.75 + 5.0) * (i % 2) as f64 } else { (CELL_H * 0.75 + 5.0) * (i / 2) as f64 }).floor() + 0.5,
           0.75 * CELL_W,
           0.75 * CELL_H
         );

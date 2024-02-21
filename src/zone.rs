@@ -200,9 +200,8 @@ pub const UI_WOTOM_HEIGHT: f64 = 50.0;
 pub const UI_WOTOM_WIDTH_PLUS_MARGIN: f64 = UI_WOTOM_WIDTH + 10.0;
 pub const UI_WOTOM_HEIGHT_PLUS_MARGIN: f64 = UI_WOTOM_HEIGHT + 10.0;
 
-pub const UI_WOOP_TOOLTIP_X: f64 = UI_WOOPS_OFFSET_X + UI_WOTOM_WIDTH * 1.5; // Start in the middle of the second woops from the left
-pub const UI_WOOP_TOOLTIP_Y_HIGH: f64 = UI_WOOPS_OFFSET_Y + 7.0; // Where the tooltip starts when painted high. Start in the middle of the top woops
-pub const UI_WOOP_TOOLTIP_Y_LOW: f64 = UI_WOOP_TOOLTIP_Y_HIGH + UI_WOOP_TOOLTIP_HEIGHT + 32.0; // Where the tooltip starts when painted low. Start below where the other tooltip would be painted
+pub const UI_WOOP_TOOLTIP_X: f64 = GRID_X0 + 5.0; // Under (over if there are so many) the quests
+pub const UI_WOOP_TOOLTIP_Y: f64 = GRID_Y2 - UI_WOOP_TOOLTIP_HEIGHT - 15.0; // Under (over if there are so many) the quests
 pub const UI_WOOP_TOOLTIP_WIDTH: f64 = 185.0;
 pub const UI_WOOP_TOOLTIP_HEIGHT: f64 = 3.0 + (0.75 * CELL_H) + 5.0 + (0.75 * CELL_H) + 5.0 + (0.75 * CELL_H) + 3.0;
 
