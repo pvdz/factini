@@ -397,13 +397,6 @@ pub struct ConfigNode {
   pub name: String,
   pub raw_name: String,
 
-  /** @deprecated */
-  pub unlocks_after_by_name: Vec<String>, // Fully qualified name. Becomes available when these quests are finished.
-  /** @deprecated */
-  pub unlocks_after_by_index: Vec<usize>, // Becomes available when these quests are finished
-  /** @deprecated */
-  pub unlocks_todo_by_index: Vec<usize>, // Which quests still need to be unlocked before this one unlocks? Note: this is only to hash out the final state for the (static) config object. The "runtime" value is QuestState#unlocks_todo
-
   // Story
   pub story_index: usize, // Index on config.stories[]. If not a Story then this node belongs to the Story pointed to.
 
@@ -416,6 +409,9 @@ pub struct ConfigNode {
   pub production_target_by_name: Vec<(u32, String)>, // Fully qualified name. count,name pairs, you need this to finish the quest
   pub production_target_by_index: Vec<(u32, PartKind)>, // count,index pairs, you need this to finish the quest
   pub required_by_quest_indexes: Vec<usize>, // List of quests that depend on this quest before becoming available. Computed after parsing config.
+  pub unlocks_after_by_name: Vec<String>, // Fully qualified name. Becomes available when these quests are finished.
+  pub unlocks_after_by_index: Vec<usize>, // Becomes available when these quests are finished
+  pub unlocks_todo_by_index: Vec<usize>, // Which quests still need to be unlocked before this one unlocks? Note: this is only to hash out the final state for the (static) config object. The "runtime" value is QuestState#unlocks_todo
 
   // Part
   pub pattern_by_index: Vec<PartKind>, // Machine pattern that generates this part (part_kind)
