@@ -20,7 +20,6 @@
 //   - hover over machine should show woop hint
 //   - add hint that two machines next to each other do not share port?
 //   - machine icons should be repositioned and controllable through MD
-//   - does machine hover show what can be built or what is required to build the target?
 // - cleanup
 //   - repo
 //   - is pattern_unique_kinds not used anymore? or why does it not work
@@ -2875,16 +2874,16 @@ fn paint_machine_craft_menu(options: &Options, state: &State, config: &Config, c
     }
   }
 
-  // Draw the wants in the right spots
+  // Draw the wants in the right spots inside the machine and green/red dots indicating having seen them
   let none = part_none(config);
   for i in 0..(machine_cw * machine_ch) as usize {
     if let Some(part) = factory.floor[main_coord].machine.wants.get(i).or(Some(&none)) {
       paint_segment_part_from_config(options, state, config, context, part.kind, main_wx + CELL_W * (i as f64 % machine_cw).floor(), main_wy + CELL_H * (i as f64 / machine_cw).floor(), CELL_W, CELL_H);
 
-      // Draw an indicator that tells you if this machine has received the part "recently"
-      // TODO: starting with "has part" because "recent" is annoying
-      if part.kind != CONFIG_NODE_PART_NONE && factory.floor[main_coord].machine.haves.iter().any(|p| p.kind == part.kind) {
-        context.set_fill_style(&"green".into());
+      // Draw an indicator that tells you what parts this machine needs and which ones it already received
+      if part.kind != CONFIG_NODE_PART_NONE {
+        let has = factory.floor[main_coord].machine.haves.iter().any(|p| p.kind == part.kind);
+        context.set_fill_style(&(if has { "green" } else { "red" }).into());
         context.fill_rect(main_wx + CELL_W * (i as f64 % machine_cw).floor() + CELL_W - 8.0, main_wy + CELL_H * (i as f64 / machine_cw).floor() + CELL_H - 8.0, 5.0, 5.0);
       }
     }
@@ -4504,6 +4503,8 @@ fn paint_atom(
     context.set_stroke_style(&"white".into());
     context.stroke_rect(x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
   }
+
+  highlight_atom_woop(options, state, config, factory, context, mouse_state, cell_selection, part_kind, x, y, px, py);
 }
 fn paint_woops(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) -> ( usize, f64, f64 ) {
   let ( is_mouse_over_woop, woop_hover_index ) =
@@ -4557,22 +4558,34 @@ fn paint_woop(
     context.stroke_rect(x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
   }
 
+  highlight_atom_woop(options, state, config, factory, context, mouse_state, cell_selection, part_kind, x, y, px, py);
+}
+
+fn highlight_atom_woop(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, cell_selection: &CellSelection, part_kind: PartKind, x: f64, y: f64, px: f64, py: f64) {
   // If current selected machine can create this woop, paint some green rotating pixel around it
   let selected_coord = cell_selection.coord;
   let selected_main_coord = factory.floor[selected_coord].machine.main_coord;
-  let craftable = is_woop(config, part_kind);
-  let mut highlight_woop =
+  let mut highlight_woop_has = false;
+  let mut highlight_woop = false;
+
+  if
     cell_selection.on &&
-    craftable &&
     factory.floor[selected_coord].kind == CellKind::Machine &&
-    config.nodes[part_kind].pattern_unique_kinds.iter().all(|part_kind| {
-      return factory.floor[selected_main_coord].machine.last_received_parts.contains(part_kind);
-    });
+    // // Check if the machine received all pattern parts for this woop. If so, it can build it and we should highlight it.
+    // config.nodes[part_kind].pattern_unique_kinds.iter().all(|part_kind| {
+    //   return factory.floor[selected_main_coord].machine.last_received_parts.contains(part_kind);
+    // });
+    // Check if this woop is one of the pattern parts
+    config.nodes[factory.floor[selected_main_coord].machine.output_want.kind].pattern_unique_kinds.contains(&part_kind)
+  {
+    highlight_woop = true;
+    highlight_woop_has = factory.floor[selected_main_coord].machine.last_received_parts.contains(&part_kind);
+  }
+
   // Check against current machine that you're hovering over (but not dragging)
   if
     !highlight_woop &&
     !cell_selection.on &&
-    craftable &&
     mouse_state.over_zone == ZONE_FLOOR &&
     !mouse_state.is_down &&
     !mouse_state.is_up &&
@@ -4583,16 +4596,20 @@ fn paint_woop(
     let hover_main_coord = factory.floor[hover_coord].machine.main_coord;
     if
     factory.floor[hover_main_coord].kind == CellKind::Machine &&
-      config.nodes[part_kind].pattern_unique_kinds.iter().all(|part_kind| {
-        return factory.floor[hover_main_coord].machine.last_received_parts.contains(part_kind);
-      })
+      // // Check if the machine received all pattern parts for this woop. If so, it can build it and we should highlight it.
+      // config.nodes[part_kind].pattern_unique_kinds.iter().all(|part_kind| {
+      //   return factory.floor[hover_main_coord].machine.last_received_parts.contains(part_kind);
+      // })
+      // Check if this woop is one of the pattern parts
+      config.nodes[factory.floor[hover_main_coord].machine.output_want.kind].pattern_unique_kinds.contains(&part_kind)
     {
       highlight_woop = true;
+      highlight_woop_has = factory.floor[hover_main_coord].machine.last_received_parts.contains(&part_kind);
     }
   }
 
   if highlight_woop {
-    context.set_stroke_style(&"#008800ff".into());
+    context.set_stroke_style(&(if highlight_woop_has { "#008800ff" } else { "red" }).into());
     context.save();
     context.set_line_width(5.0);
     context.stroke_rect(px, py, CELL_W, CELL_H);
@@ -4600,7 +4617,7 @@ fn paint_woop(
     // paint some pixels green? (https://colordesigner.io/gradient-generator)
     let ui_throttled_second = factory_ticks_to_game_ui_time(options, factory.ticks) * 2.0;
     let progress = ui_throttled_second % 1.0;
-    paint_green_pixel(context, progress, 0.0, x, y, "#9ac48b");
+    paint_green_pixel(context, progress, 0.0, x, y, "#9ac48b"); // &"green"
     paint_green_pixel(context, progress, 1.0, x, y, "#8ebd7f");
     paint_green_pixel(context, progress, 2.0, x, y, "#83b773");
     paint_green_pixel(context, progress, 3.0, x, y, "#77b066");
