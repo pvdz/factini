@@ -27,7 +27,7 @@ const COMMENT: &char = &'#';
 const CHAR_AT: &char = &'@';
 const SPACE: &char = &' ';
 
-pub fn floor_from_str(options: &Options, state: &mut State, config: &Config, str: &String) -> ( [Cell; FLOOR_CELLS_WH], Vec<char>, u8, u64, usize ) {
+pub fn floor_from_str(options: &Options, state: &mut State, config: &Config, str: &String) -> ( [Cell; FLOOR_CELLS_WH], Vec<PartKind>, u8, u64, usize ) {
   if str.trim().len() == 0 {
     return ( floor_empty(config), vec!(), 0, 0, state.active_story_index );
   }
@@ -44,7 +44,7 @@ pub fn floor_from_str(options: &Options, state: &mut State, config: &Config, str
   return str_to_floor(options, state, config, str);
 }
 
-fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &String) -> ([Cell; FLOOR_CELLS_WH], Vec<char>, u8, u64, usize ) {
+fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &String) -> ([Cell; FLOOR_CELLS_WH], Vec<PartKind>, u8, u64, usize ) {
   // Given a string in a grid format, generate a floor
   // The string starts with at least one line of config.
   // - For now the only modifier are the dimension of the hardcoded 11x11
@@ -134,8 +134,7 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
   let mut seed: u64 = 0;
   let mut story_index = state.active_story_index;
   let mut floor: [Cell; FLOOR_CELLS_WH] = floor_empty(config);
-  // Populate the unlocked icons by at least the ones that unlock by default
-  let mut unlocked_part_icons: Vec<char> = config_get_initial_unlocks(options, state, config);
+  let mut map_unlocked_parts: Vec<PartKind> = vec!();
 
   let mut lines = str.lines().collect::<Vec<&str>>();
 
@@ -146,7 +145,8 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
   let mut first_line = lines.next().unwrap(); // Bust if there's no input.
   let mut line_no = 1; // Manually increment this every time lines.next is called (Rust has no way to get the iterator index directly in this approach)
 
-  if options.trace_map_parsing { log!("first First line: {:?}", first_line); }
+
+  if options.trace_map_parsing { log!("map tracing: First line: {:?}", first_line); }
   loop {
     skip_spaces(first_line);
     // Keep skipping lines that start with comments and empty lines (only containing spaces)
@@ -484,10 +484,10 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
                 skip_spaces(line);
                 skip_optional_eq(line);
                 let raw_name = parse_word(line);
-                if options.trace_map_parsing { log!("Story index: {}", story_index); }
+                if options.trace_map_parsing { log!("Story index to activate: {}", story_index); }
                 let resolved_story_node_index = config.node_name_to_index.get(&raw_name);
                 if options.trace_story_changes { log!("active_story_index resolved_story_index {:?}", resolved_story_node_index); }
-                log!("config.node_name_to_index: {:?}", config.node_name_to_index);
+                if options.trace_map_parsing { log!("config.node_name_to_index: {:?}", config.node_name_to_index); }
                 if let Some(resolved_story_index) = resolved_story_node_index {
                   if options.trace_map_parsing { log!("- resolved_story_index: {}, story_index: {}", resolved_story_index, config.nodes[*resolved_story_index].story_index); }
                   story_index = config.nodes[*resolved_story_index].story_index;
@@ -901,7 +901,7 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
               }).collect::<Vec<PartKind>>();
             },
             '$' => {
-              if options.trace_map_parsing { log!("Parsing $ unlocked parts list:"); }
+              if options.trace_map_parsing { log!("Parsing $ unlocked parts list `{:?}`. List before: {:?}", line, map_unlocked_parts); }
               // Unlocked parts icons.
               // Expect a-zA-Z or &ddd where d is a digit with zero or more digits. The ord value becomes the char icon.
               // Spaces are skipped. Stops at EOL, EOF, or #
@@ -909,13 +909,15 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
                 skip_spaces(line);
                 let maybe_icon = parse_icon(options, state, config, line, line_no);
                 if let Some(icon) = maybe_icon {
-                  if options.trace_map_parsing { log!("  - icon: `{}` ({})", icon, icon as u8); }
-                  if !unlocked_part_icons.contains(&icon) { unlocked_part_icons.push(icon); }
+                  let part = part_c(config, icon);
+                  if options.trace_map_parsing { log!("  - icon: `{}` ({}), part: {:?}", icon, icon as u8, part); }
+                  if !map_unlocked_parts.contains(&part.kind) { map_unlocked_parts.push(part.kind); }
                 }
                 else {
                   break;
                 }
               }
+              if options.trace_map_parsing { log!("Parsed unlocked parts list: {:?}", map_unlocked_parts); }
             }
             '@' => {
               if options.trace_map_parsing { log!("Parsing @ unlocked UI list:"); }
@@ -936,6 +938,9 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
     }
   }
 
+  if options.trace_map_parsing { log!(""); }
+  if options.trace_map_parsing { log!("End of map _parse_ step. Now processing stuff..."); }
+  if options.trace_map_parsing { log!(""); }
   if options.trace_map_parsing { log!("Machines after config phase: {:?}", machine_meta_data); }
 
   for ( main_coord, max_coord, id, speed, input_pattern ) in machine_meta_data.iter() {
@@ -988,7 +993,7 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
 
   if options.trace_map_parsing { log!("-- end of str_to_floor2()"); }
 
-  return ( floor, unlocked_part_icons, ui_unlock_progress, seed, story_index );
+  return ( floor, map_unlocked_parts, ui_unlock_progress, seed, story_index );
 }
 
 
@@ -1090,7 +1095,7 @@ fn parse_icon(options: &Options, state: &State, config: &Config, line: &mut std:
     let mut letters: Vec<char> = vec!(c);
     let mut c = *line.peek().or(Some(COMMENT)).unwrap();
     while c != '#' && c != '-' && c != ':' && c != '.' && c != ' ' {
-      if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= 'A' && c <= 'Z')) { panic!("Unexpected input on line {} while parsing unlocks rest: input characters must be a-zA-Z0-9, found `{}`", line_no, c); }
+      if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) { panic!("Unexpected input on line {} while parsing unlocks rest: input characters must be a-zA-Z0-9, found `{}`", line_no, c); }
       line.next().or(Some('#')).unwrap(); // Consume this char.
       letters.push(c);
       c = *line.peek().or(Some(COMMENT)).unwrap();

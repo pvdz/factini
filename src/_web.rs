@@ -23,8 +23,8 @@
 //   - is pattern_unique_kinds not used anymore? or why does it not work
 //   - machine_dims_to_button_coords no longer needs to support multiples etc
 //   - update AI after woop machine change
+//   - unlocks_after_by_name etc
 // - bug
-//   - without local storage data woops and atoms dont appear
 //   - finished quests reappear after reload
 
 // features
@@ -1005,7 +1005,7 @@ pub fn start() -> Result<(), JsValue> {
 
             // Create snapshot in history, except for unredo
             let snap = generate_floor_dump(&options, &state, &config, &factory, dnow()).join("\n");
-            // log!("Snapshot:\n{}", snap);
+            if options.dbg_onchange_dump_snapshot { log!("Snapshot:\n{}", snap); }
             log!("Pushed snapshot to the front of the stack; size: {} bytes, undo pointer: {}, pointer: {}", snap.len(), state.snapshot_undo_pointer, state.snapshot_pointer);
 
             state.snapshot_pointer += 1;
@@ -1031,6 +1031,7 @@ pub fn start() -> Result<(), JsValue> {
           let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
           local_storage.set_item(LS_LAST_MAP, last_map).unwrap();
           log!("Stored last map to local storage ({} bytes) into `{}`", last_map.len(), LS_LAST_MAP);
+          // log!("Map:\n{}", last_map);
           if options.trace_map_parsing { log!("Stored map:\n{}", last_map); }
         }
 
@@ -6101,7 +6102,7 @@ fn unpart(options: &mut Options, state: &mut State, config: &Config, factory: &m
 }
 
 fn parse_and_save_options_string(option_string: String, options: &mut Options, strict: bool, options_started_from_source: u64, on_load: bool) {
-  log!("parse_and_save_options_string(options.dbg_dump_options_string = ?) {} (len = {})", if options_started_from_source > 0 { "from source" } else { "compiled defaults" }, option_string.len());
+  log!("parse_and_save_options_string(options.dbg_dump_options_string = {}) {} (len = {})", options.dbg_dump_options_string, if options_started_from_source > 0 { "from source" } else { "compiled defaults" }, option_string.len());
   let bak = options.initial_map_from_source;
   parse_options_into(option_string.clone(), options, true);
   options.options_started_from_source = options_started_from_source; // This prop will be overwritten by the above, first

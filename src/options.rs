@@ -54,6 +54,7 @@ pub struct Options {
 
   pub dbg_paint_tile_priority: bool, // Print the prio index of a tile in the game (debug, web)
   pub dbg_onload_dump_factory: bool, // Print the CLI version of the floor after generating it initially?
+  pub dbg_onchange_dump_snapshot: bool, // Log the map whenever a new snapshot is created
   pub trace_auto_builder: bool,
 
   pub show_drm: bool, // Draw media where configNode.drm == true ?
@@ -153,6 +154,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     trace_story_changes: false,
     dbg_paint_tile_priority: false,
     dbg_onload_dump_factory: false,
+    dbg_onchange_dump_snapshot: false,
     trace_auto_builder: false,
     show_drm: true,
     dbg_paint_part_borders: false,
@@ -339,6 +341,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "trace_story_changes" => options.trace_story_changes = parse_bool(value, name, strict, options.trace_story_changes, verbose),
             "dbg_paint_tile_priority" => options.dbg_paint_tile_priority = parse_bool(value, name, strict, options.dbg_paint_tile_priority, verbose),
             "dbg_onload_dump_factory" => options.dbg_onload_dump_factory = parse_bool(value, name, strict, options.dbg_onload_dump_factory, verbose),
+            "dbg_onchange_dump_snapshot" => options.dbg_onchange_dump_snapshot = parse_bool(value, name, strict, options.dbg_onchange_dump_snapshot, verbose),
             "trace_auto_builder" => options.trace_auto_builder = parse_bool(value, name, strict, options.trace_auto_builder, verbose),
             "show_drm" => options.show_drm = parse_bool(value, name, strict, options.show_drm, verbose),
             "dbg_paint_part_borders" => options.dbg_paint_part_borders = parse_bool(value, name, strict, options.dbg_paint_part_borders, verbose),
@@ -432,6 +435,7 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- trace_story_changes: {}", options.trace_story_changes));
   arr.push(format!("- dbg_paint_tile_priority: {}", options.dbg_paint_tile_priority));
   arr.push(format!("- dbg_onload_dump_factory: {}", options.dbg_onload_dump_factory));
+  arr.push(format!("- dbg_onchange_dump_snapshot: {}", options.dbg_onchange_dump_snapshot));
   arr.push(format!("- trace_auto_builder: {}", options.trace_auto_builder));
   arr.push(format!("- show_drm: {}", options.show_drm));
   arr.push(format!("- dbg_paint_part_borders: {}", options.dbg_paint_part_borders));

@@ -397,9 +397,11 @@ pub struct ConfigNode {
   pub name: String,
   pub raw_name: String,
 
-  // deprecated:
+  /** @deprecated */
   pub unlocks_after_by_name: Vec<String>, // Fully qualified name. Becomes available when these quests are finished.
+  /** @deprecated */
   pub unlocks_after_by_index: Vec<usize>, // Becomes available when these quests are finished
+  /** @deprecated */
   pub unlocks_todo_by_index: Vec<usize>, // Which quests still need to be unlocked before this one unlocks? Note: this is only to hash out the final state for the (static) config object. The "runtime" value is QuestState#unlocks_todo
 
   // Story
@@ -622,12 +624,14 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
               if trace_parse_config_md { log!("Adding quest_node_index {} to story_index {}", node_index, current_story_index); }
               let story = &mut stories[current_story_index];
               nodes[node_index].quest_index = story.quest_nodes.len();
+              nodes[node_index].story_index = current_story_index;
               story.quest_nodes.push(node_index);
             },
             "Part" => {
               // Register as node for the current story
               if trace_parse_config_md { log!("Adding part {} ({}) to stories {} / {}", node_index, nodes[node_index].raw_name, current_story_index, stories.len()); }
               stories[current_story_index].part_nodes.push(node_index);
+              nodes[node_index].story_index = current_story_index;
             },
             "Supply" => {}
             "Demand" => {}
@@ -958,18 +962,19 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
       }
     }
   );
-  if trace_parse_config_md { log!("Last node was: {:?}", nodes[nodes.len()-1]); }
   if trace_parse_config_md {
+    log!("Last node was: {:?}", nodes[nodes.len()-1]);
+
     log!("+ Have {} stories:", stories.len());
-    stories.iter().for_each(|story| {
-      log!("  - Story {}, has {} quests", nodes[story.story_node_index].name, story.quest_nodes.len());
+    stories.iter().enumerate().for_each(|(story_index, story)| {
+      log!("  - Story {} ({}), has {} quests", story_index, nodes[story.story_node_index].name, story.quest_nodes.len());
       story.quest_nodes.iter().enumerate().for_each(|(i, &quest_node_index)| {
         log!("    - Quest node {}: {:?}", i, nodes[quest_node_index]);
       });
     });
-  }
 
-  log!("Stories: {:?}", stories);
+    log!("Stories: {:?}", stories);
+  }
 
   // So now we have a serial list of nodes but we need to create a hierarchical tree from them
   // We create two models; one is a tree and the other a hashmap
@@ -1144,7 +1149,7 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
         node.machine_height = 5;
       }
 
-      log!("  - {} defined the machine size to {}x{}", node.raw_name, node.machine_width, node.machine_height);
+      if trace_parse_config_md { log!("  - {} defined the machine size to {}x{}", node.raw_name, node.machine_width, node.machine_height); }
     }
 
     if node.machine_asset_name == "" {
@@ -1153,7 +1158,7 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
     } else if node.machine_asset_name == "Asset_Machine_3_3" {
       node.machine_asset_index = CONFIG_NODE_ASSET_MACHINE_3_3;
     } else if let Some(&node_index) = full_name_to_node_index.get(&node.machine_asset_name) {
-      log!("  - {} had {} which resolves to index {}", node.raw_name, node.machine_asset_name, node.machine_asset_index);
+      if trace_parse_config_md { log!("  - {} had {} which resolves to index {}", node.raw_name, node.machine_asset_name, node.machine_asset_index); }
       node.machine_asset_index = node_index;
     } else {
       log!("  - Warning: {} had `{}` which could not be resolved, using defaults [{:?}] [{:?}]", node.raw_name, node.machine_asset_name, node_name_to_index.get(&node.machine_asset_name.clone()), node_name_to_index.get(&"Asset_Machine_2_2".to_string()));
@@ -2094,34 +2099,35 @@ fn get_system_nodes() -> Vec<ConfigNode> {
   return v;
 }
 
-pub fn config_get_initial_unlocks(options: &Options, state: &State, config: &Config) -> Vec<char> {
+pub fn config_get_initial_unlocks(options: &Options, state: &State, config: &Config, story_index: usize) -> Vec<PartKind> {
   if options.trace_quest_status { log!("config_get_initial_unlocks()"); }
-  let mut unlocked_part_icons: Vec<char> = vec!();
+  let mut unlocked_part_kinds: Vec<PartKind> = vec!();
 
   config.nodes.iter()
-    .filter(|node| {
-      if options.trace_quest_status && node.kind == ConfigNodeKind::Quest { log!("- quest {} ({}); part available: {}", node.index, node.raw_name, node.unlocks_todo_by_index.len() == 0); }
-      return node.unlocks_todo_by_index.len() == 0
-    })
     .for_each(|node| {
+      if node.story_index != story_index && node.story_index != 0 { return; }
+      if node.kind != ConfigNodeKind::Quest { return; }
+      if node.quest_init_status != QuestStatus::Active { return; }
+      if options.trace_quest_status { log!("- quest {} ({}) story {} ({}); quest initially active", node.index, node.raw_name, node.story_index, config.nodes[config.stories[node.story_index].story_node_index].raw_name); }
+
+      if options.trace_quest_status { log!("  - Adding node.starting_part_by_index {:?} to unlocks", node.starting_part_by_index); }
       node.starting_part_by_index.iter().for_each(|index| {
-        let icon = config.nodes[*index].icon;
-        if !unlocked_part_icons.contains(&icon) { unlocked_part_icons.push(icon); }
+        if !unlocked_part_kinds.contains(index) { unlocked_part_kinds.push(*index); }
       });
 
-      node.production_target_by_index.iter().for_each(|(_count, index)| {
-        let icon = config.nodes[*index].icon;
-        if !unlocked_part_icons.contains(&icon) { unlocked_part_icons.push(icon); }
+      if options.trace_quest_status { log!("  - Adding node.production_target_by_index {:?} to unlocks", node.production_target_by_index.iter().map(|(_, p)|config.nodes[*p].raw_name.clone()).collect::<Vec<String>>()); }
+      node.production_target_by_index.iter().for_each(|(_count, part_kind)| {
+        if !unlocked_part_kinds.contains(part_kind) { unlocked_part_kinds.push(*part_kind); }
         // Automatically unlock all parts required to create this target part.
         // Won't do this recursively. Other mechanism must prevent proper quest unlock order.
-        config.nodes[*index].pattern_unique_kinds.iter().for_each(|kind| {
-          let icon = part_kind_to_icon(config, *kind);
-          if !unlocked_part_icons.contains(&icon) { unlocked_part_icons.push(icon); }
+        if options.trace_quest_status { log!("    - These parts are required to create it; {:?} ({:?})", config.nodes[*part_kind].pattern_unique_kinds, config.nodes[*part_kind].pattern_unique_kinds.iter().map(|p|config.nodes[*p].raw_name.clone()).collect::<Vec<String>>()); }
+        config.nodes[*part_kind].pattern_unique_kinds.iter().for_each(|kind| {
+          if !unlocked_part_kinds.contains(kind) { unlocked_part_kinds.push(*kind); }
         });
       });
     });
 
-  return unlocked_part_icons;
+  return unlocked_part_kinds;
 }
 
 fn config_node_part(index: PartKind, name: String, icon: char) -> ConfigNode {

@@ -2,7 +2,7 @@ const GAME_OPTIONS = `
 - options_started_from_source: 0
 - initial_map_from_source: 0
 
-- dbg_dump_options_string: true
+- dbg_dump_options_string: false
 - trace_all_moves: false
 - trace_moves_belt: false
 - trace_moves_machine: false

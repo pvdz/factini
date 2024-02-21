@@ -21,6 +21,7 @@ use super::prio::*;
 use super::quest_state::*;
 use super::quest::*;
 use super::state::*;
+use super::story::*;
 use super::supply::*;
 use super::truck::*;
 use super::utils::*;
@@ -76,7 +77,7 @@ fn dnow() -> u64 {
 }
 
 pub fn create_factory(options: &mut Options, state: &mut State, config: &mut Config, floor_str: String) -> Factory {
-  let ( floor, unlocked_part_icons, ui_unlock_progress, map_seed, map_story_index) = floor_from_str(options, state, config, &floor_str);
+  let ( floor, initial_map_unlocked_parts, ui_unlock_progress, map_seed, map_story_index) = floor_from_str(options, state, config, &floor_str);
 
   // TODO: improve the active story state because doing it in state is way too implicit
   if state.active_story_index != map_story_index {
@@ -84,43 +85,21 @@ pub fn create_factory(options: &mut Options, state: &mut State, config: &mut Con
     state.active_story_index = map_story_index
   }
 
-  let available_parts_all: Vec<PartKind> = unlocked_part_icons.iter().map(|icon| part_icon_to_kind(config,*icon)).collect();
-  let available_parts_before: Vec<(PartKind, bool)> = available_parts_all.iter().filter(|part| {
-    // Search for this part in the default story (system nodes) and the current active story.
-    // If it is part of the node list for either story then include it, otherwise exclude it.
-    for (story_index, story) in config.stories.iter().enumerate() {
-      if story_index == 0 || story_index == map_story_index {
-        if story.part_nodes.contains(&(**part as usize)) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }).map(|kind| ( *kind, true )).collect();
-  let mut available_parts_active_story = available_parts_before.clone();
-  for (part_kind, _viz) in available_parts_before.iter() {
-    for p2 in &config.nodes[*part_kind].pattern_by_index {
-      if !available_parts_active_story.iter().any(|(p, _v)| *p == *p2) {
-        available_parts_active_story.push((*p2, true));
-      }
-    }
-  }
-  let quests = get_fresh_quest_states(options, state, config, 0, &available_parts_all);
-  if options.trace_quest_status { log!("initial available_parts (all): {:?}", available_parts_all.iter().map(|index| (index, config.nodes[*index].name.clone())).collect::<Vec<_>>()); }
-  if options.trace_map_parsing { log!("initial available_parts (active story): {:?}", available_parts_active_story.iter().map(|(index, _)| config.nodes[*index].name.clone()).collect::<Vec<_>>()); }
-  if options.trace_map_parsing { log!("active story {} nodes: {:?}", map_story_index, config.stories[map_story_index].part_nodes); }
+  let available_parts = get_available_parts_from_map_and_story(options, state, config, &initial_map_unlocked_parts, map_story_index);
+
+  let quests = get_fresh_quest_states(options, state, config, 0, &available_parts.iter().map(|(p, _b)| *p).collect());
+  if options.trace_quest_status { log!("active story {} nodes: {:?}", map_story_index, config.stories[map_story_index].part_nodes); }
   if options.trace_quest_status { log!("available quests: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| quest.name.clone()).collect::<Vec<_>>()); }
   if options.trace_quest_status { log!("target quest parts: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| config.nodes[quest.production_part_kind].name.clone()).collect::<Vec<_>>()); }
 
   let maze_seed = if map_seed == 0 { dnow() } else { map_seed };
-  // log!("map_seed: {}", maze_seed);
 
   let mut factory = Factory {
     ticks: 0,
     floor,
     prio: vec!(),
-    available_atoms: available_parts_active_story.iter().filter(|(part, _)| is_atom(config, *part)).map(|(p, b)| (*p, *b)).collect::<Vec<(PartKind, bool)>>(),
-    available_woops: available_parts_active_story.iter().filter(|(part, _)| is_woop(config, *part)).map(|(p, b)| (*p, *b)).collect::<Vec<(PartKind, bool)>>(),
+    available_atoms: available_parts.iter().filter(|(part, _)| is_atom(config, *part)).map(|(p, b)| (*p, *b)).collect::<Vec<(PartKind, bool)>>(),
+    available_woops: available_parts.iter().filter(|(part, _)| is_woop(config, *part)).map(|(p, b)| (*p, *b)).collect::<Vec<(PartKind, bool)>>(),
     changed: true,
     machines: vec!(),
     supplied: 0,
@@ -139,9 +118,12 @@ pub fn create_factory(options: &mut Options, state: &mut State, config: &mut Con
     fuel_in_flight: (0, 0, 0, 0),
     auto_build: auto_build_create(),
   };
-  state_set_ui_unlock_progress(options, state, ui_unlock_progress);
 
-  // log!("The maze: {:?}", factory.maze);
+  if options.trace_quest_status { log!("available_parts: {:?}", available_parts); }
+  if options.trace_quest_status { log!("available_atoms: {:?}", factory.available_atoms); }
+  if options.trace_quest_status { log!("available_woops: {:?}", factory.available_woops); }
+
+  state_set_ui_unlock_progress(options, state, ui_unlock_progress);
 
   auto_layout(options, state, config, &mut factory);
   auto_ins_outs(options, state, config, &mut factory);
@@ -467,52 +449,29 @@ pub fn update_game_ui_after_quest_finish(options: &mut Options, state: &mut Stat
 }
 
 pub fn factory_load_map(options: &mut Options, state: &mut State, config: &mut Config, factory: &mut Factory, floor_str: String) {
-  let ( floor, unlocked_part_icons, ui_unlock_progress, map_seed, map_story_index) = floor_from_str(options, state, config, &floor_str);
+  let ( floor, initial_map_unlocked_parts, ui_unlock_progress, map_seed, map_story_index) = floor_from_str(options, state, config, &floor_str);
 
   if state.active_story_index != map_story_index {
     if options.trace_story_changes { log!("active_story_index switching to {}", map_story_index); }
     state.active_story_index = map_story_index;
   }
 
-  log!("Active quests before: {:?}", factory.quests.iter().filter(|quest| quest.status == QuestStatus::Active));
+  let available_parts = get_available_parts_from_map_and_story(options, state, config, &initial_map_unlocked_parts, map_story_index);
+
+  if options.trace_quest_status { log!("Active quests before: {:?}", factory.quests.iter().filter(|quest| quest.status == QuestStatus::Active)); }
   factory.floor = floor;
   // log!("map_seed: {}", map_seed);
   let map_seed = if map_seed == 0 { dnow() } else { map_seed };
   factory.maze_seed = map_seed;
-  let available_parts: Vec<PartKind> = unlocked_part_icons.iter()
-    .map(|icon| part_icon_to_kind(config,*icon))
-    .filter(|part| {
-      // Search for this part in the default story (system nodes) and the current active story.
-      // If it is part of the node list for either story then include it, otherwise exclude it.
-      for (story_index, story) in config.stories.iter().enumerate() {
-        if story_index == 0 || story_index == state.active_story_index {
-          if story.part_nodes.contains(&(*part as usize)) {
-            return true;
-          }
-        }
-      }
-      return false;
-    })
-    .collect();
-  let available_parts_before: Vec<(PartKind, bool)> = available_parts.iter().map(|kind| (*kind, true)).collect();
-  let mut available_parts_after = available_parts_before.clone();
-  for (part_kind, _viz) in available_parts_before.iter() {
-    for p2 in &config.nodes[*part_kind].pattern_by_index {
-      if !available_parts_after.iter().any(|(p, _v)| *p == *p2) {
-        available_parts_after.push((*p2, true));
-      }
-    }
-  }
 
-  log!("available_parts_before (1): {:?}", available_parts_before);
-  log!("available_parts_after (1): {:?}", available_parts_after);
-  factory.available_atoms = available_parts_after.iter().filter(|(part, _)| is_atom(config, *part)).map(|(p, _)| (*p, true)).collect::<Vec<(PartKind, bool)>>();
-  log!("available_atoms: {:?}", factory.available_atoms);
-  factory.available_woops = available_parts_after.iter().filter(|(part, _)| is_woop(config, *part)).map(|(p, _)| (*p, true)).collect::<Vec<(PartKind, bool)>>();
-  log!("available_woops: {:?}", factory.available_woops);
-  factory.quests = get_fresh_quest_states(options, state, config, factory.ticks, &available_parts);
+  if options.trace_quest_status { log!("available_parts: {:?}", available_parts); }
+  factory.available_atoms = available_parts.iter().filter(|(part, _)| is_atom(config, *part)).map(|(p, _)| (*p, true)).collect::<Vec<(PartKind, bool)>>();
+  if options.trace_quest_status { log!("available_atoms: {:?}", factory.available_atoms); }
+  factory.available_woops = available_parts.iter().filter(|(part, _)| is_woop(config, *part)).map(|(p, _)| (*p, true)).collect::<Vec<(PartKind, bool)>>();
+  if options.trace_quest_status { log!("available_woops: {:?}", factory.available_woops); }
+  factory.quests = get_fresh_quest_states(options, state, config, factory.ticks, &available_parts.iter().map(|(p,_)|*p).collect());
   factory.quest_updated = true;
-  log!("new current_active_quests: {:?}", factory.quests.iter().map(|quest| config.nodes[quest.config_node_index as usize].name.clone()).collect::<Vec<String>>().join(", "));
+  if options.trace_quest_status { log!("new current_active_quests: {:?}", factory.quests.iter().map(|quest| config.nodes[quest.config_node_index as usize].name.clone()).collect::<Vec<String>>().join(", ")); }
   auto_layout(options, state, config, factory);
   auto_ins_outs(options, state, config, factory);
   factory.machines = factory_collect_machines(&factory.floor);

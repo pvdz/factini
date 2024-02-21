@@ -113,6 +113,7 @@ const GAME_EXAMPLES = [
     sr = BucketRed s:0 c:500
     ss = BucketWhite s:0 c:500
     $ BucketBlue BucketYellow BucketRed BucketGreen BucketOrange BucketPurple
+    story = Story_Buckets
   `,
   `
     # Factini map
@@ -1296,10 +1297,9 @@ const GAME_EXAMPLES = [
     sf = BucketBlue s:0 c:500
     sg = BucketRed s:0 c:500
     sh = BucketWhite s:0 c:500
-    $ DirtWhite Wool IngotWhite SilverCoin Thread
     @ 0
     seed = 1707299791594
-    story = Story_Dev
+    story = Story_Buckets
   `,
   `
     # Factini map
@@ -1388,10 +1388,11 @@ const GAME_EXAMPLES = [
     si = BucketWhite s:0 c:500
     sj = BucketYellow s:0 c:500
     sk = BucketBlue s:0 c:500
+    # This should load cross story parts. Just for testing. Not sure you'd actually want to do this but...
     $ DirtWhite Wool IngotWhite SilverCoin Thread
     @ 0
     seed = 1707299809636
-    story = Story_Dev
+    story = Story_Buckets
   `,
   `
     # Factini map
