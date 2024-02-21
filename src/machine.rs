@@ -432,9 +432,6 @@ pub struct MachineUIConfig {
   pub missing_output_x: f64,
   pub missing_output_y: f64,
 
-  pub missing_purpose_x: f64,
-  pub missing_purpose_y: f64,
-
   pub wee_woo_x: f64,
   pub wee_woo_y: f64,
 
@@ -448,9 +445,6 @@ pub const MACHINE_1X1_UI: MachineUIConfig = MachineUIConfig {
 
   missing_output_x: 0.0,
   missing_output_y: 0.0,
-
-  missing_purpose_x: 0.0,
-  missing_purpose_y: 0.0,
 
   wee_woo_x: 0.0,
   wee_woo_y: 0.0,
@@ -466,9 +460,6 @@ pub const MACHINE_1X2_UI: MachineUIConfig = MachineUIConfig {
   missing_output_x: 0.0,
   missing_output_y: 0.0 + CELL_H,
 
-  missing_purpose_x: 0.0,
-  missing_purpose_y: 0.0 * CELL_H / 2.0,
-
   wee_woo_x: 0.0,
   wee_woo_y: 5.0,
 
@@ -482,9 +473,6 @@ pub const MACHINE_2X1_UI: MachineUIConfig = MachineUIConfig {
 
   missing_output_x: 0.0 + CELL_W,
   missing_output_y: 0.0,
-
-  missing_purpose_x: 0.0 + CELL_W / 2.0,
-  missing_purpose_y: 0.0,
 
   wee_woo_x: 0.0 + CELL_W,
   wee_woo_y: 5.0,
@@ -500,9 +488,6 @@ pub const MACHINE_2X2_UI: MachineUIConfig = MachineUIConfig {
   missing_output_x: 0.0 + CELL_W,
   missing_output_y: 0.0 + CELL_H,
 
-  missing_purpose_x: 0.0 + CELL_W / 2.0,
-  missing_purpose_y: 0.0 + 0.75 * CELL_H,
-
   wee_woo_x: 0.0 + CELL_W,
   wee_woo_y: 5.0,
 
@@ -516,9 +501,6 @@ pub const MACHINE_3X3_UI: MachineUIConfig = MachineUIConfig {
 
   missing_output_x: 0.0 + CELL_W + CELL_W,
   missing_output_y: 0.0 + CELL_H,
-
-  missing_purpose_x: 0.0 + CELL_W,
-  missing_purpose_y: 0.0 + CELL_H,
 
   wee_woo_x: 0.0 + CELL_W + CELL_W,
   wee_woo_y: 0.0 + CELL_W + CELL_W,

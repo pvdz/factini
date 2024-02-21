@@ -25,7 +25,6 @@
 //   - is pattern_unique_kinds not used anymore? or why does it not work
 //   - machine_dims_to_button_coords no longer needs to support multiples etc
 //   - update AI after woop machine change
-//   - missing purpose indicator for machines is obsolete
 // - bug: without local storage data woops and atoms dont appear
 
 // features
@@ -3561,17 +3560,6 @@ fn paint_background_tiles3(
           } else if factory.floor[cell.machine.main_coord].outs.len() == 0 {
             paint_asset(options, state, config, context, CONFIG_NODE_ASSET_MISSING_OUTPUTS, factory.ticks,
               ox + mconfig.missing_output_x, oy + mconfig.missing_output_y,
-              CELL_W, CELL_H
-            );
-            weewoo = true;
-          } else if factory.floor[cell.machine.main_coord].machine.output_want.icon == ' ' {
-            context.set_fill_style(&"#ffffff9f".into());
-            context.begin_path();
-            context.arc(ox + mconfig.missing_purpose_x + (CELL_W / 2.0), oy + mconfig.missing_purpose_y + (CELL_H / 2.0), CELL_W * 0.75, 0.0, 2.0 * 3.14).expect("to paint");
-            context.fill();
-
-            paint_asset(options, state, config, context, CONFIG_NODE_ASSET_MISSING_PURPOSE, factory.ticks,
-              ox + mconfig.missing_purpose_x, oy + mconfig.missing_purpose_y,
               CELL_W, CELL_H
             );
             weewoo = true;
