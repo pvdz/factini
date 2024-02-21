@@ -19,7 +19,8 @@
 // - cleanup
 //   - repo
 //   - after machine_dims_to_button_coords goes, are the other vars still useful? UI_MENU_MACHINE_BUTTON_3X3_X, UI_MENU_MACHINE_BUTTON_3X3_Y, UI_MENU_MACHINE_BUTTON_3X3_WIDTH, UI_MENU_MACHINE_BUTTON_3X3_HEIGHT
-//   - update AI after woop machine change
+// - bug
+//   - ai will use woops as suppliers
 
 // features
 // - belts
@@ -3694,7 +3695,6 @@ fn paint_mouse_cursor(options: &Options, state: &State, config: &Config, factory
     match factory.auto_build.phase {
       | AutoBuildPhase::DragTargetPartToMachine
       | AutoBuildPhase::DragInputPartToEdge
-      | AutoBuildPhase::DragMachine
       | AutoBuildPhase::TrackToMachine
       | AutoBuildPhase::TrackFromMachine
       => {
@@ -3731,9 +3731,7 @@ fn paint_mouse_cursor(options: &Options, state: &State, config: &Config, factory
 fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, cell_selection: &CellSelection) {
   if factory.auto_build.phase != AutoBuildPhase::None {
     match factory.auto_build.phase {
-      | AutoBuildPhase::DragTargetPartToMachine
-      | AutoBuildPhase::DragInputPartToEdge
-      => {
+      AutoBuildPhase::DragInputPartToEdge => {
         if factory.ticks - factory.auto_build.phase_at < factory.auto_build.phase_pause {
           // Do not draw as dragging while paused at the start of a phase
         } else {
@@ -3770,7 +3768,7 @@ fn paint_mouse_action(options: &Options, state: &State, config: &Config, factory
           }
         }
       }
-      AutoBuildPhase::DragMachine => {
+      AutoBuildPhase::DragTargetPartToMachine => {
         if factory.ticks - factory.auto_build.phase_at < factory.auto_build.phase_pause {
           // Do not draw as dragging while paused at the start of a phase
         } else {
