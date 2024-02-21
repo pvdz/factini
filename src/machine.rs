@@ -432,11 +432,13 @@ pub struct MachineUIConfig {
   pub missing_output_x: f64,
   pub missing_output_y: f64,
 
-  pub wee_woo_x: f64,
-  pub wee_woo_y: f64,
+  pub wee_woo_x: f64, // relative in terms of CELL_WIDTH
+  pub wee_woo_y: f64, // relative in terms of CELL_HEIGHT
 
-  pub part_x: f64,
-  pub part_y: f64,
+  pub part_x: f64, // relative in terms of CELL_WIDTH
+  pub part_y: f64, // relative in terms of CELL_HEIGHT
+  pub part_w: f64, // relative in terms of CELL_WIDTH
+  pub part_h: f64, // relative in terms of CELL_HEIGHT
 }
 
 pub const MACHINE_1X1_UI: MachineUIConfig = MachineUIConfig {
@@ -446,11 +448,13 @@ pub const MACHINE_1X1_UI: MachineUIConfig = MachineUIConfig {
   missing_output_x: 0.0,
   missing_output_y: 0.0,
 
-  wee_woo_x: 0.0,
-  wee_woo_y: 0.0,
+  wee_woo_x: 0.75,
+  wee_woo_y: 0.75,
 
   part_x: 0.0,
   part_y: 0.0,
+  part_w: 1.0,
+  part_h: 1.0,
 };
 
 pub const MACHINE_1X2_UI: MachineUIConfig = MachineUIConfig {
@@ -460,11 +464,13 @@ pub const MACHINE_1X2_UI: MachineUIConfig = MachineUIConfig {
   missing_output_x: 0.0,
   missing_output_y: 0.0 + CELL_H,
 
-  wee_woo_x: 0.0,
-  wee_woo_y: 5.0,
+  wee_woo_x: 0.4,
+  wee_woo_y: 1.2,
 
   part_x: 0.0,
-  part_y: 0.0,
+  part_y: 0.5,
+  part_w: 1.0,
+  part_h: 1.0,
 };
 
 pub const MACHINE_2X1_UI: MachineUIConfig = MachineUIConfig {
@@ -474,11 +480,13 @@ pub const MACHINE_2X1_UI: MachineUIConfig = MachineUIConfig {
   missing_output_x: 0.0 + CELL_W,
   missing_output_y: 0.0,
 
-  wee_woo_x: 0.0 + CELL_W,
-  wee_woo_y: 5.0,
+  wee_woo_x: 1.30,
+  wee_woo_y: 0.25,
 
-  part_x: 0.0,
+  part_x: 0.5,
   part_y: 0.0,
+  part_w: 1.0,
+  part_h: 1.0,
 };
 
 pub const MACHINE_2X2_UI: MachineUIConfig = MachineUIConfig {
@@ -488,11 +496,13 @@ pub const MACHINE_2X2_UI: MachineUIConfig = MachineUIConfig {
   missing_output_x: 0.0 + CELL_W,
   missing_output_y: 0.0 + CELL_H,
 
-  wee_woo_x: 0.0 + CELL_W,
-  wee_woo_y: 5.0,
+  wee_woo_x: 1.3,
+  wee_woo_y: 1.2,
 
-  part_x: 0.0,
-  part_y: 0.0,
+  part_x: 0.25,
+  part_y: 0.25,
+  part_w: 1.5,
+  part_h: 1.5,
 };
 
 pub const MACHINE_3X3_UI: MachineUIConfig = MachineUIConfig {
@@ -502,11 +512,13 @@ pub const MACHINE_3X3_UI: MachineUIConfig = MachineUIConfig {
   missing_output_x: 0.0 + CELL_W + CELL_W,
   missing_output_y: 0.0 + CELL_H,
 
-  wee_woo_x: 0.0 + CELL_W + CELL_W,
-  wee_woo_y: 0.0 + CELL_W + CELL_W,
+  wee_woo_x: 2.2,
+  wee_woo_y: 2.1,
 
-  part_x: 0.0,
-  part_y: 0.0,
+  part_x: 0.5,
+  part_y: 0.5,
+  part_w: 2.0,
+  part_h: 2.0,
 };
 
 pub fn get_machine_ui_config(w: usize, h: usize) -> MachineUIConfig {

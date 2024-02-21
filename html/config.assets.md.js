@@ -44,7 +44,7 @@ Indicator that a machine is missing an input belt
 - frame_offset: 0
 - frame_count: 2
 - frame_direction: right
-- frame_delay: 1500
+- frame_delay: 3000
 - looping: true
 - frame: 1
 - file: ./img/missing_inputs.png
@@ -58,7 +58,7 @@ Indicator that a machine is missing an input belt
 - frame_offset: 0
 - frame_count: 2
 - frame_direction: right
-- frame_delay: 1500
+- frame_delay: 3000
 - looping: true
 - frame: 1
 - file: ./img/missing_outputs.png

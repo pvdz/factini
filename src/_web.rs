@@ -19,7 +19,6 @@
 //   - something with that ikea help icon
 //   - hover over machine should show woop hint
 //   - add hint that two machines next to each other do not share port?
-//   - machine icons should be repositioned and controllable through MD
 // - cleanup
 //   - repo
 //   - is pattern_unique_kinds not used anymore? or why does it not work
@@ -58,6 +57,7 @@
 //   - https://dev.to/chromiumdev/-native-undo--redo-for-the-web-3fl3  https://github.com/samthor/undoer
 // - cleanup
 //   - get rid of CONFIG_NODE_MACHINE_1X1 in favor of CONFIG_NODE_ASSET_MACHINE_3_3 etc
+// - allow machine icons (weewoo, output, etc) position to be configurable through config MD
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -3528,19 +3528,19 @@ fn paint_background_tiles3(
       },
       CellKind::Machine => {
         // For machines, paint the top-left cell only but make the painted area cover the whole machine
-        // TODO: each machine size should have a unique, customized, sprite
+        // Note: The background was painted in paint_background_tiles1. This step paints stuff on top.
         if cell.machine.main_coord == coord {
-          // Paint all overlays for this machien in this iteration, not just the one for this particular cell
+          // Paint all overlays for this machine in this iteration, not just the one for this particular cell
 
           let mconfig = get_machine_ui_config(cell.machine.cell_width, cell.machine.cell_height);
 
           // Paint tiny output part in top-left
           paint_segment_part_from_config(options, state, config, context,
             cell.machine.output_want.kind,
-            ox + mconfig.part_x + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].x,
-            oy + mconfig.part_y + config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].y,
-            config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].w,
-            config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].h
+            ox + mconfig.part_x * CELL_W,
+            oy + mconfig.part_y * CELL_H,
+            mconfig.part_w * CELL_W,
+            mconfig.part_h * CELL_H
           );
 
           // Note: the set of all incoming and outgoing ports are stored on .ins and .outs
@@ -3552,22 +3552,26 @@ fn paint_background_tiles3(
           // Paint alarm in bottom-right corner if the machine has a problem
           let mut weewoo = false;
           if factory.floor[cell.machine.main_coord].ins.len() == 0 {
-            paint_asset(options, state, config, context, CONFIG_NODE_ASSET_MISSING_INPUTS, factory.ticks,
-              ox + mconfig.missing_input_x, oy + mconfig.missing_input_y,
-              CELL_W, CELL_H
-            );
+            if options.show_machine_missing_hint {
+              paint_asset(options, state, config, context, CONFIG_NODE_ASSET_MISSING_INPUTS, factory.ticks,
+                ox + mconfig.missing_input_x, oy + mconfig.missing_input_y,
+                CELL_W, CELL_H
+              );
+            }
             weewoo = true;
           } else if factory.floor[cell.machine.main_coord].outs.len() == 0 {
-            paint_asset(options, state, config, context, CONFIG_NODE_ASSET_MISSING_OUTPUTS, factory.ticks,
-              ox + mconfig.missing_output_x, oy + mconfig.missing_output_y,
-              CELL_W, CELL_H
-            );
+            if options.show_machine_missing_hint {
+              paint_asset(options, state, config, context, CONFIG_NODE_ASSET_MISSING_OUTPUTS, factory.ticks,
+                ox + mconfig.missing_output_x, oy + mconfig.missing_output_y,
+                CELL_W, CELL_H
+              );
+            }
             weewoo = true;
           }
 
           if weewoo {
             paint_asset(options, state, config, context, CONFIG_NODE_ASSET_WEE_WOO, factory.ticks,
-              ox + mconfig.wee_woo_x, oy + mconfig.wee_woo_y,
+              ox + mconfig.wee_woo_x * CELL_W, oy + mconfig.wee_woo_y * CELL_H,
               config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].w, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].h
             );
           }
