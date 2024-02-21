@@ -19,10 +19,11 @@ pub struct Story {
 }
 
 pub fn get_available_parts_from_map_and_story(options: &mut Options, state: &mut State, config: &mut Config, initial_map_unlocked_parts: &Vec<PartKind>, story_index: usize) -> Vec<(PartKind, bool)> {
-  let mut initial_unlocked_parts = initial_map_unlocked_parts.clone();
+  let mut initial_unlocked_parts = if options.dbg_no_initial_unlocked_parts { vec!() } else { initial_map_unlocked_parts.clone() };
 
   // Add initial story parts to the unlocked map parts
   let initial_story_parts = get_initial_story_parts(options, state, config, story_index);
+
   initial_story_parts.iter().for_each(|part_kind| {
     if !initial_unlocked_parts.contains(part_kind) {
       initial_unlocked_parts.push(*part_kind);

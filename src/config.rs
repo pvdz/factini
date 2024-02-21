@@ -3,7 +3,6 @@ use std::collections::HashSet;
 
 use wasm_bindgen::{JsValue};
 use js_sys;
-use crate::quest_state::QuestStatus;
 
 use super::belt::*;
 use super::belt_codes::*;
@@ -15,6 +14,7 @@ use super::machine::*;
 use super::options::*;
 use super::part::*;
 use super::quest::*;
+use super::quest_state::*;
 use super::sprite_config::*;
 use super::sprite_frame::*;
 use super::state::*;

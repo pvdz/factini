@@ -23,8 +23,6 @@
 //   - is pattern_unique_kinds not used anymore? or why does it not work
 //   - machine_dims_to_button_coords no longer needs to support multiples etc
 //   - update AI after woop machine change
-// - bug
-//   - finished quests reappear after reload
 
 // features
 // - belts

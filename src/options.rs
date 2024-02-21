@@ -114,6 +114,8 @@ pub struct Options {
 
   pub dbg_loop_atom_truck: bool,
   pub dbg_loop_woop_truck: bool,
+  pub dbg_no_initial_finished_quests: bool,
+  pub dbg_no_initial_unlocked_parts: bool,
 
   pub default_demand_speed: u64,
   pub default_demand_cooldown: u64,
@@ -202,6 +204,8 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     dbg_auto_builder_zero_duration: false,
     dbg_loop_atom_truck: false,
     dbg_loop_woop_truck: false,
+    dbg_no_initial_finished_quests: false,
+    dbg_no_initial_unlocked_parts: false,
 
     default_demand_speed: 1000,
     default_demand_cooldown: 500,
@@ -389,6 +393,8 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "dbg_auto_builder_zero_duration" => options.dbg_auto_builder_zero_duration = parse_bool(value, name, strict, options.dbg_auto_builder_zero_duration, verbose),
             "dbg_loop_atom_truck" => options.dbg_loop_atom_truck = parse_bool(value, name, strict, options.dbg_loop_atom_truck, verbose),
             "dbg_loop_woop_truck" => options.dbg_loop_woop_truck = parse_bool(value, name, strict, options.dbg_loop_woop_truck, verbose),
+            "dbg_no_initial_finished_quests" => options.dbg_no_initial_finished_quests = parse_bool(value, name, strict, options.dbg_no_initial_finished_quests, verbose),
+            "dbg_no_initial_unlocked_parts" => options.dbg_no_initial_unlocked_parts = parse_bool(value, name, strict, options.dbg_no_initial_unlocked_parts, verbose),
             "default_demand_speed" => options.default_demand_speed = parse_u64(value, name, strict, options.default_demand_speed, verbose),
             "default_demand_cooldown" => options.default_demand_cooldown = parse_u64(value, name, strict, options.default_demand_cooldown, verbose),
             "enable_quick_save_menu" => options.enable_quick_save_menu = parse_bool(value, name, strict, options.enable_quick_save_menu, verbose),
@@ -483,6 +489,8 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- dbg_auto_builder_zero_duration: {}", options.dbg_auto_builder_zero_duration));
   arr.push(format!("- dbg_loop_atom_truck: {}", options.dbg_loop_atom_truck));
   arr.push(format!("- dbg_loop_woop_truck: {}", options.dbg_loop_woop_truck));
+  arr.push(format!("- dbg_no_initial_finished_quests: {}", options.dbg_no_initial_finished_quests));
+  arr.push(format!("- dbg_no_initial_unlocked_parts: {}", options.dbg_no_initial_unlocked_parts));
   arr.push(format!("- default_demand_speed: {}", options.default_demand_speed));
   arr.push(format!("- default_demand_cooldown: {}", options.default_demand_cooldown));
   arr.push(format!("- enable_quick_save_menu: {}", options.enable_quick_save_menu));

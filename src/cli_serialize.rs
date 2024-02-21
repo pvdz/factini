@@ -1,4 +1,5 @@
 use std::time::SystemTime;
+use crate::quest_state::QuestStatus;
 
 use super::belt::*;
 use super::belt_type::*;
@@ -11,6 +12,8 @@ use super::machine::*;
 use super::options::*;
 use super::part::*;
 use super::port::*;
+use super::quest::*;
+use super::quest_state::*;
 use super::state::*;
 use super::utils::*;
 use super::log;
@@ -572,19 +575,29 @@ pub fn serialize2(options: &Options, state: &State, config: &Config, factory: &F
 
   out.push(cell_params.clone());
 
+  // Finished quests
+  let finished_quests: Vec<String> = factory.quests.iter().filter(|state| state.status == QuestStatus::Finished).map(|state| config.nodes[state.config_node_index].name.clone()).collect();
+  if finished_quests.len() > 0 {
+    let quests = format!("! {}\n", finished_quests.join(" ")).chars().collect();
+    out.push(quests);
+  }
+
+  // Unlocked parts
   // $ name name name
   let available_atoms = factory.available_atoms.iter().map(|(part, _visible)| config.nodes[*part].name.clone()).collect::<Vec<String>>();
   let available_woops = factory.available_woops.iter().map(|(part, _visible)| config.nodes[*part].name.clone()).collect::<Vec<String>>();
-  let available = format!(
-    "$ {}\n",
-    available_atoms
-      .iter()
-      .chain(available_woops.iter())
-      .cloned()
-      .collect::<Vec<String>>()
-      .join(" ")
-  ).chars().collect();
-  out.push(available);
+  if available_atoms.len() > 0 && available_woops.len() > 0 {
+    let available = format!(
+      "$ {}\n",
+      available_atoms
+        .iter()
+        .chain(available_woops.iter())
+        .cloned()
+        .collect::<Vec<String>>()
+        .join(" ")
+    ).chars().collect();
+    out.push(available);
+  }
 
   // @ digit
   out.push(format!("@ {}\n", state.ui_unlock_progress).chars().collect());

@@ -27,9 +27,9 @@ const COMMENT: &char = &'#';
 const CHAR_AT: &char = &'@';
 const SPACE: &char = &' ';
 
-pub fn floor_from_str(options: &Options, state: &mut State, config: &Config, str: &String) -> ( [Cell; FLOOR_CELLS_WH], Vec<PartKind>, u8, u64, usize ) {
+pub fn floor_from_str(options: &Options, state: &mut State, config: &Config, str: &String) -> ( [Cell; FLOOR_CELLS_WH], Vec<PartKind>, Vec<String>, u8, u64, usize ) {
   if str.trim().len() == 0 {
-    return ( floor_empty(config), vec!(), 0, 0, state.active_story_index );
+    return ( floor_empty(config), vec!(), vec!(), 0, 0, state.active_story_index );
   }
 
   // Require a Factini header and proper map here. User input should handle an error sooner.
@@ -44,7 +44,7 @@ pub fn floor_from_str(options: &Options, state: &mut State, config: &Config, str
   return str_to_floor(options, state, config, str);
 }
 
-fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &String) -> ([Cell; FLOOR_CELLS_WH], Vec<PartKind>, u8, u64, usize ) {
+fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &String) -> ([Cell; FLOOR_CELLS_WH], Vec<PartKind>, Vec<String>, u8, u64, usize ) {
   // Given a string in a grid format, generate a floor
   // The string starts with at least one line of config.
   // - For now the only modifier are the dimension of the hardcoded 11x11
@@ -134,6 +134,7 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
   let mut seed: u64 = 0;
   let mut story_index = state.active_story_index;
   let mut floor: [Cell; FLOOR_CELLS_WH] = floor_empty(config);
+  let mut finished_quests: Vec<String> = vec!();
   let mut map_unlocked_parts: Vec<PartKind> = vec!();
 
   let mut lines = str.lines().collect::<Vec<&str>>();
@@ -900,6 +901,17 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
                 return find_part_from_input_by_string(config, &x, line);
               }).collect::<Vec<PartKind>>();
             },
+            '!' => {
+              if options.trace_map_parsing { log!("Parsing ! finished quest list `{:?}`", line); }
+              // Finished quests
+              loop {
+                skip_spaces(line);
+                let word = parse_word(line);
+                if word == "" { break; }
+                finished_quests.push(word);
+              }
+              if options.trace_map_parsing { log!(" -> Parsed finished quest list: {:?}", finished_quests); }
+            }
             '$' => {
               if options.trace_map_parsing { log!("Parsing $ unlocked parts list `{:?}`. List before: {:?}", line, map_unlocked_parts); }
               // Unlocked parts icons.
@@ -907,7 +919,7 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
               // Spaces are skipped. Stops at EOL, EOF, or #
               loop {
                 skip_spaces(line);
-                let maybe_icon = parse_icon(options, state, config, line, line_no);
+                let maybe_icon = parse_unlocked_part_icon(options, state, config, line, line_no);
                 if let Some(icon) = maybe_icon {
                   let part = part_c(config, icon);
                   if options.trace_map_parsing { log!("  - icon: `{}` ({}), part: {:?}", icon, icon as u8, part); }
@@ -917,7 +929,7 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
                   break;
                 }
               }
-              if options.trace_map_parsing { log!("Parsed unlocked parts list: {:?}", map_unlocked_parts); }
+              if options.trace_map_parsing { log!(" -> Parsed unlocked parts list: {:?}", map_unlocked_parts); }
             }
             '@' => {
               if options.trace_map_parsing { log!("Parsing @ unlocked UI list:"); }
@@ -993,7 +1005,7 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
 
   if options.trace_map_parsing { log!("-- end of str_to_floor2()"); }
 
-  return ( floor, map_unlocked_parts, ui_unlock_progress, seed, story_index );
+  return ( floor, map_unlocked_parts, finished_quests, ui_unlock_progress, seed, story_index );
 }
 
 
@@ -1073,7 +1085,7 @@ fn alnum_to_n(c: char) -> u8 {
     };
 }
 
-fn parse_icon(options: &Options, state: &State, config: &Config, line: &mut std::iter::Peekable<std::str::Chars>, line_no: i32) -> Option<char> {
+fn parse_unlocked_part_icon(options: &Options, state: &State, config: &Config, line: &mut std::iter::Peekable<std::str::Chars>, line_no: i32) -> Option<char> {
   let c = line.next().or(Some('#')).unwrap();
   if options.trace_map_parsing { log!("- unlocked part start: `{}` (ord={})", c, c as u32); }
   if c == '#' { return None; }

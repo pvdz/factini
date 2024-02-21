@@ -77,7 +77,7 @@ fn dnow() -> u64 {
 }
 
 pub fn create_factory(options: &mut Options, state: &mut State, config: &mut Config, floor_str: String) -> Factory {
-  let ( floor, initial_map_unlocked_parts, ui_unlock_progress, map_seed, map_story_index) = floor_from_str(options, state, config, &floor_str);
+  let ( floor, initial_map_unlocked_parts, initial_finished_quests, ui_unlock_progress, map_seed, map_story_index) = floor_from_str(options, state, config, &floor_str);
 
   // TODO: improve the active story state because doing it in state is way too implicit
   if state.active_story_index != map_story_index {
@@ -87,7 +87,7 @@ pub fn create_factory(options: &mut Options, state: &mut State, config: &mut Con
 
   let available_parts = get_available_parts_from_map_and_story(options, state, config, &initial_map_unlocked_parts, map_story_index);
 
-  let quests = get_fresh_quest_states(options, state, config, 0, &available_parts.iter().map(|(p, _b)| *p).collect());
+  let quests = get_fresh_quest_states(options, state, config, 0, &available_parts.iter().map(|(p, _b)| *p).collect(), initial_finished_quests);
   if options.trace_quest_status { log!("active story {} nodes: {:?}", map_story_index, config.stories[map_story_index].part_nodes); }
   if options.trace_quest_status { log!("available quests: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| quest.name.clone()).collect::<Vec<_>>()); }
   if options.trace_quest_status { log!("target quest parts: {:?}", quests.iter().filter(|quest| quest.status == QuestStatus::Active).map(|quest| config.nodes[quest.production_part_kind].name.clone()).collect::<Vec<_>>()); }
@@ -449,7 +449,7 @@ pub fn update_game_ui_after_quest_finish(options: &mut Options, state: &mut Stat
 }
 
 pub fn factory_load_map(options: &mut Options, state: &mut State, config: &mut Config, factory: &mut Factory, floor_str: String) {
-  let ( floor, initial_map_unlocked_parts, ui_unlock_progress, map_seed, map_story_index) = floor_from_str(options, state, config, &floor_str);
+  let ( floor, initial_map_unlocked_parts, initial_finished_quests, ui_unlock_progress, map_seed, map_story_index) = floor_from_str(options, state, config, &floor_str);
 
   if state.active_story_index != map_story_index {
     if options.trace_story_changes { log!("active_story_index switching to {}", map_story_index); }
@@ -458,7 +458,7 @@ pub fn factory_load_map(options: &mut Options, state: &mut State, config: &mut C
 
   let available_parts = get_available_parts_from_map_and_story(options, state, config, &initial_map_unlocked_parts, map_story_index);
 
-  if options.trace_quest_status { log!("Active quests before: {:?}", factory.quests.iter().filter(|quest| quest.status == QuestStatus::Active)); }
+  if options.trace_quest_status { log!("Active quests before: {:?}, initial_finished_quests: {:?}", factory.quests.iter().filter(|quest| quest.status == QuestStatus::Active), initial_finished_quests); }
   factory.floor = floor;
   // log!("map_seed: {}", map_seed);
   let map_seed = if map_seed == 0 { dnow() } else { map_seed };
@@ -469,7 +469,7 @@ pub fn factory_load_map(options: &mut Options, state: &mut State, config: &mut C
   if options.trace_quest_status { log!("available_atoms: {:?}", factory.available_atoms); }
   factory.available_woops = available_parts.iter().filter(|(part, _)| is_woop(config, *part)).map(|(p, _)| (*p, true)).collect::<Vec<(PartKind, bool)>>();
   if options.trace_quest_status { log!("available_woops: {:?}", factory.available_woops); }
-  factory.quests = get_fresh_quest_states(options, state, config, factory.ticks, &available_parts.iter().map(|(p,_)|*p).collect());
+  factory.quests = get_fresh_quest_states(options, state, config, factory.ticks, &available_parts.iter().map(|(p,_)|*p).collect(), initial_finished_quests);
   factory.quest_updated = true;
   if options.trace_quest_status { log!("new current_active_quests: {:?}", factory.quests.iter().map(|quest| config.nodes[quest.config_node_index as usize].name.clone()).collect::<Vec<String>>().join(", ")); }
   auto_layout(options, state, config, factory);
@@ -534,10 +534,11 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
         if options.trace_quest_status { log!("Collecting all waiting quests that depended on quests {} ({})...", quest_current_index, factory.quests[quest_current_index].name); }
         // Find all other waiting quests with this quest as unlock requirement
         for quest_unlock_search_index in 0..factory.quests.len() {
+          if options.trace_quest_status { log!("- {} ({}) = {:?}", quest_unlock_search_index, factory.quests[quest_unlock_search_index].name, factory.quests[quest_unlock_search_index].status); }
           if factory.quests[quest_unlock_search_index].status == QuestStatus::Waiting {
             // Note: unlock_requirement_indexes maps to factory.quests so we need the current quest index, not config node index
             let pos = factory.quests[quest_unlock_search_index].unlocks_todo.binary_search(&quest_current_index);
-            if options.trace_quest_status { log!("- {} ({}) -> is unlock? {:?} todo: {:?}", quest_unlock_search_index, factory.quests[quest_unlock_search_index].name, pos, factory.quests[quest_unlock_search_index].unlocks_todo); }
+            if options.trace_quest_status { log!("  - is unlock? {:?} todo: {:?}", pos, factory.quests[quest_unlock_search_index].unlocks_todo); }
             if let Ok(unlock_index) = pos {
               // This quest had current_quest as a requirement. Remove it and check if it has more requirements.
               // When it doesn't, activate the quest and add all its parts to the unlocked pool.
