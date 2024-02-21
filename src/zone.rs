@@ -141,21 +141,6 @@ pub const UI_DEBUG_SECRET_Y: f64 = UI_LOGO_Y + 2.0;
 pub const UI_DEBUG_SECRET_W: f64 = 15.0;
 pub const UI_DEBUG_SECRET_H: f64 = 15.0;
 
-pub const UI_MENU_MACHINE_BUTTON_1X2_X: f64 = GRID_X1 + 400.0;
-pub const UI_MENU_MACHINE_BUTTON_1X2_Y: f64 = UI_BOTTOM_OFFSET_Y + 45.0;
-pub const UI_MENU_MACHINE_BUTTON_1X2_WIDTH: f64 = 23.0;
-pub const UI_MENU_MACHINE_BUTTON_1X2_HEIGHT: f64 = 47.0;
-
-pub const UI_MENU_MACHINE_BUTTON_2X1_X: f64 = GRID_X1 + 380.0;
-pub const UI_MENU_MACHINE_BUTTON_2X1_Y: f64 = UI_BOTTOM_OFFSET_Y + 10.0;
-pub const UI_MENU_MACHINE_BUTTON_2X1_WIDTH: f64 = 47.0;
-pub const UI_MENU_MACHINE_BUTTON_2X1_HEIGHT: f64 = 23.0;
-
-pub const UI_MENU_MACHINE_BUTTON_2X2_X: f64 = GRID_X1 + 440.0;
-pub const UI_MENU_MACHINE_BUTTON_2X2_Y: f64 = UI_BOTTOM_OFFSET_Y + 10.0;
-pub const UI_MENU_MACHINE_BUTTON_2X2_WIDTH: f64 = 47.0;
-pub const UI_MENU_MACHINE_BUTTON_2X2_HEIGHT: f64 = 47.0;
-
 pub const UI_MENU_MACHINE_BUTTON_3X3_X: f64 = GRID_X1 + 500.0;
 pub const UI_MENU_MACHINE_BUTTON_3X3_Y: f64 = UI_BOTTOM_OFFSET_Y + 14.0;
 pub const UI_MENU_MACHINE_BUTTON_3X3_WIDTH: f64 = 70.0;
@@ -307,13 +292,3 @@ pub fn get_quest_xy(visible_index: usize, delta: f64) -> (f64, f64 ) {
   return ( x, y );
 }
 
-pub fn machine_dims_to_button_coords(width: usize, height: usize) -> (f64, f64, f64, f64) {
-  // TODO: other machines are no longer painted. can remove stuff for it.
-  match (width, height) {
-    (1, 2) => (UI_MENU_MACHINE_BUTTON_1X2_X, UI_MENU_MACHINE_BUTTON_1X2_Y, UI_MENU_MACHINE_BUTTON_1X2_WIDTH, UI_MENU_MACHINE_BUTTON_1X2_HEIGHT),
-    (2, 1) => (UI_MENU_MACHINE_BUTTON_2X1_X, UI_MENU_MACHINE_BUTTON_2X1_Y, UI_MENU_MACHINE_BUTTON_2X1_WIDTH, UI_MENU_MACHINE_BUTTON_2X1_HEIGHT),
-    (2, 2) => (UI_MENU_MACHINE_BUTTON_2X2_X, UI_MENU_MACHINE_BUTTON_2X2_Y, UI_MENU_MACHINE_BUTTON_2X2_WIDTH, UI_MENU_MACHINE_BUTTON_2X2_HEIGHT),
-    (3, 3) => (UI_MENU_MACHINE_BUTTON_3X3_X, UI_MENU_MACHINE_BUTTON_3X3_Y, UI_MENU_MACHINE_BUTTON_3X3_WIDTH, UI_MENU_MACHINE_BUTTON_3X3_HEIGHT),
-    _ => panic!("Machine size of {}x{} is not supported here. add me!", width, height),
-  }
-}

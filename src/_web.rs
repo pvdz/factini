@@ -18,7 +18,6 @@
 //   - add hint that two machines next to each other do not share port?
 // - cleanup
 //   - repo
-//   - after machine_dims_to_button_coords goes, are the other vars still useful? UI_MENU_MACHINE_BUTTON_3X3_X, UI_MENU_MACHINE_BUTTON_3X3_Y, UI_MENU_MACHINE_BUTTON_3X3_WIDTH, UI_MENU_MACHINE_BUTTON_3X3_HEIGHT
 // - bug
 //   - ai will use woops as suppliers
 
