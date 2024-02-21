@@ -9,9 +9,7 @@
 //   - full screen button etc
 // - graphics
 //   - fix item animation in and out of suppliers/demanders. looks ugly rn
-//   - machine top layer should paint _over_ the parts
 //   - when next ui-phase unlocks, use an animation where ui elements drift into their place
-//   - roundway mini belts are painted ugly, interlacing
 // - maze
 //   - maze fuel could blow-up-fade-out when collected, with a 3x for the better one, maybe rainbow wiggle etc? or just 1x 2x 3x instead of icon
 // - help the player
@@ -20,8 +18,7 @@
 //   - add hint that two machines next to each other do not share port?
 // - cleanup
 //   - repo
-//   - is pattern_unique_kinds not used anymore? or why does it not work
-//   - machine_dims_to_button_coords no longer needs to support multiples etc
+//   - after machine_dims_to_button_coords goes, are the other vars still useful? UI_MENU_MACHINE_BUTTON_3X3_X, UI_MENU_MACHINE_BUTTON_3X3_Y, UI_MENU_MACHINE_BUTTON_3X3_WIDTH, UI_MENU_MACHINE_BUTTON_3X3_HEIGHT
 //   - update AI after woop machine change
 
 // features
@@ -34,6 +31,7 @@
 //   - animate machines at work
 //   - paint the prepared parts of a machine while not selected?
 //   - make the menu-machine "process" (-> animation) the finished parts before generating trucks
+//   - machine top layer should paint _over_ the parts. machines could be nicer with how they ingest the parts that arrive there.
 // - import export
 //   - do we want/need to support serialization of maps with more than 60 machines? 2x2 can only go up to 49. but 2x1 or 1x2 would double that, up to 84. if not we should gracefully handle it rather than let it throw
 // - animations
@@ -5198,26 +5196,13 @@ fn paint_secret_menu_or_logo(options: &Options, state: &State, config: &Config, 
   }
 }
 fn paint_factory_img(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
-  let (bx, by, bw, bh) = machine_dims_to_button_coords(3, 3);
-
   context.set_fill_style(&"#aaa".into());
-  context.fill_rect(bx, by, bw, bh);
+  context.fill_rect(UI_MENU_MACHINE_BUTTON_3X3_X, UI_MENU_MACHINE_BUTTON_3X3_Y, UI_MENU_MACHINE_BUTTON_3X3_WIDTH, UI_MENU_MACHINE_BUTTON_3X3_HEIGHT);
 
-  paint_asset(options, state, config, context, CONFIG_NODE_ASSET_FACTORY, factory.ticks, bx, by, bw, bh);
+  paint_asset(options, state, config, context, CONFIG_NODE_ASSET_FACTORY, factory.ticks, UI_MENU_MACHINE_BUTTON_3X3_X, UI_MENU_MACHINE_BUTTON_3X3_Y, UI_MENU_MACHINE_BUTTON_3X3_WIDTH, UI_MENU_MACHINE_BUTTON_3X3_HEIGHT);
 
   context.set_stroke_style(&"black".into());
-  context.stroke_rect(bx, by, bw, bh);
-}
-fn paint_machine_button(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, width: usize, height: usize) {
-  let (bx, by, bw, bh) = machine_dims_to_button_coords(width, height);
-
-  context.set_fill_style(&"#aaa".into());
-  context.fill_rect(bx, by, bw, bh);
-
-  paint_asset(options, state, config, context, machine_size_to_asset_index(width, height), factory.ticks, bx, by, bw, bh);
-
-  context.set_stroke_style(&"black".into());
-  context.stroke_rect(bx, by, bw, bh);
+  context.stroke_rect(UI_MENU_MACHINE_BUTTON_3X3_X, UI_MENU_MACHINE_BUTTON_3X3_Y, UI_MENU_MACHINE_BUTTON_3X3_WIDTH, UI_MENU_MACHINE_BUTTON_3X3_HEIGHT);
 }
 fn paint_logo(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   paint_asset_raw(options, state, config, &context, CONFIG_NODE_ASSET_LOGO, 0, UI_LOGO_X, UI_LOGO_Y, UI_LOGO_W, UI_LOGO_H);
