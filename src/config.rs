@@ -376,6 +376,9 @@ pub const CONFIG_NODE_ASSET_PASTE_GREY: usize = 348;
 pub const CONFIG_NODE_ASSET_COPY_GREEN: usize = 349;
 pub const CONFIG_NODE_ASSET_PASTE_GREEN: usize = 350;
 pub const CONFIG_NODE_ASSET_FACTORY: usize = 351;
+pub const CONFIG_NODE_ASSET_FULLSCREEN_BLACK: usize = 352;
+pub const CONFIG_NODE_ASSET_FULLSCREEN_WHITE: usize = 353;
+pub const CONFIG_NODE_ASSET_FULLSCREEN_GREY: usize = 354;
 
 #[derive(Debug)]
 pub struct Config {
@@ -1446,6 +1449,9 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Asset_PasteGrey" => CONFIG_NODE_ASSET_PASTE_GREY,
     "Asset_CopyGreen" => CONFIG_NODE_ASSET_COPY_GREEN,
     "Asset_PasteGreen" => CONFIG_NODE_ASSET_PASTE_GREEN,
+    "Asset_FullScreenBlack" => CONFIG_NODE_ASSET_FULLSCREEN_BLACK,
+    "Asset_FullScreenWhite" => CONFIG_NODE_ASSET_FULLSCREEN_WHITE,
+    "Asset_FullScreenGrey" => CONFIG_NODE_ASSET_FULLSCREEN_GREY,
     "Part_None" => CONFIG_NODE_PART_NONE,
     "Part_Trash" => CONFIG_NODE_PART_TRASH,
     "Supply_Up" => CONFIG_NODE_SUPPLY_UP,
@@ -2088,6 +2094,9 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_asset(CONFIG_NODE_ASSET_COPY_GREEN, "Copy_Green"),
     config_node_asset(CONFIG_NODE_ASSET_PASTE_GREEN, "Paste_Green"),
     config_node_asset(CONFIG_NODE_ASSET_FACTORY, "Factory"),
+    config_node_asset(CONFIG_NODE_ASSET_FULLSCREEN_BLACK, "FullScreenBlack"),
+    config_node_asset(CONFIG_NODE_ASSET_FULLSCREEN_WHITE, "FullScreenWhite"),
+    config_node_asset(CONFIG_NODE_ASSET_FULLSCREEN_GREY, "FullScreenGrey"),
   );
 
   v.iter().enumerate().for_each(|(i, node)| assert!(node.index == i, "system node indexes must match their global constant value; mismatch for index {} in get_system_nodes(), node.index= {}", i, node.index));

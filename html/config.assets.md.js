@@ -88,32 +88,32 @@ Source of cog unclear: https://pixelartmaker.com/art/b1c49e7f345d87d
 - w: 64
 - h: 48
 - file: ./img/machines/machine_orange.png
-- w: 16
-- h: 16
+- w: 128
+- h: 128
 
 # Asset_Machine_2_1
 - file: ./img/machines/machine_2_1.png
 - w: 128
 - h: 64
 - file: ./img/machines/machine_orange.png
-- w: 16
-- h: 16
+- w: 128
+- h: 128
 
 # Asset_Machine_2_2
 - file: ./img/machines/machine_2_2.png
 - w: 64
 - h: 64
 - file: ./img/machines/machine_orange.png
-- w: 16
-- h: 16
+- w: 128
+- h: 128
 
 # Asset_Machine_3_3
 - file: ./img/machines/machine_3_3.png
 - w: 320
 - h: 320
 - file: ./img/machines/machine_orange.png
-- w: 16
-- h: 16
+- w: 128
+- h: 128
 
 # Asset_Factory
 - file: ./img/machines/machine_3_3.png
@@ -475,5 +475,20 @@ See options.show_drm=false
 - file: ./img/drm.png
 - w: 16
 - h: 16
+
+# Asset_FullScreenBlack
+- file: ./img/fullscreen_black.png
+- w: 512
+- h: 512
+
+# Asset_FullScreenWhite
+- file: ./img/fullscreen_white.png
+- w: 512
+- h: 512
+
+# Asset_FullScreenGrey
+- file: ./img/fullscreen_grey.png
+- w: 512
+- h: 512
 
 `;

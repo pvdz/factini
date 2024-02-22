@@ -79,10 +79,20 @@ pub const UI_TOP_OFFSET_Y: f64 = GRID_Y0;
 pub const UI_TOP_WIDTH: f64 = UI_FLOOR_WIDTH;
 pub const UI_TOP_HEIGHT: f64 = GRID_TOP_HEIGHT;
 
-pub const UI_HELP_X: f64 = GRID_X0 + 40.0;
+pub const UI_HELP_X: f64 = GRID_X0 + 10.0;
 pub const UI_HELP_Y: f64 = GRID_Y0 + 8.0;
 pub const UI_HELP_WIDTH: f64 = 50.0;
 pub const UI_HELP_HEIGHT: f64 = 40.0;
+
+pub const UI_FULLSCREEN_W: f64 = 60.0;
+pub const UI_FULLSCREEN_H: f64 = 60.0;
+pub const UI_FULLSCREEN_X: f64 = UI_HELP_X + UI_HELP_WIDTH + 10.0;
+pub const UI_FULLSCREEN_Y: f64 = GRID_Y0;
+
+pub const UI_AUTO_BUILD_W: f64 = 60.0; // Size of a medium button
+pub const UI_AUTO_BUILD_H: f64 = 60.0;
+pub const UI_AUTO_BUILD_X: f64 = UI_FULLSCREEN_X + UI_FULLSCREEN_W + 10.0;
+pub const UI_AUTO_BUILD_Y: f64 = GRID_Y0;
 
 pub const UI_SAVE_OFFSET_X: f64 = 5.0;
 pub const UI_SAVE_OFFSET_Y: f64 = 8.0;
@@ -112,7 +122,7 @@ pub const BUTTON_SPEED_PLAY_PAUSE_INDEX: usize = 2;
 pub const BUTTON_SPEED_DOUBLE_INDEX: usize = 3;
 pub const BUTTON_SPEED_PLUS_INDEX: usize = 4;
 
-pub const UI_SPEED_BUBBLE_OFFSET_X: f64 = UI_TOP_OFFSET_X + 5.0;
+pub const UI_SPEED_BUBBLE_OFFSET_X: f64 = UI_TOP_OFFSET_X + 25.0;
 pub const UI_SPEED_BUBBLE_OFFSET_Y: f64 = UI_TOP_OFFSET_Y + 5.0;
 pub const UI_SPEED_BUBBLE_RADIUS: f64 = 25.0; // half the diameter...
 pub const UI_SPEED_BUBBLE_SPACING: f64 = 10.0;
@@ -195,11 +205,6 @@ pub const UI_ATOMS_OFFSET_Y: f64 = GRID_Y2 + 10.0;
 pub const UI_ATOMS_PER_ROW: f64 = 5.0;
 pub const UI_ATOMS_WIDTH: f64 = UI_WOTOM_WIDTH + ((UI_ATOMS_PER_ROW - 1.0) * UI_WOTOM_WIDTH_PLUS_MARGIN);
 
-pub const UI_AUTO_BUILD_W: f64 = 60.0; // Size of a medium button
-pub const UI_AUTO_BUILD_H: f64 = 60.0;
-pub const UI_AUTO_BUILD_X: f64 = GRID_X0 + 100.0;
-pub const UI_AUTO_BUILD_Y: f64 = GRID_Y0 + 0.0;
-
 // The UI is a 3x3 grid of sections. The center section is the main part of the game, "the Floor"
 // Define the coordinates of each "tab" (whatever the terminology ought to be) that defines the grid
 pub const GRID_X0: f64 = GRID_PADDING;
@@ -223,6 +228,16 @@ pub const ZONE_RIGHT_BOTTOM: Zone = Zone::BottomRight;
 pub const ZONE_BOTTOM_BOTTOM_RIGHT: Zone = Zone::BottomBottomRight;
 pub const ZONE_MANUAL: Zone = Zone::Manual;
 pub const ZONE_MARGIN: Zone = Zone::Margin; // Between the cracks of each zone
+
+// These are the actual pixels we can paint to
+pub const CANVAS_PIXEL_INITIAL_WIDTH: f64 = GRID_X3;
+pub const CANVAS_PIXEL_INITIAL_HEIGHT: f64 = GRID_Y4;
+
+// Need this for mouse2world coord conversion. Rest of the coords/sizes are in world (canvas) pixels.
+// Note that a resize event (fullscreen in particular) can change this. So these are the initial values.
+// We store the "tracked" size in State
+pub const CANVAS_CSS_INITIAL_WIDTH: f64 = GRID_X3;
+pub const CANVAS_CSS_INITIAL_HEIGHT: f64 = GRID_Y4;
 
 pub fn coord_to_zone(options: &Options, state: &State, config: &Config, x: f64, y: f64, is_machine_selected: bool, factory: &Factory, selected_coord: usize) -> Zone {
   if state.manual_open {

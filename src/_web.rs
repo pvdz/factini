@@ -5,21 +5,23 @@
 // Compile with --profile to try and get some sense of shit
 
 // road to release
-// - ui
-//   - full screen button etc
 // - graphics
 //   - fix item animation in and out of suppliers/demanders. looks ugly rn
 //   - when next ui-phase unlocks, use an animation where ui elements drift into their place
+//   - improve resolution of graphics for fullscreen mode
 // - maze
 //   - maze fuel could blow-up-fade-out when collected, with a 3x for the better one, maybe rainbow wiggle etc? or just 1x 2x 3x instead of icon
 // - help the player
 //   - update tutorial with current status
 //   - something with that ikea help icon
 //   - add hint that two machines next to each other do not share port?
+//   - for touch, clicking the floor with an atom or woop selected should create that there
+//   - grid snapping for woops should ignore half cell grace period for edges
 // - cleanup
 //   - repo
 // - bug
 //   - ai will use woops as suppliers
+//   - touch; deselecting selections is awkward. should probably ignore hover afterwards if event was recorded as touch. maybe clear it
 
 // features
 // - belts
@@ -32,6 +34,7 @@
 //   - paint the prepared parts of a machine while not selected?
 //   - make the menu-machine "process" (-> animation) the finished parts before generating trucks
 //   - machine top layer should paint _over_ the parts. machines could be nicer with how they ingest the parts that arrive there.
+//   - machine image could use different sprite depending on which ports are connected. requires some sprite painting changes and some pretty cool machine art to support it proper. would be nice.
 // - import export
 //   - do we want/need to support serialization of maps with more than 60 machines? 2x2 can only go up to 49. but 2x1 or 1x2 would double that, up to 84. if not we should gracefully handle it rather than let it throw
 // - animations
@@ -107,14 +110,6 @@ use super::zone::*;
 
 // This explicitly import shoulnd't be necessary anymore according to https://stackoverflow.com/questions/26731243/how-do-i-use-a-macro-across-module-files but ... well I did at the time of writing.
 use super::log;
-
-// These are the actual pixels we can paint to
-const CANVAS_WIDTH: f64 = GRID_X3;
-const CANVAS_HEIGHT: f64 = GRID_Y4;
-
-// Need this for mouse2world coord conversion. Rest of the coords/sizes are in world (canvas) pixels.
-const CANVAS_CSS_WIDTH: f64 = GRID_X3;
-const CANVAS_CSS_HEIGHT: f64 = GRID_Y4;
 
 // Temp placeholder
 const COLOR_SUPPLY: &str = "pink";
@@ -203,11 +198,11 @@ pub fn start() -> Result<(), JsValue> {
     .dyn_into::<web_sys::HtmlCanvasElement>()?;
   document.get_element_by_id("$main_game").unwrap().append_child(&canvas)?;
   canvas.set_id("$main_game_canvas");
-  canvas.set_width(CANVAS_WIDTH as u32);
-  canvas.set_height(CANVAS_HEIGHT as u32);
+  canvas.set_width(CANVAS_PIXEL_INITIAL_WIDTH as u32);
+  canvas.set_height(CANVAS_PIXEL_INITIAL_HEIGHT as u32);
   canvas.style().set_property("border", "solid")?;
-  canvas.style().set_property("width", format!("{}px", CANVAS_CSS_WIDTH as u32).as_str())?;
-  canvas.style().set_property("height", format!("{}px", CANVAS_CSS_HEIGHT as u32).as_str())?;
+  canvas.style().set_property("width", format!("{}px", CANVAS_CSS_INITIAL_WIDTH as u32).as_str())?;
+  canvas.style().set_property("height", format!("{}px", CANVAS_CSS_INITIAL_HEIGHT as u32).as_str())?;
   canvas.style().set_property("background-image", "url(./img/sand.png)").expect("should work");
   canvas.style().set_property("id", "sand_bg").expect("should work");
 
@@ -302,18 +297,14 @@ pub fn start() -> Result<(), JsValue> {
     None => ( getGameOptions(), true ),
   };
   let options_started_from_source = if options_started_from_source { 0 } else { option_string.len() as u64 };
-  let old = options.dbg_show_bottom_info;
   parse_and_save_options_string(option_string.clone(), &mut options, true, options_started_from_source, true);
 
   let mut config = parse_config_md(options.trace_parse_config_md, getGameConfig());
   load_config(options.trace_img_loader, &mut config);
 
-  if old != options.dbg_show_bottom_info {
-    let h = if options.dbg_show_bottom_info { CANVAS_CSS_HEIGHT } else { CANVAS_CSS_HEIGHT - GRID_BOTTOM_DEBUG_HEIGHT - GRID_PADDING } as u32;
-    let c = document.get_element_by_id("$main_game_canvas").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().expect("should work");
-    c.set_height(h);
-    c.style().set_property("height", format!("{}px", h).as_str()).expect("should work");
-  }
+  let h = if options.dbg_show_bottom_info { CANVAS_CSS_INITIAL_HEIGHT } else { CANVAS_CSS_INITIAL_HEIGHT - GRID_BOTTOM_DEBUG_HEIGHT - GRID_PADDING } as u32;
+  canvas.set_height(h);
+  canvas.style().set_property("height", format!("{}px", h).as_str()).expect("should work");
 
   let img_loading_sand: web_sys::HtmlImageElement = load_tile("./img/sand.png");
 
@@ -322,6 +313,7 @@ pub fn start() -> Result<(), JsValue> {
   // let ptrn_dock1 = context.create_pattern_with_html_image_element(&img_loading_dock, "repeat").expect("trying to load dock1 tile");
 
   // Tbh this whole Rc approach is copied from the original template. It works so why not, :shrug:
+  let saw_resize_event = Rc::new(Cell::new(true)); // Force reading it after the first frame because it can be whatever.
   let mouse_x = Rc::new(Cell::new(0.0));
   let mouse_y = Rc::new(Cell::new(0.0));
   let mouse_moved = Rc::new(Cell::new(false));
@@ -349,12 +341,12 @@ pub fn start() -> Result<(), JsValue> {
       event.stop_propagation();
       event.prevent_default();
 
-      log!("mouse down: button: {:?}", event.buttons());
-
       last_down_event_type.set(EventSourceType::Mouse);
 
       let mx = event.offset_x() as f64;
       let my = event.offset_y() as f64;
+
+      log!("mouse down: {}x{}, button: {:?}", mx, my, event.buttons());
 
       last_mouse_was_down.set(true);
       mouse_x.set(mx);
@@ -397,10 +389,10 @@ pub fn start() -> Result<(), JsValue> {
       event.stop_propagation();
       event.prevent_default();
 
-      log!("mouse up: button: {:?}", event.buttons());
-
       let mx = event.offset_x() as f64;
       let my = event.offset_y() as f64;
+
+      log!("mouse up: {}x{}, button: {:?}", mx, my, event.buttons());
 
       last_mouse_was_up.set(true);
       last_mouse_up_x.set(mx);
@@ -506,6 +498,20 @@ pub fn start() -> Result<(), JsValue> {
       last_mouse_up_button.set(1); // 1=left, 2=right, 3=left-then-also-right (but right-then-also-left is still 2)
     }) as Box<dyn FnMut(_)>);
     ref_counted_canvas.clone().add_event_listener_with_callback("touchend", closure.as_ref().unchecked_ref())?;
+    closure.forget();
+  }
+  // resize (fullscreen api will change size of canvas)
+  {
+    let canvas = ref_counted_canvas.clone();
+    let saw_resize_event = saw_resize_event.clone();
+    let closure = Closure::wrap(Box::new(move |event: web_sys::Event| {
+      event.stop_propagation();
+      event.prevent_default();
+
+      // log!("(size) Saw canvas resize event");
+      saw_resize_event.set(true);
+    }) as Box<dyn FnMut(_)>);
+    window().add_event_listener_with_callback("resize", closure.as_ref().unchecked_ref())?;
     closure.forget();
   }
 
@@ -722,6 +728,8 @@ pub fn start() -> Result<(), JsValue> {
       prerender_button(&options, &state, &config, UI_SAVE_THUMB_WIDTH - UI_SAVE_THUMB_IMG_WIDTH, UI_SAVE_THUMB_HEIGHT, false),
     );
 
+    if options.trace_size_changes { log!("(size) Internal css size initially: {}x{}, canvas pixels: {}x{}", CANVAS_CSS_INITIAL_WIDTH, CANVAS_CSS_INITIAL_HEIGHT, CANVAS_PIXEL_INITIAL_WIDTH, CANVAS_PIXEL_INITIAL_HEIGHT); }
+
     // From https://rustwasm.github.io/wasm-bindgen/examples/request-animation-frame.html
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
@@ -888,11 +896,13 @@ pub fn start() -> Result<(), JsValue> {
 
           if options.dbg_show_bottom_info != state.showing_debug_bottom {
             state.showing_debug_bottom = options.dbg_show_bottom_info;
-            let h = if state.showing_debug_bottom { CANVAS_CSS_HEIGHT } else { CANVAS_CSS_HEIGHT - GRID_BOTTOM_DEBUG_HEIGHT - GRID_PADDING } as u32;
+            let h = if state.showing_debug_bottom { CANVAS_CSS_INITIAL_HEIGHT } else { CANVAS_CSS_INITIAL_HEIGHT - GRID_BOTTOM_DEBUG_HEIGHT - GRID_PADDING } as u32;
 
-            let c = document.get_element_by_id("$main_game_canvas").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().expect("should work");
-            c.set_height(h);
-            c.style().set_property("height", format!("{}px", h).as_str()).expect("should work");
+            ref_counted_canvas.set_height(h);
+            ref_counted_canvas.style().set_property("height", format!("{}px", h).as_str()).expect("should work");
+
+            saw_resize_event.set(true);
+            if options.trace_size_changes { log!("(size) Debug bar forced css dimensions to change"); }
           }
         },
         "load_map" => state.reset_next_frame = true, // implicitly will call getGameMap() which loads the map from UI indirectly
@@ -930,6 +940,7 @@ pub fn start() -> Result<(), JsValue> {
         return;
       }
 
+      // main game loop here
       if !state.paused  {
         for _ in 0..ticks_todo.min(MAX_TICKS_PER_FRAME) {
           tick_factory(&mut options, &mut state, &config, &mut factory);
@@ -937,6 +948,7 @@ pub fn start() -> Result<(), JsValue> {
       }
 
       if factory.quest_updated {
+        // Tell JS
         factory.quest_updated = false;
 
         // log!("Calling onQuestUpdate()");
@@ -951,9 +963,68 @@ pub fn start() -> Result<(), JsValue> {
         onQuestUpdate(pairs.iter().collect::<js_sys::Array>().into());
       }
 
+      // main ui / paint loop here
       if options.dbg_animate_cli_output_in_web {
         paint_world_cli(&context, &mut options, &mut state, &factory);
       } else {
+        let was_resize = saw_resize_event.get();
+        if was_resize {
+          saw_resize_event.set(false);
+
+          // Need to check whether we are in fullscreen mode or not.
+          // In fullscreen mode the painted canvas area may be implicitly scaled (with no clue
+          // given of this fact) which screws up mouse coordinate translations.
+          // To fix that we need to check fullscreen status, and in that case, assume the canvas
+          // is 100% wide or high and then determine scale factor accordingly, then update here.
+          // tldr; in fullscreen mode the api will lie about the size of the _painted area_
+
+          let fse = document.fullscreen_element();
+          if let Some(_) = fse {
+            if options.trace_size_changes { log!("(size) We are in canvas fullscreen mode"); }
+            state.should_be_fullscreen = true;
+
+            // Actual pixels we paint is not affected by fullscreen so get them first
+            state.canvas_pixel_width = ref_counted_canvas.width() as f64;
+            state.canvas_pixel_height = ref_counted_canvas.height() as f64;
+            if options.trace_size_changes { log!("(size) pixel size: {}x{}", state.canvas_pixel_width, state.canvas_pixel_height); }
+
+            // Canvas dimensions are lying to us. We must assume the canvas is max wide or high.
+            // We have to compute the maxed dimension manually and the scale factor too.
+
+            // Note: screen api is for actual screen, not browser inside window. innerWidth is what we want here.
+            let sw = window.inner_width().unwrap().as_f64().expect("to work") as f64;
+            let sh = window.inner_height().unwrap().as_f64().expect("to work") as f64;
+            if options.trace_size_changes { log!("(size) Window size is {}x{}x", sw, sh); }
+
+            // Determine ratios.
+            let rw = sw / state.canvas_pixel_width;
+            let rh = sh / state.canvas_pixel_height;
+            // We want the lowest ratio
+            let scale = rw.min(rh);
+            if options.trace_size_changes { log!("(size) ratios: {} {}", rw, rh); }
+
+            // Note: this will be the size of the visual canvas _excluding_ the secret padding added
+            // by fullscreen api. This is what we use for mouse-to-world coordinate translations.
+            state.canvas_css_width = (state.canvas_pixel_width * scale).floor();
+            state.canvas_css_height = (state.canvas_pixel_height * scale).floor();
+            // Full screen will center the painted pixels so the mouse has to compensate for padding
+            state.canvas_css_x = ((ref_counted_canvas.client_width() as f64 - state.canvas_css_width) / 2.0).floor();
+            state.canvas_css_y = ((ref_counted_canvas.client_height() as f64 - state.canvas_css_height) / 2.0).floor();
+            if options.trace_size_changes { log!("(size) css size: {}x{} (scale {}), offset {}x{}", state.canvas_css_width, state.canvas_css_height, scale, state.canvas_css_x, state.canvas_css_y); }
+          } else {
+            if options.trace_size_changes { log!("(size) We are not in canvas fullscreen mode"); }
+            state.should_be_fullscreen = false;
+
+            state.canvas_pixel_width = ref_counted_canvas.width() as f64;
+            state.canvas_pixel_height = ref_counted_canvas.height() as f64;
+            state.canvas_css_x = 0.0;
+            state.canvas_css_y = 0.0;
+            state.canvas_css_width = ref_counted_canvas.client_width() as f64;
+            state.canvas_css_height = ref_counted_canvas.client_height() as f64;
+          }
+
+          if options.trace_size_changes { log!("(size) Internal css size now: {}x{}, canvas pixels: {}x{}", state.canvas_css_width, state.canvas_css_height, state.canvas_pixel_width, state.canvas_pixel_height); }
+        }
         let was_down = last_mouse_was_down.get();
         let was_mouse = if was_down { if last_down_event_type.get() == EventSourceType::Mouse { EventSourceType::Mouse } else { EventSourceType::Touch } } else { EventSourceType::Unknown }; // Only read if set. May be an over-optimization but eh.
         update_mouse_state(&mut options, &mut state, &config, &mut factory, &mut cell_selection, &mut mouse_state, mouse_x.get(), mouse_y.get(), mouse_moved.get(), was_mouse, was_down, last_mouse_down_x.get(), last_mouse_down_y.get(), last_mouse_down_button.get(), last_mouse_was_up.get(), last_mouse_up_x.get(), last_mouse_up_y.get(), last_mouse_up_button.get());
@@ -966,6 +1037,20 @@ pub fn start() -> Result<(), JsValue> {
         if factory.auto_build.phase == AutoBuildPhase::Finishing {
           factory.auto_build.mouse_target_x = mouse_state.world_x;
           factory.auto_build.mouse_target_y = mouse_state.world_y;
+        }
+
+        if state.request_fullscreen {
+          state.request_fullscreen = false;
+          // Must use the boxed canvas ref
+          if state.should_be_fullscreen {
+            log!("Leaving full screen mode...");
+            document.exit_fullscreen();
+            state.should_be_fullscreen = false;
+          } else {
+            log!("Entering full screen mode...");
+            ref_counted_canvas.request_fullscreen();
+            state.should_be_fullscreen = true;
+          }
         }
 
         if factory.changed {
@@ -1036,7 +1121,11 @@ pub fn start() -> Result<(), JsValue> {
 
         // Clear canvas
         // Global background
-        context.clear_rect(0.0, 0.0, CANVAS_WIDTH, CANVAS_HEIGHT - GRID_BOTTOM_DEBUG_HEIGHT);
+        context.clear_rect(0.0, 0.0, state.canvas_pixel_width, state.canvas_pixel_height);
+
+        // This wil show the actual painted area of the canvas (useful for fullscreen mode)
+        // context.set_fill_style(&"red".into());
+        // context.fill_rect(0.0, 0.0, state.canvas_pixel_width, state.canvas_pixel_height);
 
         // Put a semi-transparent layer over the inner floor part to make it darker
         // context.set_fill_style(&"#00000077".into());
@@ -1067,6 +1156,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_debug_selected_supply_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_debug_selected_demand_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_map_state_buttons(&options, &state, &config, &context, &button_canvii, &mouse_state);
+        paint_fullscreen_button(&options, &state, &config, &context, &button_canvii, &mouse_state);
         paint_load_thumbs(&options, &state, &config, &factory, &context, &button_canvii, &mouse_state, &mut quick_saves);
 
         paint_maze(&options, &state, &config, &factory, &context, &mouse_state);
@@ -1190,10 +1280,10 @@ fn update_mouse_state(
   // Note: mouse2world coord is determined by _css_ size, not _canvas_ size
   mouse_state.canvas_x = mouse_x; // Where your mouse actually is on your screen / in your browser
   mouse_state.canvas_y = mouse_y;
-  mouse_state.world_x = mouse_x / CANVAS_CSS_WIDTH * CANVAS_WIDTH;
-  mouse_state.world_y = mouse_y / CANVAS_CSS_HEIGHT * CANVAS_HEIGHT;
-  mouse_state.cell_x = (mouse_x - UI_FLOOR_OFFSET_X) / CELL_W;
-  mouse_state.cell_y = (mouse_y - UI_FLOOR_OFFSET_Y) / CELL_H;
+  mouse_state.world_x = (mouse_x - state.canvas_css_x) / state.canvas_css_width * state.canvas_pixel_width;
+  mouse_state.world_y = (mouse_y - state.canvas_css_y) / state.canvas_css_height * state.canvas_pixel_height;
+  mouse_state.cell_x = (mouse_state.world_x - UI_FLOOR_OFFSET_X) / CELL_W;
+  mouse_state.cell_y = (mouse_state.world_y - UI_FLOOR_OFFSET_Y) / CELL_H;
   mouse_state.cell_x_floored = mouse_state.cell_x.floor();
   mouse_state.cell_y_floored = mouse_state.cell_y.floor();
 
@@ -1224,6 +1314,9 @@ fn update_mouse_state(
     Zone::TopLeft => {
       if hit_test_help_button(mouse_state.world_x, mouse_state.world_y) {
         mouse_state.help_hover = true;
+      }
+      else if hit_test_fullscreen_button(mouse_state.world_x, mouse_state.world_y) {
+        mouse_state.over_menu_button = MenuButton::FullScreenButton;
       }
       else if bounds_check(mouse_state.world_x, mouse_state.world_y, UI_AUTO_BUILD_X, UI_AUTO_BUILD_Y, UI_AUTO_BUILD_X + UI_AUTO_BUILD_W, UI_AUTO_BUILD_Y + UI_AUTO_BUILD_H) {
         mouse_state.over_menu_button = MenuButton::AutoBuildButton;
@@ -1315,8 +1408,8 @@ fn update_mouse_state(
     mouse_state.last_down_button = last_mouse_down_button;
     mouse_state.last_down_canvas_x = last_mouse_down_x;
     mouse_state.last_down_canvas_y = last_mouse_down_y;
-    mouse_state.last_down_world_x = last_mouse_down_x / CANVAS_CSS_WIDTH * CANVAS_WIDTH;
-    mouse_state.last_down_world_y = last_mouse_down_y / CANVAS_CSS_HEIGHT * CANVAS_HEIGHT;
+    mouse_state.last_down_world_x = (last_mouse_down_x - state.canvas_css_x) / state.canvas_css_width * state.canvas_pixel_width;
+    mouse_state.last_down_world_y = (last_mouse_down_y - state.canvas_css_y) / state.canvas_css_height * state.canvas_pixel_height;
     mouse_state.last_down_cell_x = (mouse_state.last_down_world_x - UI_FLOOR_OFFSET_X) / CELL_W;
     mouse_state.last_down_cell_y = (mouse_state.last_down_world_y - UI_FLOOR_OFFSET_Y) / CELL_H;
     mouse_state.last_down_cell_x_floored = mouse_state.last_down_cell_x.floor();
@@ -1326,7 +1419,7 @@ fn update_mouse_state(
     mouse_state.was_down = true; // Unset after this frame
 
     mouse_state.down_zone = coord_to_zone(options, state, config, mouse_state.last_down_world_x, mouse_state.last_down_world_y, is_machine_selected, factory, cell_selection.coord);
-    log!("DOWN event (type={:?}) in zone {:?}, coord {}x{}", if mouse_state.last_down_event_type == EventSourceType::Mouse { "Mouse" } else { "Touch" }, mouse_state.down_zone, mouse_state.world_x, mouse_state.world_y);
+    log!("DOWN event (type={:?}) in zone {:?}, screen {}x{}, world {}x{}", if mouse_state.last_down_event_type == EventSourceType::Mouse { "Mouse" } else { "Touch" }, mouse_state.down_zone, mouse_state.world_x, mouse_state.world_y, mouse_state.last_down_cell_x, mouse_state.last_down_cell_y);
 
     match mouse_state.down_zone {
       Zone::None => panic!("cant be down on no zone"),
@@ -1353,6 +1446,9 @@ fn update_mouse_state(
       Zone::TopLeft => {
         if mouse_state.help_hover {
           mouse_state.help_down = true;
+        }
+        else if hit_test_fullscreen_button(mouse_state.world_x, mouse_state.world_y) {
+          mouse_state.down_menu_button = MenuButton::FullScreenButton;
         }
         else if bounds_check(mouse_state.last_down_world_x, mouse_state.last_down_world_y, UI_AUTO_BUILD_X, UI_AUTO_BUILD_Y, UI_AUTO_BUILD_X + UI_AUTO_BUILD_W, UI_AUTO_BUILD_Y + UI_AUTO_BUILD_H) {
           mouse_state.down_menu_button = MenuButton::AutoBuildButton;
@@ -1464,8 +1560,8 @@ fn update_mouse_state(
   if last_mouse_was_up {
     mouse_state.last_up_canvas_x = last_mouse_up_x;
     mouse_state.last_up_canvas_y = last_mouse_up_y;
-    mouse_state.last_up_world_x = last_mouse_up_x / CANVAS_CSS_WIDTH * CANVAS_WIDTH;
-    mouse_state.last_up_world_y = last_mouse_up_y / CANVAS_CSS_HEIGHT * CANVAS_HEIGHT;
+    mouse_state.last_up_world_x = (last_mouse_up_x - state.canvas_css_x) / state.canvas_css_width * state.canvas_pixel_width;
+    mouse_state.last_up_world_y = (last_mouse_up_y - state.canvas_css_y) / state.canvas_css_height * state.canvas_pixel_height;
     mouse_state.last_up_cell_x = (mouse_state.last_up_world_x - UI_FLOOR_OFFSET_X) / CELL_W;
     mouse_state.last_up_cell_y = (mouse_state.last_up_world_y - UI_FLOOR_OFFSET_Y) / CELL_H;
     mouse_state.is_down = false;
@@ -1481,7 +1577,7 @@ fn update_mouse_state(
     }
 
     mouse_state.up_zone = coord_to_zone(options, state, config, mouse_state.last_up_world_x, mouse_state.last_up_world_y, is_machine_selected, factory, cell_selection.coord);
-    log!("UP event (type={:?}) in zone {:?}, was down in zone {:?}, coord {}x{}", if mouse_state.last_down_event_type == EventSourceType::Mouse { "Mouse" } else { "Touch" }, mouse_state.up_zone, mouse_state.down_zone, mouse_state.last_up_world_x, mouse_state.last_up_world_y);
+    log!("UP event (type={:?}) in zone {:?}, was down in zone {:?}, screen {}x{}, world {}x{}", if mouse_state.last_down_event_type == EventSourceType::Mouse { "Mouse" } else { "Touch" }, mouse_state.up_zone, mouse_state.down_zone, mouse_state.world_x, mouse_state.world_y, mouse_state.last_up_cell_x, mouse_state.last_up_cell_y);
 
     match mouse_state.up_zone {
       Zone::None => panic!("cant be up on no zone"),
@@ -1508,6 +1604,9 @@ fn update_mouse_state(
       Zone::TopLeft => {
         if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_AUTO_BUILD_X, UI_AUTO_BUILD_Y, UI_AUTO_BUILD_X + UI_AUTO_BUILD_W, UI_AUTO_BUILD_Y + UI_AUTO_BUILD_H) {
           mouse_state.up_menu_button = MenuButton::AutoBuildButton;
+        }
+        else if hit_test_fullscreen_button(mouse_state.world_x, mouse_state.world_y) {
+          mouse_state.up_menu_button = MenuButton::FullScreenButton;
         }
         else {
           log!("missed buttons on down in top-left")
@@ -2419,6 +2518,10 @@ fn on_up_paint_toggle(state: &mut State) {
   // cell_selection.on = false;
   // state.selected_area_copy = vec!(); // Or retain this?
 }
+fn on_up_fullscreen_button(options: &Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
+  log!("on_up_fullscreen_button()");
+  state.request_fullscreen = true;
+}
 fn on_up_auto_build_button(options: &Options, state: &State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
   log!("on_up_auto_build_button, factory.auto_build.phase={:?}", factory.auto_build.phase);
 
@@ -2483,6 +2586,9 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
   match mouse_state.up_menu_button {
     MenuButton::None => {}
 
+    MenuButton::FullScreenButton => {
+      on_up_fullscreen_button(options, state, config, factory, mouse_state);
+    }
     MenuButton::AutoBuildButton => {
       on_up_auto_build_button(options, state, config, factory, mouse_state);
     }
@@ -2904,7 +3010,7 @@ fn paint_debug_app(options: &Options, state: &State, config: &Config, context: &
   context.set_font(&"12px monospace");
 
   if !state.showing_debug_bottom {
-    if options.dbg_show_fps {
+    if options.dbg_show_fps || options.dbg_show_secret_menu {
       context.set_fill_style(&"black".into());
       context.fill_text(format!("fps: {}", fps.len()).as_str(), GRID_X3 - 70.0, GRID_Y0 + 15.0).expect("something error fill_text");
       return;
@@ -5428,6 +5534,9 @@ fn paint_asset_raw(options: &Options, state: &State, config: &Config, context: &
 
   return true;
 }
+fn hit_test_fullscreen_button(x: f64, y: f64) -> bool {
+  return bounds_check(x, y, UI_FULLSCREEN_X, UI_FULLSCREEN_Y, UI_FULLSCREEN_X + UI_FULLSCREEN_W, UI_FULLSCREEN_Y + UI_FULLSCREEN_H);
+}
 fn hit_test_undo(x: f64, y: f64) -> bool {
   return bounds_check(x, y, UI_UNREDO_UNDO_OFFSET_X, UI_UNREDO_UNDO_OFFSET_Y, UI_UNREDO_UNDO_OFFSET_X + UI_UNREDO_WIDTH, UI_UNREDO_UNDO_OFFSET_Y + UI_UNREDO_HEIGHT);
 }
@@ -5662,6 +5771,16 @@ fn paint_map_state_buttons(options: &Options, state: &State, config: &Config, co
     UI_UNREDO_PAINT_TOGGLE_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_UNREDO_PAINT_TOGGLE_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0
   );
   context.restore();
+}
+fn paint_fullscreen_button(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
+  paint_button(options, state, config, context, button_canvii, if mouse_state.down_menu_button == MenuButton::FullScreenButton { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_FULLSCREEN_X, UI_FULLSCREEN_Y);
+  let text_color = if state.snapshot_undo_pointer <= 0 { "#777" } else if mouse_state.over_menu_button == MenuButton::UndoButton { "#aaa" } else { "#ddd" };
+  // context.set_fill_style(&text_color.into());
+  // context.fill_text("↶", UI_UNREDO_UNDO_OFFSET_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_UNREDO_UNDO_OFFSET_Y + UI_UNREDO_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
+  paint_asset_raw(
+    options, state, config, &context, if mouse_state.over_menu_button == MenuButton::FullScreenButton { CONFIG_NODE_ASSET_FULLSCREEN_GREY } else { CONFIG_NODE_ASSET_FULLSCREEN_WHITE }, 0,
+    UI_FULLSCREEN_X + UI_FULLSCREEN_W / 2.0 - 16.0, UI_FULLSCREEN_Y + UI_FULLSCREEN_H / 2.0 - 16.0, 32.0, 32.0
+  );
 }
 fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   if !options.enable_maze_roundway_and_collection {

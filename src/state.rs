@@ -24,6 +24,17 @@ use super::log;
 pub const UNDO_STACK_SIZE: usize = 100;
 
 pub struct State {
+  // Track the visual pixel width/height of the canvas for screen-to-world mouse conversion
+  // This size can change in fullscreen mode. The canvas is auto-scaled when it happens.
+  // Note that this does not affect the canvas pixels for painting. That's always fixed.
+  pub canvas_css_x: f64, // Not fullscreen: 0, otherwise fullscreen api implicitly adds padding
+  pub canvas_css_y: f64, // Not fullscreen: 0, otherwise fullscreen api implicitly adds padding
+  pub canvas_css_width: f64,
+  pub canvas_css_height: f64,
+  // How many pixels do we actually paint on the canvas.
+  pub canvas_pixel_width: f64,
+  pub canvas_pixel_height: f64,
+
   pub pregame: bool, // Showing main screen or loading screen?
   pub paused: bool,
   // Maps to config.stories (not config.nodes!). Defaults to 0. Use `- active` in any one story to activate it. Rejects for multiple occurrences (to prevent accidental issues)
@@ -41,6 +52,8 @@ pub struct State {
   pub snapshot_undo_pointer: usize,
   pub examples: Vec<String>,
   pub example_pointer: usize,
+  pub should_be_fullscreen: bool, // This could be checked better but for now it's a rust-internal toggle that is not verified with the browser (eg. if the call fails, rust still considers it succeeded, shrug)
+  pub request_fullscreen: bool,
 
   pub reset_next_frame: bool,
   pub load_snapshot_next_frame: bool,
@@ -207,6 +220,7 @@ pub enum MenuButton {
   Row3Button5,
   Row3Button6,
   UndoButton,
+  FullScreenButton,
   RedoButton,
   ClearButton,
   PaintToggleButton,
@@ -240,6 +254,12 @@ pub fn state_create(options: &Options, active_story_index: usize) -> State {
   if options.trace_story_changes { log!("active_story_index state_create {}", active_story_index); }
 
   return State {
+    canvas_css_x: 0.0,
+    canvas_css_y: 0.0,
+    canvas_css_width: CANVAS_CSS_INITIAL_WIDTH,
+    canvas_css_height: CANVAS_CSS_INITIAL_HEIGHT,
+    canvas_pixel_width: CANVAS_PIXEL_INITIAL_WIDTH,
+    canvas_pixel_height: CANVAS_PIXEL_INITIAL_HEIGHT,
     pregame: true,
     paused: false,
     active_story_index,
@@ -264,6 +284,8 @@ pub fn state_create(options: &Options, active_story_index: usize) -> State {
     paste_to_load: "".to_string(),
     examples: vec!(),
     example_pointer: 0,
+    should_be_fullscreen: false,
+    request_fullscreen: false,
     showing_debug_bottom: true,
     ui_unlock_progress: 0,
   };
