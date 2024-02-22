@@ -8,7 +8,6 @@
 // - graphics
 //   - fix item animation in and out of suppliers/demanders. looks ugly rn
 //   - when next ui-phase unlocks, use an animation where ui elements drift into their place
-//   - improve resolution of graphics for fullscreen mode
 // - maze
 //   - maze fuel could blow-up-fade-out when collected, with a 3x for the better one, maybe rainbow wiggle etc? or just 1x 2x 3x instead of icon
 // - help the player
@@ -205,6 +204,8 @@ pub fn start() -> Result<(), JsValue> {
   canvas.style().set_property("height", format!("{}px", CANVAS_CSS_INITIAL_HEIGHT as u32).as_str())?;
   canvas.style().set_property("background-image", "url(./img/sand.png)").expect("should work");
   canvas.style().set_property("id", "sand_bg").expect("should work");
+  // This is prettier for us :)
+  canvas.style().set_property("image-rendering", "pixelated");
 
   // TODO: this may improve perf a little bit but requires rewiring the background stuff
   // let context_options = js_sys::Object::new();
@@ -3012,7 +3013,7 @@ fn paint_debug_app(options: &Options, state: &State, config: &Config, context: &
   if !state.showing_debug_bottom {
     if options.dbg_show_fps || options.dbg_show_secret_menu {
       context.set_fill_style(&"black".into());
-      context.fill_text(format!("fps: {}", fps.len()).as_str(), GRID_X3 - 70.0, GRID_Y0 + 15.0).expect("something error fill_text");
+      context.fill_text(format!("fps: {}", fps.len()).as_str(), GRID_X3 - 70.0 + 0.5, GRID_Y0 + 15.0 + 0.5).expect("something error fill_text");
       return;
     }
   }
@@ -4596,9 +4597,9 @@ fn paint_atom(
     paint_dock_stripes(options, state, config, factory, context, CONFIG_NODE_DOCK_UP, x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
   }
 
-  let px = x + (UI_WOTOM_WIDTH / 2.0) - (CELL_W / 2.0);
-  let py = y + (UI_WOTOM_HEIGHT / 2.0) - (CELL_H / 2.0);
-  paint_segment_part_from_config(options, state, config, context, part_kind, px, py, CELL_W, CELL_H);
+  let px = x + (UI_WOTOM_WIDTH / 2.0) - (UI_WOTOM_ICON_SIZE / 2.0);
+  let py = y + (UI_WOTOM_HEIGHT / 2.0) - (UI_WOTOM_ICON_SIZE / 2.0);
+  paint_segment_part_from_config(options, state, config, context, part_kind, px, py, UI_WOTOM_ICON_SIZE, UI_WOTOM_ICON_SIZE);
 
   if highlight {
     // Popup is drawn in parent function
@@ -4650,9 +4651,9 @@ fn paint_woop(
     paint_dock_stripes(options, state, config, factory, context, CONFIG_NODE_DOCK_UP, x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
   }
 
-  let px = x + (UI_WOTOM_WIDTH / 2.0) - (CELL_W / 2.0);
-  let py = y + (UI_WOTOM_HEIGHT / 2.0) - (CELL_H / 2.0);
-  paint_segment_part_from_config(options, state, config, context, part_kind, px, py, CELL_W, CELL_H);
+  let px = x + (UI_WOTOM_WIDTH / 2.0) - (UI_WOTOM_ICON_SIZE / 2.0);
+  let py = y + (UI_WOTOM_HEIGHT / 2.0) - (UI_WOTOM_ICON_SIZE / 2.0);
+  paint_segment_part_from_config(options, state, config, context, part_kind, px, py, UI_WOTOM_ICON_SIZE, UI_WOTOM_ICON_SIZE);
 
   if highlight {
     // Popup is drawn in parent function
@@ -4930,8 +4931,8 @@ fn paint_woop_tooltip_with_part(options: &Options, state: &State, config: &Confi
   // Note: We paint the indicated machine centered within a given box, regardless of actual size
   let machine_img = &config.sprite_cache_canvas[config.nodes[machine_asset_node_index].sprite_config.frames[0].file_canvas_cache_index];
   context.draw_image_with_html_image_element_and_dw_and_dh(machine_img,
-    mx.floor() + 0.5,
-    my.floor() + 0.5,
+    mx.floor(),
+    my.floor(),
     machine_w,
     machine_h
   ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature

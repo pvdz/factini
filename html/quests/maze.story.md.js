@@ -10,7 +10,7 @@ Raw materials
 ===
 
 # Part_BatteryBlack
-- file: ./img/parts/bucket_simple_black.png
+- file: ./img/parts/bucket_v3_black.png
 - w: 32
 - h: 32
 

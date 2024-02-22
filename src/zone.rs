@@ -27,7 +27,7 @@ pub enum Zone {
 
 // Size of the floor determines dimensions of all other grid items and depends on cell size and cell count.
 pub const GRID_TOP_HEIGHT: f64 = 65.0;
-pub const GRID_RIGHT_WIDTH: f64 = 400.0;
+pub const GRID_RIGHT_WIDTH: f64 = 425.0;
 pub const GRID_BOTTOM_HEIGHT: f64 = 150.0;
 pub const GRID_BOTTOM_DEBUG_HEIGHT: f64 = 400.0;
 pub const GRID_LEFT_WIDTH: f64 = 200.0;
@@ -186,10 +186,11 @@ pub const UI_DEBUG_CELL_FONT_HEIGHT: f64 = 16.0; // at 12px + bottom spacing
 
 pub const UI_WOOPS_OFFSET_X: f64 = GRID_X2 + 10.0;
 pub const UI_WOOPS_OFFSET_Y: f64 = UI_FLOOR_OFFSET_Y;
-pub const UI_WOOPS_PER_ROW: f64 = 6.0;
+pub const UI_WOOPS_PER_ROW: f64 = 7.0;
 pub const UI_WOOPS_WIDTH: f64 = UI_WOTOM_WIDTH + ((UI_WOOPS_PER_ROW - 1.0) * UI_WOTOM_WIDTH_PLUS_MARGIN);
 
 // woop / atom
+pub const UI_WOTOM_ICON_SIZE: f64 = 40.0; // Clean division by factor of 2 of the original size
 pub const UI_WOTOM_WIDTH: f64 = 50.0;
 pub const UI_WOTOM_HEIGHT: f64 = 50.0;
 pub const UI_WOTOM_WIDTH_PLUS_MARGIN: f64 = UI_WOTOM_WIDTH + 10.0;
