@@ -5,8 +5,6 @@
 // Compile with --profile to try and get some sense of shit
 
 // road to release
-// - graphics
-//   - when next ui-phase unlocks, use an animation where ui elements drift into their place
 // - maze
 //   - maze fuel could blow-up-fade-out when collected, with a 3x for the better one, maybe rainbow wiggle etc? or just 1x 2x 3x instead of icon
 // - help the player
@@ -20,6 +18,8 @@
 // - bug
 //   - ai will use woops as suppliers
 //   - touch; deselecting selections is awkward. should probably ignore hover afterwards if event was recorded as touch. maybe clear it
+//   - quick save/load not restoring after reload
+//   - tooltip should paint target part big
 
 // features
 // - belts
@@ -117,6 +117,7 @@ const COLOR_DEMAND_SEMI: &str = "#00aa0055";
 const COLOR_MACHINE: &str = "lightyellow";
 const COLOR_MACHINE_SEMI: &str = "#aaaa0099";
 
+// Index on button_canvii
 const BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP: usize = 0;
 const BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN: usize = 1;
 const BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_UP: usize = 2;
@@ -204,7 +205,7 @@ pub fn start() -> Result<(), JsValue> {
   canvas.style().set_property("background-image", "url(./img/sand.png)").expect("should work");
   canvas.style().set_property("id", "sand_bg").expect("should work");
   // This is prettier for us :)
-  canvas.style().set_property("image-rendering", "pixelated");
+  canvas.style().set_property("image-rendering", "pixelated").expect("should work");
 
   // TODO: this may improve perf a little bit but requires rewiring the background stuff
   // let context_options = js_sys::Object::new();
@@ -728,6 +729,9 @@ pub fn start() -> Result<(), JsValue> {
       prerender_button(&options, &state, &config, UI_SAVE_THUMB_WIDTH - UI_SAVE_THUMB_IMG_WIDTH, UI_SAVE_THUMB_HEIGHT, false),
     );
 
+    let speed_menu_prerender_canvas = prerender_speed_menu(&options, &state, &config, &mouse_state);
+    let mut save_menu_prerender_canvas: Option<web_sys::HtmlCanvasElement> = None;
+
     if options.trace_size_changes { log!("(size) Internal css size initially: {}x{}, canvas pixels: {}x{}", CANVAS_CSS_INITIAL_WIDTH, CANVAS_CSS_INITIAL_HEIGHT, CANVAS_PIXEL_INITIAL_WIDTH, CANVAS_PIXEL_INITIAL_HEIGHT); }
 
     // From https://rustwasm.github.io/wasm-bindgen/examples/request-animation-frame.html
@@ -1048,7 +1052,7 @@ pub fn start() -> Result<(), JsValue> {
             state.should_be_fullscreen = false;
           } else {
             log!("Entering full screen mode...");
-            ref_counted_canvas.request_fullscreen();
+            ref_counted_canvas.request_fullscreen().expect("fs should work");
             state.should_be_fullscreen = true;
           }
         }
@@ -1139,7 +1143,6 @@ pub fn start() -> Result<(), JsValue> {
         paint_atoms(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
         let ( highlight_index, highlight_x, highlight_y ) = paint_woops(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
         paint_lasers(&options, &mut state, &config, &context);
-        paint_ui_time_control(&options, &state, &context, &mouse_state);
         paint_secret_menu_or_logo(&options, &state, &config, &factory, &context, &button_canvii, &mouse_state);
         paint_floor_round_way(&options, &state, &config, &factory, &context);
         paint_background_tiles1(&options, &state, &config, &factory, &context);
@@ -1157,7 +1160,6 @@ pub fn start() -> Result<(), JsValue> {
         paint_debug_selected_demand_cell(&context, &factory, &cell_selection, &mouse_state);
         paint_map_state_buttons(&options, &state, &config, &context, &button_canvii, &mouse_state);
         paint_fullscreen_button(&options, &state, &config, &context, &button_canvii, &mouse_state);
-        paint_load_thumbs(&options, &state, &config, &factory, &context, &button_canvii, &mouse_state, &mut quick_saves);
 
         paint_maze(&options, &state, &config, &factory, &context, &mouse_state);
         // The lazy truck will jump over the foxy maze stuff
@@ -1171,6 +1173,17 @@ pub fn start() -> Result<(), JsValue> {
         paint_bouncers(&options, &state, &config, &context, &mut factory);
         // Paint the factory icon now so bouncers go behind it
         paint_factory_img(&options, &state, &config, &factory, &context, &mouse_state);
+
+        paint_ui_speed_menu(&options, &state, &context, &mouse_state);
+        paint_speed_menu_animation(&options, &mut state, &config, &factory, &context, &speed_menu_prerender_canvas);
+
+        paint_load_thumbs(&options, &state, &config, &factory, &context, &button_canvii, &mouse_state, &mut quick_saves);
+        if state.ui_save_menu_anim_progress > 0 && save_menu_prerender_canvas == None {
+          // Lazy/deferred load. Ugly to do it in here but the rendering function would not have access to update the reference
+          // (And it needs to be deferred anyways otherwise images may not be loaded)
+          save_menu_prerender_canvas = Some(prerender_save_menu(&options, &state, &config, &factory, &mouse_state, &mut quick_saves, &button_canvii));
+        }
+        paint_save_menu_animation(&options, &mut state, &config, &factory, &context, &save_menu_prerender_canvas);
 
         if highlight_index > 0 {
           // Hovering over / selected a woop
@@ -2220,6 +2233,7 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
     let floor_canvas = document.create_element("canvas").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
     floor_canvas.set_width((UI_SAVE_THUMB_IMG_WIDTH) as u32);
     floor_canvas.set_height(UI_SAVE_THUMB_IMG_HEIGHT as u32);
+    floor_canvas.style().set_property("image-rendering", "pixelated").expect("should work");
     {
       // Add temp canvas to DOM for debugging
       // document.get_element_by_id("$main_game").unwrap().append_child(&floor_canvas);
@@ -2235,6 +2249,7 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
     let thumb_canvas = document.create_element("canvas").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
     thumb_canvas.set_width((UI_SAVE_THUMB_WIDTH) as u32);
     thumb_canvas.set_height(UI_SAVE_THUMB_HEIGHT as u32);
+    thumb_canvas.style().set_property("image-rendering", "pixelated").expect("should work");
     let thumb_context = thumb_canvas.get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap();
     thumb_context.set_image_smoothing_enabled(false);
 
@@ -2936,7 +2951,6 @@ fn hit_test_speed_bubble_x(x: f64, y: f64, index: usize) -> bool {
   // Note: index should be one of the BUTTON_SPEED_***_INDEX
   let diameter = 2.0 * UI_SPEED_BUBBLE_RADIUS;
   let ox = UI_SPEED_BUBBLE_OFFSET_X + (index as f64) * (diameter + UI_SPEED_BUBBLE_SPACING);
-
   return bounds_check(
     x, y,
     ox,
@@ -5370,7 +5384,7 @@ fn paint_ui_button2(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state
   }
   context.fill_text(text, x + 5.0, y + 14.0).expect("to paint");
 }
-fn paint_ui_time_control(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+fn paint_ui_speed_menu(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   // paint_speed_buttons
   if options.enable_speed_menu {
     paint_ui_speed_bubble(MenuButton::SpeedMin, options, state, context, mouse_state, BUTTON_SPEED_MIN_INDEX, "-");
@@ -5380,12 +5394,26 @@ fn paint_ui_time_control(options: &Options, state: &State, context: &Rc<web_sys:
     paint_ui_speed_bubble(MenuButton::SpeedPlus, options, state, context, mouse_state, BUTTON_SPEED_PLUS_INDEX, "+");
   }
 }
+fn paint_speed_menu_animation(options: &Options, state: &mut State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, speed_menu_prerender_canvas: &web_sys::HtmlCanvasElement) {
+  if state.ui_speed_menu_anim_progress > 0 {
+    let p = 1.0 - (state.ui_speed_menu_anim_progress as f64 / (options.speed_menu_animation_time as f64));
+    context.draw_image_with_html_canvas_element_and_dw_and_dh(speed_menu_prerender_canvas,
+      UI_MENU_MACHINE_BUTTON_3X3_X - p * (UI_MENU_MACHINE_BUTTON_3X3_X - (UI_SPEED_BUBBLE_OFFSET_X - UI_SPEED_MENU_PRERENDER_MARGIN)),
+      UI_MENU_MACHINE_BUTTON_3X3_Y - p * (UI_MENU_MACHINE_BUTTON_3X3_Y - (UI_SPEED_BUBBLE_OFFSET_Y - UI_SPEED_MENU_PRERENDER_MARGIN)),
+      UI_SPEED_MENU_PRERENDER_W * p,
+      UI_SPEED_MENU_PRERENDER_H * p
+    ).expect("draw_image_with_html_canvas_element should work"); // requires web_sys HtmlImageElement feature
+  }
+}
 fn paint_ui_speed_bubble(button: MenuButton, options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, index: usize, text: &str) {
   // index should be one of the BUTTON_SPEED_***_INDEX constants
 
-  let cx = UI_SPEED_BUBBLE_OFFSET_X + (2.0 * UI_SPEED_BUBBLE_RADIUS + UI_SPEED_BUBBLE_SPACING) * (index as f64) + UI_SPEED_BUBBLE_RADIUS;
+  let cx = UI_SPEED_BUBBLE_OFFSET_X + UI_SPEED_BUBBLE_W * (index as f64) + UI_SPEED_BUBBLE_RADIUS;
   let cy = UI_SPEED_BUBBLE_OFFSET_Y + UI_SPEED_BUBBLE_RADIUS;
 
+  paint_ui_speed_bubble_xy(button, options, state, context, mouse_state, text, cx, cy);
+}
+fn paint_ui_speed_bubble_xy(button: MenuButton, options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, text: &str, cx: f64, cy: f64) {
   context.save();
 
   context.begin_path();
@@ -5561,38 +5589,41 @@ fn hit_test_save_map_row_col(x: f64, y: f64, row: f64, col: f64) -> bool {
   // Do hit test for one of the four map thumbnail save/load buttons 
   return bounds_check(
     x, y,
-    GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN), GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN),
-    GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN) + UI_SAVE_THUMB_WIDTH, GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN) + UI_SAVE_THUMB_HEIGHT,
+    UI_SAVE_MENU_OFFSET_X + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN), UI_SAVE_MENU_OFFSET_Y + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN),
+    UI_SAVE_MENU_OFFSET_X + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN) + UI_SAVE_THUMB_WIDTH, UI_SAVE_MENU_OFFSET_Y + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN) + UI_SAVE_THUMB_HEIGHT,
   );
 }
 fn hit_test_save_map_delete_part(x: f64, y: f64, row: f64, col: f64) -> bool {
   // Checks if you clicked in the right side of a map thumbnail. In that case we are going to delete the map.
   return bounds_check(
     x, y,
-    GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN) + UI_SAVE_THUMB_WIDTH * 0.66, GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN),
-    GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN) + UI_SAVE_THUMB_WIDTH, GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN) + UI_SAVE_THUMB_HEIGHT,
+    UI_SAVE_MENU_OFFSET_X + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN) + UI_SAVE_THUMB_WIDTH * 0.66, UI_SAVE_MENU_OFFSET_Y + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN),
+    UI_SAVE_MENU_OFFSET_X + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN) + UI_SAVE_THUMB_WIDTH, UI_SAVE_MENU_OFFSET_Y + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN) + UI_SAVE_THUMB_HEIGHT,
   );
 }
 fn hit_test_copy_button(x: f64, y: f64) -> bool {
-  return bounds_check(x, y, UI_SAVE_COPY_X, UI_SAVE_COPY_Y, UI_SAVE_COPY_X+UI_SAVE_CP_WIDTH, UI_SAVE_COPY_Y+UI_SAVE_CP_HEIGHT);
+  return bounds_check(x, y, UI_SAVE_MENU_OFFSET_X + UI_SAVE_COPY_X, UI_SAVE_MENU_OFFSET_Y + UI_SAVE_COPY_Y, UI_SAVE_MENU_OFFSET_X + UI_SAVE_COPY_X + UI_SAVE_CP_WIDTH, UI_SAVE_MENU_OFFSET_Y + UI_SAVE_COPY_Y + UI_SAVE_CP_HEIGHT);
 }
 fn hit_test_paste_button(x: f64, y: f64) -> bool {
-  return bounds_check(x, y, UI_SAVE_PASTE_X, UI_SAVE_PASTE_Y, UI_SAVE_PASTE_X+UI_SAVE_CP_WIDTH, UI_SAVE_PASTE_Y+UI_SAVE_CP_HEIGHT);
+  return bounds_check(x, y, UI_SAVE_MENU_OFFSET_X + UI_SAVE_PASTE_X, UI_SAVE_MENU_OFFSET_Y + UI_SAVE_PASTE_Y, UI_SAVE_MENU_OFFSET_X + UI_SAVE_PASTE_X + UI_SAVE_CP_WIDTH, UI_SAVE_MENU_OFFSET_Y + UI_SAVE_PASTE_Y + UI_SAVE_CP_HEIGHT);
 }
 fn paint_load_thumbs(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState, quick_saves: &mut [Option<QuickSave>; 9]) {
   if !options.enable_quick_save_menu {
     return;
   }
 
-  paint_map_save_load_button(options, state, config,factory, 0.0, 0.0, 0, context, &mut quick_saves[0], button_canvii, mouse_state);
-  paint_map_save_load_button(options, state, config,factory, 1.0, 0.0, 1, context, &mut quick_saves[1], button_canvii, mouse_state);
-  paint_map_save_load_button(options, state, config,factory, 0.0, 1.0, 2, context, &mut quick_saves[2], button_canvii, mouse_state);
-  paint_map_save_load_button(options, state, config,factory, 1.0, 1.0, 3, context, &mut quick_saves[3], button_canvii, mouse_state);
+  paint_map_save_load_button(options, state, config,factory, 0.0, 0.0, 0, context, &mut quick_saves[0], button_canvii, mouse_state, UI_SAVE_MENU_OFFSET_X, UI_SAVE_MENU_OFFSET_Y);
+  paint_map_save_load_button(options, state, config,factory, 1.0, 0.0, 1, context, &mut quick_saves[1], button_canvii, mouse_state, UI_SAVE_MENU_OFFSET_X, UI_SAVE_MENU_OFFSET_Y);
+  paint_map_save_load_button(options, state, config,factory, 0.0, 1.0, 2, context, &mut quick_saves[2], button_canvii, mouse_state, UI_SAVE_MENU_OFFSET_X, UI_SAVE_MENU_OFFSET_Y);
+  paint_map_save_load_button(options, state, config,factory, 1.0, 1.0, 3, context, &mut quick_saves[3], button_canvii, mouse_state, UI_SAVE_MENU_OFFSET_X, UI_SAVE_MENU_OFFSET_Y);
+
+  paint_copy_button(options, state, config, factory, context, button_canvii, mouse_state, UI_SAVE_MENU_OFFSET_X, UI_SAVE_MENU_OFFSET_Y);
+  paint_paste_button(options, state, config, factory, context, button_canvii, mouse_state, UI_SAVE_MENU_OFFSET_X, UI_SAVE_MENU_OFFSET_Y);
 }
-fn paint_map_save_load_button(options: &Options, state: &State, config: &Config, factory: &Factory, col: f64, row: f64, button_index: usize, context: &Rc<web_sys::CanvasRenderingContext2d>, quick_save: &mut Option<QuickSave>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
+fn paint_map_save_load_button(options: &Options, state: &State, config: &Config, factory: &Factory, col: f64, row: f64, button_index: usize, context: &Rc<web_sys::CanvasRenderingContext2d>, quick_save: &mut Option<QuickSave>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState, menu_offset_x: f64, menu_offset_y: f64) {
   assert!(button_index < 4, "there are only 4 save buttons");
-  let ox = (GRID_X0 + UI_SAVE_THUMB_X1 + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN)).floor();
-  let oy = (GRID_Y2 + UI_SAVE_THUMB_Y1 + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN)).floor();
+  let ox = (menu_offset_x + col * (UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN)).floor();
+  let oy = (menu_offset_y + row * (UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN)).floor();
   if let Some(quick_save) = quick_save {
     // Save exists. Paint the thumb and then the trash icon on top of it.
 
@@ -5637,16 +5668,10 @@ fn paint_map_save_load_button(options: &Options, state: &State, config: &Config,
       UI_SAVE_THUMB_HEIGHT / 2.0
     );
   }
-
-  paint_copy_button(options, state, config, factory, context, button_canvii, mouse_state);
-  paint_paste_button(options, state, config, factory, context, button_canvii, mouse_state);
 }
-fn paint_copy_button(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
-  paint_button(options, state, config, context, button_canvii, if mouse_state.over_menu_button == MenuButton::CopyFactory { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_SAVE_COPY_X, UI_SAVE_COPY_Y);
-  paint_asset_raw(
-    options, state, config, &context, CONFIG_NODE_ASSET_COPY_GREY, 0,
-    UI_SAVE_COPY_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_SAVE_COPY_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0
-  );
+fn paint_copy_button(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState, menu_offset_x: f64, menu_offset_y: f64) {
+  paint_button(options, state, config, context, button_canvii, if mouse_state.over_menu_button == MenuButton::CopyFactory { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, menu_offset_x + UI_SAVE_COPY_X, menu_offset_y + UI_SAVE_COPY_Y);
+  paint_asset_raw(options, state, config, &context, CONFIG_NODE_ASSET_COPY_GREY, 0, menu_offset_x + UI_SAVE_COPY_X + UI_UNREDO_WIDTH / 2.0 - 16.0, menu_offset_y + UI_SAVE_COPY_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0);
 
   let max = 40000;
   let delay = 15000;
@@ -5661,19 +5686,16 @@ fn paint_copy_button(options: &Options, state: &State, config: &Config, factory:
         context.set_global_alpha(p);
         paint_asset_raw(
           options, state, config, &context, CONFIG_NODE_ASSET_COPY_GREEN, 0,
-          UI_SAVE_COPY_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_SAVE_COPY_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0
+          menu_offset_x + UI_SAVE_COPY_X + UI_UNREDO_WIDTH / 2.0 - 16.0, menu_offset_y + UI_SAVE_COPY_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0
         );
         context.restore();
       }
     }
   }
 }
-fn paint_paste_button(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
-  paint_button(options, state, config, context, button_canvii, if mouse_state.over_menu_button == MenuButton::PasteFactory { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, UI_SAVE_PASTE_X, UI_SAVE_PASTE_Y);
-  paint_asset_raw(
-    options, state, config, &context, CONFIG_NODE_ASSET_PASTE_GREY, 0,
-    UI_SAVE_PASTE_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_SAVE_PASTE_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0
-  );
+fn paint_paste_button(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState, menu_offset_x: f64, menu_offset_y: f64) {
+  paint_button(options, state, config, context, button_canvii, if mouse_state.over_menu_button == MenuButton::PasteFactory { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, menu_offset_x + UI_SAVE_PASTE_X, menu_offset_y + UI_SAVE_PASTE_Y);
+  paint_asset_raw(options, state, config, &context, CONFIG_NODE_ASSET_PASTE_GREY, 0, menu_offset_x + UI_SAVE_PASTE_X + UI_UNREDO_WIDTH / 2.0 - 16.0, menu_offset_y + UI_SAVE_PASTE_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0);
 
   let max = 40000;
   let delay = 15000;
@@ -5688,19 +5710,19 @@ fn paint_paste_button(options: &Options, state: &State, config: &Config, factory
 
         context.set_font(&"bold 52px Verdana");
         context.set_fill_style(&format!("#ff0000{:02x}", n).into());
-        context.fill_text("!", UI_SAVE_PASTE_X + 20.0, UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
+        context.fill_text("!", menu_offset_x + UI_SAVE_PASTE_X + 20.0, menu_offset_y + UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
         context.set_stroke_style(&format!("#000000{:02x}", n).into());
         context.set_line_width(2.0);
-        context.stroke_text("!", UI_SAVE_PASTE_X + 20.0, UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
+        context.stroke_text("!", menu_offset_x + UI_SAVE_PASTE_X + 20.0, menu_offset_y + UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
         context.set_stroke_style(&format!("#ffffff{:02x}", n).into());
         context.set_line_width(1.0);
-        context.stroke_text("!", UI_SAVE_PASTE_X + 20.0, UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
+        context.stroke_text("!", menu_offset_x + UI_SAVE_PASTE_X + 20.0, menu_offset_y + UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
 
         context.set_font(&"bold 30px Verdana");
         context.set_fill_style(&format!("#000000{:02x}", n).into());
-        context.fill_text("ctrl+v / cmd+v", UI_SAVE_PASTE_X + UI_SAVE_CP_WIDTH + 15.0, UI_SAVE_PASTE_Y + 38.0).expect("canvas api call to work");
+        context.fill_text("ctrl+v / cmd+v", menu_offset_x + UI_SAVE_PASTE_X + UI_SAVE_CP_WIDTH + 15.0, menu_offset_y + UI_SAVE_PASTE_Y + 38.0).expect("canvas api call to work");
         context.set_stroke_style(&format!("#ffffff{:02x}", n).into());
-        context.stroke_text("ctrl+v / cmd+v", UI_SAVE_PASTE_X + UI_SAVE_CP_WIDTH + 15.0, UI_SAVE_PASTE_Y + 38.0).expect("canvas api call to work");
+        context.stroke_text("ctrl+v / cmd+v", menu_offset_x + UI_SAVE_PASTE_X + UI_SAVE_CP_WIDTH + 15.0, menu_offset_y + UI_SAVE_PASTE_Y + 38.0).expect("canvas api call to work");
 
         context.restore();
       }
@@ -5710,13 +5732,13 @@ fn paint_paste_button(options: &Options, state: &State, config: &Config, factory
         context.save();
         context.set_font(&"bold 52px Verdana");
         context.set_fill_style(&format!("#ff0000{:02x}", n).into());
-        context.fill_text("?", UI_SAVE_PASTE_X + 16.0, UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
+        context.fill_text("?", menu_offset_x + UI_SAVE_PASTE_X + 16.0, menu_offset_y + UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
         context.set_stroke_style(&format!("#000000{:02x}", n).into());
         context.set_line_width(2.0);
-        context.stroke_text("?", UI_SAVE_PASTE_X + 16.0, UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
+        context.stroke_text("?", menu_offset_x + UI_SAVE_PASTE_X + 16.0, menu_offset_y + UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
         context.set_stroke_style(&format!("#ffffff{:02x}", n).into());
         context.set_line_width(1.0);
-        context.stroke_text("?", UI_SAVE_PASTE_X + 16.0, UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
+        context.stroke_text("?", menu_offset_x + UI_SAVE_PASTE_X + 16.0, menu_offset_y + UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
         context.restore();
       }
       LoadPasteHint::Success => {
@@ -5726,10 +5748,24 @@ fn paint_paste_button(options: &Options, state: &State, config: &Config, factory
         context.set_global_alpha(p);
         paint_asset_raw(
           options, state, config, &context, CONFIG_NODE_ASSET_PASTE_GREEN, 0,
-          UI_SAVE_PASTE_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_SAVE_PASTE_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0
+          menu_offset_x + UI_SAVE_PASTE_X + UI_UNREDO_WIDTH / 2.0 - 16.0, menu_offset_y + UI_SAVE_PASTE_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0
         );
         context.restore();
       }
+    }
+  }
+}
+fn paint_save_menu_animation(options: &Options, state: &mut State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, save_menu_prerender_canvas: &Option<web_sys::HtmlCanvasElement>) {
+  if state.ui_save_menu_anim_progress > 0 {
+    // Should be prerendered now
+    if let Some(save_menu_prerender_canvas) = save_menu_prerender_canvas {
+      let p = 1.0 - (state.ui_save_menu_anim_progress as f64 / (options.save_menu_animation_time as f64));
+      context.draw_image_with_html_canvas_element_and_dw_and_dh(save_menu_prerender_canvas,
+        UI_MENU_MACHINE_BUTTON_3X3_X - p * (UI_MENU_MACHINE_BUTTON_3X3_X - UI_SAVE_MENU_OFFSET_X),
+        UI_MENU_MACHINE_BUTTON_3X3_Y - p * (UI_MENU_MACHINE_BUTTON_3X3_Y - UI_SAVE_MENU_OFFSET_Y),
+        UI_SAVE_MENU_W * p,
+        UI_SAVE_MENU_H * p
+      ).expect("draw_image_with_html_canvas_element should work"); // requires web_sys HtmlImageElement feature
     }
   }
 }
@@ -6225,6 +6261,7 @@ fn prerender_button(options: &Options, state: &State, config: &Config, width: f6
   let canvas = document.create_element("canvas").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
   canvas.set_width(width as u32);
   canvas.set_height(height as u32);
+  canvas.style().set_property("image-rendering", "pixelated").expect("should work");
   let context = canvas.get_context("2d").unwrap().unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap();
   context.set_image_smoothing_enabled(false);
 
@@ -6256,4 +6293,46 @@ fn prerender_button_stage2(options: &Options, state: &State, config: &Config, wi
 }
 fn paint_button(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, button_canvii_index: usize, x: f64, y: f64) {
   context.draw_image_with_html_canvas_element(&button_canvii[button_canvii_index], x.floor(), y.floor()).expect("draw_image_with_html_canvas_element should work"); // requires web_sys HtmlImageElement feature
+}
+fn prerender_speed_menu(options: &Options, state: &State, config: &Config, mouse_state: &MouseState) -> web_sys::HtmlCanvasElement {
+  let cy = UI_SPEED_MENU_PRERENDER_MARGIN + UI_SPEED_BUBBLE_RADIUS;
+
+  let document = document();
+  let canvas = document.create_element("canvas").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
+  canvas.set_width(UI_SPEED_MENU_PRERENDER_W as u32);
+  canvas.set_height(UI_SPEED_MENU_PRERENDER_H as u32);
+  canvas.style().set_property("image-rendering", "pixelated").expect("should work");
+  let context = canvas.get_context("2d").unwrap().unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap();
+  context.set_image_smoothing_enabled(false);
+
+  let context = Rc::new(context); // For the sake of the function arg. Not important for this one-of.
+
+  paint_ui_speed_bubble_xy(MenuButton::SpeedMin, options, state, &context, mouse_state, "-", UI_SPEED_MENU_PRERENDER_MARGIN + UI_SPEED_BUBBLE_W * (BUTTON_SPEED_MIN_INDEX as f64) + UI_SPEED_BUBBLE_RADIUS, cy);
+  paint_ui_speed_bubble_xy(MenuButton::SpeedHalf, options, state, &context, mouse_state, "½", UI_SPEED_MENU_PRERENDER_MARGIN + UI_SPEED_BUBBLE_W * (BUTTON_SPEED_HALF_INDEX as f64) + UI_SPEED_BUBBLE_RADIUS, cy);
+  paint_ui_speed_bubble_xy(MenuButton::SpeedPlayPause, options, state, &context, mouse_state, "⏭", UI_SPEED_MENU_PRERENDER_MARGIN + UI_SPEED_BUBBLE_W * (BUTTON_SPEED_PLAY_PAUSE_INDEX as f64) + UI_SPEED_BUBBLE_RADIUS, cy); // "play" / "pause"
+  paint_ui_speed_bubble_xy(MenuButton::SpeedDouble, options, state, &context, mouse_state, "2", UI_SPEED_MENU_PRERENDER_MARGIN + UI_SPEED_BUBBLE_W * (BUTTON_SPEED_DOUBLE_INDEX as f64) + UI_SPEED_BUBBLE_RADIUS, cy);
+  paint_ui_speed_bubble_xy(MenuButton::SpeedPlus, options, state, &context, mouse_state, "+", UI_SPEED_MENU_PRERENDER_MARGIN + UI_SPEED_BUBBLE_W * (BUTTON_SPEED_PLUS_INDEX as f64) + UI_SPEED_BUBBLE_RADIUS, cy);
+
+  return canvas;
+}
+fn prerender_save_menu(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &MouseState, quick_saves: &mut [Option<QuickSave>; 9], button_canvii: &Vec<web_sys::HtmlCanvasElement>) -> web_sys::HtmlCanvasElement {
+  let document = document();
+  let canvas = document.create_element("canvas").unwrap().dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
+  canvas.set_width(UI_SAVE_MENU_W as u32);
+  canvas.set_height(UI_SAVE_MENU_H as u32);
+  canvas.style().set_property("image-rendering", "pixelated").expect("should work");
+  let context = canvas.get_context("2d").unwrap().unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap();
+  context.set_image_smoothing_enabled(false);
+
+  let context = Rc::new(context); // For the sake of the function arg. Not important for this one-of.
+
+  paint_map_save_load_button(options, state, config, factory, 0.0, 0.0, 0, &context, &mut quick_saves[0], button_canvii, mouse_state, 0.0, 0.0);
+  paint_map_save_load_button(options, state, config, factory, 1.0, 0.0, 1, &context, &mut quick_saves[1], button_canvii, mouse_state, 0.0, 0.0);
+  paint_map_save_load_button(options, state, config, factory, 0.0, 1.0, 2, &context, &mut quick_saves[2], button_canvii, mouse_state, 0.0, 0.0);
+  paint_map_save_load_button(options, state, config, factory, 1.0, 1.0, 3, &context, &mut quick_saves[3], button_canvii, mouse_state, 0.0, 0.0);
+
+  paint_copy_button(options, state, config, factory, &context, button_canvii, mouse_state, 0.0, 0.0);
+  paint_paste_button(options, state, config, factory, &context, button_canvii, mouse_state, 0.0, 0.0);
+
+  return canvas;
 }

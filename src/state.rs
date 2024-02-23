@@ -67,6 +67,8 @@ pub struct State {
 
   pub showing_debug_bottom: bool, // Allows us to toggle the debug part with little overhead
   pub ui_unlock_progress: u8, // Used to track how much of the UI to unlock
+  pub ui_speed_menu_anim_progress: u64, // Animation progress. Ticks left, relative to options.save_menu_animation_time
+  pub ui_save_menu_anim_progress: u64, // Animation progress. Ticks left, relative to options.speed_menu_animation_time
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -288,6 +290,8 @@ pub fn state_create(options: &Options, active_story_index: usize) -> State {
     request_fullscreen: false,
     showing_debug_bottom: true,
     ui_unlock_progress: 0,
+    ui_speed_menu_anim_progress: 0,
+    ui_save_menu_anim_progress: 0,
   };
 }
 
@@ -306,7 +310,15 @@ pub fn mouse_button_to_action(state: &State, mouse_state: &MouseState) -> Action
 
 pub fn state_set_ui_unlock_progress(options: &mut Options, state: &mut State, ui_unlock_progress: u8) {
   state.ui_unlock_progress = ui_unlock_progress;
-  if ui_unlock_progress > 0 { options.enable_speed_menu = true; }
-  if ui_unlock_progress > 1 { options.enable_quick_save_menu = true; }
-  if ui_unlock_progress > 2 { options.enable_maze_roundway_and_collection = true; }
+  if ui_unlock_progress == 1 {
+    state.ui_speed_menu_anim_progress = options.speed_menu_animation_time;
+    state.ui_unlock_progress += 1; // This makes it so that the animation does not restart when loading at this unlock progress step
+  }
+  if ui_unlock_progress >= 2 { options.enable_speed_menu = true; }
+  if ui_unlock_progress == 3 {
+    state.ui_save_menu_anim_progress = options.save_menu_animation_time;
+    state.ui_unlock_progress += 1; // This makes it so that the animation does not restart when loading at this unlock progress step
+  }
+  if ui_unlock_progress >= 4 { options.enable_quick_save_menu = true; }
+  if ui_unlock_progress >= 5 { options.enable_maze_roundway_and_collection = true; }
 }

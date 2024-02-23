@@ -94,22 +94,20 @@ pub const UI_AUTO_BUILD_H: f64 = 60.0;
 pub const UI_AUTO_BUILD_X: f64 = UI_FULLSCREEN_X + UI_FULLSCREEN_W + 10.0;
 pub const UI_AUTO_BUILD_Y: f64 = GRID_Y0;
 
-pub const UI_SAVE_OFFSET_X: f64 = 5.0;
-pub const UI_SAVE_OFFSET_Y: f64 = 8.0;
-// Note: game is currently at 1000 x 800. The floor is 600x600, so 1:1 ratio
+pub const UI_SAVE_MENU_OFFSET_X: f64 = GRID_X0 + 5.0;
+pub const UI_SAVE_MENU_OFFSET_Y: f64 = GRID_Y2 + 8.0;
+pub const UI_SAVE_MENU_W: f64 = UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN + UI_SAVE_THUMB_WIDTH + UI_SAVE_MARGIN + UI_SAVE_CP_WIDTH;
+pub const UI_SAVE_MENU_H: f64 = UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN + UI_SAVE_THUMB_HEIGHT;
 pub const UI_SAVE_THUMB_WIDTH: f64 = 90.0;
 pub const UI_SAVE_THUMB_HEIGHT: f64 = UI_SMALL_BUTTON_HEIGHT;
 pub const UI_SAVE_THUMB_IMG_WIDTH: f64 = UI_SAVE_THUMB_WIDTH * 0.66; // Leave room for the close button
 pub const UI_SAVE_THUMB_IMG_HEIGHT: f64 = UI_SAVE_THUMB_HEIGHT;
 pub const UI_SAVE_MARGIN: f64 = 7.0;
-// Note: we have 3x2 save tiles
-pub const UI_SAVE_THUMB_X1: f64 = UI_SAVE_OFFSET_X;
-pub const UI_SAVE_THUMB_Y1: f64 = UI_SAVE_OFFSET_Y;
 // Clipboard import/export
 pub const UI_SAVE_CP_WIDTH: f64 = UI_SMALL_BUTTON_WIDTH;
 pub const UI_SAVE_CP_HEIGHT: f64 = UI_SMALL_BUTTON_HEIGHT;
-pub const UI_SAVE_COPY_X: f64 = GRID_X0 + UI_SAVE_OFFSET_X + 2.0*UI_SAVE_THUMB_WIDTH + 2.0*UI_SAVE_MARGIN;
-pub const UI_SAVE_COPY_Y: f64 = GRID_Y2 + UI_SAVE_OFFSET_Y;
+pub const UI_SAVE_COPY_X: f64 = 2.0*UI_SAVE_THUMB_WIDTH + 2.0*UI_SAVE_MARGIN; // relative to UI_SAVE_MENU_OFFSET_X
+pub const UI_SAVE_COPY_Y: f64 = 0.0; // Relative to UI_SAVE_MENU_OFFSET_Y
 pub const UI_SAVE_PASTE_X: f64 = UI_SAVE_COPY_X;
 pub const UI_SAVE_PASTE_Y: f64 = UI_SAVE_COPY_Y + UI_SAVE_THUMB_HEIGHT + UI_SAVE_MARGIN;
 
@@ -122,10 +120,16 @@ pub const BUTTON_SPEED_PLAY_PAUSE_INDEX: usize = 2;
 pub const BUTTON_SPEED_DOUBLE_INDEX: usize = 3;
 pub const BUTTON_SPEED_PLUS_INDEX: usize = 4;
 
+pub const UI_SPEED_MENU_PRERENDER_MARGIN: f64 = 6.0; // up/down/left/right. necessary otherwise buttons will get clipped.
+pub const UI_SPEED_MENU_PRERENDER_W: f64 = UI_SPEED_MENU_PRERENDER_MARGIN + 5.0 * 2.0 * UI_SPEED_BUBBLE_RADIUS + 4.0 * UI_SPEED_BUBBLE_SPACING + UI_SPEED_MENU_PRERENDER_MARGIN;
+pub const UI_SPEED_MENU_PRERENDER_H: f64 = UI_SPEED_MENU_PRERENDER_MARGIN + UI_SPEED_BUBBLE_H + UI_SPEED_MENU_PRERENDER_MARGIN;
+
+pub const UI_SPEED_BUBBLE_W: f64 = 2.0 * UI_SPEED_BUBBLE_RADIUS + UI_SPEED_BUBBLE_SPACING;
+pub const UI_SPEED_BUBBLE_H: f64 = 2.0 * UI_SPEED_BUBBLE_RADIUS;
 pub const UI_SPEED_BUBBLE_OFFSET_X: f64 = UI_TOP_OFFSET_X + 35.0;
 pub const UI_SPEED_BUBBLE_OFFSET_Y: f64 = UI_TOP_OFFSET_Y + 5.0;
 pub const UI_SPEED_BUBBLE_RADIUS: f64 = 25.0; // half the diameter...
-pub const UI_SPEED_BUBBLE_SPACING: f64 = 10.0;
+pub const UI_SPEED_BUBBLE_SPACING: f64 = 10.0; // between
 
 // Secret menu
 pub const UI_MENU_BUTTONS_COUNT_WIDTH_MAX: f64 = 6.0; // Update after adding new button
@@ -152,6 +156,7 @@ pub const UI_DEBUG_SECRET_Y: f64 = UI_LOGO_Y + 2.0;
 pub const UI_DEBUG_SECRET_W: f64 = 15.0;
 pub const UI_DEBUG_SECRET_H: f64 = 15.0;
 
+// factory_button
 pub const UI_MENU_MACHINE_BUTTON_3X3_X: f64 = GRID_X1 + 500.0;
 pub const UI_MENU_MACHINE_BUTTON_3X3_Y: f64 = UI_BOTTOM_OFFSET_Y + 14.0;
 pub const UI_MENU_MACHINE_BUTTON_3X3_WIDTH: f64 = 70.0;

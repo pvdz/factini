@@ -355,6 +355,22 @@ pub fn tick_factory(options: &mut Options, state: &mut State, config: &Config, f
 
   factory_tick_bouncers(options, state, config, factory);
   factory_tick_trucks(options, state, config, factory);
+
+  if state.ui_save_menu_anim_progress > 0 {
+    state.ui_save_menu_anim_progress -= 1;
+    if state.ui_save_menu_anim_progress == 0 {
+      options.enable_quick_save_menu = true;
+      factory.changed = true;
+    }
+  }
+
+  if state.ui_speed_menu_anim_progress > 0 {
+    state.ui_speed_menu_anim_progress -= 1;
+    if state.ui_speed_menu_anim_progress == 0 {
+      options.enable_speed_menu = true;
+      factory.changed = true;
+    }
+  }
 }
 
 pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut State, factory: &mut Factory) {
@@ -435,15 +451,15 @@ pub fn update_game_ui_after_quest_finish(options: &mut Options, state: &mut Stat
     log!("Moving to UI stage 1; {} {} {}", options.enable_speed_menu, options.enable_quick_save_menu, options.enable_maze_full);
     state_set_ui_unlock_progress(options, state, 1);
   }
-  else if state.ui_unlock_progress == 1 {
-    log!("Moving to UI stage 2");
-    state_set_ui_unlock_progress(options, state, 2);
-  }
   else if state.ui_unlock_progress == 2 {
+    log!("Moving to UI stage 2");
+    state_set_ui_unlock_progress(options, state, 3);
+  }
+  else if state.ui_unlock_progress == 4 {
     // TODO: Probably want the user to use a bigger machine for that
     // TODO: should first unlock the meter. The maze should unlock once each input on the meter has at least one bar.
     log!("Moving to UI stage 3");
-    state_set_ui_unlock_progress(options, state, 3);
+    state_set_ui_unlock_progress(options, state, 5);
   }
   // Note: enable_maze_full is set once you have at least one cell in all four bars
 }
