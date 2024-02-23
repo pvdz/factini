@@ -397,24 +397,11 @@ pub fn serialize2(options: &Options, state: &State, config: &Config, factory: &F
       cell_params.push(factory.floor[coord].machine.id); // This is the ID that shows up on the map as well
       cell_params.push(' ');
       cell_params.push('=');
-      for i in 0..factory.floor[coord].machine.wants.len() {
-        cell_params.push(' ');
-        if factory.floor[coord].machine.wants[i].kind == CONFIG_NODE_PART_NONE {
-          // Explicitly an empty spot since those are relevant
-          cell_params.push('.');
-        } else {
-          // Use names (we can assume they refer to parts)
-          for c in config.nodes[factory.floor[coord].machine.wants[i].kind].name.as_bytes().iter() {
-            cell_params.push(*c as char);
-          }
-        }
+      cell_params.push(' ');
+      // Use name (we can assume they refer to parts)
+      for c in config.nodes[factory.floor[coord].machine.output_want.kind].name.as_bytes().iter() {
+        cell_params.push(*c as char);
       }
-      // This could be generated but it's just a comment as the output is computed dynamically from inputs
-      // cell_params.push(' ');
-      // cell_params.push('-');
-      // cell_params.push('>');
-      // cell_params.push(' ');
-      // cell_params.push(if factory.floor[coord].machine.output_want.kind == PARTKIND_NONE { '.' } else { factory.floor[coord].machine.output_want.icon });
       cell_params.push(' ');
       cell_params.push('s');
       cell_params.push(':');
@@ -439,7 +426,7 @@ pub fn serialize2(options: &Options, state: &State, config: &Config, factory: &F
       cell_params.push(' ');
       cell_params.push('s');
       cell_params.push(':');
-      for c in format!("{}", factory.floor[coord].machine.speed).as_bytes().iter() {
+      for c in format!("{}", factory.floor[coord].supply.speed).as_bytes().iter() {
         cell_params.push(*c as char);
       }
       cell_params.push(' ');

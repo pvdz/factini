@@ -231,7 +231,7 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
     usize, // max_coord (coord of the bottom-right-most cell). unused machine if zero.
     char, // id
     u64, // Speed modifier, default=1
-    Vec<PartKind>, // pattern (for a machine up to 5x5)
+    PartKind, // Expected target part
   )> = vec!();
 
   // Expect as many cells as specified.
@@ -709,15 +709,12 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
               }
             },
             'm' => {
-              // m<n> = <i>{0..w*h} -> <o> [s:<d+>]
-              // m1 = a..b.c -> d s:100
-              // Note: zero inputs (empty pattern) are allowed. Dots are assumed to be "none". Parts will flow
-              // in serial into the machine crafting pattern (left-right, top-bottom)
+              // m<n> = part [s:<d+>]
+              // m1 = pear s:100
               let mut speed = 1;
-              let mut wants: Vec<String> = vec!();
 
               // Parser:
-              //    m3 = pear apple -> orange s:100 # end
+              //    m3 = pear apple s:100 # end
               //     ^
 
               // Parse the machine ID, following the `m`
@@ -743,134 +740,61 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
               // log!("machine index={}/{}", machine_index + 1, machine_meta_data.len());
 
               // Parser:
-              //    m3 = pear apple -> orange s:100 # end
+              //    m3 = pear s:100 # end
               //      ^
 
-              // Skip pas the `=` sign
+              // Skip past the `=` sign
               let mut c = line.next().or(Some('#')).unwrap();
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
               if c != '=' { panic!("Unexpected input on line {} while parsing machine augment: first character after `m{}` must be the `=` sign, found `{}`", line_no, machine_id, c); }
 
               // Parser:
-              //    m3 = pear apple -> orange s:100 # end
+              //    m3 = pear s:100 # end
               //       ^
               c = line.next().or(Some('#')).unwrap();
               // Parser:
-              //    m3 = pear apple -> orange s:100 # end
+              //    m3 = pear s:100 # end
               //        ^
 
-              // Parse the current input pattern, separated by spaces, until EOL, dash, or colon
-              // The colon is a special case for the modifier `s:100`
-              let words: Vec<String> = vec!();
-              while c != '#' && c != '-' && c != ':' {
-                // Parser:
-                //    m3 = pear apple -> orange s:100 # end
-                //        ^    ^     ^
-                // Collect letters until spacing/EOL/colon/dash. They can form words or icons.
-                let mut letters: Vec<char> = vec!();
-                while c == ' ' || c == '.' { c = line.next().or(Some('#')).unwrap(); }
-                // Parser:
-                //    m3 = pear apple -> orange s:100 # end
-                //         ^    ^     ^
-                //    m3 = s:100 # end
-                //         ^
-                while c != '#' && c != '-' && c != ':' && c != '.' && c != ' ' {
-                  if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= 'A' && c <= 'Z') || c == '&' || c as u8 > 127) { panic!("Unexpected input on line {} while parsing machine input: input characters must be a-zA-Z0-9 or &ord or dot, found `{}`", line_no, c); }
-                  letters.push(c);
-                  c = line.next().or(Some('#')).unwrap();
-                }
-
-                if letters.len() > 0 {
-                  // Convert to a string. Deal with icon vs &ord vs raw_name later
-                  // log!("collected one input: {:?}", letters);
-                  wants.push(letters.iter().collect::<String>());
-                }
-              }
-              // Parser:
-              //    m3 = pear apple -> orange s:100 # end
-              //                    ^
-              //    m3 = pear apple s:100 # end
-              //                     ^
-
-              // If the next char is a colon then the previous letter was not a part but a modifier
-              // This would be for `m1 = a.b.c s:100`, without an arrow
-              let mut modifier_edge_case = c == ':';
-              if modifier_edge_case {
-                // Pop the last word from the pattern. It should be "s" (or any other supported modifier).
-                if wants.len() == 0 || wants.pop().unwrap() != "s".to_string() {
-                  panic!("Unexpected colon (`:`) on line {} while parsing machine config line. Expecting a pattern, arrow, output, and then maybe a modifier. But modifiers should start with a letter, like `s:100`", line_no);
-                }
-              }
+              // Parse the target output part
+              let target_output = parse_word(line);
 
               // Parser:
-              //    m3 = pear apple -> orange s:100 # end
-              //                    ^
-              //    m3 = pear apple s:100 # end
-              //                     ^
-
-              // Try to parse an arrow `->`
-              if c == '-' {
-                c = line.next().or(Some('#')).unwrap();
-                while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                if c != '>' { panic!("Unexpected input on line {} while parsing machine augment: after input pattern an `->` arrow must follow and then the output, found `{}`", line_no, c); }
-
-                // Skip past spacing after arrow
-                c = line.next().or(Some('#')).unwrap();
-                while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-
-                // Skip past a word; the output for this machine. We ignore the value.
-                while c != '#' && c != ' ' {
-                  if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c as u8 > 127) { panic!("Unexpected input on line {} while parsing machine output: input characters must be a-zA-Z or non-ascii, found `{}`", line_no, c); }
-                  c = line.next().or(Some('#')).unwrap();
-                }
-                // We discard the output because we detect it based on the pattern, anyways.
-              }
-
-              // Now past the pattern, arrow, and output
-              // We may not have parsed anything and only have seen a `s:` so far. Or nothing at all.
-
-              // Parser:
-              //    m3 = pear apple -> orange s:100 # end
-              //                             ^
-              //    m3 = pear apple s:100 # end
-              //                     ^
+              //    m3 = pear s:100 # end
+              //              ^
 
               // Skip spaces
               while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
 
-              // Parser:
-              //    m3 = pear apple -> orange s:100 # end
-              //                              ^
-              //    m3 = pear apple s:100 # end
-              //                     ^
-
-              // If there is a modifier, it would have to appear now
-              if !modifier_edge_case {
-                if c == 's' {
-                  c = line.next().or(Some('#')).unwrap();
-                  while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
-                  if c == ':' {
-                    modifier_edge_case = true;
-                  } else {
-                    log!("map:");
-                    log!("{}", str);
-                    log!("line:");
-                    log!("{:?}", line);
-                    panic!("Unexpected input on line {} while parsing machine tail with modifier: found s but no colon, found `{}`", line_no, c);
-                  }
-                } else if c != '#' {
-                  panic!("Unexpected input on line {} while parsing machine tail: expected `s` or `#`, found `{}`", line_no, c);
+              // If the next char is a colon then either that's a mistake or the machine line is missing the (mandatory) output part
+              //    m3 = s:100 # end
+              if c == ':' {
+                if target_output == "s".to_string() {
+                  panic!("Missing output part for machine {}, found `s:` modifier instead", machine_id);
                 }
+                panic!("Unexpected colon (`:`) on line {} while parsing machine config line. Expecting a pattern, arrow, output, and then maybe a modifier. But modifiers should start with a letter, like `s:100`", line_no);
               }
 
               // Parser:
-              //    m3 = pear apple -> orange s:100 # end
-              //                               ^
-              //    m3 = pear apple s:100 # end
-              //                     ^
+              //    m3 = pear s:100 # end
+              //              ^
 
-              if modifier_edge_case {
-                assert_eq!(c, ':', "pointer must now be at the colon");
+              // If there is a modifier, it would have to appear now
+              if c == 's' {
+                c = line.next().or(Some('#')).unwrap();
+                while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
+                if c != ':' {
+                  log!("map:");
+                  log!("{}", str);
+                  log!("line:");
+                  log!("{:?}", line);
+                  panic!("Unexpected input on line {} after parsing the machine output part: found s but no colon, found `{}`", line_no, c);
+                }
+
+                // Parser:
+                //    m3 = pear s:100 # end
+                //                ^
+
                 c = line.next().or(Some('#')).unwrap();
                 while c == ' ' { c = line.next().or(Some('#')).unwrap(); }
                 // Now start parsing digits. Only valid input is digits or spacing/eol.
@@ -885,6 +809,8 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
                   }
                   c = line.next().or(Some('#')).unwrap();
                 }
+              } else if c != '#' {
+                panic!("Unexpected input on line {} while parsing machine tail: expected `s` or `#`, found `{}`", line_no, c);
               }
 
               // Skip more spacing
@@ -896,10 +822,7 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
               }
 
               machine_meta_data[machine_index].3 = speed;
-              machine_meta_data[machine_index].4 = wants.iter().map(|x| {
-                // Try the node first. Then try with `Part_` prefixed, since the export will use the name without that prefix. Then bail.
-                return find_part_from_input_by_string(config, &x, line);
-              }).collect::<Vec<PartKind>>();
+              machine_meta_data[machine_index].4 = find_part_from_input_by_string(config, &target_output, line)
             },
             '!' => {
               if options.trace_map_parsing { log!("Parsing ! finished quest list `{:?}`", line); }
@@ -955,18 +878,15 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
   if options.trace_map_parsing { log!(""); }
   if options.trace_map_parsing { log!("Machines after config phase: {:?}", machine_meta_data); }
 
-  for ( main_coord, max_coord, id, speed, input_pattern ) in machine_meta_data.iter() {
+  for ( main_coord, max_coord, id, speed, output_want ) in machine_meta_data.iter() {
     let (x1, y1) = to_xy(*main_coord);
     let (x2, y2) = to_xy(*max_coord);
 
     let w = x2 - x1 + 1;
     let h = y2 - y1 + 1;
 
-    if options.trace_map_parsing { log!("Initializing machine @{}x@{} ({}): {}x{} with speed {}. The wants before normalization are: {:?}", main_coord, max_coord, id, w, h, speed, input_pattern); }
+    if options.trace_map_parsing { log!("Initializing machine @{}x@{} ({}): {}x{} with speed `{}` and target output `{:?}`", main_coord, max_coord, id, w, h, speed, config.nodes[*output_want].name); }
     assert!(*main_coord > 0, "each element should now represent a machine. before it was possible to be zero here.");
-
-    let normalized_wants = machine_normalize_wants(&input_pattern);
-    if options.trace_map_parsing { log!("The wants after normalization are: {:?}", normalized_wants); }
 
     let mut coords: Vec<usize> = vec!();
     for x in x1..=x2 {
@@ -992,12 +912,10 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
     }
 
     // Ensure that .wants and .haves are exactly as big as they cover cells.
-    floor[*main_coord].machine.wants = coords.iter().enumerate().map(|(i, _)| part_from_part_kind(config, *input_pattern.get(i).unwrap_or(&CONFIG_NODE_PART_NONE))).collect::<Vec<Part>>();
-    floor[*main_coord].machine.haves = coords.iter().map(|_| part_from_part_kind(config, CONFIG_NODE_PART_NONE)).collect::<Vec<Part>>();
+    floor[*main_coord].machine.wants = config.nodes[*output_want].pattern_unique_kinds.iter().map(|part_kind| part_from_part_kind(config, *part_kind)).collect();
+    floor[*main_coord].machine.haves = floor[*main_coord].machine.wants.iter().map(|_| part_from_part_kind(config, CONFIG_NODE_PART_NONE)).collect::<Vec<Part>>();
     floor[*main_coord].machine.speed = *speed;
-
-    let output_want = machine_discover_output_floor(options, state, config, &mut floor, *main_coord);
-    floor[*main_coord].machine.output_want = part_from_part_kind(config, output_want);
+    floor[*main_coord].machine.output_want = part_from_part_kind(config, *output_want);
   }
 
   // Set the .ins and .outs of each cell cause otherwise nothing happens.
@@ -1022,7 +940,7 @@ fn parse_word(line: &mut std::iter::Peekable<std::str::Chars>) -> String {
   return letters.iter().collect::<String>();
 }
 
-fn add_machine(options: &Options, state: &State, config: &Config, floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, x: usize, y: usize, machine_id: char, machine_meta_data: &mut Vec<(usize, usize, char, u64, Vec<PartKind>)>, port_u: char, port_r: char, port_d: char, port_l: char) {
+fn add_machine(options: &Options, state: &State, config: &Config, floor: &mut [Cell; FLOOR_CELLS_WH], coord: usize, x: usize, y: usize, machine_id: char, machine_meta_data: &mut Vec<(usize, usize, char, u64, PartKind)>, port_u: char, port_r: char, port_d: char, port_l: char) {
   // Auto layout will have to reconcile the individual machine parts into one machine
   // Any modifiers as well as the input and output parameters of this machine are
   // listed below the floor model. Expect them to be filled in later.
@@ -1040,7 +958,7 @@ fn add_machine(options: &Options, state: &State, config: &Config, floor: &mut [C
   });
 
   if index == machine_meta_data.len() {
-    machine_meta_data.push((coord, coord, machine_id, 1, vec!()));
+    machine_meta_data.push((coord, coord, machine_id, 1, CONFIG_NODE_PART_NONE));
   }
 
   let mut cell = machine_any_cell(options, state, config, machine_id as char, x, y, 1, 1, MachineKind::Unknown, vec!(), part_c(config, ' '), 1, 1, 1);

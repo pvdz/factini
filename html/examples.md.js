@@ -64,7 +64,7 @@ const GAME_EXAMPLES = [
     s6 = BucketRainbow s:0 c:35000
     ! Green Orange Purple Grey Pink Rainbow
     $ BucketBlue BucketYellow BucketRed BucketWhite BucketBlack BucketGreen BucketOrange BucketPurple BucketPink BucketGrey BucketRainbow Plus
-    @ 3
+    @ 4
     seed = 1708616026060
     story = Story_Buckets
   `,
@@ -137,49 +137,39 @@ const GAME_EXAMPLES = [
     sc = BucketRed s:0 c:500
     sd = BucketYellow s:0 c:500
     se = BucketBlue s:0 c:500
-    m4 = BucketRed BucketBlue . . s:2000
-    m3 = BucketBlue BucketYellow . . s:2000
-    m2 = BucketBlack BucketWhite . . s:2000
-    m5 = BucketRed BucketYellow . . s:2000
-    me = BucketRed BucketBlue s:2000
+    m4 = BucketPurple s:2000
+    m3 = BucketGreen s:2000
+    m2 = BucketGrey s:2000
+    m5 = BucketOrange s:2000
+    me = BucketPurple s:2000
     sf = BucketRed s:0 c:500
-    d1
-    d2
-    m1 = BucketRed BucketBlue BucketYellow BucketBlack BucketWhite BucketGrey BucketGreen BucketPurple BucketOrange s:2000
-    d3
-    mf = BucketBlue BucketYellow s:2000
+    m1 = BucketRainbow s:2000
+    mf = BucketGreen s:2000
     sg = BucketBlue s:0 c:500
     sh = BucketYellow s:0 c:500
-    d4
-    m8 = BucketBlue Plus . . s:2000
+    m8 = BucketBluePlus s:2000
     si = BucketBlue s:0 c:500
-    m6 = BucketRainbow . . . s:2000
-    md = BucketBlue BucketYellow s:2000
+    m6 = Plus s:2000
+    md = BucketGreen s:2000
     sj = BucketBlack s:0 c:500
-    mc = BucketBlack Plus . . s:2000
-    d5
-    d6
-    m7 = BucketYellow Plus . . s:2000
-    m9 = BucketRed Plus . . s:2000
-    mb = BucketWhite Plus . . s:2000
+    mc = BucketBlackPlus s:2000
+    m7 = BucketYellowPlus s:2000
+    m9 = BucketRedPlus s:2000
+    mb = BucketWhitePlus s:2000
     sk = BucketRed s:0 c:500
-    mh = BucketRed BucketYellow s:2000
-    ma = BucketRed BucketWhite s:2000
-    d7
-    d8
+    mh = BucketOrange s:2000
+    ma = BucketPink s:2000
     sl = BucketYellow s:0 c:500
     sm = BucketYellow s:0 c:500
-    d9
     sn = BucketRed s:0 c:500
-    da
-    db
-    dc
     so = BucketWhite s:0 c:500
     sp = BucketYellow s:0 c:500
     sq = BucketBlue s:0 c:500
     sr = BucketRed s:0 c:500
     ss = BucketWhite s:0 c:500
     $ BucketBlue BucketYellow BucketRed BucketGreen BucketOrange BucketPurple
+    @ 0
+    seed = 1708722527245
     story = Story_Buckets
   `,
   `
@@ -270,7 +260,7 @@ const GAME_EXAMPLES = [
     sv = BucketYellow s:0 c:500
     sw = BucketRed s:0 c:500
     $ BucketBlue BucketYellow BucketRed BucketWhite BucketBlack BucketGreen BucketOrange BucketPurple BucketPink BucketGrey BucketRainbow Plus BucketBlackPlus BucketRedPlus BucketBluePlus BucketYellowPlus BucketWhitePlus BucketPurplePlus BucketGreenPlus BucketOrangePlus BucketGreyPlus BucketPinkPlus BucketBlackPlusPlus BucketRedPlusPlus BucketBluePlusPlus BucketYellowPlusPlus BucketWhitePlusPlus BucketPurplePlusPlus BucketGreenPlusPlus BucketOrangePlusPlus BucketGreyPlusPlus BucketPinkPlusPlus
-    @ 3
+    @ 4
     seed = 1708380105066
     story = Story_Buckets
   `,
@@ -329,35 +319,31 @@ const GAME_EXAMPLES = [
     │ └───────^──v─────^──^──^─────^──────────────v─┘ │
     │.  .  .  s  d  .  s  s  s  .  s  .  .  .  .  d  .│
     └─────────────────────────────────────────────────┘
-    s1 = r s:0 c:1000
-    s2 = i s:0 c:1000
-    s3 = p s:0 c:1000
-    s4 = e s:0 c:1000
-    m1 = . r . . e . . r . s:2000
-    m2 = i p p i p p i p p s:2000
-    s5 = W s:0 c:1000
-    d1 s:1000 c:0
-    s6 = D s:0 c:1000
-    m3 = . W . W D W . W . s:2000
-    m4 = . . . C o . . . . s:2000
-    d2 s:1000 c:0
-    m5 = . . . W l W . . . s:2000
-    m6 = . . . n n n n n n s:2000
-    m7 = . Q . k k k k k k s:2000
-    d3 s:1000 c:0
-    s7 = n s:0 c:1000
-    s8 = C s:0 c:1000
-    s9 = n s:0 c:1000
-    m8 = . r . . e . . r . -> W s:2000
-    d4 s:1000 c:0
-    sa = l s:0 c:1000
-    d5 s:1000 c:0
-    sb = o s:0 c:1000
-    sc = k s:0 c:1000
-    sd = r s:0 c:1000
-    se = e s:0 c:1000
-    d6 s:1000 c:0
-    #$ w l s W e o
+    s1 = DirtBlue s:0 c:1000
+    s2 = Rope s:0 c:1000
+    s3 = Paper s:0 c:1000
+    s4 = EmptyBottle s:0 c:1000
+    m1 = PotionBlue s:2000
+    m2 = BookWhite s:2000
+    s5 = PotionBlue s:0 c:1000
+    s6 = BookWhite s:0 c:1000
+    m3 = BookBlue s:2000
+    m4 = BookShield s:2000
+    m5 = ShieldBlue s:2000
+    m6 = IngotWhite s:2000
+    m7 = ShieldWood s:2000
+    s7 = DirtWhite s:0 c:1000
+    s8 = BookBlue s:0 c:1000
+    s9 = DirtWhite s:0 c:1000
+    m8 = PotionBlue s:2000
+    sa = ShieldWood s:0 c:1000
+    sb = ShieldBlue s:0 c:1000
+    sc = Wood s:0 c:1000
+    sd = DirtBlue s:0 c:1000
+    se = EmptyBottle s:0 c:1000
+    $ DirtWhite Wool IngotWhite SilverCoin Thread
+    @ 0
+    seed = 1708722574227
     story = Story_Dev
   `,
   `
@@ -415,9 +401,11 @@ const GAME_EXAMPLES = [
     │ └─────────────────────────────────────────────┘ │
     │.  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .│
     └─────────────────────────────────────────────────┘
-    d1
-    m1 = BucketBlue BucketYellow . . s:2000
-    $ BucketBlue BucketYellow BucketRed BucketGreen BucketOrange BucketPurple
+    m1 = BucketGreen s:2000
+    $ BucketBlue BucketYellow BucketRed DirtWhite Wool BucketGreen BucketOrange BucketPurple IngotWhite SilverCoin Thread
+    @ 0
+    seed = 1708722593395
+    story = Story_Dev
   `,
   `
     # Factini map
@@ -475,7 +463,7 @@ const GAME_EXAMPLES = [
     │.  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .│
     └─────────────────────────────────────────────────┘
     s1 = DirtWhite s:0 c:500
-    m1 = DirtWhite DirtWhite DirtWhite DirtWhite DirtWhite DirtWhite . . . s:2000
+    m1 = IngotWhite s:2000
     $ DirtWhite Wool IngotWhite SilverCoin Thread
     @ 0
     seed = 1707299579374
@@ -762,7 +750,7 @@ const GAME_EXAMPLES = [
     │ └───────────────────^─────────────────────────┘ │
     │.  .  .  .  .  .  .  s  .  .  .  .  .  .  .  .  .│
     └─────────────────────────────────────────────────┘
-    m1 = DirtWhite DirtWhite . . . . . . . s:2000
+    m1 = SilverCoin s:2000
     s1 = PotionBlue s:0 c:500
     $ DirtWhite Wool IngotWhite SilverCoin Thread
     @ 0
@@ -826,7 +814,7 @@ const GAME_EXAMPLES = [
     └─────────────────────────────────────────────────┘
     s1 = Trash s:0 c:500
     s2 = DirtWhite s:0 c:500
-    m1 = DirtWhite DirtWhite DirtWhite DirtWhite DirtWhite DirtWhite . . . s:2000
+    m1 = IngotWhite s:2000
     $ DirtWhite Wool IngotWhite SilverCoin Thread
     @ 0
     seed = 1707299665405
@@ -889,9 +877,9 @@ const GAME_EXAMPLES = [
     │.  .  .  .  d  .  .  .  .  .  .  .  .  .  .  .  .│
     └─────────────────────────────────────────────────┘
     s1 = Trash s:0 c:500
-    m1 = DirtWhite DirtWhite DirtWhite DirtWhite DirtWhite DirtWhite . . . s:2000
+    m1 = IngotWhite s:2000
     s2 = DirtWhite s:0 c:500
-    m2 = IngotWhite IngotWhite IngotWhite . . . . . . s:2000
+    m2 = DirtWhite s:2000
     $ DirtWhite Wool IngotWhite SilverCoin Thread
     @ 0
     seed = 1707299688742
@@ -956,19 +944,19 @@ const GAME_EXAMPLES = [
     s2 = Rope s:0 c:100
     s3 = Paper s:0 c:100
     s4 = EmptyBottle s:0 c:100
-    m1 = DirtBlue EmptyBottle DirtBlue . . . . . . s:2000
-    m2 = Rope Paper Paper Rope Paper Paper Rope Paper Paper s:2000
+    m1 = PotionBlue s:2000
+    m2 = BookWhite s:2000
     s5 = PotionBlue s:0 c:500
     s6 = BookWhite s:0 c:500
-    m3 = PotionBlue PotionBlue BookWhite PotionBlue PotionBlue . . . . s:2000
-    m4 = BookBlue ShieldBlue . . . . . . . s:2000
-    m5 = PotionBlue ShieldWood PotionBlue . . . . . . s:2000
-    m6 = DirtWhite DirtWhite DirtWhite DirtWhite DirtWhite DirtWhite . . . s:2000
-    m7 = IngotWhite Wood Wood Wood Wood Wood Wood . . s:2000
+    m3 = BookBlue s:2000
+    m4 = BookShield s:2000
+    m5 = ShieldBlue s:2000
+    m6 = IngotWhite s:2000
+    m7 = ShieldWood s:2000
     s7 = DirtWhite s:0 c:100
     s8 = BookBlue s:0 c:500
     s9 = DirtWhite s:0 c:100
-    m8 = DirtBlue EmptyBottle DirtBlue . . . . . . s:2000
+    m8 = PotionBlue s:2000
     sa = ShieldWood s:0 c:500
     sb = ShieldBlue s:0 c:500
     sc = Wood s:0 c:100
@@ -1341,21 +1329,21 @@ const GAME_EXAMPLES = [
     s1 = BucketBlack s:0 c:500
     s2 = BucketWhite s:0 c:500
     s3 = BucketRed s:0 c:500
-    m1 = BucketRed Plus . . . . . . . s:2000
-    m2 = BucketRainbow . . . . . . . . s:2000
+    m1 = BucketRedPlus s:2000
+    m2 = Plus s:2000
     s4 = BucketRed s:0 c:500
-    m3 = BucketRed BucketBlue BucketYellow BucketBlack BucketWhite BucketGrey BucketGreen BucketPurple BucketOrange s:2000
-    m4 = BucketYellow Plus . . . . . . . s:2000
+    m3 = BucketRainbow s:2000
+    m4 = BucketYellowPlus s:2000
     s5 = BucketYellow s:0 c:500
     s6 = BucketBlue s:0 c:500
     s7 = BucketYellow s:0 c:500
-    m5 = BucketBlack BucketWhite . . . . . . . s:2000
+    m5 = BucketGrey s:2000
     s8 = BucketBlack s:0 c:500
     s9 = BucketWhite s:0 c:500
-    m6 = BucketBlue BucketYellow . . . . . . . s:2000
-    m7 = BucketRed BucketYellow . . . . . . . s:2000
-    m8 = BucketRed BucketBlue . . . . . . . s:2000
-    m9 = BucketRed BucketWhite . . . . . . . s:2000
+    m6 = BucketGreen s:2000
+    m7 = BucketOrange s:2000
+    m8 = BucketPurple s:2000
+    m9 = BucketPink s:2000
     sa = BucketBlue s:0 c:500
     sb = BucketYellow s:0 c:500
     sc = BucketRed s:0 c:500
@@ -1364,6 +1352,7 @@ const GAME_EXAMPLES = [
     sf = BucketBlue s:0 c:500
     sg = BucketRed s:0 c:500
     sh = BucketWhite s:0 c:500
+    $ BucketBlue BucketYellow BucketRed BucketGreen BucketOrange BucketPurple
     @ 0
     seed = 1707299791594
     story = Story_Buckets
@@ -1436,27 +1425,26 @@ const GAME_EXAMPLES = [
     sb = BucketBlack s:0 c:500
     sc = BucketRed s:0 c:500
     sd = BucketYellow s:0 c:500
-    m4 = BucketRed BucketBlue . . s:2000
-    m3 = BucketBlue BucketYellow . . s:2000
-    m2 = BucketBlack BucketWhite . . s:2000
-    m5 = BucketRed BucketYellow . . s:2000
-    m1 = BucketRed BucketBlue BucketYellow BucketBlack BucketWhite BucketGrey BucketGreen BucketPurple BucketOrange s:2000
-    m8 = BucketBlue Plus . . s:2000
+    m4 = BucketPurple s:2000
+    m3 = BucketGreen s:2000
+    m2 = BucketGrey s:2000
+    m5 = BucketOrange s:2000
+    m1 = BucketRainbow s:2000
+    m8 = BucketBluePlus s:2000
     se = BucketBlue s:0 c:500
-    m6 = BucketRainbow . . . s:2000
-    md = BucketBlue BucketYellow s:2000
+    m6 = Plus s:2000
+    md = BucketGreen s:2000
     sf = BucketBlack s:0 c:500
-    mc = BucketBlack Plus . . s:2000
-    m7 = BucketYellow Plus . . s:2000
-    m9 = BucketRed Plus . . s:2000
-    mb = BucketWhite Plus . . s:2000
+    mc = BucketBlackPlus s:2000
+    m7 = BucketYellowPlus s:2000
+    m9 = BucketRedPlus s:2000
+    mb = BucketWhitePlus s:2000
     sg = BucketYellow s:0 c:500
     sh = BucketRed s:0 c:500
     si = BucketWhite s:0 c:500
     sj = BucketYellow s:0 c:500
     sk = BucketBlue s:0 c:500
-    # This should load cross story parts. Just for testing. Not sure you'd actually want to do this but...
-    $ DirtWhite Wool IngotWhite SilverCoin Thread
+    $ DirtWhite Wool BucketBlue BucketYellow BucketRed IngotWhite SilverCoin Thread BucketGreen BucketOrange BucketPurple
     @ 0
     seed = 1707299809636
     story = Story_Buckets
