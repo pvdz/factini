@@ -13,11 +13,20 @@
 //   - add hint that two machines next to each other do not share port?
 //   - for touch, clicking the floor with an atom or woop selected should create that there
 //   - grid snapping for woops should ignore half cell grace period for edges
+//   - keep showing tooltip while dragging woop
 // - cleanup
 //   - repo
 // - bug
 //   - ai will use woops as suppliers
 //   - touch; deselecting selections is awkward. should probably ignore hover afterwards if event was recorded as touch. maybe clear it
+//   - item hint on machine selection (red rects) are too small. at least on ipad
+//   - purple bucket is red?
+//   - brush toggle is half in wrong zone now
+//   - full maze not enabled by default
+//   - play/pause icon/emoji on ipad looks uuuugly so we should use an image instead
+//   - fullscreen button on ipad crashes the whole thing... can we handle that gracefully
+//   - bouncers should paint over save menu
+//   - machine bad placement hint ("red grid") needs improvement
 
 // features
 // - belts
@@ -1050,7 +1059,7 @@ pub fn start() -> Result<(), JsValue> {
             state.should_be_fullscreen = false;
           } else {
             log!("Entering full screen mode...");
-            ref_counted_canvas.request_fullscreen().expect("fs should work");
+            ref_counted_canvas.request_fullscreen();
             state.should_be_fullscreen = true;
           }
         }
