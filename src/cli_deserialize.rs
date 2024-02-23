@@ -321,7 +321,7 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
               };
             // The speed and cooldown of the supply have to be added below the floor so use placeholder values for now; TODO: wire that up
             if options.trace_map_parsing { log!("Supply"); }
-            let cell = supply_cell(config, i, j, part_c(config, 't'), 1, 1, 1);
+            let cell = supply_cell(config, i, j, part_c(config, 't'), options.default_supply_speed, options.default_supply_cooldown, 1);
             floor[coord] = cell;
             if options.trace_map_parsing { log!("This was a supplier"); }
           }

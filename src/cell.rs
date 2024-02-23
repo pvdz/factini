@@ -328,6 +328,7 @@ pub fn back_of_the_line(ins_or_outs: &mut Vec<(Direction, usize, usize, Directio
 }
 
 pub fn supply_cell(config: &Config, x: usize, y: usize, part: Part, speed: u64, cooldown: u64, price: i32) -> Cell {
+  log!("supply_cell({}, {}) @ {}x{}", speed, cooldown, x, y);
   let coord = x + y * FLOOR_CELLS_W;
 
   let coord_u = if y == 0                 { None } else { Some(to_coord_up(coord)) };
@@ -1103,7 +1104,7 @@ pub fn apply_action_between_two_cells(state: &State, options: &Options, config: 
       if factory.floor[coord1].kind == CellKind::Empty {
         if is_edge_not_corner(cell_x1 as f64, cell_y1 as f64) {
           // Cell is empty so place a trash supplier here as a placeholder
-          factory.floor[coord1] = supply_cell(config, cell_x1, cell_y1, part_c(config, 't'), 2000, 0, 0);
+          factory.floor[coord1] = supply_cell(config, cell_x1, cell_y1, part_c(config, 't'), options.default_supply_speed, options.default_supply_cooldown, 0);
         }
         else if is_middle(cell_x1 as f64, cell_y1 as f64) {
           factory.floor[coord1] = belt_cell(config, cell_x1, cell_y1, belt_type_to_belt_meta(belt_type1));

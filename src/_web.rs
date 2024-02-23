@@ -6,7 +6,6 @@
 
 // road to release
 // - graphics
-//   - fix item animation in and out of suppliers/demanders. looks ugly rn
 //   - when next ui-phase unlocks, use an animation where ui elements drift into their place
 // - maze
 //   - maze fuel could blow-up-fade-out when collected, with a 3x for the better one, maybe rainbow wiggle etc? or just 1x 2x 3x instead of icon
@@ -2441,7 +2440,7 @@ fn on_drag_end_floor_multi_cells(state: &State, options: &Options, config: &Conf
           // Track started on the edge but has at least one segment in the middle.
           // Create a trash on the previous (edge) cell if that cell is empty.
           if factory.floor[pcoord].kind == CellKind::Empty {
-            factory.floor[pcoord] = supply_cell(config, px, py, part_c(config, 't'), 2000, 0, 0);
+            factory.floor[pcoord] = supply_cell(config, px, py, part_c(config, 't'), options.default_supply_speed, options.default_supply_cooldown, 0);
           }
           still_starting_on_edge = false;
         }

@@ -665,7 +665,7 @@ pub fn set_empty_edge_to_supplier(options: &Options, state: &State, config: &Con
   // Note: this does not deal with existing state and it does not (re)connect the demander to the neighbor belt. Caller must do this.
   log!("set_empty_edge_to_supplier(@{}, {:?}, {})", coord, dir, dragged_part_kind);
   let (x, y) = to_xy(coord);
-  factory.floor[coord] = supply_cell(config, x, y, part_from_part_kind(config, dragged_part_kind), 2000, 500, 1);
+  factory.floor[coord] = supply_cell(config, x, y, part_from_part_kind(config, dragged_part_kind), options.default_supply_speed, options.default_supply_cooldown, 1);
   connect_to_neighbor_dead_end_belts(options, state, config, factory, coord);
   set_dir_to(factory, coord, dir, Port::Outbound);
   factory.changed = true;
