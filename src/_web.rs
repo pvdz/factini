@@ -18,7 +18,6 @@
 // - bug
 //   - ai will use woops as suppliers
 //   - touch; deselecting selections is awkward. should probably ignore hover afterwards if event was recorded as touch. maybe clear it
-//   - quick save/load not restoring after reload
 //   - tooltip should paint target part big
 
 // features
@@ -1066,9 +1065,9 @@ pub fn start() -> Result<(), JsValue> {
             state.snapshot_stack[(state.snapshot_pointer + 1) % UNDO_STACK_SIZE] = snap;
           }
 
-          log!("Auto porting after modification");
+          if options.trace_porting_step { log!("Auto porting after modification"); }
           keep_auto_porting(&mut options, &mut state, &mut factory);
-          fix_ins_and_outs_for_all_belts_and_machines(&mut factory);
+          fix_ins_and_outs_for_all_belts_and_machines(&options, &mut factory);
           factory.machines = factory_collect_machines(&factory.floor);
 
           // Recreate cell traversal order
@@ -2212,8 +2211,8 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
       log!("  deleting saved map");
       quick_saves[mouse_state.up_save_map_index] = None;
       let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
-      local_storage.remove_item(format!("LS_SAVE_SNAPX{}", mouse_state.up_save_map_index).as_str()).unwrap();
-      local_storage.remove_item(format!("LS_SAVE_PNGX{}", mouse_state.up_save_map_index).as_str()).unwrap();
+      local_storage.remove_item(format!("{}{}", LS_SAVE_SNAPX, mouse_state.up_save_map_index).as_str()).unwrap();
+      local_storage.remove_item(format!("{}{}", LS_SAVE_PNGX, mouse_state.up_save_map_index).as_str()).unwrap();
     }
     else {
       log!("  loading saved map, snapshot pointer to {}, undo pointer too, setting load_snapshot_next_frame=true", state.snapshot_pointer);
@@ -2279,8 +2278,8 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
 
     // Store it there and in local storage
     let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
-    local_storage.set_item(format!("LS_SAVE_SNAPX{}", mouse_state.up_save_map_index).as_str(), &map_snapshot).unwrap();
-    local_storage.set_item(format!("LS_SAVE_PNGX{}", mouse_state.up_save_map_index).as_str(), &png).unwrap();
+    local_storage.set_item(format!("{}{}", LS_SAVE_SNAPX, mouse_state.up_save_map_index).as_str(), &map_snapshot).unwrap();
+    local_storage.set_item(format!("{}{}", LS_SAVE_PNGX, mouse_state.up_save_map_index).as_str(), &png).unwrap();
 
     quick_saves[mouse_state.up_save_map_index] = Some(quick_save_create(mouse_state.up_save_map_index, &document, map_snapshot, png));
   }

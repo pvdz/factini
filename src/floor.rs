@@ -483,8 +483,8 @@ pub fn floor_delete_cell_at_partial_sub(options: &Options, state: &State, config
 }
 
 
-pub fn fix_ins_and_outs_for_all_belts_and_machines(factory: &mut Factory) {
-  log!("fix_ins_and_outs_for_all_belts_and_machines()");
+pub fn fix_ins_and_outs_for_all_belts_and_machines(options: &Options, factory: &mut Factory) {
+  if options.trace_porting_step { log!("fix_ins_and_outs_for_all_belts_and_machines()"); }
 
   // Fix ins and outs. Especially necessary for machines in some cases.
   for coord in 0..FLOOR_CELLS_WH {
