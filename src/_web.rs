@@ -18,7 +18,6 @@
 // - bug
 //   - ai will use woops as suppliers
 //   - touch; deselecting selections is awkward. should probably ignore hover afterwards if event was recorded as touch. maybe clear it
-//   - tooltip should paint target part big
 
 // features
 // - belts
@@ -4964,12 +4963,12 @@ fn paint_woop_tooltip_with_part(options: &Options, state: &State, config: &Confi
   context.set_stroke_style(&"#eeeeee99".into());
   context.stroke();
 
-  paint_segment_part_from_config(options, state, config, context, part_kind,
-    (mx + machine_w / 2.0 - CELL_W / 2.0).floor() + 0.5,
-    (my + machine_h / 2.0 - CELL_H / 2.0).floor() + 0.5,
-    CELL_W,
-    CELL_H,
-  );
+  if machine_w == machine_h {
+    // Paint part twice as big
+    paint_segment_part_from_config(options, state, config, context, part_kind, (mx + machine_w / 2.0 - CELL_W).floor() + 0.5, (my + machine_h / 2.0 - CELL_H).floor() + 0.5, CELL_W * 2.0, CELL_H * 2.0);
+  } else {
+    paint_segment_part_from_config(options, state, config, context, part_kind, (mx + machine_w / 2.0 - CELL_W / 2.0).floor() + 0.5, (my + machine_h / 2.0 - CELL_H / 2.0).floor() + 0.5, CELL_W, CELL_H);
+  }
 }
 fn paint_lasers(options: &Options, state: &mut State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>) {
   // Paint quest lasers (parts that are received draw a line to the left menu)

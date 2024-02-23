@@ -49,7 +49,7 @@ Desc: Simple example story
     - file: ./img/parts/bucket_v3_grey.png
     - w: 160
     - h: 160
-    - machine: 1x2 Asset_Factory
+    - machine: 1x2 Asset_Machine_1_2
     
     # Part_BucketGreen
     - special: e 1
