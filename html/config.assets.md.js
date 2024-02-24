@@ -491,4 +491,94 @@ See options.show_drm=false
 - w: 512
 - h: 512
 
+# Asset_PlayBlack
+- file: ./img/play_black.png
+- w: 114
+- h: 130
+# Asset_PlayWhite
+- file: ./img/play_white.png
+- w: 114
+- h: 130
+# Asset_PlayGrey
+- file: ./img/play_grey.png
+- w: 114
+- h: 130
+
+# Asset_BwdBlack
+- file: ./img/bwd_black.png
+- w: 113
+- h: 128
+# Asset_BwdWhite
+- file: ./img/bwd_white.png
+- w: 113
+- h: 128
+# Asset_BwdGrey
+- file: ./img/bwd_grey.png
+- w: 113
+- h: 128
+
+# Asset_FastBwdBlack
+- file: ./img/fast_bwd_black.png
+- w: 183
+- h: 128
+# Asset_FastBwdWhite
+- file: ./img/fast_bwd_white.png
+- w: 183
+- h: 128
+# Asset_FastBwdGrey
+- file: ./img/fast_bwd_grey.png
+- w: 183
+- h: 128
+
+# Asset_FwdBlack
+- file: ./img/fwd_black.png
+- w: 113
+- h: 128
+# Asset_FwdWhite
+- file: ./img/fwd_white.png
+- w: 113
+- h: 128
+# Asset_FwdGrey
+- file: ./img/fwd_grey.png
+- w: 113
+- h: 128
+
+# Asset_FastFwdBlack
+- file: ./img/fast_fwd_black.png
+- w: 182
+- h: 128
+# Asset_FastFwdWhite
+- file: ./img/fast_fwd_white.png
+- w: 182
+- h: 128
+# Asset_FastFwdGrey
+- file: ./img/fast_fwd_grey.png
+- w: 182
+- h: 128
+
+# Asset_StopBlack
+- file: ./img/stop_black.png
+- w: 121
+- h: 120
+# Asset_StopWhite
+- file: ./img/stop_white.png
+- w: 121
+- h: 120
+# Asset_StopGrey
+- file: ./img/stop_grey.png
+- w: 121
+- h: 120
+
+# Asset_PauseBlack
+- file: ./img/pause_black.png
+- w: 119
+- h: 120
+# Asset_PauseWhite
+- file: ./img/pause_white.png
+- w: 119
+- h: 120
+# Asset_PauseGrey
+- file: ./img/pause_grey.png
+- w: 119
+- h: 120
 `;

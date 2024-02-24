@@ -379,6 +379,27 @@ pub const CONFIG_NODE_ASSET_FACTORY: usize = 351;
 pub const CONFIG_NODE_ASSET_FULLSCREEN_BLACK: usize = 352;
 pub const CONFIG_NODE_ASSET_FULLSCREEN_WHITE: usize = 353;
 pub const CONFIG_NODE_ASSET_FULLSCREEN_GREY: usize = 354;
+pub const CONFIG_NODE_ASSET_PLAY_BLACK: usize = 355;
+pub const CONFIG_NODE_ASSET_PLAY_WHITE: usize = 356;
+pub const CONFIG_NODE_ASSET_PLAY_GREY: usize = 357;
+pub const CONFIG_NODE_ASSET_FWD_BLACK: usize = 358;
+pub const CONFIG_NODE_ASSET_FWD_WHITE: usize = 359;
+pub const CONFIG_NODE_ASSET_FWD_GREY: usize = 360;
+pub const CONFIG_NODE_ASSET_FAST_FWD_BLACK: usize = 361;
+pub const CONFIG_NODE_ASSET_FAST_FWD_WHITE: usize = 362;
+pub const CONFIG_NODE_ASSET_FAST_FWD_GREY: usize = 363;
+pub const CONFIG_NODE_ASSET_BWD_BLACK: usize = 364;
+pub const CONFIG_NODE_ASSET_BWD_WHITE: usize = 365;
+pub const CONFIG_NODE_ASSET_BWD_GREY: usize = 366;
+pub const CONFIG_NODE_ASSET_FAST_BWD_BLACK: usize = 367;
+pub const CONFIG_NODE_ASSET_FAST_BWD_WHITE: usize = 368;
+pub const CONFIG_NODE_ASSET_FAST_BWD_GREY: usize = 369;
+pub const CONFIG_NODE_ASSET_STOP_BLACK: usize = 370;
+pub const CONFIG_NODE_ASSET_STOP_WHITE: usize = 371;
+pub const CONFIG_NODE_ASSET_STOP_GREY: usize = 372;
+pub const CONFIG_NODE_ASSET_PAUSE_BLACK: usize = 373;
+pub const CONFIG_NODE_ASSET_PAUSE_WHITE: usize = 374;
+pub const CONFIG_NODE_ASSET_PAUSE_GREY: usize = 375;
 
 #[derive(Debug)]
 pub struct Config {
@@ -1452,6 +1473,27 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Asset_FullScreenBlack" => CONFIG_NODE_ASSET_FULLSCREEN_BLACK,
     "Asset_FullScreenWhite" => CONFIG_NODE_ASSET_FULLSCREEN_WHITE,
     "Asset_FullScreenGrey" => CONFIG_NODE_ASSET_FULLSCREEN_GREY,
+    "Asset_PlayBlack" => CONFIG_NODE_ASSET_PLAY_BLACK,
+    "Asset_PlayWhite" => CONFIG_NODE_ASSET_PLAY_WHITE,
+    "Asset_PlayGrey" => CONFIG_NODE_ASSET_PLAY_GREY,
+    "Asset_FwdBlack" => CONFIG_NODE_ASSET_FWD_BLACK,
+    "Asset_FwdWhite" => CONFIG_NODE_ASSET_FWD_WHITE,
+    "Asset_FwdGrey" => CONFIG_NODE_ASSET_FWD_GREY,
+    "Asset_FastFwdBlack" => CONFIG_NODE_ASSET_FAST_FWD_BLACK,
+    "Asset_FastFwdWhite" => CONFIG_NODE_ASSET_FAST_FWD_WHITE,
+    "Asset_FastFwdGrey" => CONFIG_NODE_ASSET_FAST_FWD_GREY,
+    "Asset_BwdBlack" => CONFIG_NODE_ASSET_BWD_BLACK,
+    "Asset_BwdWhite" => CONFIG_NODE_ASSET_BWD_WHITE,
+    "Asset_BwdGrey" => CONFIG_NODE_ASSET_BWD_GREY,
+    "Asset_FastBwdBlack" => CONFIG_NODE_ASSET_FAST_BWD_BLACK,
+    "Asset_FastBwdWhite" => CONFIG_NODE_ASSET_FAST_BWD_WHITE,
+    "Asset_FastBwdGrey" => CONFIG_NODE_ASSET_FAST_BWD_GREY,
+    "Asset_StopBlack" => CONFIG_NODE_ASSET_STOP_BLACK,
+    "Asset_StopWhite" => CONFIG_NODE_ASSET_STOP_WHITE,
+    "Asset_StopGrey" => CONFIG_NODE_ASSET_STOP_GREY,
+    "Asset_PauseBlack" => CONFIG_NODE_ASSET_PAUSE_BLACK,
+    "Asset_PauseWhite" => CONFIG_NODE_ASSET_PAUSE_WHITE,
+    "Asset_PauseGrey" => CONFIG_NODE_ASSET_PAUSE_GREY,
     "Part_None" => CONFIG_NODE_PART_NONE,
     "Part_Trash" => CONFIG_NODE_PART_TRASH,
     "Supply_Up" => CONFIG_NODE_SUPPLY_UP,
@@ -2097,6 +2139,27 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_asset(CONFIG_NODE_ASSET_FULLSCREEN_BLACK, "FullScreenBlack"),
     config_node_asset(CONFIG_NODE_ASSET_FULLSCREEN_WHITE, "FullScreenWhite"),
     config_node_asset(CONFIG_NODE_ASSET_FULLSCREEN_GREY, "FullScreenGrey"),
+    config_node_asset(CONFIG_NODE_ASSET_PLAY_BLACK, "PlayBlack"),
+    config_node_asset(CONFIG_NODE_ASSET_PLAY_WHITE, "PlayWhite"),
+    config_node_asset(CONFIG_NODE_ASSET_PLAY_GREY, "PlayGrey"),
+    config_node_asset(CONFIG_NODE_ASSET_FWD_BLACK, "FwdBlack"),
+    config_node_asset(CONFIG_NODE_ASSET_FWD_WHITE, "FwdWhite"),
+    config_node_asset(CONFIG_NODE_ASSET_FWD_GREY, "FwdGrey"),
+    config_node_asset(CONFIG_NODE_ASSET_FAST_FWD_BLACK, "FastFwdBlack"),
+    config_node_asset(CONFIG_NODE_ASSET_FAST_FWD_WHITE, "FastFwdWhite"),
+    config_node_asset(CONFIG_NODE_ASSET_FAST_FWD_GREY, "FastFwdGrey"),
+    config_node_asset(CONFIG_NODE_ASSET_BWD_BLACK, "BwdBlack"),
+    config_node_asset(CONFIG_NODE_ASSET_BWD_WHITE, "BwdWhite"),
+    config_node_asset(CONFIG_NODE_ASSET_BWD_GREY, "BwdGrey"),
+    config_node_asset(CONFIG_NODE_ASSET_FAST_BWD_BLACK, "FastBwdBlack"),
+    config_node_asset(CONFIG_NODE_ASSET_FAST_BWD_WHITE, "FastBwdWhite"),
+    config_node_asset(CONFIG_NODE_ASSET_FAST_BWD_GREY, "FastBwdGrey"),
+    config_node_asset(CONFIG_NODE_ASSET_STOP_BLACK, "StopBlack"),
+    config_node_asset(CONFIG_NODE_ASSET_STOP_WHITE, "StopWhite"),
+    config_node_asset(CONFIG_NODE_ASSET_STOP_GREY, "StopGrey"),
+    config_node_asset(CONFIG_NODE_ASSET_PAUSE_BLACK, "PauseBlack"),
+    config_node_asset(CONFIG_NODE_ASSET_PAUSE_WHITE, "PauseWhite"),
+    config_node_asset(CONFIG_NODE_ASSET_PAUSE_GREY, "PauseGrey"),
   );
 
   v.iter().enumerate().for_each(|(i, node)| assert!(node.index == i, "system node indexes must match their global constant value; mismatch for index {} in get_system_nodes(), node.index= {}", i, node.index));

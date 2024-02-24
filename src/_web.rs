@@ -22,7 +22,6 @@
 //   - item hint on machine selection (red rects) are too small. at least on ipad
 //   - purple bucket is red?
 //   - full maze not enabled by default
-//   - play/pause icon/emoji on ipad looks uuuugly so we should use an image instead
 //   - fullscreen button on ipad crashes the whole thing... can we handle that gracefully
 //   - the copy/paste buttons hover is inconsistent with other buttons
 //   - clone as a button?
@@ -735,7 +734,7 @@ pub fn start() -> Result<(), JsValue> {
       prerender_button(&options, &state, &config, UI_SAVE_THUMB_WIDTH - UI_SAVE_THUMB_IMG_WIDTH, UI_SAVE_THUMB_HEIGHT, false),
     );
 
-    let speed_menu_prerender_canvas = prerender_speed_menu(&options, &state, &config, &mouse_state);
+    let speed_menu_prerender_canvas = prerender_speed_menu(&options, &state, &config, &factory, &mouse_state);
     let mut save_menu_prerender_canvas: Option<web_sys::HtmlCanvasElement> = None;
 
     if options.trace_size_changes { log!("(size) Internal css size initially: {}x{}, canvas pixels: {}x{}", CANVAS_CSS_INITIAL_WIDTH, CANVAS_CSS_INITIAL_HEIGHT, CANVAS_PIXEL_INITIAL_WIDTH, CANVAS_PIXEL_INITIAL_HEIGHT); }
@@ -1174,7 +1173,7 @@ pub fn start() -> Result<(), JsValue> {
         // Probably after all backround/floor stuff is finished
         paint_zone_borders(&options, &state, &context);
 
-        paint_ui_speed_menu(&options, &state, &context, &mouse_state);
+        paint_ui_speed_menu(&options, &state, &config, &factory, &context, &mouse_state);
         paint_speed_menu_animation(&options, &mut state, &config, &factory, &context, &speed_menu_prerender_canvas);
 
         paint_load_thumbs(&options, &state, &config, &factory, &context, &button_canvii, &mouse_state, &mut quick_saves);
@@ -5389,14 +5388,14 @@ fn paint_ui_button2(context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state
   }
   context.fill_text(text, x + 5.0, y + 14.0).expect("to paint");
 }
-fn paint_ui_speed_menu(options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+fn paint_ui_speed_menu(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   // paint_speed_buttons
   if options.enable_speed_menu {
-    paint_ui_speed_bubble(MenuButton::SpeedMin, options, state, context, mouse_state, BUTTON_SPEED_MIN_INDEX, "-");
-    paint_ui_speed_bubble(MenuButton::SpeedHalf, options, state, context, mouse_state, BUTTON_SPEED_HALF_INDEX, "½");
-    paint_ui_speed_bubble(MenuButton::SpeedPlayPause, options, state, context, mouse_state, BUTTON_SPEED_PLAY_PAUSE_INDEX, "⏭"); // "play" / "pause"
-    paint_ui_speed_bubble(MenuButton::SpeedDouble, options, state, context, mouse_state, BUTTON_SPEED_DOUBLE_INDEX, "2");
-    paint_ui_speed_bubble(MenuButton::SpeedPlus, options, state, context, mouse_state, BUTTON_SPEED_PLUS_INDEX, "+");
+    paint_ui_speed_bubble(options, state, config, factory, MenuButton::SpeedMin, context, mouse_state, BUTTON_SPEED_MIN_INDEX, "-");
+    paint_ui_speed_bubble(options, state, config, factory, MenuButton::SpeedHalf, context, mouse_state, BUTTON_SPEED_HALF_INDEX, "½");
+    paint_ui_speed_bubble(options, state, config, factory, MenuButton::SpeedPlayPause, context, mouse_state, BUTTON_SPEED_PLAY_PAUSE_INDEX, "⏭"); // "play" / "pause"
+    paint_ui_speed_bubble(options, state, config, factory, MenuButton::SpeedDouble, context, mouse_state, BUTTON_SPEED_DOUBLE_INDEX, "2");
+    paint_ui_speed_bubble(options, state, config, factory, MenuButton::SpeedPlus, context, mouse_state, BUTTON_SPEED_PLUS_INDEX, "+");
   }
 }
 fn paint_speed_menu_animation(options: &Options, state: &mut State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, speed_menu_prerender_canvas: &web_sys::HtmlCanvasElement) {
@@ -5410,15 +5409,17 @@ fn paint_speed_menu_animation(options: &Options, state: &mut State, config: &Con
     ).expect("draw_image_with_html_canvas_element should work"); // requires web_sys HtmlImageElement feature
   }
 }
-fn paint_ui_speed_bubble(button: MenuButton, options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, index: usize, text: &str) {
+fn paint_ui_speed_bubble(options: &Options, state: &State, config: &Config, factory: &Factory, button: MenuButton, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, index: usize, text: &str) {
   // index should be one of the BUTTON_SPEED_***_INDEX constants
 
   let cx = UI_SPEED_BUBBLE_OFFSET_X + UI_SPEED_BUBBLE_W * (index as f64) + UI_SPEED_BUBBLE_RADIUS;
   let cy = UI_SPEED_BUBBLE_OFFSET_Y + UI_SPEED_BUBBLE_RADIUS;
 
-  paint_ui_speed_bubble_xy(button, options, state, context, mouse_state, text, cx, cy);
+  paint_ui_speed_bubble_xy(options, state, config, factory, button, context, mouse_state, text, cx, cy);
 }
-fn paint_ui_speed_bubble_xy(button: MenuButton, options: &Options, state: &State, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, text: &str, cx: f64, cy: f64) {
+fn paint_ui_speed_bubble_xy(options: &Options, state: &State, config: &Config, factory: &Factory, button: MenuButton, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, text: &str, cx: f64, cy: f64) {
+  let hovering = mouse_state.over_menu_button == button;
+
   context.save();
 
   context.begin_path();
@@ -5434,15 +5435,7 @@ fn paint_ui_speed_bubble_xy(button: MenuButton, options: &Options, state: &State
   } else {
     context.set_stroke_style(&BUTTON_COLOR_BORDER_LIGHT.into()); // border
   }
-
-  let dx = match text  {
-    "⏭" => 11.0,
-    "½" => 13.0,
-    "2" => 8.0,
-    "-" => 6.0,
-    "+" => 10.0,
-    _ => panic!("update me in paint_ui_speed_bubble()..."),
-  };
+  context.stroke();
 
   if text == "⏭" && options.speed_modifier_floor == 0.0 {
     context.set_fill_style(&"tomato".into());
@@ -5463,17 +5456,37 @@ fn paint_ui_speed_bubble_xy(button: MenuButton, options: &Options, state: &State
     context.set_fill_style(&BUTTON_COLOR_BORDER_LIGHT.into());
   }
   else if mouse_state.over_menu_button == button {
-    context.set_fill_style(&"#444".into());
+    context.set_fill_style(&"#777".into());
   }
   else {
     context.set_fill_style(&BUTTON_COLOR_BACK.into());
   }
-
-  context.set_font(&"26px Verdana");
   context.fill();
-  context.stroke();
-  context.set_fill_style(&BUTTON_COLOR_FRONT.into());
-  context.fill_text(text, cx - dx, cy + 9.0).expect("to paint");
+
+  // Note: the grey and black versions of these icons do not work well with the hover colors
+  let ( dx, dy, icon ) = match text  {
+    "-" => {
+      ( -9.0, -8.0, CONFIG_NODE_ASSET_FAST_BWD_WHITE )
+    },
+    "½" => {
+      ( -10.0, -8.0, CONFIG_NODE_ASSET_BWD_WHITE )
+    },
+    "⏭" => {
+      ( -6.0, -8.0, CONFIG_NODE_ASSET_PLAY_WHITE )
+    }
+    "2" => {
+      ( -6.0, -8.0, CONFIG_NODE_ASSET_FWD_WHITE )
+    },
+    "+" => {
+      ( -7.0, -8.0, CONFIG_NODE_ASSET_FAST_FWD_WHITE )
+    },
+    _ => panic!("update me in paint_ui_speed_bubble()..."),
+  };
+
+  paint_asset_raw(
+    options, state, config, &context, icon, factory.ticks,
+    cx + dx, cy + dy, 16.0, 16.0
+  );
 
   context.restore();
 }
@@ -6299,7 +6312,7 @@ fn prerender_button_stage2(options: &Options, state: &State, config: &Config, wi
 fn paint_button(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, button_canvii_index: usize, x: f64, y: f64) {
   context.draw_image_with_html_canvas_element(&button_canvii[button_canvii_index], x.floor(), y.floor()).expect("draw_image_with_html_canvas_element should work"); // requires web_sys HtmlImageElement feature
 }
-fn prerender_speed_menu(options: &Options, state: &State, config: &Config, mouse_state: &MouseState) -> web_sys::HtmlCanvasElement {
+fn prerender_speed_menu(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &MouseState) -> web_sys::HtmlCanvasElement {
   let cy = UI_SPEED_MENU_PRERENDER_MARGIN + UI_SPEED_BUBBLE_RADIUS;
 
   let document = document();
@@ -6312,11 +6325,11 @@ fn prerender_speed_menu(options: &Options, state: &State, config: &Config, mouse
 
   let context = Rc::new(context); // For the sake of the function arg. Not important for this one-of.
 
-  paint_ui_speed_bubble_xy(MenuButton::SpeedMin, options, state, &context, mouse_state, "-", UI_SPEED_MENU_PRERENDER_MARGIN + UI_SPEED_BUBBLE_W * (BUTTON_SPEED_MIN_INDEX as f64) + UI_SPEED_BUBBLE_RADIUS, cy);
-  paint_ui_speed_bubble_xy(MenuButton::SpeedHalf, options, state, &context, mouse_state, "½", UI_SPEED_MENU_PRERENDER_MARGIN + UI_SPEED_BUBBLE_W * (BUTTON_SPEED_HALF_INDEX as f64) + UI_SPEED_BUBBLE_RADIUS, cy);
-  paint_ui_speed_bubble_xy(MenuButton::SpeedPlayPause, options, state, &context, mouse_state, "⏭", UI_SPEED_MENU_PRERENDER_MARGIN + UI_SPEED_BUBBLE_W * (BUTTON_SPEED_PLAY_PAUSE_INDEX as f64) + UI_SPEED_BUBBLE_RADIUS, cy); // "play" / "pause"
-  paint_ui_speed_bubble_xy(MenuButton::SpeedDouble, options, state, &context, mouse_state, "2", UI_SPEED_MENU_PRERENDER_MARGIN + UI_SPEED_BUBBLE_W * (BUTTON_SPEED_DOUBLE_INDEX as f64) + UI_SPEED_BUBBLE_RADIUS, cy);
-  paint_ui_speed_bubble_xy(MenuButton::SpeedPlus, options, state, &context, mouse_state, "+", UI_SPEED_MENU_PRERENDER_MARGIN + UI_SPEED_BUBBLE_W * (BUTTON_SPEED_PLUS_INDEX as f64) + UI_SPEED_BUBBLE_RADIUS, cy);
+  paint_ui_speed_bubble_xy(options, state, config, factory, MenuButton::SpeedMin, &context, mouse_state, "-", UI_SPEED_MENU_PRERENDER_MARGIN + UI_SPEED_BUBBLE_W * (BUTTON_SPEED_MIN_INDEX as f64) + UI_SPEED_BUBBLE_RADIUS, cy);
+  paint_ui_speed_bubble_xy(options, state, config, factory, MenuButton::SpeedHalf, &context, mouse_state, "½", UI_SPEED_MENU_PRERENDER_MARGIN + UI_SPEED_BUBBLE_W * (BUTTON_SPEED_HALF_INDEX as f64) + UI_SPEED_BUBBLE_RADIUS, cy);
+  paint_ui_speed_bubble_xy(options, state, config, factory, MenuButton::SpeedPlayPause, &context, mouse_state, "⏭", UI_SPEED_MENU_PRERENDER_MARGIN + UI_SPEED_BUBBLE_W * (BUTTON_SPEED_PLAY_PAUSE_INDEX as f64) + UI_SPEED_BUBBLE_RADIUS, cy); // "play" / "pause"
+  paint_ui_speed_bubble_xy(options, state, config, factory, MenuButton::SpeedDouble, &context, mouse_state, "2", UI_SPEED_MENU_PRERENDER_MARGIN + UI_SPEED_BUBBLE_W * (BUTTON_SPEED_DOUBLE_INDEX as f64) + UI_SPEED_BUBBLE_RADIUS, cy);
+  paint_ui_speed_bubble_xy(options, state, config, factory, MenuButton::SpeedPlus, &context, mouse_state, "+", UI_SPEED_MENU_PRERENDER_MARGIN + UI_SPEED_BUBBLE_W * (BUTTON_SPEED_PLUS_INDEX as f64) + UI_SPEED_BUBBLE_RADIUS, cy);
 
   return canvas;
 }
