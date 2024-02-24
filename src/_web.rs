@@ -21,10 +21,11 @@
 //   - touch; deselecting selections is awkward. should probably ignore hover afterwards if event was recorded as touch. maybe clear it
 //   - item hint on machine selection (red rects) are too small. at least on ipad
 //   - purple bucket is red?
-//   - brush toggle is half in wrong zone now
 //   - full maze not enabled by default
 //   - play/pause icon/emoji on ipad looks uuuugly so we should use an image instead
 //   - fullscreen button on ipad crashes the whole thing... can we handle that gracefully
+//   - the copy/paste buttons hover is inconsistent with other buttons
+//   - clone as a button?
 
 // features
 // - belts
@@ -1350,9 +1351,6 @@ fn update_mouse_state(
       else if hit_test_redo(mouse_state.world_x, mouse_state.world_y) {
         mouse_state.over_menu_button = MenuButton::RedoButton;
       }
-      else if hit_test_paint_toggle(mouse_state.world_x, mouse_state.world_y) {
-        mouse_state.over_menu_button = MenuButton::PaintToggleButton;
-      }
       else if options.enable_speed_menu {
         let menu_button = hit_test_menu_speed_buttons(mouse_state.world_x, mouse_state.world_y);
         if menu_button != MenuButton::None {
@@ -1362,7 +1360,10 @@ fn update_mouse_state(
       }
     }
     Zone::TopRight => {
-      if options.dbg_show_secret_menu {
+      if hit_test_paint_toggle(mouse_state.world_x, mouse_state.world_y) {
+        mouse_state.over_menu_button = MenuButton::PaintToggleButton;
+      }
+      else if options.dbg_show_secret_menu {
         let menu_button = hit_test_menu_buttons(mouse_state.world_x, mouse_state.world_y);
         if menu_button != MenuButton::None {
           // time controls, first, second row of menu buttons
@@ -1485,9 +1486,6 @@ fn update_mouse_state(
         else if hit_test_redo(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
           mouse_state.down_menu_button = MenuButton::RedoButton;
         }
-        else if hit_test_paint_toggle(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
-          mouse_state.down_menu_button = MenuButton::PaintToggleButton;
-        }
         else if !options.enable_speed_menu {
           log!("Speed menu disabled, ignoring down");
         } else {
@@ -1502,7 +1500,10 @@ fn update_mouse_state(
         log!("Top menu button down: {:?}", mouse_state.down_menu_button);
       }
       Zone::TopRight => {
-        if options.dbg_show_secret_menu {
+        if hit_test_paint_toggle(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
+          mouse_state.down_menu_button = MenuButton::PaintToggleButton;
+        }
+        else if options.dbg_show_secret_menu {
           let menu_button = hit_test_menu_buttons(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
           if menu_button != MenuButton::None {
             // time controls, first, second row of menu buttons
@@ -1640,9 +1641,6 @@ fn update_mouse_state(
         else if hit_test_redo(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
           mouse_state.up_menu_button = MenuButton::RedoButton;
         }
-        else if hit_test_paint_toggle(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
-          mouse_state.up_menu_button = MenuButton::PaintToggleButton;
-        }
         else if !options.enable_speed_menu {
           log!("Speed menu disabled, ignoring up");
         }
@@ -1658,7 +1656,10 @@ fn update_mouse_state(
         log!("Top menu button up: {:?}", mouse_state.up_menu_button);
       }
       Zone::TopRight => {
-        if options.dbg_show_secret_menu {
+        if hit_test_paint_toggle(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
+          mouse_state.up_menu_button = MenuButton::PaintToggleButton;
+        }
+        else if options.dbg_show_secret_menu {
           let menu_button = hit_test_menu_buttons(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
           if menu_button != MenuButton::None {
             // time controls, first, second row of menu buttons
