@@ -25,7 +25,6 @@
 //   - full maze not enabled by default
 //   - play/pause icon/emoji on ipad looks uuuugly so we should use an image instead
 //   - fullscreen button on ipad crashes the whole thing... can we handle that gracefully
-//   - bouncers should paint over save menu
 
 // features
 // - belts
@@ -1174,12 +1173,6 @@ pub fn start() -> Result<(), JsValue> {
         // Probably after all backround/floor stuff is finished
         paint_zone_borders(&options, &state, &context);
 
-        paint_border_hint(&options, &state, &config, &factory, &context);
-        // In front of all game stuff
-        paint_bouncers(&options, &state, &config, &context, &mut factory);
-        // Paint the factory icon now so bouncers go behind it
-        paint_factory_img(&options, &state, &config, &factory, &context, &mouse_state);
-
         paint_ui_speed_menu(&options, &state, &context, &mouse_state);
         paint_speed_menu_animation(&options, &mut state, &config, &factory, &context, &speed_menu_prerender_canvas);
 
@@ -1190,6 +1183,12 @@ pub fn start() -> Result<(), JsValue> {
           save_menu_prerender_canvas = Some(prerender_save_menu(&options, &state, &config, &factory, &mouse_state, &mut quick_saves, &button_canvii));
         }
         paint_save_menu_animation(&options, &mut state, &config, &factory, &context, &save_menu_prerender_canvas);
+
+        paint_border_hint(&options, &state, &config, &factory, &context);
+        // In front of all game stuff
+        paint_bouncers(&options, &state, &config, &context, &mut factory);
+        // Paint the factory icon now so bouncers go behind it
+        paint_factory_img(&options, &state, &config, &factory, &context, &mouse_state);
 
         if highlight_index > 0 {
           // Hovering over / selected a woop
