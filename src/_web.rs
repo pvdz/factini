@@ -26,7 +26,6 @@
 //   - play/pause icon/emoji on ipad looks uuuugly so we should use an image instead
 //   - fullscreen button on ipad crashes the whole thing... can we handle that gracefully
 //   - bouncers should paint over save menu
-//   - machine bad placement hint ("red grid") needs improvement
 
 // features
 // - belts
@@ -4009,39 +4008,38 @@ fn paint_mouse_while_dragging_machine_at_cell(options: &Options, state: &State, 
       ( ox, oy )
     };
 
-  fn paint_illegal(context: &Rc<web_sys::CanvasRenderingContext2d>, x: f64, y: f64, w: f64, h: f64) {
-    // tbd. dont like this part but it gets the job done I guess.
-    context.set_stroke_style(&"red".into());
-    context.stroke_rect(x, y, w, h);
-    // context.set_line_width(3.0);
-    // context.set_line_cap("round");
-    let n = 11.0;
-    let ws = w / n;
-    let hs = h / n;
-    for i in 0..ws as u32 {
-      for j in 0..hs as u32 {
-        let fi = i as f64;
-        let fj = j as f64;
-
-        context.begin_path();
-        context.move_to(x, y + fj * n);
-        context.line_to(x + w, y + fj * n);
-        context.stroke();
-
-        context.begin_path();
-        context.move_to(x + fi * n, y);
-        context.line_to(x + fi * n, y + h);
-        context.stroke();
-      }
-    }
-  }
-
   context.set_fill_style(&"black".into());
   context.set_fill_style(&COLOR_MACHINE_SEMI.into());
-  context.fill_rect(paint_at_x, paint_at_y, (machine_cells_width as f64) * CELL_W, (machine_cells_height as f64) * CELL_H);
-  if !legal { paint_illegal(&context, paint_at_x, paint_at_y, (machine_cells_width as f64) * CELL_W, (machine_cells_height as f64) * CELL_H); }
+  let w = (machine_cells_width as f64) * CELL_W;
+  let h = (machine_cells_height as f64) * CELL_H;
+  context.fill_rect(paint_at_x, paint_at_y, w, h);
+  if !legal { paint_illegal_dragging_woop(&context, paint_at_x, paint_at_y, w, h); }
   context.set_fill_style(&"black".into());
   context.fill_text("M", paint_at_x + (machine_cells_width as f64) * CELL_W / 2.0 - 5.0, paint_at_y + (machine_cells_height as f64) * CELL_H / 2.0 + 2.0).expect("no error")
+}
+fn paint_illegal_dragging_woop(context: &Rc<web_sys::CanvasRenderingContext2d>, x: f64, y: f64, w: f64, h: f64) {
+  // tbd. dont like this part but it gets the job done I guess.
+  context.set_stroke_style(&"red".into());
+  context.stroke_rect(x, y, w, h);
+  // context.set_line_width(3.0);
+  // context.set_line_cap("round");
+  let goal = 15.0;
+  let lines_w = (w / goal).floor();
+  let lines_h = (h / goal).floor();
+  let step_w = w / lines_w;
+  let step_h = h / lines_h;
+  context.begin_path();
+  for i in 0..lines_w as u32 {
+    for j in 0..lines_h as u32 {
+      let tx = (i as f64 * step_w).floor() + 0.5;
+      let ty = (j as f64 * step_h).floor() + 0.5;
+      context.move_to(x, y + ty);
+      context.line_to(x + w, y + ty);
+      context.move_to(x + tx, y);
+      context.line_to(x + tx, y + h);
+    }
+  }
+  context.stroke();
 }
 fn paint_mouse_while_dragging_atom(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, cell_selection: &CellSelection) {
   // the atom has no pattern; only allow to edge as supply
