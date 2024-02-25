@@ -171,20 +171,6 @@ fn dnow() -> u64 {
   js_sys::Date::now() as u64
 }
 
-fn load_tile(src: &str) -> web_sys::HtmlImageElement {
-  let document = document();
-
-  let img = document
-    .create_element("img")
-    .expect("to work")
-    .dyn_into::<web_sys::HtmlImageElement>()
-    .expect("to work");
-
-  img.set_src(src);
-
-  return img;
-}
-
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
   // Must run this once in web-mode to enable dumping panics to console.log
@@ -218,71 +204,6 @@ pub fn start() -> Result<(), JsValue> {
 
   context.set_image_smoothing_enabled(false);
 
-  pub fn load_config(trace_img_loader: bool, config: &mut Config) {
-    log!("load_config(options.trace_img_loader={})", trace_img_loader);
-
-    if trace_img_loader {
-      log!("  - Nodes that want to load a file:");
-      config.nodes.iter().for_each(|node| {
-        if node.sprite_config.frames[0].file != "" {
-          log!("    - node `{}` wants to load `{}` at canvas index {}", node.raw_name, node.sprite_config.frames[0].file, node.sprite_config.frames[0].file_canvas_cache_index);
-        }
-      });
-    }
-
-    let image_loader_prio = vec!(
-      // Load the loader splash screen first
-      config.nodes[CONFIG_NODE_ASSET_SCREEN_LOADER].sprite_config.frames[0].file_canvas_cache_index,
-    );
-
-    // Load sprite maps. Once per image. Start with prio, then the rest, then unbox them.
-    let mut boxed: Vec<Option<web_sys::HtmlImageElement>> =
-      config.sprite_cache_order.iter().enumerate().map(|(index, src)| {
-        if image_loader_prio.contains(&index) {
-          if trace_img_loader { log!("Loading {} with prio", src); }
-          return Some(load_tile(src.clone().as_str()));
-        }
-        return None;
-      }).collect::<Vec<Option<web_sys::HtmlImageElement>>>();
-    // Now load the no-prio's
-    config.sprite_cache_order.iter().enumerate().for_each(|(index, src)| {
-      if boxed[index] == None {
-        boxed[index] = Some(load_tile(src.clone().as_str()));
-      }
-    });
-    // Now unbox them so we don't have to do the unbox dance every time
-    config.sprite_cache_canvas = boxed.into_iter().filter_map(|e| e).collect();
-
-    config.sprite_cache_loading = true;
-
-    if trace_img_loader { log!("Queued up {} sprite files for these parts: {:?}", config.sprite_cache_canvas.len(), config.sprite_cache_lookup); }
-    else { log!("Queued up {} sprite files to load...", config.sprite_cache_canvas.len()); }
-
-    {
-      let kinds: JsValue = [ConfigNodeKind::Part, ConfigNodeKind::Quest, ConfigNodeKind::Supply, ConfigNodeKind::Demand, ConfigNodeKind::Dock, ConfigNodeKind::Machine, ConfigNodeKind::Belt].iter().map(|&kind| {
-        return JsValue::from(match kind {
-          ConfigNodeKind::Asset => "Asset",
-          ConfigNodeKind::Part => "Part",
-          ConfigNodeKind::Quest => "Quest",
-          ConfigNodeKind::Supply => "Supply",
-          ConfigNodeKind::Demand => "Demand",
-          ConfigNodeKind::Dock => "Dock",
-          ConfigNodeKind::Machine => "Machine",
-          ConfigNodeKind::Belt => "Belt",
-          ConfigNodeKind::Story => "Story",
-        });
-      }).collect::<js_sys::Array>().into();
-
-      let nodes: JsValue = config_to_jsvalue(&config);
-
-      // Send to html
-      receiveConfigNode("wat".into(), vec!(
-        vec!(JsValue::from("kinds"), kinds).iter().collect::<js_sys::Array>(),
-        vec!(JsValue::from("nodes"), nodes).iter().collect::<js_sys::Array>(),
-      ).iter().collect::<js_sys::Array>().into());
-    }
-  }
-
   // Static state configuration (can still be changed by user). Prefer localStorage over options.md
   let mut options = create_options(1.0, 1.0);
   // If there are options in localStorage, apply them now
@@ -307,8 +228,6 @@ pub fn start() -> Result<(), JsValue> {
   let h = if options.dbg_show_bottom_info { CANVAS_CSS_INITIAL_HEIGHT } else { CANVAS_CSS_INITIAL_HEIGHT - GRID_BOTTOM_DEBUG_HEIGHT - GRID_PADDING } as u32;
   canvas.set_height(h);
   canvas.style().set_property("height", format!("{}px", h).as_str()).expect("should work");
-
-  let img_loading_sand: web_sys::HtmlImageElement = load_tile("./img/sand.png");
 
   // https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/createPattern
   // https://rustwasm.github.io/wasm-bindgen/api/web_sys/struct.CanvasRenderingContext2d.html#method.create_pattern_with_html_image_element
@@ -1187,6 +1106,85 @@ pub fn start() -> Result<(), JsValue> {
   }
 
   Ok(())
+}
+
+fn load_config(trace_img_loader: bool, config: &mut Config) {
+  log!("load_config(options.trace_img_loader={})", trace_img_loader);
+
+  if trace_img_loader {
+    log!("  - Nodes that want to load a file:");
+    config.nodes.iter().for_each(|node| {
+      if node.sprite_config.frames[0].file != "" {
+        log!("    - node `{}` wants to load `{}` at canvas index {}", node.raw_name, node.sprite_config.frames[0].file, node.sprite_config.frames[0].file_canvas_cache_index);
+      }
+    });
+  }
+
+  let image_loader_prio = vec!(
+    // Load the loader splash screen first
+    config.nodes[CONFIG_NODE_ASSET_SCREEN_LOADER].sprite_config.frames[0].file_canvas_cache_index,
+  );
+
+  // Load sprite maps. Once per image. Start with prio, then the rest, then unbox them.
+  let mut boxed: Vec<Option<web_sys::HtmlImageElement>> =
+    config.sprite_cache_order.iter().enumerate().map(|(index, src)| {
+      if image_loader_prio.contains(&index) {
+        if trace_img_loader { log!("Loading {} with prio", src); }
+        return Some(load_tile(src.clone().as_str()));
+      }
+      return None;
+    }).collect::<Vec<Option<web_sys::HtmlImageElement>>>();
+  // Now load the no-prio's
+  config.sprite_cache_order.iter().enumerate().for_each(|(index, src)| {
+    if boxed[index] == None {
+      boxed[index] = Some(load_tile(src.clone().as_str()));
+    }
+  });
+  // Now unbox them so we don't have to do the unbox dance every time
+  config.sprite_cache_canvas = boxed.into_iter().filter_map(|e| e).collect();
+
+  config.sprite_cache_loading = true;
+
+  if trace_img_loader { log!("Queued up {} sprite files for these parts: {:?}", config.sprite_cache_canvas.len(), config.sprite_cache_lookup); }
+  else { log!("Queued up {} sprite files to load...", config.sprite_cache_canvas.len()); }
+
+  {
+    let kinds: JsValue = [ConfigNodeKind::Part, ConfigNodeKind::Quest, ConfigNodeKind::Supply, ConfigNodeKind::Demand, ConfigNodeKind::Dock, ConfigNodeKind::Machine, ConfigNodeKind::Belt].iter().map(|&kind| {
+      return JsValue::from(match kind {
+        ConfigNodeKind::Asset => "Asset",
+        ConfigNodeKind::Part => "Part",
+        ConfigNodeKind::Quest => "Quest",
+        ConfigNodeKind::Supply => "Supply",
+        ConfigNodeKind::Demand => "Demand",
+        ConfigNodeKind::Dock => "Dock",
+        ConfigNodeKind::Machine => "Machine",
+        ConfigNodeKind::Belt => "Belt",
+        ConfigNodeKind::Story => "Story",
+      });
+    }).collect::<js_sys::Array>().into();
+
+    let nodes: JsValue = config_to_jsvalue(&config);
+
+    // Send to html
+    receiveConfigNode("wat".into(), vec!(
+      vec!(JsValue::from("kinds"), kinds).iter().collect::<js_sys::Array>(),
+      vec!(JsValue::from("nodes"), nodes).iter().collect::<js_sys::Array>(),
+    ).iter().collect::<js_sys::Array>().into());
+  }
+}
+
+fn load_tile(src: &str) -> web_sys::HtmlImageElement {
+  let document = document();
+
+  let img = document
+    .create_element("img")
+    .expect("to work")
+    .dyn_into::<web_sys::HtmlImageElement>()
+    .expect("to work");
+
+  img.set_src(src);
+
+  return img;
 }
 
 fn get_x_while_dragging_machine(cell_x: f64, machine_cell_width: usize) -> f64 {
