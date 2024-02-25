@@ -18,7 +18,6 @@
 //   - repo
 // - bug
 //   - ai will use woops as suppliers
-//   - touch; deselecting selections is awkward. should probably ignore hover afterwards if event was recorded as touch. maybe clear it
 //   - full maze not enabled by default
 //   - fullscreen button on ipad crashes the whole thing... can we handle that gracefully
 //   - clone as a button?
@@ -1033,9 +1032,15 @@ pub fn start() -> Result<(), JsValue> {
         }
         let was_down = last_mouse_was_down.get();
         let was_mouse = if was_down { if last_down_event_type.get() == EventSourceType::Mouse { EventSourceType::Mouse } else { EventSourceType::Touch } } else { EventSourceType::Unknown }; // Only read if set. May be an over-optimization but eh.
-        update_mouse_state(&mut options, &mut state, &config, &mut factory, &mut cell_selection, &mut mouse_state, mouse_x.get(), mouse_y.get(), mouse_moved.get(), was_mouse, was_down, last_mouse_down_x.get(), last_mouse_down_y.get(), last_mouse_down_button.get(), last_mouse_was_up.get(), last_mouse_up_x.get(), last_mouse_up_y.get(), last_mouse_up_button.get());
+        let was_up = last_mouse_was_up.get();
+        update_mouse_state(&mut options, &mut state, &config, &mut factory, &mut cell_selection, &mut mouse_state, mouse_x.get(), mouse_y.get(), mouse_moved.get(), was_mouse, was_down, last_mouse_down_x.get(), last_mouse_down_y.get(), last_mouse_down_button.get(), was_up, last_mouse_up_x.get(), last_mouse_up_y.get(), last_mouse_up_button.get());
         last_mouse_was_down.set(false);
         last_mouse_was_up.set(false);
+        if was_up && was_mouse != EventSourceType::Mouse {
+          // Clear the hover coordinate because otherwise it will lead to confusing UI for touch devices
+          mouse_x.set(0.0);
+          mouse_y.set(0.0);
+        }
 
         // Handle drag-end or click
         handle_input(&mut cell_selection, &mut mouse_state, &mut options, &mut state, &config, &mut factory, &mut quick_saves);
@@ -3799,11 +3804,17 @@ fn paint_belt_dbg_id(options: &Options, state: &State, config: &Config, context:
   }
 }
 fn paint_mouse_cursor(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
+  // paint_mouse_position
   let mut color = "#ff00ff7f";
   let mut diameter = PART_W / 2.0;
 
   let mut x = mouse_state.world_x;
   let mut y = mouse_state.world_y;
+  if x == 0.0 && y == 0.0 {
+    // Assume that the top-left corner coordinate means the mouse should not be painted
+    return;
+  }
+
   if factory.auto_build.phase != AutoBuildPhase::None {
     diameter = MOUSE_POINTER_RADIUS_AUTO_BUILD * 2.0;
 
