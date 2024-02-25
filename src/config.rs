@@ -400,6 +400,8 @@ pub const CONFIG_NODE_ASSET_STOP_GREY: usize = 372;
 pub const CONFIG_NODE_ASSET_PAUSE_BLACK: usize = 373;
 pub const CONFIG_NODE_ASSET_PAUSE_WHITE: usize = 374;
 pub const CONFIG_NODE_ASSET_PAUSE_GREY: usize = 375;
+pub const CONFIG_NODE_ASSET_COPY_WHITE: usize = 376;
+pub const CONFIG_NODE_ASSET_PASTE_WHITE: usize = 377;
 
 #[derive(Debug)]
 pub struct Config {
@@ -1466,9 +1468,11 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Asset_RedoLight" => CONFIG_NODE_ASSET_REDO_LIGHT,
     "Asset_RedoGrey" => CONFIG_NODE_ASSET_REDO_GREY,
     "Asset_Logo" => CONFIG_NODE_ASSET_LOGO,
+    "Asset_CopyWhite" => CONFIG_NODE_ASSET_COPY_WHITE,
     "Asset_CopyGrey" => CONFIG_NODE_ASSET_COPY_GREY,
-    "Asset_PasteGrey" => CONFIG_NODE_ASSET_PASTE_GREY,
     "Asset_CopyGreen" => CONFIG_NODE_ASSET_COPY_GREEN,
+    "Asset_PasteWhite" => CONFIG_NODE_ASSET_PASTE_WHITE,
+    "Asset_PasteGrey" => CONFIG_NODE_ASSET_PASTE_GREY,
     "Asset_PasteGreen" => CONFIG_NODE_ASSET_PASTE_GREEN,
     "Asset_FullScreenBlack" => CONFIG_NODE_ASSET_FULLSCREEN_BLACK,
     "Asset_FullScreenWhite" => CONFIG_NODE_ASSET_FULLSCREEN_WHITE,
@@ -2160,6 +2164,8 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_asset(CONFIG_NODE_ASSET_PAUSE_BLACK, "PauseBlack"),
     config_node_asset(CONFIG_NODE_ASSET_PAUSE_WHITE, "PauseWhite"),
     config_node_asset(CONFIG_NODE_ASSET_PAUSE_GREY, "PauseGrey"),
+    config_node_asset(CONFIG_NODE_ASSET_COPY_WHITE, "CopyWhite"),
+    config_node_asset(CONFIG_NODE_ASSET_PASTE_WHITE, "PasteWhite"),
   );
 
   v.iter().enumerate().for_each(|(i, node)| assert!(node.index == i, "system node indexes must match their global constant value; mismatch for index {} in get_system_nodes(), node.index= {}", i, node.index));

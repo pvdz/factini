@@ -23,7 +23,6 @@
 //   - purple bucket is red?
 //   - full maze not enabled by default
 //   - fullscreen button on ipad crashes the whole thing... can we handle that gracefully
-//   - the copy/paste buttons hover is inconsistent with other buttons
 //   - clone as a button?
 
 // features
@@ -5620,10 +5619,10 @@ fn hit_test_save_map_delete_part(x: f64, y: f64, row: f64, col: f64) -> bool {
   );
 }
 fn hit_test_copy_button(x: f64, y: f64) -> bool {
-  return bounds_check(x, y, UI_SAVE_MENU_OFFSET_X + UI_SAVE_COPY_X, UI_SAVE_MENU_OFFSET_Y + UI_SAVE_COPY_Y, UI_SAVE_MENU_OFFSET_X + UI_SAVE_COPY_X + UI_SAVE_CP_WIDTH, UI_SAVE_MENU_OFFSET_Y + UI_SAVE_COPY_Y + UI_SAVE_CP_HEIGHT);
+  return bounds_check(x, y, UI_SAVE_MENU_OFFSET_X + UI_CLIPBOARD_COPY_X, UI_SAVE_MENU_OFFSET_Y + UI_CLIPBOARD_COPY_Y, UI_SAVE_MENU_OFFSET_X + UI_CLIPBOARD_COPY_X + UI_CLIPBOARD_WIDTH, UI_SAVE_MENU_OFFSET_Y + UI_CLIPBOARD_COPY_Y + UI_CLIPBOARD_HEIGHT);
 }
 fn hit_test_paste_button(x: f64, y: f64) -> bool {
-  return bounds_check(x, y, UI_SAVE_MENU_OFFSET_X + UI_SAVE_PASTE_X, UI_SAVE_MENU_OFFSET_Y + UI_SAVE_PASTE_Y, UI_SAVE_MENU_OFFSET_X + UI_SAVE_PASTE_X + UI_SAVE_CP_WIDTH, UI_SAVE_MENU_OFFSET_Y + UI_SAVE_PASTE_Y + UI_SAVE_CP_HEIGHT);
+  return bounds_check(x, y, UI_SAVE_MENU_OFFSET_X + UI_CLIPBOARD_PASTE_X, UI_SAVE_MENU_OFFSET_Y + UI_CLIPBOARD_PASTE_Y, UI_SAVE_MENU_OFFSET_X + UI_CLIPBOARD_PASTE_X + UI_CLIPBOARD_WIDTH, UI_SAVE_MENU_OFFSET_Y + UI_CLIPBOARD_PASTE_Y + UI_CLIPBOARD_HEIGHT);
 }
 fn paint_load_thumbs(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState, quick_saves: &mut [Option<QuickSave>; 9]) {
   if !options.enable_quick_save_menu {
@@ -5688,8 +5687,8 @@ fn paint_map_save_load_button(options: &Options, state: &State, config: &Config,
   }
 }
 fn paint_copy_button(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState, menu_offset_x: f64, menu_offset_y: f64) {
-  paint_button(options, state, config, context, button_canvii, if mouse_state.over_menu_button == MenuButton::CopyFactory { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, menu_offset_x + UI_SAVE_COPY_X, menu_offset_y + UI_SAVE_COPY_Y);
-  paint_asset_raw(options, state, config, &context, CONFIG_NODE_ASSET_COPY_GREY, 0, menu_offset_x + UI_SAVE_COPY_X + UI_UNREDO_WIDTH / 2.0 - 16.0, menu_offset_y + UI_SAVE_COPY_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0);
+  paint_button(options, state, config, context, button_canvii, if mouse_state.down_menu_button == MenuButton::CopyFactory { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, menu_offset_x + UI_CLIPBOARD_COPY_X, menu_offset_y + UI_CLIPBOARD_COPY_Y);
+  paint_asset_raw(options, state, config, &context, if mouse_state.over_menu_button == MenuButton::CopyFactory { CONFIG_NODE_ASSET_COPY_GREY } else { CONFIG_NODE_ASSET_COPY_WHITE }, 0, menu_offset_x + UI_CLIPBOARD_COPY_X + UI_UNREDO_WIDTH / 2.0 - 16.0, menu_offset_y + UI_CLIPBOARD_COPY_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0);
 
   let max = 40000;
   let delay = 15000;
@@ -5704,7 +5703,7 @@ fn paint_copy_button(options: &Options, state: &State, config: &Config, factory:
         context.set_global_alpha(p);
         paint_asset_raw(
           options, state, config, &context, CONFIG_NODE_ASSET_COPY_GREEN, 0,
-          menu_offset_x + UI_SAVE_COPY_X + UI_UNREDO_WIDTH / 2.0 - 16.0, menu_offset_y + UI_SAVE_COPY_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0
+          menu_offset_x + UI_CLIPBOARD_COPY_X + UI_UNREDO_WIDTH / 2.0 - 16.0, menu_offset_y + UI_CLIPBOARD_COPY_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0
         );
         context.restore();
       }
@@ -5712,8 +5711,8 @@ fn paint_copy_button(options: &Options, state: &State, config: &Config, factory:
   }
 }
 fn paint_paste_button(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState, menu_offset_x: f64, menu_offset_y: f64) {
-  paint_button(options, state, config, context, button_canvii, if mouse_state.over_menu_button == MenuButton::PasteFactory { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, menu_offset_x + UI_SAVE_PASTE_X, menu_offset_y + UI_SAVE_PASTE_Y);
-  paint_asset_raw(options, state, config, &context, CONFIG_NODE_ASSET_PASTE_GREY, 0, menu_offset_x + UI_SAVE_PASTE_X + UI_UNREDO_WIDTH / 2.0 - 16.0, menu_offset_y + UI_SAVE_PASTE_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0);
+  paint_button(options, state, config, context, button_canvii, if mouse_state.down_menu_button == MenuButton::PasteFactory { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP }, menu_offset_x + UI_CLIPBOARD_PASTE_X, menu_offset_y + UI_CLIPBOARD_PASTE_Y);
+  paint_asset_raw(options, state, config, &context, if mouse_state.over_menu_button == MenuButton::PasteFactory { CONFIG_NODE_ASSET_PASTE_GREY } else { CONFIG_NODE_ASSET_PASTE_WHITE }, 0, menu_offset_x + UI_CLIPBOARD_PASTE_X + UI_UNREDO_WIDTH / 2.0 - 16.0, menu_offset_y + UI_CLIPBOARD_PASTE_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0);
 
   let max = 40000;
   let delay = 15000;
@@ -5728,19 +5727,19 @@ fn paint_paste_button(options: &Options, state: &State, config: &Config, factory
 
         context.set_font(&"bold 52px Verdana");
         context.set_fill_style(&format!("#ff0000{:02x}", n).into());
-        context.fill_text("!", menu_offset_x + UI_SAVE_PASTE_X + 20.0, menu_offset_y + UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
+        context.fill_text("!", menu_offset_x + UI_CLIPBOARD_PASTE_X + 20.0, menu_offset_y + UI_CLIPBOARD_PASTE_Y + 48.0).expect("canvas api call to work");
         context.set_stroke_style(&format!("#000000{:02x}", n).into());
         context.set_line_width(2.0);
-        context.stroke_text("!", menu_offset_x + UI_SAVE_PASTE_X + 20.0, menu_offset_y + UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
+        context.stroke_text("!", menu_offset_x + UI_CLIPBOARD_PASTE_X + 20.0, menu_offset_y + UI_CLIPBOARD_PASTE_Y + 48.0).expect("canvas api call to work");
         context.set_stroke_style(&format!("#ffffff{:02x}", n).into());
         context.set_line_width(1.0);
-        context.stroke_text("!", menu_offset_x + UI_SAVE_PASTE_X + 20.0, menu_offset_y + UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
+        context.stroke_text("!", menu_offset_x + UI_CLIPBOARD_PASTE_X + 20.0, menu_offset_y + UI_CLIPBOARD_PASTE_Y + 48.0).expect("canvas api call to work");
 
         context.set_font(&"bold 30px Verdana");
         context.set_fill_style(&format!("#000000{:02x}", n).into());
-        context.fill_text("ctrl+v / cmd+v", menu_offset_x + UI_SAVE_PASTE_X + UI_SAVE_CP_WIDTH + 15.0, menu_offset_y + UI_SAVE_PASTE_Y + 38.0).expect("canvas api call to work");
+        context.fill_text("ctrl+v / cmd+v", menu_offset_x + UI_CLIPBOARD_PASTE_X + UI_CLIPBOARD_WIDTH + 15.0, menu_offset_y + UI_CLIPBOARD_PASTE_Y + 38.0).expect("canvas api call to work");
         context.set_stroke_style(&format!("#ffffff{:02x}", n).into());
-        context.stroke_text("ctrl+v / cmd+v", menu_offset_x + UI_SAVE_PASTE_X + UI_SAVE_CP_WIDTH + 15.0, menu_offset_y + UI_SAVE_PASTE_Y + 38.0).expect("canvas api call to work");
+        context.stroke_text("ctrl+v / cmd+v", menu_offset_x + UI_CLIPBOARD_PASTE_X + UI_CLIPBOARD_WIDTH + 15.0, menu_offset_y + UI_CLIPBOARD_PASTE_Y + 38.0).expect("canvas api call to work");
 
         context.restore();
       }
@@ -5750,13 +5749,13 @@ fn paint_paste_button(options: &Options, state: &State, config: &Config, factory
         context.save();
         context.set_font(&"bold 52px Verdana");
         context.set_fill_style(&format!("#ff0000{:02x}", n).into());
-        context.fill_text("?", menu_offset_x + UI_SAVE_PASTE_X + 16.0, menu_offset_y + UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
+        context.fill_text("?", menu_offset_x + UI_CLIPBOARD_PASTE_X + 16.0, menu_offset_y + UI_CLIPBOARD_PASTE_Y + 48.0).expect("canvas api call to work");
         context.set_stroke_style(&format!("#000000{:02x}", n).into());
         context.set_line_width(2.0);
-        context.stroke_text("?", menu_offset_x + UI_SAVE_PASTE_X + 16.0, menu_offset_y + UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
+        context.stroke_text("?", menu_offset_x + UI_CLIPBOARD_PASTE_X + 16.0, menu_offset_y + UI_CLIPBOARD_PASTE_Y + 48.0).expect("canvas api call to work");
         context.set_stroke_style(&format!("#ffffff{:02x}", n).into());
         context.set_line_width(1.0);
-        context.stroke_text("?", menu_offset_x + UI_SAVE_PASTE_X + 16.0, menu_offset_y + UI_SAVE_PASTE_Y + 48.0).expect("canvas api call to work");
+        context.stroke_text("?", menu_offset_x + UI_CLIPBOARD_PASTE_X + 16.0, menu_offset_y + UI_CLIPBOARD_PASTE_Y + 48.0).expect("canvas api call to work");
         context.restore();
       }
       LoadPasteHint::Success => {
@@ -5766,7 +5765,7 @@ fn paint_paste_button(options: &Options, state: &State, config: &Config, factory
         context.set_global_alpha(p);
         paint_asset_raw(
           options, state, config, &context, CONFIG_NODE_ASSET_PASTE_GREEN, 0,
-          menu_offset_x + UI_SAVE_PASTE_X + UI_UNREDO_WIDTH / 2.0 - 16.0, menu_offset_y + UI_SAVE_PASTE_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0
+          menu_offset_x + UI_CLIPBOARD_PASTE_X + UI_UNREDO_WIDTH / 2.0 - 16.0, menu_offset_y + UI_CLIPBOARD_PASTE_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0
         );
         context.restore();
       }

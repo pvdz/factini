@@ -450,21 +450,27 @@ Free when with attribution
 - w: 160
 - h: 160
 
-# Asset_CopyGrey
-- file: ./img/copy_grey.png
+# Asset_CopyWhite
+- file: ./img/copy_white.png
 - w: 48
 - h: 48
-
+# Asset_CopyGrey
+- file: ./img/copy_grey.png
+- w: 512
+- h: 512
 # Asset_CopyGreen
 - file: ./img/copy_green.png
 - w: 48
 - h: 48
 
+# Asset_PasteWhite
+- file: ./img/download_white.png
+- w: 512
+- h: 512
 # Asset_PasteGrey
 - file: ./img/download_grey.png
-- w: 48
-- h: 48
-
+- w: 512
+- h: 512
 # Asset_PasteGreen
 - file: ./img/download_green.png
 - w: 48
