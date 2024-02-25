@@ -20,7 +20,6 @@
 //   - ai will use woops as suppliers
 //   - touch; deselecting selections is awkward. should probably ignore hover afterwards if event was recorded as touch. maybe clear it
 //   - item hint on machine selection (red rects) are too small. at least on ipad
-//   - purple bucket is red?
 //   - full maze not enabled by default
 //   - fullscreen button on ipad crashes the whole thing... can we handle that gracefully
 //   - clone as a button?

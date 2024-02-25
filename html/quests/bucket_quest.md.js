@@ -62,7 +62,7 @@ Desc: Simple example story
     # Part_BucketPurple
     - special: v 1
     - pattern: Part_BucketBlue Part_BucketRed
-    - file: ./img/parts/bucket_v3_red.png
+    - file: ./img/parts/bucket_v3_purple.png
     - w: 160
     - h: 160
     - machine: 2x1 Asset_Machine_2_1
