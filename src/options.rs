@@ -128,7 +128,7 @@ pub struct Options {
   pub enable_quick_save_menu: bool,
   pub save_menu_animation_time: u64, // see options.ui_speed_menu_anim_progress
   pub enable_maze_roundway_and_collection: bool,
-  pub enable_maze_full: bool,
+  pub enable_maze_full: bool, // (This should probably be a state prop)
   pub enable_speed_menu: bool,
   pub speed_menu_animation_time: u64, // see options.ui_save_menu_anim_progress
 

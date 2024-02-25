@@ -323,4 +323,5 @@ pub fn state_set_ui_unlock_progress(options: &mut Options, state: &mut State, ui
   }
   if ui_unlock_progress >= 4 { options.enable_quick_save_menu = true; }
   if ui_unlock_progress >= 5 { options.enable_maze_roundway_and_collection = true; }
+  if ui_unlock_progress >= 6 { options.enable_maze_full = true; }
 }

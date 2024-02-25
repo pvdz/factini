@@ -16,8 +16,6 @@
 //   - show "wrong!" icon when wrong part arrives at machine?
 // - cleanup
 //   - repo
-// - bug
-//   - full maze not enabled by default
 
 
 // features

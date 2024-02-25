@@ -268,190 +268,199 @@ pub fn maze_get_refuel_time(options: &Options) -> u64 {
   return (MAZE_REFUEL_TIME_SEC * ONE_SECOND as f64) as u64;
 }
 
-pub fn tick_maze(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
-  if !options.dbg_maze_enable_runner { return; }
+pub fn tick_maze(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
+  if factory.ticks % MAZE_TICK_INTERVAL != 0 { return; }
+  if !options.enable_maze_roundway_and_collection { return; }
 
-  if factory.ticks % MAZE_TICK_INTERVAL == 0 {
-    if factory.maze_runner.maze_finish_at > 0 {
-      if factory.ticks - factory.maze_runner.maze_finish_at > maze_get_finish_pause_time(options) {
-        // if factory.maze_runner.maze_nooped { log!("Maze runner last attempt at refuel was 5 seconds ago, trying again now..."); }
-        // else { log!("Maze runner finished 5 seconds ago. Fueling it now..."); }
+  if !options.enable_maze_full || factory.maze_runner.maze_finish_at > 0 {
+    if factory.ticks - factory.maze_runner.maze_finish_at > maze_get_finish_pause_time(options) {
+      // if factory.maze_runner.maze_nooped { log!("Maze runner last attempt at refuel was 5 seconds ago, trying again now..."); }
+      // else { log!("Maze runner finished 5 seconds ago. Fueling it now..."); }
 
-        // A few seconds after the maze runner gets stuck or out of energy, start the
-        // "refueling" animation that starts the next run.
-        factory.maze_runner.maze_finish_at = 0;
-        factory.maze_runner.maze_restart_at = factory.ticks;
-        factory.maze_runner.maze_nooped = false;
-        let ( e, s, p, v) = factory.maze_prep;
-        if e >= 10 && s >= 10 && p >= 10 && v >= 10 {
-          let fe = (e / 10).min(MAZE_MAX_UNITS_PER_REFUEL);
-          let fs = (s / 10).min(MAZE_MAX_UNITS_PER_REFUEL);
-          let fp = (p / 10).min(MAZE_MAX_UNITS_PER_REFUEL);
-          let fv = (v / 10).min(MAZE_MAX_UNITS_PER_REFUEL);
-
-          factory.fuel_in_flight = ( fe, fs, fp, fv );
-          factory.maze_prep = (
-            if fe >= MAZE_MAX_UNITS_PER_REFUEL { 0 } else { e - fe * 10 },
-            if fs >= MAZE_MAX_UNITS_PER_REFUEL { 0 } else { s - fs * 10 },
-            if fp >= MAZE_MAX_UNITS_PER_REFUEL { 0 } else { p - fp * 10 },
-            if fv >= MAZE_MAX_UNITS_PER_REFUEL { 0 } else { v - fv * 10 },
-          );
-          factory.maze_runner.maze_refueling_at = factory.ticks;
-        } else {
-          // Reset refuel period
-          // log!("Maze runner finished but there's not enough fuel {:?}. Delaying refuel step. {:?}", factory.maze_prep, factory.maze_runner.maze_nooped);
-          factory.maze_runner.maze_finish_at = factory.ticks;
-          factory.maze_runner.maze_nooped = true;
+      // A few seconds after the maze runner gets stuck or out of energy, start the
+      // "refueling" animation that starts the next run.
+      factory.maze_runner.maze_finish_at = 0;
+      factory.maze_runner.maze_restart_at = factory.ticks;
+      factory.maze_runner.maze_nooped = false;
+      let ( e, s, p, v) = factory.maze_prep;
+      if e >= 10 && s >= 10 && p >= 10 && v >= 10 {
+        if !options.enable_maze_full {
+          log!("Have at least one in each bar. Now enabling the full maze");
+          state_set_ui_unlock_progress(options, state, 6);
+          factory.changed = true; // Store unlock stage in map
         }
-      }
-      return;
-    }
 
-    if factory.maze_runner.maze_restart_at > 0 {
-      if factory.ticks - factory.maze_runner.maze_restart_at > maze_get_refuel_time(options) {
-        log!("Maze runner finished refueling. Starting new run");
-        // Start the next maze runner.
+        let fe = (e / 10).min(MAZE_MAX_UNITS_PER_REFUEL);
+        let fs = (s / 10).min(MAZE_MAX_UNITS_PER_REFUEL);
+        let fp = (p / 10).min(MAZE_MAX_UNITS_PER_REFUEL);
+        let fv = (v / 10).min(MAZE_MAX_UNITS_PER_REFUEL);
 
-        let ( e, s, p, v ) = factory.fuel_in_flight;
-
-        factory.maze_runner.maze_restart_at = 0;
-
-        factory.maze_runner.energy_now = e as u64 * 100;
-        factory.maze_runner.energy_max = e as u64 * 100;
-        factory.maze_runner.speed = s as u64;
-        factory.maze_runner.power_now = p as u64;
-        factory.maze_runner.power_max = p as u64 * 100;
-        factory.maze_runner.volume_now = v as u64;
-        factory.maze_runner.volume_max = factory.maze_runner.volume_max.max(v as u64);
-
-        factory.maze_runner.x = 0;
-        factory.maze_runner.y = 0;
-
-        factory.maze = create_maze(factory.maze_seed);
-
-        factory.fuel_in_flight = (0,0,0,0);
-      }
-      return;
-    }
-
-    if factory.maze_runner.energy_now > 0 {
-      factory.maze_runner.energy_now -= 1;
-      if factory.maze_runner.energy_now == 0 {
-        log!("Maze runner ran out of energy... {}", factory.maze_runner.energy_now);
-        factory.maze_runner.maze_finish_at = factory.ticks;
-      }
-    }
-    if factory.maze_runner.energy_now == 0 {
-      return;
-    }
-
-    // Move. Then increment visit count of current coord.
-    let index = (factory.maze_runner.y as f64 * (MAZE_CELLS_W as f64) + factory.maze_runner.x as f64) as usize;
-    if factory.maze[index].state < 255 {
-      let has_power = factory.maze_runner.power_now > 0;
-
-      let can_up = factory.maze[index].has_up && factory.maze[index].up && factory.maze[factory.maze[index].up_index].state < 255 && (has_power || factory.maze[factory.maze[index].up_index].special != MAZE_ROCK);
-      let can_right = factory.maze[index].has_right && factory.maze[factory.maze[index].right_index].left && factory.maze[factory.maze[index].right_index].state < 255 && (has_power || factory.maze[factory.maze[index].right_index].special != MAZE_ROCK);
-      let can_down = factory.maze[index].has_down && factory.maze[factory.maze[index].down_index].up && factory.maze[factory.maze[index].down_index].state < 255 && (has_power || factory.maze[factory.maze[index].down_index].special != MAZE_ROCK);
-      let can_left = factory.maze[index].has_left && factory.maze[index].left && factory.maze[factory.maze[index].left_index].state < 255 && (has_power || factory.maze[factory.maze[index].left_index].special != MAZE_ROCK);
-
-      // log!("maze runner @ {}: can go up: {}, right: {}, down: {}, left: {}", index, can_up, can_right, can_down, can_left);
-
-      let mut options = vec!();
-      let mut min = 255;
-      let mut sum = 0;
-      if can_up {
-        sum += 1;
-        if factory.maze[factory.maze[index].up_index].state <= min {
-          if factory.maze[factory.maze[index].up_index].state < min {
-            options = vec!(0);
-            min = factory.maze[factory.maze[index].up_index].state;
-          } else {
-            options.push(0);
-          }
-        }
-      }
-      if can_right {
-        sum += 1;
-        if factory.maze[factory.maze[index].right_index].state <= min {
-          if factory.maze[factory.maze[index].right_index].state < min {
-            options = vec!(1);
-            min = factory.maze[factory.maze[index].right_index].state;
-          } else {
-            options.push(1);
-          }
-        }
-      }
-      if can_down {
-        sum += 1;
-        if factory.maze[factory.maze[index].down_index].state <= min {
-          if factory.maze[factory.maze[index].down_index].state < min {
-            options = vec!(2);
-            min = factory.maze[factory.maze[index].down_index].state;
-          } else {
-            options.push(2);
-          }
-        }
-      }
-      if can_left {
-        sum += 1;
-        if factory.maze[factory.maze[index].left_index].state <= min {
-          if factory.maze[factory.maze[index].left_index].state < min {
-            options = vec!(3);
-            // min = factory.maze[factory.maze[index].left_index].state;
-          } else {
-            options.push(3);
-          }
-        }
-      }
-
-      if sum == 0 {
-        log!("Maze runner got stuck!!");
-        factory.maze[index].state = 255;
-        factory.maze_runner.maze_finish_at = factory.ticks;
+        factory.fuel_in_flight = ( fe, fs, fp, fv );
+        factory.maze_prep = (
+          if fe >= MAZE_MAX_UNITS_PER_REFUEL { 0 } else { e - fe * 10 },
+          if fs >= MAZE_MAX_UNITS_PER_REFUEL { 0 } else { s - fs * 10 },
+          if fp >= MAZE_MAX_UNITS_PER_REFUEL { 0 } else { p - fp * 10 },
+          if fv >= MAZE_MAX_UNITS_PER_REFUEL { 0 } else { v - fv * 10 },
+        );
+        factory.maze_runner.maze_refueling_at = factory.ticks;
       } else {
-        if sum <= 1 {
-          // log!("maze runner - marking {} as dead end", index);
-          // Dead end. Go back if possible. Otherwise we don't move.
-          factory.maze[index].state = 255;
-        } else {
-          if factory.maze[index].state < 255 {
-            factory.maze[index].state += 1;
-          }
-        }
+        // Reset refuel period
+        // log!("Maze runner finished but there's not enough fuel {:?}. Delaying refuel step. {:?}", factory.maze_prep, factory.maze_runner.maze_nooped);
+        factory.maze_runner.maze_finish_at = factory.ticks;
+        factory.maze_runner.maze_nooped = true;
+      }
+    }
+    return;
+  }
 
-        let offset = options[(factory.ticks as usize) % options.len()];
-        if offset == 0 {
-          factory.maze_runner.y -= 1;
-        } else if offset == 1 {
-          factory.maze_runner.x += 1;
-        } else if offset == 2 {
-          factory.maze_runner.y += 1;
-        } else if offset == 3 {
-          factory.maze_runner.x -= 1;
-        } else {
-          panic!("only has 0-3");
-        }
+  // Return here because then the full maze will at least be enabled at the first refueling
+  if !options.dbg_maze_enable_runner { return; }
+  if !options.enable_maze_full { return; }
 
-        let new_index = factory.maze_runner.y * MAZE_CELLS_W + factory.maze_runner.x;
-        match factory.maze[new_index].special {
-          // MAZE_EMPTY
-          0 => {}
-          // MAZE_ROCK
-          1 => {
-            if factory.maze_runner.power_now == 0 { panic!("should check above if power left"); }
-            factory.maze_runner.power_now -= 1;
+  if factory.maze_runner.maze_restart_at > 0 {
+    if factory.ticks - factory.maze_runner.maze_restart_at > maze_get_refuel_time(options) {
+      log!("Maze runner finished refueling. Starting new run");
+      // Start the next maze runner.
+
+      let ( e, s, p, v ) = factory.fuel_in_flight;
+
+      factory.maze_runner.maze_restart_at = 0;
+
+      factory.maze_runner.energy_now = e as u64 * 100;
+      factory.maze_runner.energy_max = e as u64 * 100;
+      factory.maze_runner.speed = s as u64;
+      factory.maze_runner.power_now = p as u64;
+      factory.maze_runner.power_max = p as u64 * 100;
+      factory.maze_runner.volume_now = v as u64;
+      factory.maze_runner.volume_max = factory.maze_runner.volume_max.max(v as u64);
+
+      factory.maze_runner.x = 0;
+      factory.maze_runner.y = 0;
+
+      factory.maze = create_maze(factory.maze_seed);
+
+      factory.fuel_in_flight = ( 0, 0, 0, 0 );
+    }
+    return;
+  }
+
+  if factory.maze_runner.energy_now > 0 {
+    factory.maze_runner.energy_now -= 1;
+    if factory.maze_runner.energy_now == 0 {
+      log!("Maze runner ran out of energy... {}", factory.maze_runner.energy_now);
+      factory.maze_runner.maze_finish_at = factory.ticks;
+    }
+  }
+  if factory.maze_runner.energy_now == 0 {
+    return;
+  }
+
+  // Move. Then increment visit count of current coord.
+  let index = (factory.maze_runner.y as f64 * (MAZE_CELLS_W as f64) + factory.maze_runner.x as f64) as usize;
+  if factory.maze[index].state < 255 {
+    let has_power = factory.maze_runner.power_now > 0;
+
+    let can_up = factory.maze[index].has_up && factory.maze[index].up && factory.maze[factory.maze[index].up_index].state < 255 && (has_power || factory.maze[factory.maze[index].up_index].special != MAZE_ROCK);
+    let can_right = factory.maze[index].has_right && factory.maze[factory.maze[index].right_index].left && factory.maze[factory.maze[index].right_index].state < 255 && (has_power || factory.maze[factory.maze[index].right_index].special != MAZE_ROCK);
+    let can_down = factory.maze[index].has_down && factory.maze[factory.maze[index].down_index].up && factory.maze[factory.maze[index].down_index].state < 255 && (has_power || factory.maze[factory.maze[index].down_index].special != MAZE_ROCK);
+    let can_left = factory.maze[index].has_left && factory.maze[index].left && factory.maze[factory.maze[index].left_index].state < 255 && (has_power || factory.maze[factory.maze[index].left_index].special != MAZE_ROCK);
+
+    // log!("maze runner @ {}: can go up: {}, right: {}, down: {}, left: {}", index, can_up, can_right, can_down, can_left);
+
+    let mut options = vec!();
+    let mut min = 255;
+    let mut sum = 0;
+    if can_up {
+      sum += 1;
+      if factory.maze[factory.maze[index].up_index].state <= min {
+        if factory.maze[factory.maze[index].up_index].state < min {
+          options = vec!(0);
+          min = factory.maze[factory.maze[index].up_index].state;
+        } else {
+          options.push(0);
+        }
+      }
+    }
+    if can_right {
+      sum += 1;
+      if factory.maze[factory.maze[index].right_index].state <= min {
+        if factory.maze[factory.maze[index].right_index].state < min {
+          options = vec!(1);
+          min = factory.maze[factory.maze[index].right_index].state;
+        } else {
+          options.push(1);
+        }
+      }
+    }
+    if can_down {
+      sum += 1;
+      if factory.maze[factory.maze[index].down_index].state <= min {
+        if factory.maze[factory.maze[index].down_index].state < min {
+          options = vec!(2);
+          min = factory.maze[factory.maze[index].down_index].state;
+        } else {
+          options.push(2);
+        }
+      }
+    }
+    if can_left {
+      sum += 1;
+      if factory.maze[factory.maze[index].left_index].state <= min {
+        if factory.maze[factory.maze[index].left_index].state < min {
+          options = vec!(3);
+          // min = factory.maze[factory.maze[index].left_index].state;
+        } else {
+          options.push(3);
+        }
+      }
+    }
+
+    if sum == 0 {
+      log!("Maze runner got stuck!!");
+      factory.maze[index].state = 255;
+      factory.maze_runner.maze_finish_at = factory.ticks;
+    } else {
+      if sum <= 1 {
+        // log!("maze runner - marking {} as dead end", index);
+        // Dead end. Go back if possible. Otherwise we don't move.
+        factory.maze[index].state = 255;
+      } else {
+        if factory.maze[index].state < 255 {
+          factory.maze[index].state += 1;
+        }
+      }
+
+      let offset = options[(factory.ticks as usize) % options.len()];
+      if offset == 0 {
+        factory.maze_runner.y -= 1;
+      } else if offset == 1 {
+        factory.maze_runner.x += 1;
+      } else if offset == 2 {
+        factory.maze_runner.y += 1;
+      } else if offset == 3 {
+        factory.maze_runner.x -= 1;
+      } else {
+        panic!("only has 0-3");
+      }
+
+      let new_index = factory.maze_runner.y * MAZE_CELLS_W + factory.maze_runner.x;
+      match factory.maze[new_index].special {
+        // MAZE_EMPTY
+        0 => {}
+        // MAZE_ROCK
+        1 => {
+          if factory.maze_runner.power_now == 0 { panic!("should check above if power left"); }
+          factory.maze_runner.power_now -= 1;
+          factory.maze[new_index].special = MAZE_EMPTY;
+        }
+        // MAZE_TREASURE
+        2 => {
+          if factory.maze_runner.volume_now < factory.maze_runner.volume_max {
+            factory.maze_runner.volume_now += 1;
             factory.maze[new_index].special = MAZE_EMPTY;
           }
-          // MAZE_TREASURE
-          2 => {
-            if factory.maze_runner.volume_now < factory.maze_runner.volume_max {
-              factory.maze_runner.volume_now += 1;
-              factory.maze[new_index].special = MAZE_EMPTY;
-            }
-          }
-          n => panic!("not yet supported...: {}", n),
         }
+        n => panic!("not yet supported...: {}", n),
       }
     }
   }

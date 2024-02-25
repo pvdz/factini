@@ -153,9 +153,7 @@ pub fn tick_factory(options: &mut Options, state: &mut State, config: &Config, f
     }
   }
 
-  if options.enable_maze_full {
-    tick_maze(options, state, config, factory);
-  }
+  tick_maze(options, state, config, factory);
 
   if factory.ticks % 100 == 0 {
     // Step the round-way, where parts from demanders are put and moved to the maze/furnace
@@ -460,6 +458,9 @@ pub fn update_game_ui_after_quest_finish(options: &mut Options, state: &mut Stat
     // TODO: should first unlock the meter. The maze should unlock once each input on the meter has at least one bar.
     log!("Moving to UI stage 3");
     state_set_ui_unlock_progress(options, state, 5);
+  } else {
+    log!("Increasing if state.ui_unlock_progress from {} to {}", state.ui_unlock_progress, state.ui_unlock_progress + 1);
+    state_set_ui_unlock_progress(options, state, state.ui_unlock_progress + 1);
   }
   // Note: enable_maze_full is set once you have at least one cell in all four bars
 }
