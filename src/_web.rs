@@ -11,7 +11,6 @@
 //   - update tutorial with current status
 //   - something with that ikea help icon
 //   - add hint that two machines next to each other do not share port?
-//   - for touch, clicking the floor with an atom or woop selected should create that there
 //   - clone as a button?
 //   - show "wrong!" icon when wrong part arrives at machine?
 // - cleanup
@@ -1785,7 +1784,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
           }
         }
         ZONE_FLOOR => {
-          on_up_floor_zone(options, state, config, factory, cell_selection, &mouse_state);
+          on_up_floor_zone(options, state, config, factory, cell_selection, mouse_state);
         }
         _ => {}
       }
@@ -1859,7 +1858,7 @@ fn on_down_floor(mouse_state: &mut MouseState) {
   mouse_state.last_cell_x = mouse_state.last_down_cell_x_floored;
   mouse_state.last_cell_y = mouse_state.last_down_cell_y_floored;
 }
-fn on_up_floor_zone(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
+fn on_up_floor_zone(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &mut MouseState) {
   log!("on_up_floor_zone()");
   on_click_inside_floor_zone(options, state, config, factory, cell_selection, mouse_state);
 }
@@ -1999,7 +1998,7 @@ fn on_up_woop(options: &Options, state: &State, config: &Config, factory: &Facto
     mouse_state.woop_selected_index = mouse_state.woop_hover_woop_index;
   }
 }
-fn on_click_inside_floor_zone(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
+fn on_click_inside_floor_zone(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &mut MouseState) {
   let last_mouse_up_cell_x = mouse_state.last_up_cell_x.floor();
   let last_mouse_up_cell_y = mouse_state.last_up_cell_y.floor();
   log!("on_click_inside_floor_zone(), {} {}", last_mouse_up_cell_x, last_mouse_up_cell_y);
@@ -2010,7 +2009,7 @@ fn on_click_inside_floor_zone(options: &mut Options, state: &mut State, config: 
     on_click_inside_floor(options, state, config, factory, cell_selection, mouse_state, last_mouse_up_cell_x, last_mouse_up_cell_y);
   }
 }
-fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState, last_mouse_up_cell_x: f64, last_mouse_up_cell_y: f64) {
+fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &mut MouseState, last_mouse_up_cell_x: f64, last_mouse_up_cell_y: f64) {
   log!("on_click_inside_floor()");
   let action = mouse_button_to_action(state, mouse_state);
 
@@ -2050,7 +2049,19 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
 
     log!("clicked {} {} cell selection before: {:?}, belt: {:?}", last_mouse_up_cell_x, last_mouse_up_cell_y, cell_selection, factory.floor[coord].belt);
 
-    if cell_selection.on && cell_selection.x == last_mouse_up_cell_x && cell_selection.y == last_mouse_up_cell_y {
+    if mouse_state.last_down_event_type == EventSourceType::Touch && mouse_state.woop_selected {
+      log!("Touched inside floor with woop selected. Creating machine there now.");
+
+      let machine_part = factory.available_woops[mouse_state.woop_selected_index].0;
+      let machine_cell_width = config.nodes[machine_part].machine_width;
+      let machine_cell_height = config.nodes[machine_part].machine_height;
+
+      machine_add_to_factory(options, state, config, factory, last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, machine_cell_width as usize, machine_cell_height as usize, machine_part);
+
+      cell_selection.on = false;
+      mouse_state.woop_selected = false;
+    }
+    else if cell_selection.on && cell_selection.x == last_mouse_up_cell_x && cell_selection.y == last_mouse_up_cell_y {
       // For suppliers we will cycle rather than toggle.
       // For anything else we will toggle the selection.
       if factory.floor[coord].kind == CellKind::Supply {
@@ -2476,7 +2487,7 @@ fn on_drag_end_floor_multi_cells(state: &State, options: &Options, config: &Conf
           // Track started on the edge but has at least one segment in the middle.
           // Create a trash on the previous (edge) cell if that cell is empty.
           if factory.floor[pcoord].kind == CellKind::Empty {
-            let mut part_kind = supply_get_default_part(options, state, config, factory, mouse_state);
+            let part_kind = supply_get_default_part(options, state, config, factory, mouse_state);
             factory.floor[pcoord] = supply_cell(config, px, py, part_from_part_kind(config, part_kind), options.default_supply_speed, options.default_supply_cooldown, 0);
           }
           still_starting_on_edge = false;
