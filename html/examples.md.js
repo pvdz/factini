@@ -167,8 +167,9 @@ const GAME_EXAMPLES = [
     sq = BucketBlue s:0 c:500
     sr = BucketRed s:0 c:500
     ss = BucketWhite s:0 c:500
-    $ BucketBlue BucketYellow BucketRed BucketGreen BucketOrange BucketPurple
-    @ 0
+    ! Green Orange Purple Grey Pink Rainbow
+    $ BucketBlue BucketYellow BucketRed BucketWhite BucketBlack BucketGreen BucketOrange BucketPurple BucketPink BucketGrey BucketRainbow Plus
+    @ 8
     seed = 1708722527245
     story = Story_Buckets
   `,

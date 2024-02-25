@@ -299,23 +299,23 @@ Desc: Simple example story
   
     # Quest_Green
     - after:
-    - targets: 150x Part_BucketGreen
+    - targets: 10x Part_BucketGreen
     
     # Quest_Orange
     - after: 
-    - targets: 25x Part_BucketOrange
+    - targets: 10x Part_BucketOrange
     
     # Quest_Purple
     - after: 
-    - targets: 23x Part_BucketPurple
+    - targets: 10x Part_BucketPurple
     
     # Quest_Grey
     - after: Quest_Green Quest_Purple
-    - targets: 30x Part_BucketGrey
+    - targets: 10x Part_BucketGrey
     
     # Quest_Pink
     - after: Quest_Orange
-    - targets: 18x Part_BucketPink
+    - targets: 10x Part_BucketPink
   
   ===
     Phase 2
@@ -324,11 +324,11 @@ Desc: Simple example story
       
     # Quest_Rainbow
     - after: Quest_Grey, Quest_Pink
-    - targets: 50x Part_BucketRainbow
+    - targets: 10x Part_BucketRainbow
     
     # Quest_Plus
     - after: Quest_Rainbow
-    - targets: 50x Part_Plus
+    - targets: 10x Part_Plus
     
   ===
     Phase 3
@@ -337,23 +337,23 @@ Desc: Simple example story
   
     # Quest_BlackPlus
     - after: Quest_Plus
-    - targets: 30x Part_BucketBlackPlus
+    - targets: 10x Part_BucketBlackPlus
   
     # Quest_RedPlus
     - after: Quest_Plus
-    - targets: 30x Part_BucketRedPlus
+    - targets: 10x Part_BucketRedPlus
   
     # Quest_BluePlus
     - after: Quest_Plus
-    - targets: 30x Part_BucketBluePlus
+    - targets: 10x Part_BucketBluePlus
   
     # Quest_YellowPlus
     - after: Quest_Plus
-    - targets: 30x Part_BucketYellowPlus
+    - targets: 10x Part_BucketYellowPlus
   
     # Quest_WhitePlus
     - after: Quest_Plus
-    - targets: 30x Part_BucketWhitePlus
+    - targets: 10x Part_BucketWhitePlus
     
   ===
     Phase 4
@@ -366,19 +366,19 @@ Desc: Simple example story
     
     # Quest_OrangePlus
     - after: Quest_RedPlus Quest_YellowPlus
-    - targets: 25x Part_BucketOrangePlus
+    - targets: 10x Part_BucketOrangePlus
     
     # Quest_PurplePlus
     - after: Quest_RedPlus Quest_BluePlus 
-    - targets: 23x Part_BucketPurplePlus
+    - targets: 10x Part_BucketPurplePlus
     
     # Quest_GreyPlus
     - after: Quest_WhitePlus Quest_BlackPlus
-    - targets: 30x Part_BucketGreyPlus
+    - targets: 10x Part_BucketGreyPlus
     
     # Quest_PinkPlus
     - after: Quest_WhitePlus Quest_RedPlus
-    - targets: 18x Part_BucketPinkPlus
+    - targets: 10x Part_BucketPinkPlus
     
   ===
     Phase 5
@@ -387,23 +387,23 @@ Desc: Simple example story
   
     # Quest_BlackPlusPlus
     - after: Quest_GreenPlus Quest_OrangePlus Quest_PurplePlus Quest_GreyPlus Quest_PinkPlus
-    - targets: 30x Part_BucketBlackPlusPlus
+    - targets: 10x Part_BucketBlackPlusPlus
   
     # Quest_RedPlusPlus
     - after: Quest_GreenPlus Quest_OrangePlus Quest_PurplePlus Quest_GreyPlus Quest_PinkPlus
-    - targets: 30x Part_BucketRedPlusPlus
+    - targets: 10x Part_BucketRedPlusPlus
   
     # Quest_BluePlusPlus
     - after: Quest_GreenPlus Quest_OrangePlus Quest_PurplePlus Quest_GreyPlus Quest_PinkPlus
-    - targets: 30x Part_BucketBluePlusPlus
+    - targets: 10x Part_BucketBluePlusPlus
   
     # Quest_YellowPlusPlus
     - after: Quest_GreenPlus Quest_OrangePlus Quest_PurplePlus Quest_GreyPlus Quest_PinkPlus
-    - targets: 30x Part_BucketYellowPlusPlus
+    - targets: 10x Part_BucketYellowPlusPlus
   
     # Quest_WhitePlusPlus
     - after: Quest_GreenPlus Quest_OrangePlus Quest_PurplePlus Quest_GreyPlus Quest_PinkPlus
-    - targets: 30x Part_BucketWhitePlusPlus
+    - targets: 10x Part_BucketWhitePlusPlus
     
   ===
     Phase 6
@@ -416,18 +416,18 @@ Desc: Simple example story
     
     # Quest_OrangePlusPlus
     - after: Quest_RedPlusPlus Quest_YellowPlusPlus
-    - targets: 25x Part_BucketOrangePlusPlus
+    - targets: 10x Part_BucketOrangePlusPlus
     
     # Quest_PurplePlusPlus
     - after: Quest_RedPlusPlus Quest_BluePlusPlus 
-    - targets: 23x Part_BucketPurplePlusPlus
+    - targets: 10x Part_BucketPurplePlusPlus
     
     # Quest_GreyPlusPlus
     - after: Quest_WhitePlusPlus Quest_BlackPlusPlus
-    - targets: 30x Part_BucketGreyPlusPlus
+    - targets: 10x Part_BucketGreyPlusPlus
     
     # Quest_PinkPlusPlus
     - after: Quest_WhitePlusPlus Quest_RedPlusPlus
-    - targets: 18x Part_BucketPinkPlusPlus
+    - targets: 10x Part_BucketPinkPlusPlus
     
 `;
