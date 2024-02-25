@@ -19,7 +19,6 @@
 // - bug
 //   - ai will use woops as suppliers
 //   - full maze not enabled by default
-//   - fullscreen button on ipad crashes the whole thing... can we handle that gracefully
 //   - clone as a button?
 
 // features
@@ -151,6 +150,7 @@ extern {
   pub fn getLastPaste() -> String; // queuedPaste
   pub fn getCurrentPaste(); // navigator.clipboard.readText() into action=paste. wont work in firefox.
   pub fn copyToClipboard(str: JsValue) -> bool; // navigator.clipboard.writeText(str). does work in firefox too.
+  pub fn tryFullScreenFromJS() -> String;
   // pub fn log(s: &str); // -> console.log(s)
   // pub fn print_world(s: &str);
   // pub fn print_options(options: &str);
@@ -868,10 +868,12 @@ pub fn start() -> Result<(), JsValue> {
         state.load_paste_hint_since = factory.ticks;
         let paste = state.paste_to_load.clone(); // If we don't do this we'd "move" the state. Which is why we can't do this with load_paste_next_frame as an Option either.
 
-        if paste == "" {
+        if paste == "" || paste == "test" {
           // This most likely means the paste failed hard.
           // Show a hint because ctrl+v / apple+v should work
           state.load_paste_hint_kind = LoadPasteHint::Empty;
+          state.hint_msg_text = "ctrl+v / cmd+v".to_string();
+          state.hint_msg_since = factory.ticks;
         } else {
           state.paste_to_load = "".to_string();
           // Expect a Factini header here
@@ -1000,14 +1002,24 @@ pub fn start() -> Result<(), JsValue> {
         if state.request_fullscreen {
           state.request_fullscreen = false;
           // Must use the boxed canvas ref
-          if state.should_be_fullscreen {
+          let fse = document.fullscreen_element();
+          if let Some(_) = fse {
             log!("Leaving full screen mode...");
-            document.exit_fullscreen();
-            state.should_be_fullscreen = false;
+            document.exit_fullscreen(); // This will panic hard if browser does not support it... Like on old safari on (unupdated?) ipads.
           } else {
             log!("Entering full screen mode...");
-            ref_counted_canvas.request_fullscreen();
-            state.should_be_fullscreen = true;
+            match ref_counted_canvas.request_fullscreen() {
+              Ok(_) => {}
+              Err(msg) => {
+                log!("Fullscreen raw error: {:?}", msg);
+                state.hint_msg_since = factory.ticks;
+
+                // Special case for my ipad: let JS call the webkit prefixed version of it. Rust won't try/know.
+                let attempt = tryFullScreenFromJS();
+
+                state.hint_msg_text = format!("Fullscreen failed... JS: {} Raw error: {:?}", attempt, msg);
+              }
+            }
           }
         }
 
@@ -1126,6 +1138,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_speed_menu_animation(&options, &mut state, &config, &factory, &context, &speed_menu_prerender_canvas);
 
         paint_load_thumbs(&options, &state, &config, &factory, &context, &button_canvii, &mouse_state, &mut quick_saves);
+        paint_text_hint(&options, &state, &config, &factory, &context);
         if state.ui_save_menu_anim_progress > 0 && save_menu_prerender_canvas == None {
           // Lazy/deferred load. Ugly to do it in here but the rendering function would not have access to update the reference
           // (And it needs to be deferred anyways otherwise images may not be loaded)
@@ -1785,7 +1798,6 @@ fn on_after_resize_event(options: &Options, state: &mut State, config: &Config, 
   let fse = document().fullscreen_element();
   if let Some(_) = fse {
     if options.trace_size_changes { log!("(size) We are in canvas fullscreen mode"); }
-    state.should_be_fullscreen = true;
 
     // Actual pixels we paint is not affected by fullscreen so get them first
     state.canvas_pixel_width = ref_counted_canvas.width() as f64;
@@ -1818,7 +1830,6 @@ fn on_after_resize_event(options: &Options, state: &mut State, config: &Config, 
     if options.trace_size_changes { log!("(size) css size: {}x{} (scale {}), offset {}x{}", state.canvas_css_width, state.canvas_css_height, scale, state.canvas_css_x, state.canvas_css_y); }
   } else {
     if options.trace_size_changes { log!("(size) We are not in canvas fullscreen mode"); }
-    state.should_be_fullscreen = false;
 
     state.canvas_pixel_width = ref_counted_canvas.width() as f64;
     state.canvas_pixel_height = ref_counted_canvas.height() as f64;
@@ -5729,7 +5740,7 @@ fn paint_paste_button(options: &Options, state: &State, config: &Config, factory
   let max = 40000;
   let delay = 15000;
   let since = factory.ticks - state.load_paste_hint_since;
-  if state.load_paste_hint_since > 0 && since < max {
+  if since > 0 && since < max {
     match state.load_paste_hint_kind {
       LoadPasteHint::None => {}
       LoadPasteHint::Empty => {
@@ -5746,12 +5757,6 @@ fn paint_paste_button(options: &Options, state: &State, config: &Config, factory
         context.set_stroke_style(&format!("#ffffff{:02x}", n).into());
         context.set_line_width(1.0);
         context.stroke_text("!", menu_offset_x + UI_CLIPBOARD_PASTE_X + 20.0, menu_offset_y + UI_CLIPBOARD_PASTE_Y + 48.0).expect("canvas api call to work");
-
-        context.set_font(&"bold 30px Verdana");
-        context.set_fill_style(&format!("#000000{:02x}", n).into());
-        context.fill_text("ctrl+v / cmd+v", menu_offset_x + UI_CLIPBOARD_PASTE_X + UI_CLIPBOARD_WIDTH + 15.0, menu_offset_y + UI_CLIPBOARD_PASTE_Y + 38.0).expect("canvas api call to work");
-        context.set_stroke_style(&format!("#ffffff{:02x}", n).into());
-        context.stroke_text("ctrl+v / cmd+v", menu_offset_x + UI_CLIPBOARD_PASTE_X + UI_CLIPBOARD_WIDTH + 15.0, menu_offset_y + UI_CLIPBOARD_PASTE_Y + 38.0).expect("canvas api call to work");
 
         context.restore();
       }
@@ -5782,6 +5787,28 @@ fn paint_paste_button(options: &Options, state: &State, config: &Config, factory
         context.restore();
       }
     }
+  }
+}
+fn paint_text_hint(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>) {
+  // Rare occasions where I want to print textual message. Like debugging on an ipad or clipboard.
+
+  let max = 40000;
+  let delay = 15000;
+  let since = factory.ticks - state.hint_msg_since;
+  if since > 0 && since < max {
+    let p = if since < delay { 1.0 } else { 1.0 - (since - delay) as f64 / (max - delay) as f64 };
+    let n = (p * 255.0) as u8;
+    context.save();
+
+    let font_size = if state.hint_msg_text.len() < 20 { 30.0 } else { 12.0 };
+
+    context.set_font(&format!("bold {}px Verdana", font_size));
+    context.set_fill_style(&format!("#000000{:02x}", n).into());
+    context.fill_text(&state.hint_msg_text, UI_TEXT_HINT_OFFSET_X, UI_TEXT_HINT_OFFSET_Y + font_size).expect("canvas api call to work");
+    context.set_stroke_style(&format!("#ffffff{:02x}", n).into());
+    context.stroke_text(&state.hint_msg_text, UI_TEXT_HINT_OFFSET_X, UI_TEXT_HINT_OFFSET_Y + font_size).expect("canvas api call to work");
+
+    context.restore();
   }
 }
 fn paint_save_menu_animation(options: &Options, state: &mut State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, save_menu_prerender_canvas: &Option<web_sys::HtmlCanvasElement>) {

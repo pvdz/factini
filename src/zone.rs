@@ -133,7 +133,7 @@ pub const UI_SPEED_BUBBLE_SPACING: f64 = 10.0; // between
 
 // Secret menu
 pub const UI_MENU_BUTTONS_COUNT_WIDTH_MAX: f64 = 6.0; // Update after adding new button
-pub const UI_MENU_BUTTONS_OFFSET_X: f64 = GRID_X2 + 63.0;
+pub const UI_MENU_BUTTONS_OFFSET_X: f64 = GRID_X2 + 66.0;
 pub const UI_MENU_BUTTONS_OFFSET_Y: f64 = GRID_Y0 + 5.0;
 pub const UI_MENU_BUTTONS_OFFSET_Y2: f64 = UI_MENU_BUTTONS_OFFSET_Y + 30.0;
 pub const UI_MENU_BUTTONS_WIDTH: f64 = 50.0;
@@ -190,7 +190,7 @@ pub const UI_DEBUG_CELL_HEIGHT: f64 = 250.0;
 pub const UI_DEBUG_CELL_MARGIN: f64 = 5.0;
 pub const UI_DEBUG_CELL_FONT_HEIGHT: f64 = 16.0; // at 12px + bottom spacing
 
-pub const UI_WOOPS_OFFSET_X: f64 = GRID_X2 + 10.0;
+pub const UI_WOOPS_OFFSET_X: f64 = GRID_X2 + 8.0;
 pub const UI_WOOPS_OFFSET_Y: f64 = UI_FLOOR_OFFSET_Y;
 pub const UI_WOOPS_PER_ROW: f64 = 7.0;
 pub const UI_WOOPS_WIDTH: f64 = UI_WOTOM_WIDTH + ((UI_WOOPS_PER_ROW - 1.0) * UI_WOTOM_WIDTH_PLUS_MARGIN);
@@ -211,6 +211,9 @@ pub const UI_ATOMS_OFFSET_X: f64 = GRID_X1 + 70.0;
 pub const UI_ATOMS_OFFSET_Y: f64 = GRID_Y2 + 10.0;
 pub const UI_ATOMS_PER_ROW: f64 = 5.0;
 pub const UI_ATOMS_WIDTH: f64 = UI_WOTOM_WIDTH + ((UI_ATOMS_PER_ROW - 1.0) * UI_WOTOM_WIDTH_PLUS_MARGIN);
+
+pub const UI_TEXT_HINT_OFFSET_X: f64 = UI_ATOMS_OFFSET_X;
+pub const UI_TEXT_HINT_OFFSET_Y: f64 = UI_ATOMS_OFFSET_Y + UI_WOTOM_HEIGHT + 10.0; // Print over second row of atoms (more likely to be empty)
 
 // The UI is a 3x3 grid of sections. The center section is the main part of the game, "the Floor"
 // Define the coordinates of each "tab" (whatever the terminology ought to be) that defines the grid

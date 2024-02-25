@@ -52,7 +52,6 @@ pub struct State {
   pub snapshot_undo_pointer: usize,
   pub examples: Vec<String>,
   pub example_pointer: usize,
-  pub should_be_fullscreen: bool, // This could be checked better but for now it's a rust-internal toggle that is not verified with the browser (eg. if the call fails, rust still considers it succeeded, shrug)
   pub request_fullscreen: bool,
 
   pub reset_next_frame: bool,
@@ -64,6 +63,8 @@ pub struct State {
   pub load_paste_hint_kind: LoadPasteHint, // In case of problems, what do we show to the user?
   pub load_paste_hint_since: u64, // Last ticks timestamp of when the hint changed
   pub paste_to_load: String,
+  pub hint_msg_since: u64, // Last ticks timestamp of when the hint changed
+  pub hint_msg_text: String,
 
   pub showing_debug_bottom: bool, // Allows us to toggle the debug part with little overhead
   pub ui_unlock_progress: u8, // Used to track how much of the UI to unlock
@@ -284,9 +285,10 @@ pub fn state_create(options: &Options, active_story_index: usize) -> State {
     load_paste_hint_kind: LoadPasteHint::None,
     load_paste_hint_since: 0,
     paste_to_load: "".to_string(),
+    hint_msg_since: 0,
+    hint_msg_text: "".to_string(),
     examples: vec!(),
     example_pointer: 0,
-    should_be_fullscreen: false,
     request_fullscreen: false,
     showing_debug_bottom: true,
     ui_unlock_progress: 0,
