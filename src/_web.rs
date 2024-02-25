@@ -13,12 +13,14 @@
 //   - add hint that two machines next to each other do not share port?
 //   - for touch, clicking the floor with an atom or woop selected should create that there
 //   - grid snapping for woops should ignore half cell grace period for edges
-//   - keep showing tooltip while dragging woop
 //   - clone as a button?
+//   - "wrong" icon when wrong part arrives at machine?
 // - cleanup
 //   - repo
 // - bug
 //   - full maze not enabled by default
+//   - default atom when creating a supplier (should pick random, prefer selection)
+
 
 // features
 // - belts
@@ -1974,7 +1976,7 @@ fn on_up_atom(options: &Options, state: &State, config: &Config, factory: &Facto
   }
 }
 fn on_up_woop(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
-  log!("on_up_woopwoop({} -> {})", mouse_state.woop_down_woop_index, mouse_state.woop_hover_woop_index);
+  log!("on_up_woop({} -> {})", mouse_state.woop_down_woop_index, mouse_state.woop_hover_woop_index);
 
   let ( _part_kind, visible ) = factory.available_woops[mouse_state.woop_down_woop_index];
   if !visible {
@@ -4659,7 +4661,8 @@ fn paint_atom(
 }
 fn paint_woops(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory, mouse_state: &MouseState, cell_selection: &CellSelection) -> ( usize, f64, f64 ) {
   let ( is_mouse_over_woop, woop_hover_index ) =
-    if mouse_state.is_dragging || mouse_state.was_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight woops
+    if mouse_state.is_dragging && mouse_state.woop_down { ( true, mouse_state.woop_down_woop_index ) }
+    else if mouse_state.is_dragging || mouse_state.was_dragging { ( false, 0 ) } // Drag start is handled elsewhere, while dragging do not highlight woops
     else { ( mouse_state.woop_hover, mouse_state.woop_hover_woop_index ) };
 
   let mut highlight_index = 0;
