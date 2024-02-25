@@ -328,7 +328,7 @@ pub fn back_of_the_line(ins_or_outs: &mut Vec<(Direction, usize, usize, Directio
 }
 
 pub fn supply_cell(config: &Config, x: usize, y: usize, part: Part, speed: u64, cooldown: u64, price: i32) -> Cell {
-  log!("supply_cell({}, {}) @ {}x{}", speed, cooldown, x, y);
+  log!("supply_cell({}, {}, @ {}x{})", speed, cooldown, x, y);
   let coord = x + y * FLOOR_CELLS_W;
 
   let coord_u = if y == 0                 { None } else { Some(to_coord_up(coord)) };
@@ -673,7 +673,7 @@ pub fn cell_connect_if_possible(options: &Options, state: &State, config: &Confi
 
   if options.trace_cell_connect {
     log!("cell_connect_if_possible(@{} <-> @{}, options.trace_cell_connect={}) {} {} meta before: {:?} {:?}", coord_from, coord_to, options.trace_cell_connect, dx, dy, factory.floor[coord_from].belt.meta.btype, factory.floor[coord_to].belt.meta.btype);
-  } else {
+  } else if options.trace_track_gen {
     log!("cell_connect_if_possible(@{} <-> @{}, options.trace_cell_connect={})", coord_from, coord_to, options.trace_cell_connect);
   }
 
@@ -942,7 +942,7 @@ pub fn belt_connect_cells_expensive(options: &Options, state: &State, config: &C
     let ((cell_x1, cell_y1), belt_type1, _unused, _port_out_dir1) = track[i-1]; // First element has no inbound port here
     let ((cell_x2, cell_y2), belt_type2, _port_in_dir2, _unused) = track[i]; // Last element has no outbound port here
 
-    apply_action_between_two_cells(state, options, config, factory, Action::Add, cell_x1, cell_y1, belt_type1, cell_x2, cell_y2, belt_type2);
+    apply_action_between_two_cells(state, options, config, factory, Action::Add, cell_x1, cell_y1, belt_type1, cell_x2, cell_y2, belt_type2, None);
   }
 }
 
@@ -1082,7 +1082,7 @@ fn get_cells_from_a_to_b(x0: f64, y0: f64, x1: f64, y1: f64) -> Vec<(usize, usiz
   return covered;
 }
 
-pub fn apply_action_between_two_cells(state: &State, options: &Options, config: &Config, factory: &mut Factory, add_or_remove: Action, cell_x1: usize, cell_y1: usize, belt_type1: BeltType, cell_x2: usize, cell_y2: usize, belt_type2: BeltType) {
+pub fn apply_action_between_two_cells(state: &State, options: &Options, config: &Config, factory: &mut Factory, add_or_remove: Action, cell_x1: usize, cell_y1: usize, belt_type1: BeltType, cell_x2: usize, cell_y2: usize, belt_type2: BeltType, force_supply_kind: Option<PartKind>) {
   let coord1 = to_coord(cell_x1, cell_y1);
   let coord2 = to_coord(cell_x2, cell_y2);
 
@@ -1104,7 +1104,14 @@ pub fn apply_action_between_two_cells(state: &State, options: &Options, config: 
       if factory.floor[coord1].kind == CellKind::Empty {
         if is_edge_not_corner(cell_x1 as f64, cell_y1 as f64) {
           // Cell is empty so place a trash supplier here as a placeholder
-          factory.floor[coord1] = supply_cell(config, cell_x1, cell_y1, part_c(config, 't'), options.default_supply_speed, options.default_supply_cooldown, 0);
+          let part_kind =
+            if let Some(force_supply_kind) = force_supply_kind {
+              force_supply_kind
+            } else {
+              supply_get_random_atom(options, state, config, factory)
+            };
+
+          factory.floor[coord1] = supply_cell(config, cell_x1, cell_y1, part_from_part_kind(config, part_kind), options.default_supply_speed, options.default_supply_cooldown, 0);
         }
         else if is_middle(cell_x1 as f64, cell_y1 as f64) {
           factory.floor[coord1] = belt_cell(config, cell_x1, cell_y1, belt_type_to_belt_meta(belt_type1));

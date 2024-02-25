@@ -52,6 +52,7 @@ pub struct Options {
   pub trace_map_parsing: bool,
   pub trace_story_changes: bool,
   pub trace_size_changes: bool,
+  pub trace_track_gen: bool, // Creating new belt tracks
 
   pub dbg_paint_tile_priority: bool, // Print the prio index of a tile in the game (debug, web)
   pub dbg_onload_dump_factory: bool, // Print the CLI version of the floor after generating it initially?
@@ -106,7 +107,6 @@ pub struct Options {
   pub initial_event_type_swapped: bool, // sets initial state.event_type_swapped -> MOUSE / TOUCH
 
   pub dbg_trash_is_joker: bool, // Trash serves as joker item for machines?
-  pub dbg_joker_corrupts_factory: bool, // Show visual change when corrupting the factory
   pub dbg_machine_produce_trash: bool, // If a machine trashes a part and expects no inputs, should it output trash instead of discarding it?
   pub dbg_clickable_quests: bool,
   pub dbg_print_quest_states: bool,
@@ -120,6 +120,8 @@ pub struct Options {
 
   pub default_supply_speed: u64,
   pub default_supply_cooldown: u64,
+  pub default_supply_trash: bool, // Should it get the "special" trash icon (debugging).
+  pub dbg_supply_allow_woop: bool, // Allow woops to create suppliers on the edge. Only affects dragging woops to the edges.
   pub default_demand_speed: u64,
   pub default_demand_cooldown: u64,
 
@@ -160,6 +162,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     trace_map_parsing: false,
     trace_story_changes: false,
     trace_size_changes: false,
+    trace_track_gen: false,
     dbg_paint_tile_priority: false,
     dbg_onload_dump_factory: false,
     dbg_onchange_dump_snapshot: false,
@@ -202,7 +205,6 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     dbg_animate_cli_output_in_web: false,
     initial_event_type_swapped: false,
     dbg_trash_is_joker: true,
-    dbg_joker_corrupts_factory: true,
     dbg_machine_produce_trash: true,
     dbg_clickable_quests: true,
     dbg_print_quest_states: false,
@@ -215,6 +217,8 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
 
     default_supply_speed: 6500,
     default_supply_cooldown: 1500,
+    default_supply_trash: false,
+    dbg_supply_allow_woop: false,
     default_demand_speed: 1000,
     default_demand_cooldown: 500,
     enable_quick_save_menu: true,
@@ -354,6 +358,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "trace_map_parsing" => options.trace_map_parsing = parse_bool(value, name, strict, options.trace_map_parsing, verbose),
             "trace_story_changes" => options.trace_story_changes = parse_bool(value, name, strict, options.trace_story_changes, verbose),
             "trace_size_changes" => options.trace_size_changes = parse_bool(value, name, strict, options.trace_size_changes, verbose),
+            "trace_track_gen" => options.trace_track_gen = parse_bool(value, name, strict, options.trace_track_gen, verbose),
             "dbg_paint_tile_priority" => options.dbg_paint_tile_priority = parse_bool(value, name, strict, options.dbg_paint_tile_priority, verbose),
             "dbg_onload_dump_factory" => options.dbg_onload_dump_factory = parse_bool(value, name, strict, options.dbg_onload_dump_factory, verbose),
             "dbg_onchange_dump_snapshot" => options.dbg_onchange_dump_snapshot = parse_bool(value, name, strict, options.dbg_onchange_dump_snapshot, verbose),
@@ -396,7 +401,6 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "dbg_animate_cli_output_in_web" => options.dbg_animate_cli_output_in_web = parse_bool(value, name, strict, options.dbg_animate_cli_output_in_web, verbose),
             "initial_event_type_swapped" => options.initial_event_type_swapped = parse_bool(value, name, strict, options.initial_event_type_swapped, verbose),
             "dbg_trash_is_joker" => options.dbg_trash_is_joker = parse_bool(value, name, strict, options.dbg_trash_is_joker, verbose),
-            "dbg_joker_corrupts_factory" => options.dbg_joker_corrupts_factory = parse_bool(value, name, strict, options.dbg_joker_corrupts_factory, verbose),
             "dbg_machine_produce_trash" => options.dbg_machine_produce_trash = parse_bool(value, name, strict, options.dbg_machine_produce_trash, verbose),
             "dbg_clickable_quests" => options.dbg_clickable_quests = parse_bool(value, name, strict, options.dbg_clickable_quests, verbose),
             "dbg_print_quest_states" => options.dbg_print_quest_states = parse_bool(value, name, strict, options.dbg_print_quest_states, verbose),
@@ -408,6 +412,8 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "dbg_no_initial_unlocked_parts" => options.dbg_no_initial_unlocked_parts = parse_bool(value, name, strict, options.dbg_no_initial_unlocked_parts, verbose),
             "default_supply_speed" => options.default_supply_speed = parse_u64(value, name, strict, options.default_supply_speed, verbose),
             "default_supply_cooldown" => options.default_supply_cooldown = parse_u64(value, name, strict, options.default_supply_cooldown, verbose),
+            "default_supply_trash" => options.default_supply_trash = parse_bool(value, name, strict, options.default_supply_trash, verbose),
+            "dbg_supply_allow_woop" => options.dbg_supply_allow_woop = parse_bool(value, name, strict, options.dbg_supply_allow_woop, verbose),
             "default_demand_speed" => options.default_demand_speed = parse_u64(value, name, strict, options.default_demand_speed, verbose),
             "default_demand_cooldown" => options.default_demand_cooldown = parse_u64(value, name, strict, options.default_demand_cooldown, verbose),
             "enable_quick_save_menu" => options.enable_quick_save_menu = parse_bool(value, name, strict, options.enable_quick_save_menu, verbose),
@@ -455,6 +461,7 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- trace_map_parsing: {}", options.trace_map_parsing));
   arr.push(format!("- trace_story_changes: {}", options.trace_story_changes));
   arr.push(format!("- trace_size_changes: {}", options.trace_size_changes));
+  arr.push(format!("- trace_track_gen: {}", options.trace_track_gen));
   arr.push(format!("- dbg_paint_tile_priority: {}", options.dbg_paint_tile_priority));
   arr.push(format!("- dbg_onload_dump_factory: {}", options.dbg_onload_dump_factory));
   arr.push(format!("- dbg_onchange_dump_snapshot: {}", options.dbg_onchange_dump_snapshot));
@@ -497,7 +504,6 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- dbg_animate_cli_output_in_web: {}", options.dbg_animate_cli_output_in_web));
   arr.push(format!("- initial_event_type_swapped: {}", options.initial_event_type_swapped));
   arr.push(format!("- dbg_trash_is_joker: {}", options.dbg_trash_is_joker));
-  arr.push(format!("- dbg_joker_corrupts_factory: {}", options.dbg_joker_corrupts_factory));
   arr.push(format!("- dbg_machine_produce_trash: {}", options.dbg_machine_produce_trash));
   arr.push(format!("- dbg_clickable_quests: {}", options.dbg_clickable_quests));
   arr.push(format!("- dbg_print_quest_states: {}", options.dbg_print_quest_states));
@@ -509,6 +515,8 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- dbg_no_initial_unlocked_parts: {}", options.dbg_no_initial_unlocked_parts));
   arr.push(format!("- default_supply_speed: {}", options.default_supply_speed));
   arr.push(format!("- default_supply_cooldown: {}", options.default_supply_cooldown));
+  arr.push(format!("- default_supply_trash: {}", options.default_supply_trash));
+  arr.push(format!("- dbg_supply_allow_woop: {}", options.dbg_supply_allow_woop));
   arr.push(format!("- default_demand_speed: {}", options.default_demand_speed));
   arr.push(format!("- default_demand_cooldown: {}", options.default_demand_cooldown));
   arr.push(format!("- enable_quick_save_menu: {}", options.enable_quick_save_menu));

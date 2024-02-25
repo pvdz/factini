@@ -19,7 +19,6 @@
 //   - repo
 // - bug
 //   - full maze not enabled by default
-//   - default atom when creating a supplier (should pick random, prefer selection)
 
 
 // features
@@ -104,6 +103,7 @@ use super::quest_state::*;
 use super::quick_save::*;
 use super::quest::*;
 use super::state::*;
+use super::supply::*;
 use super::truck::*;
 use super::utils::*;
 use super::woop::*;
@@ -1904,8 +1904,8 @@ fn on_drag_floor(options: &Options, state: &mut State, config: &Config, factory:
         for i in 1..track.len() {
           let ((cell_x1, cell_y1), belt_type1, _unused, _port_out_dir1) = track[i-1]; // First element has no inbound port here
           let ((cell_x2, cell_y2), belt_type2, _port_in_dir2, _unused) = track[i]; // Last element has no outbound port here
-
-          apply_action_between_two_cells(state, options, config, factory, action, cell_x1, cell_y1, belt_type1, cell_x2, cell_y2, belt_type2);
+          let selected_atom = if mouse_state.atom_selected { Some(factory.available_atoms[mouse_state.atom_selected_index].0) } else { None };
+          apply_action_between_two_cells(state, options, config, factory, action, cell_x1, cell_y1, belt_type1, cell_x2, cell_y2, belt_type2, selected_atom);
         }
       }
     } else {
@@ -2097,18 +2097,8 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
         // - every frame while the animation is active, paint a shadow of the atom at the progress
 
         // Find the first craftable part config node index
-        let mut part_kind = CONFIG_NODE_PART_NONE;
-        let mut atom_index = 0;
-        factory.available_atoms.iter().enumerate().any(|(i, (kind, visible))| {
-          if !visible { return false; }
-
-          if config.nodes[*kind].pattern_unique_kinds.len() == 0 {
-            part_kind = *kind;
-            atom_index = i;
-            return true;
-          }
-          return false;
-        });
+        let part_kind = supply_get_default_part(options, state, config, factory, mouse_state);
+        let atom_index = factory.available_atoms.iter().position(|(p, _)| *p == part_kind);
 
         let dir = match (
           last_mouse_up_cell_x == 0.0, // left
@@ -2123,7 +2113,7 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
           _ => panic!("Should always ever be one side"),
         };
 
-        // If the cell next to this edge cell is a dead end with only inports then create a demander instead
+        // If the cell next to this edge cell is a dead end with only in-ports then create a demander instead
         let (x, y) = to_xy(coord);
         let neighbor_coord = get_edge_neighbor(x, y, coord);
         if factory.floor[neighbor_coord.0].kind != CellKind::Empty && !port_has_outbound(&factory, coord) {
@@ -2132,14 +2122,16 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
         } else {
           log!("Neighbor of edge is empty or has outgoing; creating a supplier here");
 
-          factory.edge_hint = (
-            part_kind,
-            (UI_FLOOR_OFFSET_X + last_mouse_up_cell_x * CELL_W, UI_FLOOR_OFFSET_Y + last_mouse_up_cell_y * CELL_H),
-            get_atom_xy(atom_index),
-            factory.ticks,
-            2 * (ONE_SECOND as f64 * options.speed_modifier_ui) as u64
-          );
-          log!("edge_hint is now: {:?}", factory.edge_hint);
+          if let Some(atom_index) = atom_index {
+            factory.edge_hint = (
+              part_kind,
+              (UI_FLOOR_OFFSET_X + last_mouse_up_cell_x * CELL_W, UI_FLOOR_OFFSET_Y + last_mouse_up_cell_y * CELL_H),
+              get_atom_xy(atom_index),
+              factory.ticks,
+              2 * (ONE_SECOND as f64 * options.speed_modifier_ui) as u64
+            );
+            log!("edge_hint is now: {:?}", factory.edge_hint);
+          }
 
           set_empty_edge_to_supplier(options, state, config, factory, part_kind, coord, dir);
         }
@@ -2341,7 +2333,6 @@ fn on_drag_end_atom_over_floor(options: &mut Options, state: &mut State, config:
   if is_edge_not_corner(last_mouse_up_cell_x, last_mouse_up_cell_y) {
     log!("Dropped an atom as supply on an edge cell that is not corner. Deploying... {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
     log!("Drag started from atom {} ({:?})", mouse_state.atom_down_atom_index, dragged_part_kind);
-
     set_edge_to_part(options, state, config, factory, last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, dragged_part_kind);
   }
   else if is_middle(last_mouse_up_cell_x, last_mouse_up_cell_y) {
@@ -2377,7 +2368,7 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
     mouse_state.cell_y_floored,
   );
 
-  log!("track to solidify: {:?}, button {}", track, mouse_state.last_down_button);
+  if options.trace_track_gen { log!("track to solidify: {:?}, button {}", track, mouse_state.last_down_button); }
 
   // Special cases:
   // - len=1
@@ -2443,10 +2434,11 @@ fn on_drag_end_floor_two_cells(state: &State, options: &Options, config: &Config
 
   let action = mouse_button_to_action(state, mouse_state);
 
-  return apply_action_between_two_cells(state, options, config, factory, action, cell_x1, cell_y1, belt_type1, cell_x2, cell_y2, belt_type2);
+  let selected_atom = if mouse_state.atom_selected { Some(factory.available_atoms[mouse_state.atom_selected_index].0) } else { None };
+  return apply_action_between_two_cells(state, options, config, factory, action, cell_x1, cell_y1, belt_type1, cell_x2, cell_y2, belt_type2, selected_atom);
 }
 fn on_drag_end_floor_multi_cells(state: &State, options: &Options, config: &Config, factory: &mut Factory, mouse_state: &MouseState, track: Vec<((usize, usize), BeltType, Direction, Direction)>) {
-  log!("Multi cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_mirrored);
+  if options.trace_track_gen { log!("Multi cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_mirrored); }
 
   // len > 2
   // Draw track if lmb, remove cells on track if rmb
@@ -2459,7 +2451,7 @@ fn on_drag_end_floor_multi_cells(state: &State, options: &Options, config: &Conf
   let len = track.len();
   for index in 0..len {
     let ((cell_x, cell_y), belt_type, _port_in_dir, _port_out_dir) = track[index];
-    log!("- track {} at {} {} isa {:?}", index, cell_x, cell_y, belt_type);
+    if options.trace_track_gen { log!("- track {} at {} {} isa {:?}", index, cell_x, cell_y, belt_type); }
     let coord = to_coord(cell_x, cell_y);
 
     let action = mouse_button_to_action(state, mouse_state);
@@ -2468,10 +2460,10 @@ fn on_drag_end_floor_multi_cells(state: &State, options: &Options, config: &Conf
       if still_starting_on_edge {
         // Note: if the first cell is in the middle then the track does not start on the edge
         if index == 0 {
-          log!("({}) first track part...", index);
+          if options.trace_track_gen { log!("({}) first track part...", index); }
           if is_middle(cell_x as f64, cell_y as f64) {
             // The track starts in the middle of the floor. Do not add a trashcan.
-            log!("({})  - in middle. still_starting_on_edge now false", index);
+            if options.trace_track_gen { log!("({})  - in middle. still_starting_on_edge now false", index); }
             still_starting_on_edge = false;
           }
         }
@@ -2479,23 +2471,24 @@ fn on_drag_end_floor_multi_cells(state: &State, options: &Options, config: &Conf
         // before it were all on the edge. If this one is not then the previous cell should
         // get the trashcan treatment. And otherwise we noop until the next cell.
         else if is_middle(cell_x as f64, cell_y as f64) {
-          log!("({}) first middle part of track", index);
+          if options.trace_track_gen { log!("({}) first middle part of track", index); }
           // Track started on the edge but has at least one segment in the middle.
           // Create a trash on the previous (edge) cell if that cell is empty.
           if factory.floor[pcoord].kind == CellKind::Empty {
-            factory.floor[pcoord] = supply_cell(config, px, py, part_c(config, 't'), options.default_supply_speed, options.default_supply_cooldown, 0);
+            let mut part_kind = supply_get_default_part(options, state, config, factory, mouse_state);
+            factory.floor[pcoord] = supply_cell(config, px, py, part_from_part_kind(config, part_kind), options.default_supply_speed, options.default_supply_cooldown, 0);
           }
           still_starting_on_edge = false;
         }
         // This means this and all prior track parts were on the edge. Move to next part.
         else {
-          log!("({}) non-first-but-still-edge part of track", index);
+          if options.trace_track_gen { log!("({}) non-first-but-still-edge part of track", index); }
         }
       }
       else if is_edge_not_corner(cell_x as f64, cell_y as f64) {
-        log!("({}) ending edge part of track", index);
+        if options.trace_track_gen { log!("({}) ending edge part of track", index); }
         if !already_ending_on_edge {
-          log!("({}) - first ending edge part of track, already_ending_on_edge = true", index);
+          if options.trace_track_gen { log!("({}) - first ending edge part of track, already_ending_on_edge = true", index); }
           // Note: the drag can only start inside the floor, so we don't have to worry about
           //       the index here since we always drag in a straight line. Once the edge is
           //       reached, we assume the line to end and we can put a trash Demand down.
@@ -2507,7 +2500,7 @@ fn on_drag_end_floor_multi_cells(state: &State, options: &Options, config: &Conf
         }
       }
 
-      log!("({}) head-on-edge? {} tail-on-edge? {}", index, still_starting_on_edge, already_ending_on_edge);
+      if options.trace_track_gen { log!("({}) head-on-edge? {} tail-on-edge? {}", index, still_starting_on_edge, already_ending_on_edge); }
 
       // If not at the start or end of the track...
       if !still_starting_on_edge && !already_ending_on_edge {
@@ -2522,10 +2515,10 @@ fn on_drag_end_floor_multi_cells(state: &State, options: &Options, config: &Conf
 
             // Connect the end points to any existing neighboring cells if not already connected
             if index == 0 || index == len - 1 {
-              if options.trace_cell_set_port { log!("  -- okay. first/last track segment: @{} got {:?}", coord, belt_type); }
-              if options.trace_cell_set_port { log!("  - connect_belt_to_existing_neighbor_belts(), before: {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l); }
+              if options.trace_cell_set_port || options.trace_track_gen { log!("  -- okay. first/last track segment: @{} got {:?}", coord, belt_type); }
+              if options.trace_cell_set_port || options.trace_track_gen { log!("  - connect_belt_to_existing_neighbor_belts(), before: {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l); }
               connect_belt_to_existing_neighbor_cells(options, state, config, factory, coord);
-              if options.trace_cell_set_port { log!("  - connect_belt_to_existing_neighbor_belts(),  after: {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l); }
+              if options.trace_cell_set_port || options.trace_track_gen { log!("  - connect_belt_to_existing_neighbor_belts(),  after: {:?} {:?} {:?} {:?}", factory.floor[coord].port_u, factory.floor[coord].port_r, factory.floor[coord].port_d, factory.floor[coord].port_l); }
             }
           }
         }
@@ -2606,10 +2599,13 @@ fn on_drag_end_machine_over_floor(options: &mut Options, state: &mut State, conf
     machine_add_to_factory(options, state, config, factory, cx as usize, cy as usize, machine_cell_width as usize, machine_cell_height as usize, machine_part);
   }
   else if is_edge_not_corner(mouse_state.last_up_cell_x, mouse_state.last_up_cell_y) {
-    log!("Dropped a woop on an edge. That should be illegal! (TODO)"); // TODO: make this illegal or under option
-    log!("Drag started from woop {} ({:?})", mouse_state.woop_down_woop_index, machine_part);
-
-    set_edge_to_part(options, state, config, factory, mouse_state.last_up_cell_x as usize, mouse_state.last_up_cell_y as usize, machine_part);
+    if options.dbg_supply_allow_woop {
+      log!("Dropped a woop on an edge but options.dbg_supply_allow_woop=true.");
+      log!("Drag started from woop {} ({:?})", mouse_state.woop_down_woop_index, machine_part);
+      set_edge_to_part(options, state, config, factory, mouse_state.last_up_cell_x as usize, mouse_state.last_up_cell_y as usize, machine_part);
+    } else {
+      log!("Dropped woop on edge, options.dbg_supply_allow_woop=false, so drop was ignored");
+    }
   } else {
     log!("Machine not dropped inside the floor. Ignoring. {} {}", mouse_state.last_up_cell_x, mouse_state.last_up_cell_y);
   }

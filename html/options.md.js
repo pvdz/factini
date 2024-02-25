@@ -58,7 +58,6 @@ const GAME_OPTIONS = `
 - dbg_animate_cli_output_in_web: false
 - initial_event_type_swapped: false
 - dbg_trash_is_joker: false
-- dbg_joker_corrupts_factory: true
 - dbg_machine_produce_trash: false
 - dbg_clickable_quests: false
 - dbg_print_quest_states: false

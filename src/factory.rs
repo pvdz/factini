@@ -677,16 +677,6 @@ pub fn factory_collect_machines(floor: &[Cell; FLOOR_CELLS_WH]) -> Vec<usize> {
   return machines;
 }
 
-pub fn set_empty_edge_to_supplier(options: &Options, state: &State, config: &Config, factory: &mut Factory, dragged_part_kind: PartKind, coord: usize, dir: Direction) {
-  // Note: this does not deal with existing state and it does not (re)connect the demander to the neighbor belt. Caller must do this.
-  log!("set_empty_edge_to_supplier(@{}, {:?}, {})", coord, dir, dragged_part_kind);
-  let (x, y) = to_xy(coord);
-  factory.floor[coord] = supply_cell(config, x, y, part_from_part_kind(config, dragged_part_kind), options.default_supply_speed, options.default_supply_cooldown, 1);
-  connect_to_neighbor_dead_end_belts(options, state, config, factory, coord);
-  set_dir_to(factory, coord, dir, Port::Outbound);
-  factory.changed = true;
-}
-
 pub fn set_empty_edge_to_demander(options: &Options, state: &State, config: &Config, factory: &mut Factory, dragged_part_kind: PartKind, coord: usize, dir: Direction) {
   let (x, y) = to_xy(coord);
   factory.floor[coord] = demand_cell(config, x, y, options.default_demand_speed, options.default_demand_cooldown);
@@ -722,4 +712,14 @@ pub fn set_edge_to_part(options: &Options, state: &State, config: &Config, facto
   }
 
   set_empty_edge_to_supplier(options, state, config, factory, part_kind, coord, dir);
+}
+
+pub fn set_empty_edge_to_supplier(options: &Options, state: &State, config: &Config, factory: &mut Factory, dragged_part_kind: PartKind, coord: usize, dir: Direction) {
+  // Note: this does not deal with existing state and it does not (re)connect the demander to the neighbor belt. Caller must do this.
+  log!("set_empty_edge_to_supplier(@{}, {:?}, {})", coord, dir, dragged_part_kind);
+  let (x, y) = to_xy(coord);
+  factory.floor[coord] = supply_cell(config, x, y, part_from_part_kind(config, dragged_part_kind), options.default_supply_speed, options.default_supply_cooldown, 1);
+  connect_to_neighbor_dead_end_belts(options, state, config, factory, coord);
+  set_dir_to(factory, coord, dir, Port::Outbound);
+  factory.changed = true;
 }

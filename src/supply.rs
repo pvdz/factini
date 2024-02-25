@@ -112,3 +112,36 @@ pub fn supply_clear_part(factory: &mut Factory, supply_coord: usize) {
   supply.last_part_out_at = factory.ticks;
   supply.part_tbd = true;
 }
+
+pub fn supply_get_default_part(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &MouseState) -> PartKind {
+  if options.default_supply_trash {
+    log!("supply_get_default_part(options.default_supply_trash=true)");
+    // This is a special case part that may be used while debugging
+    return CONFIG_NODE_PART_TRASH;
+  }
+
+  // Prefer the selected atom, if any
+  if mouse_state.atom_selected {
+    log!("supply_get_default_part(mouse_state.atom_selected=true, {})", mouse_state.atom_selected_index);
+    return factory.available_atoms[mouse_state.atom_selected_index].0 as PartKind;
+  }
+
+  return supply_get_random_atom(options, state, config, factory);
+}
+
+pub fn supply_get_random_atom(options: &Options, state: &State, config: &Config, factory: &Factory) -> PartKind {
+  // Collect all available atoms that are visible (not truck in flight)
+  let mut available = vec!();
+  factory.available_atoms.iter().for_each(|(kind, visible)| {
+    if *visible {
+      available.push(*kind);
+    }
+  });
+
+  let rng = xorshift(factory.ticks as usize);
+  let n = rng % available.len();
+
+  log!("supply_get_default_part(rng={})", available[n]);
+
+  return available[n];
+}
