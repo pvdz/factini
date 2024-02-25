@@ -12,9 +12,8 @@
 //   - something with that ikea help icon
 //   - add hint that two machines next to each other do not share port?
 //   - for touch, clicking the floor with an atom or woop selected should create that there
-//   - grid snapping for woops should ignore half cell grace period for edges
 //   - clone as a button?
-//   - "wrong" icon when wrong part arrives at machine?
+//   - show "wrong!" icon when wrong part arrives at machine?
 // - cleanup
 //   - repo
 // - bug
@@ -1198,12 +1197,16 @@ fn load_tile(src: &str) -> web_sys::HtmlImageElement {
 
 fn get_x_while_dragging_machine(cell_x: f64, machine_cell_width: usize) -> f64 {
   // Note: width is cell count of machine, not pixel size
+  if cell_x >= 0.0 && cell_x < 1.5 { return 1.0 };
+  if cell_x >= (FLOOR_CELLS_W - machine_cell_width) as f64 && cell_x <= FLOOR_CELLS_W as f64 { return (FLOOR_CELLS_W - machine_cell_width - 1) as f64 };
   let compx = if machine_cell_width % 2 == 1 { 0.0 } else { 0.5 };
   let ox = (cell_x + compx).floor() - (machine_cell_width / 2) as f64;
   return ox;
 }
 fn get_y_while_dragging_machine(cell_y: f64, machine_cell_height: usize) -> f64 {
   // Note: height is cell count of machine, not pixel size
+  if cell_y >= 0.0 && cell_y < 1.5 { return 1.0 };
+  if cell_y >= (FLOOR_CELLS_H - machine_cell_height) as f64 && cell_y <= FLOOR_CELLS_H as f64 { return (FLOOR_CELLS_H - machine_cell_height - 1) as f64 };
   let compy = if machine_cell_height % 2 == 1 { 0.0 } else { 0.5 };
   let oy = (cell_y + compy).floor() - (machine_cell_height / 2) as f64;
   return oy;
@@ -4015,6 +4018,7 @@ fn paint_mouse_while_dragging_machine_at_cell(options: &Options, state: &State, 
   context.fill_rect(UI_FLOOR_OFFSET_X, UI_FLOOR_OFFSET_Y + FLOOR_HEIGHT - CELL_H, FLOOR_WIDTH - CELL_W, CELL_H);
 
   // Note that mouse cell x is not where the top-left most cell of the machine would be
+  // Snap to edges if closer than grace period
   let top_left_machine_cell_x = get_x_while_dragging_machine((world_x - UI_FLOOR_OFFSET_X) / CELL_W, machine_cells_width);
   let top_left_machine_cell_y = get_y_while_dragging_machine((world_y - UI_FLOOR_OFFSET_Y) / CELL_H, machine_cells_height);
 
