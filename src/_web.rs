@@ -14,11 +14,11 @@
 //   - for touch, clicking the floor with an atom or woop selected should create that there
 //   - grid snapping for woops should ignore half cell grace period for edges
 //   - keep showing tooltip while dragging woop
+//   - clone as a button?
 // - cleanup
 //   - repo
 // - bug
 //   - full maze not enabled by default
-//   - clone as a button?
 
 // features
 // - belts
@@ -650,7 +650,7 @@ pub fn start() -> Result<(), JsValue> {
       prerender_button(&options, &state, &config, UI_SAVE_THUMB_WIDTH - UI_SAVE_THUMB_IMG_WIDTH, UI_SAVE_THUMB_HEIGHT, false),
     );
 
-    let speed_menu_prerender_canvas = prerender_speed_menu(&options, &state, &config, &factory, &mouse_state);
+    let mut speed_menu_prerender_canvas: Option<web_sys::HtmlCanvasElement> = None;
     let mut save_menu_prerender_canvas: Option<web_sys::HtmlCanvasElement> = None;
 
     if options.trace_size_changes { log!("(size) Internal css size initially: {}x{}, canvas pixels: {}x{}", CANVAS_CSS_INITIAL_WIDTH, CANVAS_CSS_INITIAL_HEIGHT, CANVAS_PIXEL_INITIAL_WIDTH, CANVAS_PIXEL_INITIAL_HEIGHT); }
@@ -1054,17 +1054,23 @@ pub fn start() -> Result<(), JsValue> {
         // Probably after all backround/floor stuff is finished
         paint_zone_borders(&options, &state, &context);
 
+        if state.ui_speed_menu_anim_progress > 0 && speed_menu_prerender_canvas == None {
+          // Lazy/deferred load. Ugly to do it in here but the rendering function would not have access to update the reference
+          // (And it needs to be deferred anyways otherwise images may not be loaded)
+          speed_menu_prerender_canvas = Some(prerender_speed_menu(&options, &state, &config, &factory, &mouse_state));
+        }
         paint_ui_speed_menu(&options, &state, &config, &factory, &context, &mouse_state);
         paint_speed_menu_animation(&options, &mut state, &config, &factory, &context, &speed_menu_prerender_canvas);
 
-        paint_load_thumbs(&options, &state, &config, &factory, &context, &button_canvii, &mouse_state, &mut quick_saves);
-        paint_text_hint(&options, &state, &config, &factory, &context);
         if state.ui_save_menu_anim_progress > 0 && save_menu_prerender_canvas == None {
           // Lazy/deferred load. Ugly to do it in here but the rendering function would not have access to update the reference
           // (And it needs to be deferred anyways otherwise images may not be loaded)
           save_menu_prerender_canvas = Some(prerender_save_menu(&options, &state, &config, &factory, &mouse_state, &mut quick_saves, &button_canvii));
         }
+        paint_load_thumbs(&options, &state, &config, &factory, &context, &button_canvii, &mouse_state, &mut quick_saves);
         paint_save_menu_animation(&options, &mut state, &config, &factory, &context, &save_menu_prerender_canvas);
+
+        paint_text_hint(&options, &state, &config, &factory, &context);
 
         paint_border_hint(&options, &state, &config, &factory, &context);
         // In front of all game stuff
@@ -5419,15 +5425,18 @@ fn paint_ui_speed_menu(options: &Options, state: &State, config: &Config, factor
     paint_ui_speed_bubble(options, state, config, factory, MenuButton::SpeedPlus, context, mouse_state, BUTTON_SPEED_PLUS_INDEX, "+");
   }
 }
-fn paint_speed_menu_animation(options: &Options, state: &mut State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, speed_menu_prerender_canvas: &web_sys::HtmlCanvasElement) {
+fn paint_speed_menu_animation(options: &Options, state: &mut State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, speed_menu_prerender_canvas: &Option<web_sys::HtmlCanvasElement>) {
   if state.ui_speed_menu_anim_progress > 0 {
-    let p = 1.0 - (state.ui_speed_menu_anim_progress as f64 / (options.speed_menu_animation_time as f64));
-    context.draw_image_with_html_canvas_element_and_dw_and_dh(speed_menu_prerender_canvas,
-      UI_MENU_MACHINE_BUTTON_3X3_X - p * (UI_MENU_MACHINE_BUTTON_3X3_X - (UI_SPEED_BUBBLE_OFFSET_X - UI_SPEED_MENU_PRERENDER_MARGIN)),
-      UI_MENU_MACHINE_BUTTON_3X3_Y - p * (UI_MENU_MACHINE_BUTTON_3X3_Y - (UI_SPEED_BUBBLE_OFFSET_Y - UI_SPEED_MENU_PRERENDER_MARGIN)),
-      UI_SPEED_MENU_PRERENDER_W * p,
-      UI_SPEED_MENU_PRERENDER_H * p
-    ).expect("draw_image_with_html_canvas_element should work"); // requires web_sys HtmlImageElement feature
+    // Should be prerendered now
+    if let Some(speed_menu_prerender_canvas) = speed_menu_prerender_canvas {
+      let p = 1.0 - (state.ui_speed_menu_anim_progress as f64 / (options.speed_menu_animation_time as f64));
+      context.draw_image_with_html_canvas_element_and_dw_and_dh(speed_menu_prerender_canvas,
+        UI_MENU_MACHINE_BUTTON_3X3_X - p * (UI_MENU_MACHINE_BUTTON_3X3_X - (UI_SPEED_BUBBLE_OFFSET_X - UI_SPEED_MENU_PRERENDER_MARGIN)),
+        UI_MENU_MACHINE_BUTTON_3X3_Y - p * (UI_MENU_MACHINE_BUTTON_3X3_Y - (UI_SPEED_BUBBLE_OFFSET_Y - UI_SPEED_MENU_PRERENDER_MARGIN)),
+        UI_SPEED_MENU_PRERENDER_W * p,
+        UI_SPEED_MENU_PRERENDER_H * p
+      ).expect("draw_image_with_html_canvas_element should work"); // requires web_sys HtmlImageElement feature
+    }
   }
 }
 fn paint_ui_speed_bubble(options: &Options, state: &State, config: &Config, factory: &Factory, button: MenuButton, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState, index: usize, text: &str) {
@@ -5646,6 +5655,20 @@ fn hit_test_copy_button(x: f64, y: f64) -> bool {
 fn hit_test_paste_button(x: f64, y: f64) -> bool {
   return bounds_check(x, y, UI_SAVE_MENU_OFFSET_X + UI_CLIPBOARD_PASTE_X, UI_SAVE_MENU_OFFSET_Y + UI_CLIPBOARD_PASTE_Y, UI_SAVE_MENU_OFFSET_X + UI_CLIPBOARD_PASTE_X + UI_CLIPBOARD_WIDTH, UI_SAVE_MENU_OFFSET_Y + UI_CLIPBOARD_PASTE_Y + UI_CLIPBOARD_HEIGHT);
 }
+fn paint_save_menu_animation(options: &Options, state: &mut State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, save_menu_prerender_canvas: &Option<web_sys::HtmlCanvasElement>) {
+  if state.ui_save_menu_anim_progress > 0 {
+    // Should be prerendered now
+    if let Some(save_menu_prerender_canvas) = save_menu_prerender_canvas {
+      let p = 1.0 - (state.ui_save_menu_anim_progress as f64 / (options.save_menu_animation_time as f64));
+      context.draw_image_with_html_canvas_element_and_dw_and_dh(save_menu_prerender_canvas,
+        UI_MENU_MACHINE_BUTTON_3X3_X - p * (UI_MENU_MACHINE_BUTTON_3X3_X - UI_SAVE_MENU_OFFSET_X),
+        UI_MENU_MACHINE_BUTTON_3X3_Y - p * (UI_MENU_MACHINE_BUTTON_3X3_Y - UI_SAVE_MENU_OFFSET_Y),
+        UI_SAVE_MENU_W * p,
+        UI_SAVE_MENU_H * p
+      ).expect("draw_image_with_html_canvas_element should work"); // requires web_sys HtmlImageElement feature
+    }
+  }
+}
 fn paint_load_thumbs(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState, quick_saves: &mut [Option<QuickSave>; 9]) {
   if !options.enable_quick_save_menu {
     return;
@@ -5810,20 +5833,6 @@ fn paint_text_hint(options: &Options, state: &State, config: &Config, factory: &
     context.restore();
   }
 }
-fn paint_save_menu_animation(options: &Options, state: &mut State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, save_menu_prerender_canvas: &Option<web_sys::HtmlCanvasElement>) {
-  if state.ui_save_menu_anim_progress > 0 {
-    // Should be prerendered now
-    if let Some(save_menu_prerender_canvas) = save_menu_prerender_canvas {
-      let p = 1.0 - (state.ui_save_menu_anim_progress as f64 / (options.save_menu_animation_time as f64));
-      context.draw_image_with_html_canvas_element_and_dw_and_dh(save_menu_prerender_canvas,
-        UI_MENU_MACHINE_BUTTON_3X3_X - p * (UI_MENU_MACHINE_BUTTON_3X3_X - UI_SAVE_MENU_OFFSET_X),
-        UI_MENU_MACHINE_BUTTON_3X3_Y - p * (UI_MENU_MACHINE_BUTTON_3X3_Y - UI_SAVE_MENU_OFFSET_Y),
-        UI_SAVE_MENU_W * p,
-        UI_SAVE_MENU_H * p
-      ).expect("draw_image_with_html_canvas_element should work"); // requires web_sys HtmlImageElement feature
-    }
-  }
-}
 fn paint_map_state_buttons(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>, mouse_state: &MouseState) {
   // // Paint trash button
   context.save();
@@ -5834,7 +5843,7 @@ fn paint_map_state_buttons(options: &Options, state: &State, config: &Config, co
   // context.set_fill_style(&text_color.into());
   // context.fill_text("↶", UI_UNREDO_UNDO_OFFSET_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_UNREDO_UNDO_OFFSET_Y + UI_UNREDO_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
   paint_asset_raw(
-    options, state, config, &context, if mouse_state.over_menu_button == MenuButton::UndoButton { CONFIG_NODE_ASSET_UNDO_LIGHT } else { CONFIG_NODE_ASSET_UNDO_GREY }, 0,
+    options, state, config, &context, if mouse_state.over_menu_button == MenuButton::UndoButton { CONFIG_NODE_ASSET_UNDO_GREY } else { CONFIG_NODE_ASSET_UNDO_LIGHT }, 0,
     UI_UNREDO_UNDO_OFFSET_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_UNREDO_UNDO_OFFSET_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0
   );
 
@@ -5843,7 +5852,7 @@ fn paint_map_state_buttons(options: &Options, state: &State, config: &Config, co
   // context.set_fill_style(&text_color.into());
   // context.fill_text("↷", UI_UNREDO_REDO_OFFSET_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_UNREDO_REDO_OFFSET_Y + UI_UNREDO_HEIGHT / 2.0 + 16.0).expect("canvas api call to work");
   paint_asset_raw(
-    options, state, config, &context, if mouse_state.over_menu_button == MenuButton::RedoButton { CONFIG_NODE_ASSET_REDO_LIGHT } else { CONFIG_NODE_ASSET_REDO_GREY }, 0,
+    options, state, config, &context, if mouse_state.over_menu_button == MenuButton::RedoButton { CONFIG_NODE_ASSET_REDO_GREY } else { CONFIG_NODE_ASSET_REDO_LIGHT }, 0,
     UI_UNREDO_REDO_OFFSET_X + UI_UNREDO_WIDTH / 2.0 - 16.0, UI_UNREDO_REDO_OFFSET_Y + UI_UNREDO_HEIGHT / 2.0 - 16.0, 32.0, 32.0
   );
 
