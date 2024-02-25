@@ -220,10 +220,46 @@ fn auto_build_init_startup(options: &Options, state: &State, config: &Config, fa
 
   let mut rng = xorshift(factory.ticks as usize);
 
+  // TODO: the target quest is currently artificially capped at quests that have no woops as input. An extension would be an AI that can build input part machines and connect them, too. Would be cooler but it's a bit more involved.
   let active_quest_indexes = quest_get_active_indexes(options, state, config, factory);
-  let n = rng % active_quest_indexes.len();
-  rng = xorshift(rng);
-  if options.trace_auto_builder { log!("AutoBuild: have {:?} picking {} ({})", active_quest_indexes, n, rng); }
+  let mut n;
+  let mut count = 0;
+  let mut last = active_quest_indexes.len();
+  loop {
+    n = rng % active_quest_indexes.len();
+
+    let quest_index = active_quest_indexes[n];
+    let quest_node_index = factory.quests[quest_index].config_node_index;
+    let target_kind = config.nodes[quest_node_index].production_target_by_index[0].1;
+    let pattern_unique_kinds = &config.nodes[target_kind].pattern_unique_kinds;
+
+    if n != last {
+      rng = xorshift(rng);
+      if options.trace_auto_builder { log!("AutoBuild: have {:?} picking {} ({})", active_quest_indexes, n, rng); }
+      if options.trace_auto_builder { log!("AutoBuild: active quest {} is quest_index {} is quest_node_index {}", n, quest_index, quest_node_index); }
+      if options.trace_auto_builder { log!("AutoBuild: quest targets {:?} ({:?})", config.nodes[quest_node_index].production_target_by_index, config.nodes[quest_node_index].production_target_by_name); }
+      if options.trace_auto_builder { log!("AutoBuild: target inputs {:?} ({:?})", config.nodes[quest_node_index].production_target_by_index.iter().map(|(_, part_kind)| config.nodes[*part_kind].pattern_unique_kinds.clone()).collect::<Vec<Vec<_>>>(), config.nodes[quest_node_index].production_target_by_index.iter().map(|(_, part_kind)| config.nodes[*part_kind].pattern_unique_kinds.iter().map(|k| config.nodes[*k].raw_name.clone()).collect()).collect::<Vec<Vec<_>>>()); }
+      if options.trace_auto_builder { log!("AutoBuild: target inputs atoms {:?}", pattern_unique_kinds.iter().map(|p| config.nodes[*p].pattern_unique_kinds.len() == 0).collect::<Vec<_>>()); }
+    }
+    last = n;
+
+    // For given active quest, get the first production target, for its pattern, check if each of the input parts is an atom:
+    if pattern_unique_kinds.iter().any(|p| config.nodes[*p].pattern_unique_kinds.len() > 0) {
+      // At least one input part was not an atom. Try another.
+      count += 1;
+      if count > 100 {
+        if options.trace_auto_builder { log!("AutoBuild: unable to find a quest with only atoms as input. Tried 100x. Bailing."); }
+        // Arbitrary trap. Stop trying after 100 attempts. This may be a configuration problem (no woops left with only atoms).
+        factory.auto_build.phase = AutoBuildPhase::Blocked;
+        auto_build_init(options, state, config, factory);
+        return;
+      }
+    } else {
+      if options.trace_auto_builder { log!("AutoBuild: All inputs are atoms, picked {}", n); }
+      // All input parts are atoms. Ok!
+      break;
+    }
+  }
   factory.auto_build.quest_visible_index = n;
   factory.auto_build.quest_index = quest_visible_index_to_quest_index(options, state, config, factory, factory.auto_build.quest_visible_index).unwrap();
 

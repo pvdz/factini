@@ -17,7 +17,6 @@
 // - cleanup
 //   - repo
 // - bug
-//   - ai will use woops as suppliers
 //   - full maze not enabled by default
 //   - clone as a button?
 
@@ -55,6 +54,8 @@
 // - cleanup
 //   - get rid of CONFIG_NODE_MACHINE_1X1 in favor of CONFIG_NODE_ASSET_MACHINE_3_3 etc
 // - allow machine icons (weewoo, output, etc) position to be configurable through config MD
+// - ai
+//   - allow it to build more complex structures. pick a target and build all pre-required machines and connect them. or pick only targets it can build with existing machines on the floor or something.
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
@@ -3822,7 +3823,7 @@ fn paint_mouse_cursor(options: &Options, state: &State, config: &Config, factory
 
   let mut x = mouse_state.world_x;
   let mut y = mouse_state.world_y;
-  if x == 0.0 && y == 0.0 {
+  if x == 0.0 && y == 0.0 && factory.auto_build.phase == AutoBuildPhase::None {
     // Assume that the top-left corner coordinate means the mouse should not be painted
     return;
   }
