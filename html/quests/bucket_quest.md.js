@@ -201,7 +201,6 @@ Desc: Simple example story
 
     # Part_BucketRedPlusPlus
     - pattern: Part_BucketRedPlus Part_Plus
-    - file: ./img/parts/bucket_simple_red_plusplus.png
     - file: ./img/parts/bucket_v3_red_plusplus.png
     - w: 160
     - h: 160
@@ -209,7 +208,6 @@ Desc: Simple example story
     
     # Part_BucketBluePlusPlus
     - pattern: Part_BucketBluePlus Part_Plus
-    - file: ./img/parts/bucket_simple_blue_plusplus.png
     - file: ./img/parts/bucket_v3_blue_plusplus.png
     - w: 160
     - h: 160
@@ -217,7 +215,6 @@ Desc: Simple example story
     
     # Part_BucketYellowPlusPlus
     - pattern: Part_BucketYellowPlus Part_Plus
-    - file: ./img/parts/bucket_simple_yellow_plusplus.png
     - file: ./img/parts/bucket_v3_yellow_plusplus.png
      - w: 160
     - h: 160
@@ -225,7 +222,6 @@ Desc: Simple example story
     
     # Part_BucketBlackPlusPlus
     - pattern: Part_BucketBlackPlus Part_Plus
-    - file: ./img/parts/bucket_simple_black_plusplus.png
     - file: ./img/parts/bucket_v3_black_plusplus.png
     - w: 160
     - h: 160
@@ -233,7 +229,6 @@ Desc: Simple example story
     
     # Part_BucketWhitePlusPlus
     - pattern: Part_BucketWhitePlus Part_Plus
-    - file: ./img/parts/bucket_simple_white_plusplus.png
     - file: ./img/parts/bucket_v3_white_plusplus.png
     - w: 160
     - h: 160
@@ -246,7 +241,6 @@ Desc: Simple example story
 
     # Part_BucketGreyPlusPlus
     - pattern: Part_BucketBlackPlusPlus Part_BucketWhitePlusPlus
-    - file: ./img/parts/bucket_simple_grey_plusplus.png
     - file: ./img/parts/bucket_v3_grey_plusplus.png
     - w: 160
     - h: 160
@@ -255,7 +249,6 @@ Desc: Simple example story
     # Part_BucketGreenPlusPlus
     - special: e 3
     - pattern: Part_BucketBluePlusPlus Part_BucketYellowPlusPlus
-    - file: ./img/parts/bucket_simple_green_plusplus.png
     - file: ./img/parts/bucket_v3_green_plusplus.png
     - w: 160
     - h: 160
@@ -264,7 +257,6 @@ Desc: Simple example story
     # Part_BucketPurplePlusPlus
     - special: v 3
     - pattern: Part_BucketBluePlusPlus Part_BucketRedPlusPlus
-    - file: ./img/parts/bucket_simple_purple_plusplus.png
     - file: ./img/parts/bucket_v3_purple_plusplus.png
     - w: 160
     - h: 160
@@ -273,7 +265,6 @@ Desc: Simple example story
     # Part_BucketOrangePlusPlus
     - special: s 3
     - pattern: Part_BucketRedPlusPlus Part_BucketYellowPlusPlus
-    - file: ./img/parts/bucket_simple_orange_plusplus.png
     - file: ./img/parts/bucket_v3_orange_plusplus.png
     - w: 160
     - h: 160
@@ -282,7 +273,6 @@ Desc: Simple example story
     # Part_BucketPinkPlusPlus
     - special: p 3
     - pattern: Part_BucketRedPlusPlus Part_BucketWhitePlusPlus
-    - file: ./img/parts/bucket_simple_pink_plusplus.png
     - file: ./img/parts/bucket_v3_pink_plusplus.png
     - w: 160
     - h: 160

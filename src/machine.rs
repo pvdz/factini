@@ -95,10 +95,6 @@ pub fn machine_new(options: &Options, state: &State, config: &Config, kind: Mach
     haves.push(part_none(config));
   }
 
-  // log!("machine_new(), wants: {:?}", wants.iter().map(|p| p.kind));
-  let output = machine_discover_output_wants(options, state, config, &wants, main_coord);
-  // log!("  - machine_new(), yields: {:?}", config.nodes[output].kind);
-
   assert_eq!(wants.len(), haves.len(), "machines should start with same len wants as haves");
 
   return Machine {
@@ -114,7 +110,7 @@ pub fn machine_new(options: &Options, state: &State, config: &Config, kind: Mach
 
     start_at: 0,
 
-    output_want: part_from_part_kind(config, output),
+    output_want: output,
 
     speed,
     production_price: 0,
@@ -357,46 +353,6 @@ pub fn machine_normalize_wants(wants: &Vec<PartKind>) -> Vec<PartKind> {
   return wants;
 }
 
-pub fn machine_change_want_kind(options: &Options, state: &State, config: &Config, factory: &mut Factory, main_coord: usize, index: usize, kind: PartKind) {
-  factory.floor[main_coord].machine.wants[index] = part_from_part_kind(config, kind);
-
-  let new_out = machine_discover_output_unmut(options, state, config, factory, main_coord, index, kind);
-  log!("machine_change_want() -> {:?}", new_out);
-  factory.floor[main_coord].machine.output_want = part_from_part_kind(config, new_out);
-  factory.changed = true;
-}
-pub fn machine_discover_output_unmut(options: &Options, state: &State, config: &Config, factory: &Factory, main_coord: usize, index: usize, kind: PartKind) -> PartKind {
-  log!("machine_discover_output_unmut()");
-  // Work around slicing muts. why this does work is beyond me rn.
-  return machine_discover_output_floor(options, state, config, &factory.floor, main_coord);
-}
-pub fn machine_discover_output_floor(options: &Options, state: &State, config: &Config, floor: &[Cell; FLOOR_CELLS_WH], main_coord: usize) -> PartKind {
-  // Given a set of wants, determine what the output should be
-  // Things to consider;
-  // - input parts (sorted list without nones)
-  // - factory type
-  // - unlock tree
-  // - level limitations / specials (?)
-
-  // Probably only a subset of these? with expansion options
-  return machine_discover_output_wants(options, state, config, &floor[main_coord].machine.wants, main_coord);
-}
-pub fn machine_discover_output_wants(options: &Options, state: &State, config: &Config, wants: &Vec<Part>, main_coord: usize) -> PartKind {
-  // log!("machine_discover_output_wants({}): {:?}", main_coord, wants);
-  let mut ordered_icons = wants.iter().map(|part| part.icon).collect::<Vec<char>>();
-  ordered_icons.sort();
-  let pattern_str_untrimmed = ordered_icons.iter().collect::<String>().to_string();
-  let pattern_str = str::replace(pattern_str_untrimmed.trim(), " ", "");
-  if pattern_str == "" {
-    // log!("  Machine has no inputs so it has no output");
-    return CONFIG_NODE_PART_NONE;
-  }
-  let target_kind = *config.node_pattern_to_index.get(pattern_str.as_str()).or(Some(&CONFIG_NODE_PART_NONE)).unwrap();
-  // log!("  Looking in node_pattern_to_index for: `{}` --> resulting target kind: {} -> {:?}", pattern_str, target_kind, config.nodes[target_kind]);
-  assert!(config.nodes[target_kind].kind == ConfigNodeKind::Part, "the pattern should resolve to a part node...");
-  return target_kind;
-}
-
 pub fn machine_size_to_asset_index(width: usize, height: usize) -> usize {
   return match ( width, height ) {
     ( 1, 1 ) => CONFIG_NODE_ASSET_MACHINE_1_1,
@@ -597,7 +553,7 @@ pub fn machine_add_to_factory(options: &Options, state: &State, config: &Config,
       }
 
       if i == 0 && j == 0 {
-        log!("Spawning machine that produces {} which require these parts: {:?}", machine_part, config.nodes[machine_part].pattern_unique_kinds);
+        log!("Spawning machine that produces {} ({:?}) which require these parts: {:?}", machine_part, part_from_part_kind(config, machine_part), config.nodes[machine_part].pattern_unique_kinds);
         // Top-left cell is the main_coord here
         factory.floor[coord] = machine_main_cell(
           options,
@@ -611,6 +567,7 @@ pub fn machine_add_to_factory(options: &Options, state: &State, config: &Config,
           2000,
           1, 1
         );
+        log!("main machine coord: {:?}", factory.floor[coord]);
       } else {
         factory.floor[coord] = machine_sub_cell(options, state, config, found, x, y, ccoord, machine_cell_width, machine_cell_height);
       }
@@ -634,13 +591,4 @@ pub fn machine_add_to_factory(options: &Options, state: &State, config: &Config,
   factory.machines.push(ccoord);
 
   factory.changed = true;
-}
-
-pub fn machine_set_target_part_kind(options: &Options, state: &State, config: &Config, factory: &mut Factory, main_coord: usize, target_part_kind: PartKind) {
-  for want_index in 0..factory.floor[main_coord].machine.cell_width * factory.floor[main_coord].machine.cell_height {
-    let part_kind = config.nodes[target_part_kind].pattern_by_index.get(want_index).unwrap_or(&CONFIG_NODE_PART_NONE);
-    machine_change_want_kind(options, state, config, factory, main_coord, want_index, *part_kind);
-    // Make sure the haves are cleared as well
-    factory.floor[main_coord].machine.haves[want_index] = part_none(config);
-  }
 }

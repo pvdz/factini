@@ -409,7 +409,6 @@ pub struct Config {
   pub stories: Vec<Story>,
   pub initial_active_story_index: usize, // Maps to config.stories[], see state.active_story_index
   pub node_name_to_index: HashMap<String, PartKind>,
-  pub node_pattern_to_index: HashMap<String, PartKind>,
   pub sprite_cache_lookup: HashMap<String, usize>, // indexes into sprite_cache_canvas
   pub sprite_cache_order: Vec<String>, // srcs by index.
   pub sprite_cache_canvas: Vec<web_sys::HtmlImageElement>,
@@ -1033,8 +1032,6 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
 
   // Map (fully qualified) name to index on config nodes. Also maps icon chars and &ord icons.
   let mut node_name_to_index = HashMap::new();
-  // Map for getting fast pattern lookups. The icons for each part of the pattern (sorted, not none) are serialized into a string and checked against this hashmap. Faster-simpler than anything else.
-  let mut node_pattern_to_index = HashMap::new();
   // Create unique index for each unique sprite map url
   let mut sprite_cache_lookup = HashMap::new();
   let mut sprite_cache_order = vec!();
@@ -1119,7 +1116,6 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
     let pattern_str = nodes[i].pattern_by_icon.iter().collect::<String>();
     let pattern_str = str::replace(&pattern_str, " ", "");
     let pattern_str = str::replace(&pattern_str, ".", "");
-    node_pattern_to_index.insert(pattern_str.clone(), i);
     nodes[i].pattern = pattern_str;
 
     // Get all unique required parts, convert them to their icon, order them, create a string
@@ -1378,7 +1374,6 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
 
   // log!("parsed nodes: {:?}", &nodes[1..]);
   if trace_parse_config_md { log!("parsed map: {:?}", node_name_to_index); }
-  if trace_parse_config_md { node_pattern_to_index.iter_mut().for_each(|(str, &mut kind)| log!("- node_pattern_to_index: {} = pattern({}) -> kind: {}", nodes[kind].raw_name, str, kind)); }
   if trace_parse_config_md { log!("active_story_index final => {}", active_story_index); }
 
   return Config {
@@ -1386,7 +1381,6 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
     stories,
     initial_active_story_index: active_story_index,
     node_name_to_index,
-    node_pattern_to_index,
     sprite_cache_lookup,
     sprite_cache_order,
     sprite_cache_canvas: vec!(),

@@ -197,6 +197,8 @@ pub fn machine_any_cell(options: &Options, state: &State, config: &Config, id: c
 pub fn machine_main_cell(options: &Options, state: &State, config: &Config, id: char, x: usize, y: usize, cell_width: usize, cell_height: usize, wants: Vec<Part>, output: Part, speed: u64, machine_production_price: i32, machine_trash_price: i32) -> Cell {
   assert!(x > 0 && y > 0 && x < FLOOR_CELLS_W - 1 && y < FLOOR_CELLS_H - 1);
 
+  log!("machine_main_cell({}x{} for {:?} --> {:?})", x, y, wants, output);
+
   let coord = x + y * FLOOR_CELLS_W;
 
   let coord_u = Some(to_coord_up(coord)); // if y == 0 { None } else { Some(to_coord_up(coord)) };
