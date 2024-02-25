@@ -975,60 +975,7 @@ pub fn start() -> Result<(), JsValue> {
         let was_resize = saw_resize_event.get();
         if was_resize {
           saw_resize_event.set(false);
-
-          // Need to check whether we are in fullscreen mode or not.
-          // In fullscreen mode the painted canvas area may be implicitly scaled (with no clue
-          // given of this fact) which screws up mouse coordinate translations.
-          // To fix that we need to check fullscreen status, and in that case, assume the canvas
-          // is 100% wide or high and then determine scale factor accordingly, then update here.
-          // tldr; in fullscreen mode the api will lie about the size of the _painted area_
-
-          let fse = document.fullscreen_element();
-          if let Some(_) = fse {
-            if options.trace_size_changes { log!("(size) We are in canvas fullscreen mode"); }
-            state.should_be_fullscreen = true;
-
-            // Actual pixels we paint is not affected by fullscreen so get them first
-            state.canvas_pixel_width = ref_counted_canvas.width() as f64;
-            state.canvas_pixel_height = ref_counted_canvas.height() as f64;
-            if options.trace_size_changes { log!("(size) pixel size: {}x{}", state.canvas_pixel_width, state.canvas_pixel_height); }
-
-            // Canvas dimensions are lying to us. We must assume the canvas is max wide or high.
-            // We have to compute the maxed dimension manually and the scale factor too.
-
-            // Note: screen api is for actual screen, not browser inside window. innerWidth is what we want here.
-            let sw = window.inner_width().unwrap().as_f64().expect("to work") as f64;
-            let sh = window.inner_height().unwrap().as_f64().expect("to work") as f64;
-            if options.trace_size_changes { log!("(size) Window size is {}x{}x", sw, sh); }
-
-            // Determine ratios.
-            let rw = sw / state.canvas_pixel_width;
-            let rh = sh / state.canvas_pixel_height;
-            // We want the lowest ratio
-            let scale = rw.min(rh);
-            if options.trace_size_changes { log!("(size) ratios: {} {}", rw, rh); }
-
-            // Note: this will be the size of the visual canvas _excluding_ the secret padding added
-            // by fullscreen api. This is what we use for mouse-to-world coordinate translations.
-            state.canvas_css_width = (state.canvas_pixel_width * scale).floor();
-            state.canvas_css_height = (state.canvas_pixel_height * scale).floor();
-            // Full screen will center the painted pixels so the mouse has to compensate for padding
-            state.canvas_css_x = ((ref_counted_canvas.client_width() as f64 - state.canvas_css_width) / 2.0).floor();
-            state.canvas_css_y = ((ref_counted_canvas.client_height() as f64 - state.canvas_css_height) / 2.0).floor();
-            if options.trace_size_changes { log!("(size) css size: {}x{} (scale {}), offset {}x{}", state.canvas_css_width, state.canvas_css_height, scale, state.canvas_css_x, state.canvas_css_y); }
-          } else {
-            if options.trace_size_changes { log!("(size) We are not in canvas fullscreen mode"); }
-            state.should_be_fullscreen = false;
-
-            state.canvas_pixel_width = ref_counted_canvas.width() as f64;
-            state.canvas_pixel_height = ref_counted_canvas.height() as f64;
-            state.canvas_css_x = 0.0;
-            state.canvas_css_y = 0.0;
-            state.canvas_css_width = ref_counted_canvas.client_width() as f64;
-            state.canvas_css_height = ref_counted_canvas.client_height() as f64;
-          }
-
-          if options.trace_size_changes { log!("(size) Internal css size now: {}x{}, canvas pixels: {}x{}", state.canvas_css_width, state.canvas_css_height, state.canvas_pixel_width, state.canvas_pixel_height); }
+          on_after_resize_event(&options, &mut state, &config, &ref_counted_canvas);
         }
         let was_down = last_mouse_was_down.get();
         let was_mouse = if was_down { if last_down_event_type.get() == EventSourceType::Mouse { EventSourceType::Mouse } else { EventSourceType::Touch } } else { EventSourceType::Unknown }; // Only read if set. May be an over-optimization but eh.
@@ -1827,6 +1774,62 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
 
 // on over, out, hover, down, up, drag start, dragging, drag end. but not everything makes sense for all cases.
 
+fn on_after_resize_event(options: &Options, state: &mut State, config: &Config, ref_counted_canvas: &Rc<web_sys::HtmlCanvasElement>) {
+  // Need to check whether we are in fullscreen mode or not.
+  // In fullscreen mode the painted canvas area may be implicitly scaled (with no clue
+  // given of this fact) which screws up mouse coordinate translations.
+  // To fix that we need to check fullscreen status, and in that case, assume the canvas
+  // is 100% wide or high and then determine scale factor accordingly, then update here.
+  // tldr; in fullscreen mode the api will lie about the size of the _painted area_
+
+  let fse = document().fullscreen_element();
+  if let Some(_) = fse {
+    if options.trace_size_changes { log!("(size) We are in canvas fullscreen mode"); }
+    state.should_be_fullscreen = true;
+
+    // Actual pixels we paint is not affected by fullscreen so get them first
+    state.canvas_pixel_width = ref_counted_canvas.width() as f64;
+    state.canvas_pixel_height = ref_counted_canvas.height() as f64;
+    if options.trace_size_changes { log!("(size) pixel size: {}x{}", state.canvas_pixel_width, state.canvas_pixel_height); }
+
+    // Canvas dimensions are lying to us. We must assume the canvas is max wide or high.
+    // We have to compute the maxed dimension manually and the scale factor too.
+
+    // Note: screen api is for actual screen, not browser inside window. innerWidth is what we want here.
+    let window = window();
+    let sw = window.inner_width().unwrap().as_f64().expect("to work") as f64;
+    let sh = window.inner_height().unwrap().as_f64().expect("to work") as f64;
+    if options.trace_size_changes { log!("(size) Window size is {}x{}x", sw, sh); }
+
+    // Determine ratios.
+    let rw = sw / state.canvas_pixel_width;
+    let rh = sh / state.canvas_pixel_height;
+    // We want the lowest ratio
+    let scale = rw.min(rh);
+    if options.trace_size_changes { log!("(size) ratios: {} {}", rw, rh); }
+
+    // Note: this will be the size of the visual canvas _excluding_ the secret padding added
+    // by fullscreen api. This is what we use for mouse-to-world coordinate translations.
+    state.canvas_css_width = (state.canvas_pixel_width * scale).floor();
+    state.canvas_css_height = (state.canvas_pixel_height * scale).floor();
+    // Full screen will center the painted pixels so the mouse has to compensate for padding
+    state.canvas_css_x = ((ref_counted_canvas.client_width() as f64 - state.canvas_css_width) / 2.0).floor();
+    state.canvas_css_y = ((ref_counted_canvas.client_height() as f64 - state.canvas_css_height) / 2.0).floor();
+    if options.trace_size_changes { log!("(size) css size: {}x{} (scale {}), offset {}x{}", state.canvas_css_width, state.canvas_css_height, scale, state.canvas_css_x, state.canvas_css_y); }
+  } else {
+    if options.trace_size_changes { log!("(size) We are not in canvas fullscreen mode"); }
+    state.should_be_fullscreen = false;
+
+    state.canvas_pixel_width = ref_counted_canvas.width() as f64;
+    state.canvas_pixel_height = ref_counted_canvas.height() as f64;
+    state.canvas_css_x = 0.0;
+    state.canvas_css_y = 0.0;
+    state.canvas_css_width = ref_counted_canvas.client_width() as f64;
+    state.canvas_css_height = ref_counted_canvas.client_height() as f64;
+  }
+
+  if options.trace_size_changes { log!("(size) Internal css size now: {}x{}, canvas pixels: {}x{}", state.canvas_css_width, state.canvas_css_height, state.canvas_pixel_width, state.canvas_pixel_height); }
+}
 fn on_click_help(options: &Options, state: &mut State, config: &Config) {
   log!("on_click_help()");
   state.manual_open = !state.manual_open;
