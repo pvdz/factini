@@ -19,7 +19,6 @@
 // - bug
 //   - ai will use woops as suppliers
 //   - touch; deselecting selections is awkward. should probably ignore hover afterwards if event was recorded as touch. maybe clear it
-//   - item hint on machine selection (red rects) are too small. at least on ipad
 //   - full maze not enabled by default
 //   - fullscreen button on ipad crashes the whole thing... can we handle that gracefully
 //   - clone as a button?
@@ -4734,7 +4733,7 @@ fn highlight_atom_woop(options: &Options, state: &State, config: &Config, factor
     context.set_stroke_style(&(if highlight_woop_has { "#008800ff" } else { "red" }).into());
     context.save();
     context.set_line_width(5.0);
-    context.stroke_rect(px, py, CELL_W, CELL_H);
+    context.stroke_rect(px, py, UI_WOTOM_ICON_SIZE, UI_WOTOM_ICON_SIZE);
     context.restore();
     // paint some pixels green? (https://colordesigner.io/gradient-generator)
     let ui_throttled_second = factory_ticks_to_game_ui_time(options, factory.ticks) * 2.0;
