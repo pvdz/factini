@@ -10,9 +10,6 @@
 // - help the player
 //   - update tutorial with current status
 //   - something with that ikea help icon
-//   - add hint that two machines next to each other do not share port?
-//   - clone as a button?
-//   - show "wrong!" icon when wrong part arrives at machine?
 // - cleanup
 //   - repo
 
@@ -46,6 +43,8 @@
 // - experiment with bigger maps and scrolling
 // - help the player
 //   - help, okay, secret menu
+//   - add hint that two machines next to each other do not share port?
+//   - show "wrong!" icon when wrong part arrives at machine?
 // - implement undo/redo action support
 //   - https://dev.to/chromiumdev/-native-undo--redo-for-the-web-3fl3  https://github.com/samthor/undoer
 // - cleanup
@@ -53,6 +52,7 @@
 // - allow machine icons (weewoo, output, etc) position to be configurable through config MD
 // - ai
 //   - allow it to build more complex structures. pick a target and build all pre-required machines and connect them. or pick only targets it can build with existing machines on the floor or something.
+// - add a button to select and clone part of the floor? may be nice but the current select/stamp implementation only copies belts. not sure if that's sufficient or event worth it.
 
 // https://docs.rs/web-sys/0.3.28/web_sys/struct.CanvasRenderingContext2d.html
 
