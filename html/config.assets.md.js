@@ -148,12 +148,27 @@ Public domain from https://opengameart.org/content/yellow-racing-car
 # Asset_HelpBlack
 Source: ikea.com via https://www.mentalfloss.com/article/58450/16-out-context-ikea-instructions-help-you-live-better-life
 Used as parody
-- file: ./img/help.png
+- file: ./img/help_black.png
 - x: 0
 - y: 0
 - w: 50
 - h: 41
-
+# Asset_HelpWhite
+Source: ikea.com via https://www.mentalfloss.com/article/58450/16-out-context-ikea-instructions-help-you-live-better-life
+Used as parody
+- file: ./img/help_white.png
+- x: 0
+- y: 0
+- w: 50
+- h: 41
+# Asset_HelpGrey
+Source: ikea.com via https://www.mentalfloss.com/article/58450/16-out-context-ikea-instructions-help-you-live-better-life
+Used as parody
+- file: ./img/help_grey.png
+- x: 0
+- y: 0
+- w: 50
+- h: 41
 # Asset_HelpRed
 Source: ikea.com via https://www.mentalfloss.com/article/58450/16-out-context-ikea-instructions-help-you-live-better-life
 Used as parody

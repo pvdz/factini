@@ -79,10 +79,10 @@ pub const UI_TOP_OFFSET_Y: f64 = GRID_Y0;
 pub const UI_TOP_WIDTH: f64 = UI_FLOOR_WIDTH;
 pub const UI_TOP_HEIGHT: f64 = GRID_TOP_HEIGHT;
 
-pub const UI_HELP_X: f64 = GRID_X0 + 10.0;
-pub const UI_HELP_Y: f64 = GRID_Y0 + 8.0;
-pub const UI_HELP_WIDTH: f64 = 50.0;
-pub const UI_HELP_HEIGHT: f64 = 40.0;
+pub const UI_HELP_X: f64 = GRID_X0 + 5.0;
+pub const UI_HELP_Y: f64 = GRID_Y0;
+pub const UI_HELP_WIDTH: f64 = 60.0;
+pub const UI_HELP_HEIGHT: f64 = 60.0;
 
 pub const UI_FULLSCREEN_W: f64 = 60.0;
 pub const UI_FULLSCREEN_H: f64 = 60.0;

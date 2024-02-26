@@ -7,8 +7,6 @@
 // road to release
 // - maze
 //   - maze fuel could blow-up-fade-out when collected, with a 3x for the better one, maybe rainbow wiggle etc? or just 1x 2x 3x instead of icon
-// - help the player
-//   - something with that ikea help icon
 
 
 // features
@@ -1019,7 +1017,8 @@ pub fn start() -> Result<(), JsValue> {
 
         paint_zone_hovers(&options, &state, &context, &mouse_state);
         // paint_top_stats(&context, &mut factory);
-        paint_help_and_ai_button(&options, &state, &config, &factory, &mouse_state, &context, &button_canvii);
+        paint_help_button(&options, &state, &config, &factory, &mouse_state, &context, &button_canvii);
+        paint_ai_button(&options, &state, &config, &factory, &mouse_state, &context, &button_canvii);
         paint_quests(&options, &state, &config, &context, &factory, &mouse_state);
         paint_atoms(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
         let ( highlight_index, highlight_x, highlight_y ) = paint_woops(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
@@ -4521,17 +4520,18 @@ fn paint_top_stats(context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Fa
   context.fill_text(format!("Ticks: {}, Supplied: {}, Produced: {}, Received: {}, Trashed: {}", factory.ticks, factory.supplied, factory.produced, factory.accepted, factory.trashed).as_str(), 20.0, 20.0).expect("to paint");
   context.fill_text(format!("Current time: {}", factory.ticks).as_str(), 20.0, 40.0).expect("to paint");
 }
-fn paint_help_and_ai_button(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &MouseState, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>) {
-
-  paint_asset(options, state, config, context, if mouse_state.help_hover { CONFIG_NODE_ASSET_HELP_RED } else { CONFIG_NODE_ASSET_HELP_BLACK }, factory.ticks,
-    UI_HELP_X, UI_HELP_Y, UI_HELP_WIDTH, UI_HELP_HEIGHT
+fn paint_help_button(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &MouseState, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>) {
+  paint_button(options, state, config, context, button_canvii, if mouse_state.help_down { BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_UP }, UI_HELP_X, UI_HELP_Y);
+  paint_asset(options, state, config, context, if mouse_state.help_hover { CONFIG_NODE_ASSET_HELP_GREY } else { CONFIG_NODE_ASSET_HELP_WHITE }, factory.ticks,
+    UI_HELP_X + UI_HELP_WIDTH / 2.0 - 22.0, UI_HELP_Y + UI_HELP_HEIGHT / 2.0 - 18.0, 45.0, 37.0
   );
-
+}
+fn paint_ai_button(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &MouseState, context: &Rc<web_sys::CanvasRenderingContext2d>, button_canvii: &Vec<web_sys::HtmlCanvasElement>) {
   paint_button(options, state, config, context, button_canvii, if factory.auto_build.phase != AutoBuildPhase::None { BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_DOWN } else { BUTTON_PRERENDER_INDEX_MEDIUM_SQUARE_UP }, UI_AUTO_BUILD_X, UI_AUTO_BUILD_Y);
   if mouse_state.over_menu_button == MenuButton::AutoBuildButton {
-    context.set_fill_style(&"white".into());
+    context.set_fill_style(&"grey".into());
   } else {
-    context.set_fill_style(&FLOOR_YELLOW_COLOR.into());
+    context.set_fill_style(&"white".into());
   }
   if factory.auto_build.phase == AutoBuildPhase::None {
     context.set_font(&"30px verdana");

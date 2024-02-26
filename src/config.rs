@@ -402,6 +402,8 @@ pub const CONFIG_NODE_ASSET_PAUSE_WHITE: usize = 374;
 pub const CONFIG_NODE_ASSET_PAUSE_GREY: usize = 375;
 pub const CONFIG_NODE_ASSET_COPY_WHITE: usize = 376;
 pub const CONFIG_NODE_ASSET_PASTE_WHITE: usize = 377;
+pub const CONFIG_NODE_ASSET_HELP_WHITE: usize = 378;
+pub const CONFIG_NODE_ASSET_HELP_GREY: usize = 379;
 
 #[derive(Debug)]
 pub struct Config {
@@ -1415,6 +1417,8 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Asset_DumpTruck" => CONFIG_NODE_ASSET_DUMP_TRUCK,
     "Asset_Sand" => CONFIG_NODE_ASSET_SAND,
     "Asset_HelpBlack" => CONFIG_NODE_ASSET_HELP_BLACK,
+    "Asset_HelpWhite" => CONFIG_NODE_ASSET_HELP_WHITE,
+    "Asset_HelpGrey" => CONFIG_NODE_ASSET_HELP_GREY,
     "Asset_HelpRed" => CONFIG_NODE_ASSET_HELP_RED,
     "Asset_Manual" => CONFIG_NODE_ASSET_MANUAL,
     "Asset_Lmb" => CONFIG_NODE_ASSET_LMB,
@@ -2160,6 +2164,8 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_asset(CONFIG_NODE_ASSET_PAUSE_GREY, "PauseGrey"),
     config_node_asset(CONFIG_NODE_ASSET_COPY_WHITE, "CopyWhite"),
     config_node_asset(CONFIG_NODE_ASSET_PASTE_WHITE, "PasteWhite"),
+    config_node_asset(CONFIG_NODE_ASSET_HELP_WHITE, "HelpWhite"),
+    config_node_asset(CONFIG_NODE_ASSET_HELP_GREY, "HelpGrey"),
   );
 
   v.iter().enumerate().for_each(|(i, node)| assert!(node.index == i, "system node indexes must match their global constant value; mismatch for index {} in get_system_nodes(), node.index= {}", i, node.index));
