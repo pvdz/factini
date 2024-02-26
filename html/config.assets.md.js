@@ -614,4 +614,10 @@ See options.show_drm=false
 - file: ./img/pause_grey.png
 - w: 119
 - h: 120
+
+# Asset_Battery
+- file: ./img/battery.png
+- w: 70
+- h: 128
+
 `;

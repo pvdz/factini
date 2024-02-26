@@ -5912,7 +5912,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
 
   let maze = &factory.maze;
 
-  // Bar offsets above the maze:
+  // Bar offsets:
   // Energy remaining
   let energy_x = x + 10.0;
   let energy_y = y - 30.0;
@@ -5987,7 +5987,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
 
     // Actual maze next...
 
-    context.set_fill_style(&"white".into());
+    context.set_fill_style(&"#74697d".into());
     context.fill_rect(x, y, MAZE_WIDTH, MAZE_HEIGHT);
     context.set_stroke_style(&"black".into());
     context.stroke_rect(x, y, MAZE_WIDTH, MAZE_HEIGHT);
@@ -5996,30 +5996,27 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     for i in 0..MAZE_CELLS_W as usize {
       for j in 0..MAZE_CELLS_H as usize {
         let v = &maze[j* MAZE_CELLS_W +i];
-        if v.state > 0 {
-          context.set_fill_style(&format!("#ff{:02x}{:02x}", 255-v.state, 255-v.state).into());
-          // context.set_fill_style(&format!("#ff0000").into());
-          context.fill_rect(x + (i as f64) * MAZE_CELL_SIZE, y + (j as f64) * MAZE_CELL_SIZE, MAZE_CELL_SIZE, MAZE_CELL_SIZE);
+        if v.state == 255 {
+          context.set_fill_style(&"#433a5a".into());
+          context.fill_rect((x + (i as f64) * MAZE_CELL_SIZE).floor() + 0.5, (y + (j as f64) * MAZE_CELL_SIZE).floor() + 0.5, MAZE_CELL_SIZE+1.0, MAZE_CELL_SIZE+1.0);
+
         }
       }
     }
 
+    context.begin_path();
     for i in 0..MAZE_CELLS_W as usize {
       for j in 0..MAZE_CELLS_H as usize {
         let v = &maze[j* MAZE_CELLS_W +i];
         if !v.up {
           // can not go up, draw top-border
-          context.begin_path();
-          context.move_to(x + ((i) as f64) * MAZE_CELL_SIZE, y + ((j) as f64) * MAZE_CELL_SIZE);
-          context.line_to(x + ((i+1) as f64) * MAZE_CELL_SIZE, y + ((j) as f64) * MAZE_CELL_SIZE);
-          context.stroke();
+          context.move_to((x + ((i) as f64) * MAZE_CELL_SIZE).floor() + 0.5, (y + ((j) as f64) * MAZE_CELL_SIZE).floor() + 0.5);
+          context.line_to((x + ((i+1) as f64) * MAZE_CELL_SIZE).floor() + 0.5, (y + ((j) as f64) * MAZE_CELL_SIZE).floor() + 0.5);
         }
         if !v.left {
           // can not go left, draw left-border
-          context.begin_path();
-          context.move_to(x + ((i) as f64) * MAZE_CELL_SIZE, y + ((j) as f64) * MAZE_CELL_SIZE);
-          context.line_to(x + ((i) as f64) * MAZE_CELL_SIZE, y + ((j+1) as f64) * MAZE_CELL_SIZE);
-          context.stroke();
+          context.move_to((x + ((i) as f64) * MAZE_CELL_SIZE).floor() + 0.5, (y + ((j) as f64) * MAZE_CELL_SIZE).floor() + 0.5);
+          context.line_to((x + ((i) as f64) * MAZE_CELL_SIZE).floor() + 0.5, (y + ((j+1) as f64) * MAZE_CELL_SIZE).floor() + 0.5);
         }
 
         match v.special {
@@ -6037,6 +6034,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
         }
       }
     }
+    context.stroke();
 
     context.set_fill_style(&"blue".into());
     context.fill_rect(x + (factory.maze_runner.x as f64) * MAZE_CELL_SIZE + 2.0, y + (factory.maze_runner.y as f64) * MAZE_CELL_SIZE + 2.0, MAZE_CELL_SIZE - 4.0, 6.0);
@@ -6074,7 +6072,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     ).as_str(), 0.5 + x + 5.0 - 100.0, 0.5 + GRID_Y2 + (bar_height * 4.0 + 30.0)).expect("canvas api call to work");
   }
 
-  // e = green
+  // e = green, energy
   let have_e = (e as f64/10.0).floor().min(max_bar_tab_count - 1.0); // first one is always filled
   let filled_tabs_e = bar_width * (1.0 + have_e);
   let semi_filled_tabs_e = if filled_tabs_e >= max_bar_tab_count * bar_width { 0.0 } else { (bar_width * ((e as f64 % 10.0) / 10.0)).floor() };
@@ -6088,7 +6086,10 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
   context.set_stroke_style(&"black".into());
   context.stroke_rect(0.5 + x, bar_e_offset_y, MAZE_WIDTH, bar_height);
   context.set_fill_style(&"white".into());
-  context.fill_text("E", 0.5 + x + 5.0, bar_e_offset_y + 17.0).expect("canvas api call to work");
+  // Battery is 70x128 at the time of writing
+  paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_BATTERY, factory.ticks, x + 3.0, bar_e_offset_y + 2.0, bar_width - 3.0, bar_height - 3.0);
+  // context.fill_text("E", 0.5 + x + 5.0, bar_e_offset_y + 17.0).expect("canvas api call to work");
+
   for i in 0..(max_bar_tabs as usize) {
     context.begin_path();
     context.move_to(0.5 + x + (bar_width * (i as f64)), bar_e_offset_y);
@@ -6096,7 +6097,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     context.stroke();
   }
 
-  // s = orange
+  // s = orange, speed
   let have_s = (s as f64/10.0).floor().min(max_bar_tab_count - 1.0); // first one is always filled
   let filled_tabs_s = bar_width * (1.0 + have_s);
   let semi_filled_tabs_s = if filled_tabs_s >= max_bar_tab_count * bar_width { 0.0 } else { (bar_width * ((s as f64 % 10.0) / 10.0)).floor() };
@@ -6110,7 +6111,8 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
   context.set_stroke_style(&"black".into());
   context.stroke_rect(0.5 + x, bar_s_offset_y, MAZE_WIDTH, bar_height);
   context.set_fill_style(&"white".into());
-  context.fill_text("S", 0.5 + x + 5.0, bar_s_offset_y + 17.0).expect("canvas api call to work");
+  paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_FAST_FWD_BLACK, factory.ticks, x + 3.0, bar_s_offset_y + 2.0, bar_width - 3.0, bar_height - 3.0);
+  // context.fill_text("S", 0.5 + x + 5.0, bar_s_offset_y + 17.0).expect("canvas api call to work");
   for i in 0..(max_bar_tabs as usize) {
     context.begin_path();
     context.move_to(0.5 + x + (bar_width * (i as f64)), bar_s_offset_y);
@@ -6118,7 +6120,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     context.stroke();
   }
 
-  // p = pink
+  // p = pink, pickaxe
   let have_p = (p as f64/10.0).floor().min(max_bar_tab_count - 1.0); // first one is always filled
   let filled_tabs_p = bar_width * (1.0 + have_p);
   let semi_filled_tabs_p = if filled_tabs_p >= max_bar_tab_count * bar_width { 0.0 } else { (bar_width * ((p as f64 % 10.0) / 10.0)).floor() };
@@ -6132,7 +6134,8 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
   context.set_stroke_style(&"black".into());
   context.stroke_rect(0.5 + x, bar_p_offset_y, MAZE_WIDTH, bar_height);
   context.set_fill_style(&"white".into());
-  context.fill_text("P", 0.5 + x + 5.0, bar_p_offset_y + 17.0).expect("canvas api call to work");
+  paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_PICKAXE, factory.ticks, x + 3.0, bar_p_offset_y + 2.0, bar_width - 3.0, bar_height - 3.0);
+  // context.fill_text("P", 0.5 + x + 5.0, bar_p_offset_y + 17.0).expect("canvas api call to work");
   for i in 0..(max_bar_tabs as usize) {
     context.begin_path();
     context.move_to(0.5 + x + (bar_width * (i as f64)), bar_p_offset_y);
@@ -6140,7 +6143,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     context.stroke();
   }
 
-  // v = purple
+  // v = purple, capacity
   let have_v = (v as f64/10.0).floor().min(max_bar_tab_count - 1.0); // first one is always filled
   let filled_tabs_v = bar_width * (1.0 + have_v);
   let semi_filled_tabs_v = if filled_tabs_v >= max_bar_tab_count * bar_width { 0.0 } else { (bar_width * ((v as f64 % 10.0) / 10.0)).floor() };
@@ -6154,7 +6157,8 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
   context.set_stroke_style(&"black".into());
   context.stroke_rect(0.5 + x, bar_v_offset_y, MAZE_WIDTH, bar_height);
   context.set_fill_style(&"white".into());
-  context.fill_text("V", 0.5 + x + 5.0, bar_v_offset_y + 17.0).expect("canvas api call to work");
+  paint_asset(&options, &state, &config, &context, CONFIG_NDOE_ASSET_TREASURE, factory.ticks, x + 3.0, bar_v_offset_y + 2.0, bar_width - 3.0, bar_height - 3.0);
+  // context.fill_text("V", 0.5 + x + 5.0, bar_v_offset_y + 17.0).expect("canvas api call to work");
   for i in 0..(max_bar_tabs as usize) {
     context.begin_path();
     context.move_to(0.5 + x + (bar_width * (i as f64)), bar_v_offset_y);
