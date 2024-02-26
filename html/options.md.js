@@ -35,6 +35,7 @@ const GAME_OPTIONS = `
 - speed_modifier_floor: 1.0
 - speed_modifier_ui: 0.5
 - touch_drag_compensation: false
+- show_mouse_position: true
 - dropzone_color_offset: 75
 - dropzone_bounce_speed: 100
 - dropzone_bounce_distance: 150

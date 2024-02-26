@@ -74,6 +74,7 @@ pub struct Options {
   pub speed_modifier_floor: f64, // Increase or decrease ticks per second by this rate for (actual factory game/floor) animations
   pub speed_modifier_ui: f64, // Same as speed_modifier_floor but for rest of the UI (buttons, bouncers, trucks, dropzone pulse, etc)
   pub touch_drag_compensation: bool, // Show the mouse pointer 50x50 away from the actual pointer? helpful for dragging on touch screen but can be annoying
+  pub show_mouse_position: bool, // Paint a small circle under the mouse/touch?
 
   // Dropzone hint for woops and atoms
   pub dropzone_color_offset: u64, // In a 255 color range, what's the "zero" bounce value?
@@ -180,6 +181,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     speed_modifier_floor,
     speed_modifier_ui,
     touch_drag_compensation: false,
+    show_mouse_position: true,
     dropzone_color_offset: 75,
     dropzone_bounce_speed: 100,
     dropzone_bounce_distance: 150,
@@ -393,6 +395,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "splash_keep_main" => options.splash_keep_main = parse_bool(value, name, strict, options.splash_keep_main, verbose),
             "splash_no_main" => options.splash_no_main = parse_bool(value, name, strict, options.splash_no_main, verbose),
             "touch_drag_compensation" => options.touch_drag_compensation = parse_bool(value, name, strict, options.touch_drag_compensation, verbose),
+            "show_mouse_position" => options.show_mouse_position = parse_bool(value, name, strict, options.show_mouse_position, verbose),
             "dropzone_color_offset" => options.dropzone_color_offset = parse_u64(value, name, strict, options.dropzone_color_offset, verbose),
             "dropzone_bounce_speed" => options.dropzone_bounce_speed = parse_u64(value, name, strict, options.dropzone_bounce_speed, verbose),
             "dropzone_bounce_distance" => options.dropzone_bounce_distance = parse_u64(value, name, strict, options.dropzone_bounce_distance, verbose),
@@ -479,6 +482,7 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- speed_modifier_floor: {}", options.speed_modifier_floor));
   arr.push(format!("- speed_modifier_ui: {}", options.speed_modifier_ui));
   arr.push(format!("- touch_drag_compensation: {}", options.touch_drag_compensation));
+  arr.push(format!("- show_mouse_position: {}", options.show_mouse_position));
   arr.push(format!("- dropzone_color_offset: {}", options.dropzone_color_offset));
   arr.push(format!("- dropzone_bounce_speed: {}", options.dropzone_bounce_speed));
   arr.push(format!("- dropzone_bounce_distance: {}", options.dropzone_bounce_distance));

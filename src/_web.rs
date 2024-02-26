@@ -8,7 +8,6 @@
 // - maze
 //   - maze fuel could blow-up-fade-out when collected, with a 3x for the better one, maybe rainbow wiggle etc? or just 1x 2x 3x instead of icon
 // - help the player
-//   - update tutorial with current status
 //   - something with that ikea help icon
 
 
@@ -3873,12 +3872,16 @@ fn paint_mouse_cursor(options: &Options, state: &State, config: &Config, factory
       },
     }
   }
-  else if mouse_state.is_down {
-    let action = mouse_button_to_action(state, mouse_state);
-    if action == Action::Add {
-      color = "#90ee90cc";
-    } else {
-      color = "tomato";
+  else {
+    if !options.show_mouse_position { return; }
+
+    if mouse_state.is_down {
+      let action = mouse_button_to_action(state, mouse_state);
+      if action == Action::Add {
+        color = "#90ee90cc";
+      } else {
+        color = "tomato";
+      }
     }
   }
 
@@ -4426,8 +4429,15 @@ fn paint_zone_borders(options: &Options, state: &State, context: &Rc<web_sys::Ca
 }
 fn paint_manual(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>) {
   if state.manual_open {
+    // 649 x 740
+    let manual_width = 649.0;
+    let manual_height = 740.0;
+
+    context.set_fill_style(&"#ccccccaa".into());
+    context.fill_rect(0.0, 0.0, GRID_X3, GRID_Y3);
+
     paint_asset(options, state, config, context, CONFIG_NODE_ASSET_MANUAL, factory.ticks,
-      100.0, 20.0, 740.0, 740.0
+      GRID_X3 / 2.0 - manual_width / 2.0, GRID_Y3 / 2.0 - manual_height / 2.0, 649.0, 740.0
     );
   }
 }
