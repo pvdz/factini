@@ -6,6 +6,18 @@ Note: These asset names are hardcoded. Their order or even occurrence in this fi
       Trying to use an Asset name that doesn't exist will lead to a runtime error while loading.
 ===
 
+# Part_None
+Can appear anywhere, or nowhere, because there's no properties to this one.
+This is a transparent placeholder part for when its container does not have/need any part.
+It may not even be painted, even if it could be.
+
+# Part_Trash
+Hardcoded node. Debug only. This definition can appear anywhere. This is the trash/crap/whatever part.
+This is something that looks like a grey rock.
+- char: t
+- file: ./img/bag.png
+- w: 512
+- h: 512
 
 # Asset_Logo
 - file: ./img/logo75.png

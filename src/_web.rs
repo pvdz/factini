@@ -10,8 +10,6 @@
 // - help the player
 //   - update tutorial with current status
 //   - something with that ikea help icon
-// - cleanup
-//   - repo
 
 
 // features
