@@ -456,6 +456,9 @@
     $mermaid.innerHTML = arr.join('\n');
     mermaid.init();
   }
+  function onGameMapChange(map) {
+    $game_map.value = map;
+  }
   function onQuestUpdate(pairs) {
     //console.log('(JS) onQuestUpdate():', pairs);
     pairs.forEach(([name, value]) => {
