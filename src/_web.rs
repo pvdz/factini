@@ -4,11 +4,6 @@
 
 // Compile with --profile to try and get some sense of shit
 
-// road to release
-// - maze
-//   - maze fuel could blow-up-fade-out when collected, with a 3x for the better one, maybe rainbow wiggle etc? or just 1x 2x 3x instead of icon
-
-
 // features
 // - belts
 //   - does snaking bother me when a belt should move all at once or not at all? should we change the algo? probably not that hard to move all connected cells between intersections/entry/exit points at once. if one moves, all move, etc.
@@ -5907,24 +5902,26 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     return;
   }
 
-  let x = (GRID_X2 + GRID_RIGHT_WIDTH / 2.0 - MAZE_WIDTH / 2.0).floor() + 0.5;
-  let y = (GRID_Y1 + UI_FLOOR_HEIGHT - (MAZE_HEIGHT + 10.0)).floor() + 0.5;
+  let maze_offset_x = (GRID_X2 + GRID_RIGHT_WIDTH / 2.0 - MAZE_WIDTH / 2.0).floor() + 0.5;
+  let maze_offset_y = (GRID_Y1 + UI_FLOOR_HEIGHT - (MAZE_HEIGHT + 10.0)).floor() + 0.5;
 
   let maze = &factory.maze;
+  let default_background = "#74697d";
+  let default_border = "#433a5a";
 
   // Bar offsets:
   // Energy remaining
-  let energy_x = x + 10.0;
-  let energy_y = y - 30.0;
+  let energy_x = maze_offset_x + 10.0;
+  let energy_y = maze_offset_y - 30.0;
   // Speed indicator
-  let speed_x = x + 100.0;
-  let speed_y = y - 30.0;
+  let speed_x = maze_offset_x + 100.0;
+  let speed_y = maze_offset_y - 30.0;
   // Power indicator, paint one hammer per rock that can be broken
-  let power_x = x + 140.0;
-  let power_y = y - 30.0;
+  let power_x = maze_offset_x + 140.0;
+  let power_y = maze_offset_y - 30.0;
   // Collection / Volume indicator
-  let volume_x = x + 210.0;
-  let volume_y = y - 30.0;
+  let volume_x = maze_offset_x + 210.0;
+  let volume_y = maze_offset_y - 30.0;
 
   let max_bar_tab_count: f64 = 16.0;
 
@@ -5932,33 +5929,58 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     if !options.dbg_maze_enable_runner {
       // (Runner is painted but won't move)
       context.set_fill_style(&"black".into());
-      context.fill_text("Warning: options.dbg_maze_enable_runner = false", x, y + MAZE_HEIGHT + 15.0).expect("an ok");
+      context.fill_text("Warning: options.dbg_maze_enable_runner = false", maze_offset_x, maze_offset_y + MAZE_HEIGHT + 15.0).expect("an ok");
     }
 
     // Paint four "current" runner bars
 
-    context.set_fill_style(&"black".into());
-    if options.dbg_maze_paint_stats_text { context.fill_text(format!("{} / {}", factory.maze_runner.energy_now, factory.maze_runner.energy_max).as_str(), energy_x, energy_y - 5.0).expect("it to work"); }
-    context.set_fill_style(&"white".into());
-    context.fill_rect(energy_x, energy_y, 80.0, 25.0);
-    context.set_fill_style(&"yellow".into());
-    context.fill_rect(energy_x, energy_y, (factory.maze_runner.energy_now as f64 / factory.maze_runner.energy_max as f64) * 80.0, 25.0);
-    context.set_stroke_style(&"black".into());
-    context.stroke_rect(energy_x, energy_y, 80.0, 25.0);
+    if options.dbg_maze_paint_stats_text {
+      context.set_fill_style(&"black".into());
+      context.fill_text(format!("{} / {}", factory.maze_runner.energy_now, factory.maze_runner.energy_max).as_str(), energy_x, energy_y - 5.0).expect("it to work");
+    }
+    context.begin_path();
+    context.round_rect_with_f64(energy_x, energy_y, 80.0, 25.0, 2.0).expect("it to work");
+    context.set_fill_style(&default_background.into());
+    context.fill(); // The background color
+    context.set_fill_style(&"green".into());
+    context.begin_path();
+    context.round_rect_with_f64(energy_x, energy_y, (factory.maze_runner.energy_now as f64 / factory.maze_runner.energy_max as f64) * 80.0, 25.0, 2.0).expect("it to work");
+    context.fill(); // The "have left" color
+    context.begin_path();
+    context.round_rect_with_f64(energy_x, energy_y, 80.0, 25.0, 2.0).expect("it to work");
+    context.set_stroke_style(&default_border.into());
+    context.set_line_width(3.0);
+    context.stroke(); // The outline
+    context.set_line_width(1.0);
 
-    context.set_fill_style(&"black".into());
-    if options.dbg_maze_paint_stats_text { context.fill_text(format!("{}", factory.maze_runner.speed).as_str(), speed_x, speed_y - 5.0).expect("it to work"); }
+    if options.dbg_maze_paint_stats_text {
+      context.set_fill_style(&"black".into());
+      context.fill_text(format!("{}", factory.maze_runner.speed).as_str(), speed_x, speed_y - 5.0).expect("it to work");
+    }
+    context.begin_path();
+    context.round_rect_with_f64(speed_x, speed_y, 30.0, 25.0, 2.0).expect("it to work");
+    context.set_fill_style(&default_background.into());
+    context.fill();
+    context.set_stroke_style(&default_border.into());
+    context.set_line_width(3.0);
+    context.stroke();
+    context.set_line_width(1.0);
+    context.set_font(&"bold 12px Verdana");
     context.set_fill_style(&"white".into());
-    context.fill_rect(speed_x, speed_y, 30.0, 25.0);
-    context.set_stroke_style(&"black".into());
-    context.stroke_rect(speed_x, speed_y, 30.0, 25.0);
-    context.set_fill_style(&"black".into());
     context.fill_text(&format!("{}", factory.maze_runner.speed), speed_x + if factory.maze_runner.speed >= 100 { 4.0 } else if factory.maze_runner.speed >= 10 { 7.0 } else { 11.0 }, speed_y + 16.0).expect("it to work");
 
-    context.set_fill_style(&"black".into());
-    if options.dbg_maze_paint_stats_text { context.fill_text(format!("{} / {}", factory.maze_runner.power_now, factory.maze_runner.power_max).as_str(), power_x, power_y - 5.0).expect("it to work"); }
-    context.set_fill_style(&"white".into());
-    context.fill_rect(power_x, power_y, 60.0, 25.0);
+    if options.dbg_maze_paint_stats_text {
+      context.set_fill_style(&"black".into());
+      context.fill_text(format!("{} / {}", factory.maze_runner.power_now, factory.maze_runner.power_max).as_str(), power_x, power_y - 5.0).expect("it to work");
+    }
+    context.begin_path();
+    context.round_rect_with_f64(power_x, power_y, 60.0, 25.0, 2.0).expect("it to work");
+    context.set_fill_style(&default_background.into());
+    context.fill();
+    context.set_stroke_style(&default_border.into());
+    context.set_line_width(3.0);
+    context.stroke();
+    context.set_line_width(1.0);
     // paint one hammer evenly divided across the space. maintain location (dont "jump" when removing a hammer). max width to divide is field_width-margin-img_width-margin. max spacing is img_width+margin
     let max_power_space = 60.0 - 5.0 - 11.0;
     let power_offset_step = (max_power_space / (factory.maze_runner.power_max.min(MAX_ROCK_COUNT as u64) as f64)).min(40.0);
@@ -5966,15 +5988,19 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
       // will overlap. by design
       paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_PICKAXE, factory.ticks, power_x + 3.0 + (i as f64) * power_offset_step, power_y + 5.0, 15.0, 15.0);
     }
-    context.set_stroke_style(&"black".into());
-    context.stroke_rect(power_x, power_y, 60.0, 25.0);
 
-    context.set_fill_style(&"black".into());
     if options.dbg_maze_paint_stats_text {
+      context.set_fill_style(&"black".into());
       context.fill_text(format!("{} / {}", factory.maze_runner.volume_now, factory.maze_runner.volume_max).as_str(), volume_x, volume_y - 5.0).expect("it to work");
     }
-    context.set_fill_style(&"white".into());
-    context.fill_rect(volume_x, volume_y, 80.0, 25.0);
+    context.begin_path();
+    context.round_rect_with_f64(volume_x, volume_y, 80.0, 25.0, 2.0).expect("it to work");
+    context.set_fill_style(&default_background.into());
+    context.fill();
+    context.set_stroke_style(&default_border.into());
+    context.set_line_width(3.0);
+    context.stroke();
+    context.set_line_width(1.0);
     // Unlike power, here we may actually want to update the spacing as the volume goes up. Try to make it a "pile" or whatever. We can probably fake that to some degree with some kind of pre-defined positioning table etc.
     let max_volume_space = 60.0 - 5.0;
     let volume_offset_step = (max_volume_space / (factory.maze_runner.volume_max.min(40) as f64)).min(20.0);
@@ -5982,27 +6008,25 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
       // will overlap. by design
       paint_asset(&options, &state, &config, &context, CONFIG_NDOE_ASSET_TREASURE, factory.ticks, volume_x + 5.0 + (i as f64) * volume_offset_step, volume_y + 5.0, 15.0, 15.0);
     }
-    context.set_stroke_style(&"black".into());
-    context.stroke_rect(volume_x, volume_y, 80.0, 25.0);
 
     // Actual maze next...
 
     context.set_fill_style(&"#74697d".into());
-    context.fill_rect(x, y, MAZE_WIDTH, MAZE_HEIGHT);
-    context.set_stroke_style(&"black".into());
-    context.stroke_rect(x, y, MAZE_WIDTH, MAZE_HEIGHT);
-
+    context.fill_rect(maze_offset_x, maze_offset_y, MAZE_WIDTH, MAZE_HEIGHT);
     // maze visited fill
     for i in 0..MAZE_CELLS_W as usize {
       for j in 0..MAZE_CELLS_H as usize {
         let v = &maze[j* MAZE_CELLS_W +i];
         if v.state == 255 {
           context.set_fill_style(&"#433a5a".into());
-          context.fill_rect((x + (i as f64) * MAZE_CELL_SIZE).floor() + 0.5, (y + (j as f64) * MAZE_CELL_SIZE).floor() + 0.5, MAZE_CELL_SIZE+1.0, MAZE_CELL_SIZE+1.0);
-
+          context.fill_rect(maze_offset_x + (i as f64) * MAZE_CELL_SIZE, maze_offset_y + (j as f64) * MAZE_CELL_SIZE, MAZE_CELL_SIZE+0.5, MAZE_CELL_SIZE+0.5);
         }
       }
     }
+    context.set_stroke_style(&"black".into());
+    context.set_line_width(3.0);
+    context.stroke_rect(maze_offset_x, maze_offset_y, MAZE_WIDTH, MAZE_HEIGHT);
+    context.set_line_width(1.0);
 
     context.begin_path();
     for i in 0..MAZE_CELLS_W as usize {
@@ -6010,25 +6034,25 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
         let v = &maze[j* MAZE_CELLS_W +i];
         if !v.up {
           // can not go up, draw top-border
-          context.move_to((x + ((i) as f64) * MAZE_CELL_SIZE).floor() + 0.5, (y + ((j) as f64) * MAZE_CELL_SIZE).floor() + 0.5);
-          context.line_to((x + ((i+1) as f64) * MAZE_CELL_SIZE).floor() + 0.5, (y + ((j) as f64) * MAZE_CELL_SIZE).floor() + 0.5);
+          context.move_to(maze_offset_x + ((i) as f64) * MAZE_CELL_SIZE, maze_offset_y + ((j) as f64) * MAZE_CELL_SIZE);
+          context.line_to(maze_offset_x + ((i+1) as f64) * MAZE_CELL_SIZE, maze_offset_y + ((j) as f64) * MAZE_CELL_SIZE);
         }
         if !v.left {
           // can not go left, draw left-border
-          context.move_to((x + ((i) as f64) * MAZE_CELL_SIZE).floor() + 0.5, (y + ((j) as f64) * MAZE_CELL_SIZE).floor() + 0.5);
-          context.line_to((x + ((i) as f64) * MAZE_CELL_SIZE).floor() + 0.5, (y + ((j+1) as f64) * MAZE_CELL_SIZE).floor() + 0.5);
+          context.move_to(maze_offset_x + ((i) as f64) * MAZE_CELL_SIZE, maze_offset_y + ((j) as f64) * MAZE_CELL_SIZE);
+          context.line_to(maze_offset_x + ((i) as f64) * MAZE_CELL_SIZE, maze_offset_y + ((j+1) as f64) * MAZE_CELL_SIZE);
         }
 
         match v.special {
           // MAZE_TREASURE
           2 => {
             context.set_fill_style(&"#d4662f".into());
-            context.fill_rect(x + i as f64 * MAZE_CELL_SIZE + 2.0, y + j as f64 * MAZE_CELL_SIZE + 2.0, MAZE_CELL_SIZE - 4.0, 6.0);
+            context.fill_rect(maze_offset_x + i as f64 * MAZE_CELL_SIZE + 2.0, maze_offset_y + j as f64 * MAZE_CELL_SIZE + 2.0, MAZE_CELL_SIZE - 4.0, 6.0);
           }
           // MAZE_ROCK
           1 => {
             context.set_fill_style(&"black".into());
-            context.fill_rect(x + i as f64 * MAZE_CELL_SIZE + 2.0, y + j as f64 * MAZE_CELL_SIZE + 2.0, MAZE_CELL_SIZE - 4.0, 6.0);
+            context.fill_rect(maze_offset_x + i as f64 * MAZE_CELL_SIZE + 2.0, maze_offset_y + j as f64 * MAZE_CELL_SIZE + 2.0, MAZE_CELL_SIZE - 4.0, 6.0);
           }
           _ => {}
         }
@@ -6037,13 +6061,14 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
     context.stroke();
 
     context.set_fill_style(&"blue".into());
-    context.fill_rect(x + (factory.maze_runner.x as f64) * MAZE_CELL_SIZE + 2.0, y + (factory.maze_runner.y as f64) * MAZE_CELL_SIZE + 2.0, MAZE_CELL_SIZE - 4.0, 6.0);
+    context.fill_rect(maze_offset_x + (factory.maze_runner.x as f64) * MAZE_CELL_SIZE + 2.0, maze_offset_y + (factory.maze_runner.y as f64) * MAZE_CELL_SIZE + 2.0, MAZE_CELL_SIZE - 4.0, 6.0);
   }
 
   // Stats bars below the maze
 
   let max_bar_tabs = (MAZE_MAX_UNITS_PER_REFUEL as f64) + 1.0; // First one is always filled and is more of a label
-  let bar_width = MAZE_WIDTH / max_bar_tabs;
+  let bar_width_floored = (MAZE_WIDTH / max_bar_tabs).floor();
+  let painted_maze_width = bar_width_floored * max_bar_tabs;
   let bar_height = 25.0;
   let fuel_width = 10.0;
   let fuel_height = 10.0;
@@ -6069,108 +6094,119 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
       (maze_get_finish_pause_time(options) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_finish_at as i64)).max(0),
       (maze_get_finish_pause_time(options) as i64 - (factory.ticks as i64 - factory.maze_runner.maze_restart_at as i64)).max(0),
       (maze_get_refuel_time(options) as i64- (factory.ticks as i64 - factory.maze_runner.maze_refueling_at as i64)).max(0),
-    ).as_str(), 0.5 + x + 5.0 - 100.0, 0.5 + GRID_Y2 + (bar_height * 4.0 + 30.0)).expect("canvas api call to work");
+    ).as_str(), maze_offset_x + 5.0 - 100.0, 0.5 + GRID_Y2 + (bar_height * 4.0 + 30.0)).expect("canvas api call to work");
   }
 
   // e = green, energy
   let have_e = (e as f64/10.0).floor().min(max_bar_tab_count - 1.0); // first one is always filled
-  let filled_tabs_e = bar_width * (1.0 + have_e);
-  let semi_filled_tabs_e = if filled_tabs_e >= max_bar_tab_count * bar_width { 0.0 } else { (bar_width * ((e as f64 % 10.0) / 10.0)).floor() };
+  let filled_tabs_e = bar_width_floored * (1.0 + have_e);
+  let semi_filled_tabs_e = if filled_tabs_e >= max_bar_tab_count * bar_width_floored { 0.0 } else { (bar_width_floored * ((e as f64 % 10.0) / 10.0)).floor() };
   let bar_e_offset_y = 0.5 + GRID_Y2 + delta;
-  context.set_fill_style(&"white".into());
-  context.fill_rect(0.5 + x, bar_e_offset_y, MAZE_WIDTH, bar_height);
+  context.set_fill_style(&default_background.into());
+  context.fill_rect(maze_offset_x, bar_e_offset_y, painted_maze_width, bar_height);
   context.set_fill_style(&"#169d06".into());
-  context.fill_rect(0.5 + x, bar_e_offset_y, filled_tabs_e, bar_height);
+  context.fill_rect(maze_offset_x, bar_e_offset_y, filled_tabs_e, bar_height);
   context.set_fill_style(&"#169d0655".into());
-  context.fill_rect(0.5 + x + filled_tabs_e, bar_e_offset_y, semi_filled_tabs_e, bar_height);
+  context.fill_rect(maze_offset_x + filled_tabs_e, bar_e_offset_y, semi_filled_tabs_e, bar_height);
   context.set_stroke_style(&"black".into());
-  context.stroke_rect(0.5 + x, bar_e_offset_y, MAZE_WIDTH, bar_height);
+  context.set_line_width(3.0);
+  context.stroke_rect(maze_offset_x, bar_e_offset_y, painted_maze_width, bar_height);
+  context.set_line_width(1.0);
   context.set_fill_style(&"white".into());
   // Battery is 70x128 at the time of writing
-  paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_BATTERY, factory.ticks, x + 3.0, bar_e_offset_y + 2.0, bar_width - 3.0, bar_height - 3.0);
-  // context.fill_text("E", 0.5 + x + 5.0, bar_e_offset_y + 17.0).expect("canvas api call to work");
-
+  paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_BATTERY, factory.ticks, maze_offset_x + 3.0, bar_e_offset_y + 2.0, bar_width_floored - 3.0, bar_height - 3.0);
+  paint_segment_part_from_config(options, state, config, context, *config.node_name_to_index.get(&format!("Part_BucketGreen")).unwrap(), maze_offset_x + painted_maze_width + 5.0, bar_e_offset_y + 5.0, 15.0, 15.0);
+  context.begin_path();
   for i in 0..(max_bar_tabs as usize) {
-    context.begin_path();
-    context.move_to(0.5 + x + (bar_width * (i as f64)), bar_e_offset_y);
-    context.line_to(0.5 + x + (bar_width * (i as f64)), bar_e_offset_y + bar_height);
-    context.stroke();
+    context.move_to(maze_offset_x + (bar_width_floored * (i as f64)), bar_e_offset_y);
+    context.line_to(maze_offset_x + (bar_width_floored * (i as f64)), bar_e_offset_y + bar_height);
   }
+  context.set_stroke_style(&"black".into());
+  context.stroke();
 
   // s = orange, speed
   let have_s = (s as f64/10.0).floor().min(max_bar_tab_count - 1.0); // first one is always filled
-  let filled_tabs_s = bar_width * (1.0 + have_s);
-  let semi_filled_tabs_s = if filled_tabs_s >= max_bar_tab_count * bar_width { 0.0 } else { (bar_width * ((s as f64 % 10.0) / 10.0)).floor() };
+  let filled_tabs_s = bar_width_floored * (1.0 + have_s);
+  let semi_filled_tabs_s = if filled_tabs_s >= max_bar_tab_count * bar_width_floored { 0.0 } else { (bar_width_floored * ((s as f64 % 10.0) / 10.0)).floor() };
   let bar_s_offset_y = 0.5 + GRID_Y2 + 32.0 + delta;
-  context.set_fill_style(&"white".into());
-  context.fill_rect(0.5 + x, bar_s_offset_y, MAZE_WIDTH, bar_height);
+  context.set_fill_style(&default_background.into());
+  context.fill_rect(maze_offset_x, bar_s_offset_y, painted_maze_width, bar_height);
   context.set_fill_style(&"#a86007".into());
-  context.fill_rect(0.5 + x, bar_s_offset_y, filled_tabs_s, bar_height);
+  context.fill_rect(maze_offset_x, bar_s_offset_y, filled_tabs_s, bar_height);
   context.set_fill_style(&"#a8600777".into());
-  context.fill_rect(0.5 + x + filled_tabs_s, bar_s_offset_y, semi_filled_tabs_s, bar_height);
+  context.fill_rect(maze_offset_x + filled_tabs_s, bar_s_offset_y, semi_filled_tabs_s, bar_height);
   context.set_stroke_style(&"black".into());
-  context.stroke_rect(0.5 + x, bar_s_offset_y, MAZE_WIDTH, bar_height);
+  context.set_line_width(3.0);
+  context.stroke_rect(maze_offset_x, bar_s_offset_y, painted_maze_width, bar_height);
+  context.set_line_width(1.0);
   context.set_fill_style(&"white".into());
-  paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_FAST_FWD_BLACK, factory.ticks, x + 3.0, bar_s_offset_y + 2.0, bar_width - 3.0, bar_height - 3.0);
-  // context.fill_text("S", 0.5 + x + 5.0, bar_s_offset_y + 17.0).expect("canvas api call to work");
+  paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_FAST_FWD_BLACK, factory.ticks, maze_offset_x + 3.0, bar_s_offset_y + 2.0, bar_width_floored - 3.0, bar_height - 3.0);
+  paint_segment_part_from_config(options, state, config, context, *config.node_name_to_index.get(&format!("Part_BucketOrange")).unwrap(), maze_offset_x + painted_maze_width + 5.0, bar_s_offset_y + 5.0, 15.0, 15.0);
+  context.begin_path();
   for i in 0..(max_bar_tabs as usize) {
-    context.begin_path();
-    context.move_to(0.5 + x + (bar_width * (i as f64)), bar_s_offset_y);
-    context.line_to(0.5 + x + (bar_width * (i as f64)), bar_s_offset_y + bar_height);
-    context.stroke();
+    context.move_to(maze_offset_x + (bar_width_floored * (i as f64)), bar_s_offset_y);
+    context.line_to(maze_offset_x + (bar_width_floored * (i as f64)), bar_s_offset_y + bar_height);
   }
+  context.set_stroke_style(&"black".into());
+  context.stroke();
 
   // p = pink, pickaxe
   let have_p = (p as f64/10.0).floor().min(max_bar_tab_count - 1.0); // first one is always filled
-  let filled_tabs_p = bar_width * (1.0 + have_p);
-  let semi_filled_tabs_p = if filled_tabs_p >= max_bar_tab_count * bar_width { 0.0 } else { (bar_width * ((p as f64 % 10.0) / 10.0)).floor() };
+  let filled_tabs_p = bar_width_floored * (1.0 + have_p);
+  let semi_filled_tabs_p = if filled_tabs_p >= max_bar_tab_count * bar_width_floored { 0.0 } else { (bar_width_floored * ((p as f64 % 10.0) / 10.0)).floor() };
   let bar_p_offset_y = 0.5 + GRID_Y2 + 64.0 + delta;
-  context.set_fill_style(&"white".into());
-  context.fill_rect(0.5 + x, bar_p_offset_y, MAZE_WIDTH, bar_height);
+  context.set_fill_style(&default_background.into());
+  context.fill_rect(maze_offset_x, bar_p_offset_y, painted_maze_width, bar_height);
   context.set_fill_style(&"#ef13bf".into());
-  context.fill_rect(0.5 + x, bar_p_offset_y, filled_tabs_p, bar_height);
+  context.fill_rect(maze_offset_x, bar_p_offset_y, filled_tabs_p, bar_height);
   context.set_fill_style(&"#ef13bf77".into());
-  context.fill_rect(0.5 + x + filled_tabs_p, bar_p_offset_y, semi_filled_tabs_p, bar_height);
+  context.fill_rect(maze_offset_x + filled_tabs_p, bar_p_offset_y, semi_filled_tabs_p, bar_height);
   context.set_stroke_style(&"black".into());
-  context.stroke_rect(0.5 + x, bar_p_offset_y, MAZE_WIDTH, bar_height);
+  context.set_line_width(3.0);
+  context.stroke_rect(maze_offset_x, bar_p_offset_y, painted_maze_width, bar_height);
+  context.set_line_width(1.0);
   context.set_fill_style(&"white".into());
-  paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_PICKAXE, factory.ticks, x + 3.0, bar_p_offset_y + 2.0, bar_width - 3.0, bar_height - 3.0);
-  // context.fill_text("P", 0.5 + x + 5.0, bar_p_offset_y + 17.0).expect("canvas api call to work");
+  paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_PICKAXE, factory.ticks, maze_offset_x + 3.0, bar_p_offset_y + 2.0, bar_width_floored - 3.0, bar_height - 3.0);
+  paint_segment_part_from_config(options, state, config, context, *config.node_name_to_index.get(&format!("Part_BucketPink")).unwrap(), maze_offset_x + painted_maze_width + 5.0, bar_p_offset_y + 5.0, 15.0, 15.0);
+  context.begin_path();
   for i in 0..(max_bar_tabs as usize) {
-    context.begin_path();
-    context.move_to(0.5 + x + (bar_width * (i as f64)), bar_p_offset_y);
-    context.line_to(0.5 + x + (bar_width * (i as f64)), bar_p_offset_y + bar_height);
-    context.stroke();
+    context.move_to(maze_offset_x + (bar_width_floored * (i as f64)), bar_p_offset_y);
+    context.line_to(maze_offset_x + (bar_width_floored * (i as f64)), bar_p_offset_y + bar_height);
   }
+  context.set_stroke_style(&"black".into());
+  context.stroke();
 
   // v = purple, capacity
   let have_v = (v as f64/10.0).floor().min(max_bar_tab_count - 1.0); // first one is always filled
-  let filled_tabs_v = bar_width * (1.0 + have_v);
-  let semi_filled_tabs_v = if filled_tabs_v >= max_bar_tab_count * bar_width { 0.0 } else { (bar_width * ((v as f64 % 10.0) / 10.0)).floor() };
+  let filled_tabs_v = bar_width_floored * (1.0 + have_v);
+  let semi_filled_tabs_v = if filled_tabs_v >= max_bar_tab_count * bar_width_floored { 0.0 } else { (bar_width_floored * ((v as f64 % 10.0) / 10.0)).floor() };
   let bar_v_offset_y = 0.5 + GRID_Y2 + 96.0 + delta;
-  context.set_fill_style(&"white".into());
-  context.fill_rect(0.5 + x, bar_v_offset_y, MAZE_WIDTH, bar_height);
+  context.set_fill_style(&default_background.into());
+  context.fill_rect(maze_offset_x, bar_v_offset_y, painted_maze_width, bar_height);
   context.set_fill_style(&"#360676".into());
-  context.fill_rect(0.5 + x, bar_v_offset_y, filled_tabs_v, bar_height);
+  context.fill_rect(maze_offset_x, bar_v_offset_y, filled_tabs_v, bar_height);
   context.set_fill_style(&"#36067677".into());
-  context.fill_rect(0.5 + x + filled_tabs_v, bar_v_offset_y, semi_filled_tabs_v, bar_height);
+  context.fill_rect(maze_offset_x + filled_tabs_v, bar_v_offset_y, semi_filled_tabs_v, bar_height);
   context.set_stroke_style(&"black".into());
-  context.stroke_rect(0.5 + x, bar_v_offset_y, MAZE_WIDTH, bar_height);
+  context.set_line_width(3.0);
+  context.stroke_rect(maze_offset_x, bar_v_offset_y, painted_maze_width, bar_height);
+  context.set_line_width(1.0);
   context.set_fill_style(&"white".into());
-  paint_asset(&options, &state, &config, &context, CONFIG_NDOE_ASSET_TREASURE, factory.ticks, x + 3.0, bar_v_offset_y + 2.0, bar_width - 3.0, bar_height - 3.0);
-  // context.fill_text("V", 0.5 + x + 5.0, bar_v_offset_y + 17.0).expect("canvas api call to work");
+  paint_asset(&options, &state, &config, &context, CONFIG_NDOE_ASSET_TREASURE, factory.ticks, maze_offset_x + 3.0, bar_v_offset_y + 2.0, bar_width_floored - 3.0, bar_height - 3.0);
+  paint_segment_part_from_config(options, state, config, context, *config.node_name_to_index.get(&format!("Part_BucketPurple")).unwrap(), maze_offset_x + painted_maze_width + 5.0, bar_v_offset_y + 5.0, 15.0, 15.0);
+  context.begin_path();
   for i in 0..(max_bar_tabs as usize) {
-    context.begin_path();
-    context.move_to(0.5 + x + (bar_width * (i as f64)), bar_v_offset_y);
-    context.line_to(0.5 + x + (bar_width * (i as f64)), bar_v_offset_y + bar_height);
-    context.stroke();
+    context.move_to(maze_offset_x + (bar_width_floored * (i as f64)), bar_v_offset_y);
+    context.line_to(maze_offset_x + (bar_width_floored * (i as f64)), bar_v_offset_y + bar_height);
   }
+  context.stroke();
+  context.set_stroke_style(&"black".into());
 
   // Squares in flight
   context.set_fill_style(&"#169d06".into());
   context.set_stroke_style(&"black".into());
   for i in 0..flying_e {
-    let ox = 0.5 + x + bar_width + (bar_width * (i as f64)) + 4.0;
+    let ox = maze_offset_x + bar_width_floored + (bar_width_floored * (i as f64)) + 4.0;
     let oy = bar_e_offset_y + 8.0;
     let cx = ox + (energy_x + 6.0 - ox) * fuel_progress;
     let cy = oy + (energy_y + 6.0 - oy) * fuel_progress;
@@ -6180,7 +6216,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
   context.set_fill_style(&"#a86007".into());
   context.set_stroke_style(&"black".into());
   for i in 0..flying_s {
-    let ox = 0.5 + x + bar_width + (bar_width * (i as f64)) + 4.0;
+    let ox = maze_offset_x + bar_width_floored + (bar_width_floored * (i as f64)) + 4.0;
     let oy = bar_s_offset_y + 8.0;
     let cx = ox + (speed_x + 6.0 - ox) * fuel_progress;
     let cy = oy + (speed_y + 6.0 - oy) * fuel_progress;
@@ -6190,7 +6226,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
   context.set_fill_style(&"#ef13bf".into());
   context.set_stroke_style(&"black".into());
   for i in 0..flying_p {
-    let ox = 0.5 + x + bar_width + (bar_width * (i as f64)) + 4.0;
+    let ox = maze_offset_x + bar_width_floored + (bar_width_floored * (i as f64)) + 4.0;
     let oy = bar_p_offset_y + 8.0;
     let cx = ox + (power_x + 6.0 - ox) * fuel_progress;
     let cy = oy + (power_y + 6.0 - oy) * fuel_progress;
@@ -6200,7 +6236,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
   context.set_fill_style(&"#360676".into());
   context.set_stroke_style(&"black".into());
   for i in 0..flying_v {
-      let ox = 0.5 + x + bar_width + (bar_width * (i as f64)) + 4.0;
+      let ox = maze_offset_x + bar_width_floored + (bar_width_floored * (i as f64)) + 4.0;
       let oy = bar_v_offset_y + 8.0;
       let cx = ox + (volume_x + 6.0 - ox) * fuel_progress;
       let cy = oy + (volume_y + 6.0 - oy) * fuel_progress;
