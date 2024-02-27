@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <title>Factini</title>
+  <meta charset="utf-8">
+</head>
+<body>
+<h1>Factini</h1>
+
+<script src="config.md.js" charset="UTF-8"></script>
+<script src="config.assets.md.js" charset="UTF-8"></script>
+<script src="config.belts.md.js" charset="UTF-8"></script>
+<script src="config.machines.md.js" charset="UTF-8"></script>
+<script src="config.supplydemandock.md.js" charset="UTF-8"></script>
+
+<script src="quests/bucket_quest.md.js" charset="UTF-8"></script>
+
+<script src="map.md.js" charset="UTF-8"></script>
+<script src="options.md.js" charset="UTF-8"></script>
+<script src="examples.md.js" charset="UTF-8"></script>
+<script>
+  var queuedAction = '';
+  var queuedPaste = '';
+
+  // Exports
+  function getGameConfig() { return GAME_CONFIG_PRELUDE + GAME_CONFIG_ASSETS + GAME_CONFIG_BELTS + GAME_CONFIG_MACHINES + GAME_CONFIG_SUPPLYDEMANDOCK + CONFIG_BUCKET_QUEST; }
+  function getGameMap() { return GAME_MAP; }
+  function getGameOptions() { return GAME_OPTIONS; }
+  function setGameOptions(optionStr, onLoad) {}
+  function getExamples() { return GAME_EXAMPLES; }
+  function getAction() { let x = queuedAction; queuedAction = ''; return x; }
+  function receiveConfigNode(name, pairs) {}
+  function onGameMapChange() {}
+  function onQuestUpdate(pairs) {}
+  function tryFullScreenFromJS() {
+    // Old browser workaround
+    // TODO: since this didn't fix it for my ipad, without errors thrown, perhaps we should try harder to manually make the canvas fit the screen instead...
+
+    if ($main_game_canvas.webkitRequestFullscreen) $main_game_canvas.webkitRequestFullscreen();
+    else if ($main_game_canvas.msRequestFullscreen) $main_game_canvas.msRequestFullscreen();
+    else if ($main_game_canvas .mozRequestFullscreen) $main_game_canvas.mozRequestFullscreen();
+    else return "failed too";
+    return "tried but may fail too"; // my ipad won't fullscreen the canvas regardless. Even when trying Sindre's "screenfull" lib.
+  }
+  function getLastPaste() {
+    // When you press ctrl+v the event handler will store the value you pasted and prepare an action for the game to be read it
+    // Then when the game reads the action it will call this function to retrieve the stored paste value
+    return queuedPaste || '';
+  }
+  function getCurrentPaste() {
+    // Called from Rust when clicking the "paste" button. Due to unstable api limitations I could not get this to work inside Rust
+    // so instead I'm just doing it from JS and sending the result back in once there is one. Bit a pingpong but whatever.
+
+    // This doesn't work in firefox rn, but it seems firefox only supports clipboard reading through extensions or the paste event.
+    // This will popup a permission dialog once
+    try {
+      navigator.clipboard.readText().then(
+        s => {
+          queuedPaste = s;
+          queuedAction = 'paste';
+        },
+        err => {
+          console.error('(js) getCurrentPaste: failed to navigator.clipboard.readText():', err);
+          queuedPaste = ''; // This will show the ctrl+v message
+          queuedAction = 'paste';
+        }
+      );
+    } catch {
+      console.log('(js) Browser does not support navigator.clipboard :shrug:');
+      queuedPaste = ''; // This will show the ctrl+v message
+      queuedAction = 'paste';
+    }
+  }
+  function copyToClipboard(str) {
+    try {
+      navigator
+        .clipboard
+        .writeText(str)
+        .then((ok) => console.log('(js) copyToClipboard ok:', ok), (err) => console.log('(js) copyToClipboard err:', err));
+      return true;
+    } catch (e) {
+      console.log('(js) copyToClipboard threw error:', e);
+      return false;
+    }
+  }
+</script>
+<script type="module">
+  Error.stackTraceLimit = Infinity;
+  console.log('(html) start');
+  import('../pkg/factini.js').then(x => {
+    console.log('(html) loaded, starting Factini now');
+    x.default();
+  }, (e) => console.error(e));
+  console.log('(html) after import');
+
+  window.addEventListener('paste', e => {
+    // Ironically, this works fine even in firefox. :shrug:
+    e.preventDefault();
+    console.log('(js) received paste event with', e.clipboardData?.items?.length, 'items');
+    e.clipboardData.items[0].getAsString(s => {
+      queuedPaste = s;
+      queuedAction = 'paste';
+    });
+  });
+
+  window.addEventListener('copy', e => {
+    // Ironically, this works fine even in firefox. :shrug:
+    e.preventDefault();
+    console.log('(js) received copy event');
+    queuedAction = 'copy';
+  });
+</script>
+
+<div id="$main_game" style="user-select: none;"></div>
+<div style="float: right; clear: right; margin-top: 5px;">
+  Clear local:
+  <button onclick="window.localStorage.removeItem('factini.options'); $warnings.innerHTML = 'options cleared from localStorage<br/>';">options</button>
+  <button onclick="window.localStorage.removeItem('factini.lastMap'); $warnings.innerHTML = 'progress cleared from localStorage<br/>';">progress</button>
+</div>
+</body>
+</html>

@@ -3,6 +3,79 @@
 const GAME_EXAMPLES = [
   `
     # Factini map
+    # Created 1709034743831
+    d=17x17
+    ┌─────────────────────────────────────────────────┐
+    │.  .  .  .  .  .  .  .  .  .  .  .  .  .  d  .  .│
+    │ ┌────────────────────────────────────────^────┐ │
+    │ │                                        ^    │ │
+    │.│ .  .  .  .  .  .  .  .  .  .  .  .  .  ║  . │.│
+    │ │                                        ^    │ │
+    │ │                                        ^    │ │
+    │.│ .  .  .  .  .  .  .  .  .  .  .  .  .  ║  . │.│
+    │ │                                        ^    │ │
+    │ │                                       ┌^┐   │ │
+    │.│ .  .  .  .  .  .  .  .  .  .  .  .  . │4<<═<<s│
+    │ │                                       │ │   │ │
+    │ │                                       │ │   │ │
+    │.│ .  .  .  .  .  .  .  .  .  .  .  .  . │4<<═<<s│
+    │ │                                       └─┘   │ │
+    │ │                                             │ │
+    │.│ .  .  .  .  .  .  .  .  .  .  .  .  .  .  . │.│
+    │ │                                             │ │
+    │ │                                             │ │
+    │.│ .  .  .  .  .  .  .  .  .  .  .  .  .  .  . │.│
+    │ │                                             │ │
+    │ │                                             │ │
+    │.│ .  .  .  .  .  .  .  .  .  .  .  .  .  .  . │.│
+    │ │                                             │ │
+    │ │                                             │ │
+    │.│ .  .  .  .  .  .  .  .  .  .  .  ╔>>═>>═>>═>>d│
+    │ │                                  ^          │ │
+    │ │                                  ^          │ │
+    │.│ .  .  .  .  .  .  .  .  .  .  .  ║  .  .  . │.│
+    │ │                                  ^          │ │
+    │ │                                  ^          │ │
+    │d<<═<<╗  .  .  .  .  .  .  .  .  .  ║  .  .  . │.│
+    │ │    ^                             ^          │ │
+    │ │    ^                         ┌───^┐         │ │
+    │.│ .  ╚<<═<<╗  .  .  .  .  .  . │1  1│ .  .  . │.│
+    │ │          ^                   │    │         │ │
+    │ │   ┌────┐ ^                   │    │         │ │
+    │.│ . │2  2│ ╚<<═<<╗  .  .  .  . │1  1>>═>>═>>═>>d│
+    │ │   │    │       ^             └^──^┘         │ │
+    │ │   │    │      ┌^───┐          ^  ^          │ │
+    │d<<═<<2  2│ .  . │3  3│ .  .  .  ║  ║  .  .  . │.│
+    │ │   └^──^┘      └^──^┘          ^  ^          │ │
+    │ │    ^  ^        ^  ^           ^  ^          │ │
+    │.│ .  ║  ║  .  .  ║  ║  .  .  .  ║  ║  .  .  . │.│
+    │ │    ^  ^        ^  ^           ^  ^          │ │
+    │ │    ^  ^        ^  ^           ^  ^          │ │
+    │.│ .  ║  ║  .  .  ║  ║  .  .  .  ║  ║  .  .  . │.│
+    │ │    ^  ^        ^  ^           ^  ^          │ │
+    │ └────^──^────────^──^───────────^──^──────────┘ │
+    │.  .  s  s  .  .  s  s  .  .  .  s  s  .  .  .  .│
+    └─────────────────────────────────────────────────┘
+    m4 = BucketPink s:2000
+    s1 = BucketWhite s:6500 c:1500
+    s2 = BucketRed s:6500 c:1500
+    m1 = BucketGreen s:2000
+    m2 = BucketOrange s:2000
+    m3 = BucketPurple s:2000
+    s3 = BucketYellow s:6500 c:1500
+    s4 = BucketRed s:6500 c:1500
+    s5 = BucketBlue s:6500 c:1500
+    s6 = BucketRed s:6500 c:1500
+    s7 = BucketBlue s:6500 c:1500
+    s8 = BucketYellow s:6500 c:1500
+    ! Green Orange Purple Grey Pink Rainbow Plus BlackPlus RedPlus BluePlus YellowPlus WhitePlus GreenPlus OrangePlus PurplePlus GreyPlus PinkPlus BlackPlusPlus RedPlusPlus BluePlusPlus YellowPlusPlus WhitePlusPlus GreenPlusPlus OrangePlusPlus PurplePlusPlus GreyPlusPlus PinkPlusPlus
+    $ BucketBlue BucketYellow BucketRed BucketWhite BucketBlack BucketGreen BucketOrange BucketPurple BucketPink BucketGrey BucketRainbow Plus BucketBlackPlus BucketRedPlus BucketBluePlus BucketYellowPlus BucketWhitePlus BucketGreyPlus BucketPinkPlus BucketOrangePlus BucketGreenPlus BucketPurplePlus BucketBlackPlusPlus BucketRedPlusPlus BucketBluePlusPlus BucketYellowPlusPlus BucketWhitePlusPlus BucketOrangePlusPlus BucketGreenPlusPlus BucketPurplePlusPlus BucketGreyPlusPlus BucketPinkPlusPlus
+    @ 28
+    seed = 1709029913218
+    story = Story_Buckets
+  `,
+  `
+    # Factini map
     # Created 1708629305773
     d=17x17
     ┌─────────────────────────────────────────────────┐

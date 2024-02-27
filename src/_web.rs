@@ -135,6 +135,7 @@ extern {
   pub fn getExamples() -> js_sys::Array; // GAME_EXAMPLES, array of string
   pub fn getAction() -> String; // queuedAction, polled every frame
   pub fn receiveConfigNode(name: JsValue, node: JsValue);
+  pub fn onGameMapChange(map: JsValue); // Called whenever you change the map
   pub fn onQuestUpdate(node: JsValue);
   pub fn getLastPaste() -> String; // queuedPaste
   pub fn getCurrentPaste(); // navigator.clipboard.readText() into action=paste. wont work in firefox.
@@ -982,11 +983,13 @@ pub fn start() -> Result<(), JsValue> {
           }
 
           // Dump current map to debug UI
-          let game_map = document.get_element_by_id("$game_map").unwrap();
-          game_map.dyn_into::<web_sys::HtmlTextAreaElement>().unwrap().set_value(state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].as_str());
+          onGameMapChange(state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].as_str().into());
+          // let game_map = document.get_element_by_id("$game_map").unwrap();
+          // game_map.dyn_into::<web_sys::HtmlTextAreaElement>().unwrap().set_value(state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].as_str());
 
           let last_map = state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].as_str();
-          let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+          let local_storage = window.local_storage().unwrap().unwrap();
+          log!("Wanting to do a last map: {}", last_map);
           local_storage.set_item(LS_LAST_MAP, last_map).unwrap();
           log!("Stored last map to local storage ({} bytes) into `{}`", last_map.len(), LS_LAST_MAP);
           // log!("Map:\n{}", last_map);
