@@ -203,7 +203,7 @@ fn spriter(options: &Options, state: &State, config: &Config, list: Vec<(PartKin
   let document = document();
   let canvas = document.create_element("canvas")?.dyn_into::<web_sys::HtmlCanvasElement>()?;
   document.get_element_by_id("$main_game").unwrap().append_child(&canvas)?;
-  if maxw > 32000 || maxh > 32000 { log!("WARNING: total size exceeds max canvas size of 32k x 32k so it will fail..."); }
+  if maxw > 32000 || maxh > 32000 { log!("WARNING: total size exceeds max canvas size of 32k x 32k so it will fail... ({} x {})", maxw, maxh); }
   canvas.set_width(maxw.min(32000) as u32);
   canvas.set_height(maxh.min(32000) as u32);
   canvas.style().set_property("border", "solid")?;
@@ -219,11 +219,20 @@ fn spriter(options: &Options, state: &State, config: &Config, list: Vec<(PartKin
   let context = canvas.get_context("2d").unwrap().unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap();
   context.set_stroke_style(&"black".into());
 
+  // Note: frames are parsed in order, the "value" is treated like a comment. So we _must_ group and sort frames for the same asset together and print them in one group.
+  let mut placed_by_frame = placed_by_y;
+  placed_by_frame.sort_by(|( _, _, _, _, kind1, _, frame_index1 ), ( _, _, _, _, kind2, _, frame_index2 )| {
+    if kind1 != kind2 {
+      return kind1.cmp(kind2);
+    }
+    return frame_index1.cmp(frame_index2);
+  });
+
   let mut n = 0;
   let mut strings = vec!();
-  for ( x1, y1, x2, y2, kind, sprite_config, frame_index ) in placed_by_y {
+  let mut last_kind = usize::MAX; // Let's never use this as a part kind ;)
+  for ( x1, y1, x2, y2, kind, sprite_config, frame_index ) in placed_by_frame {
     let frame = &sprite_config.frames[frame_index];
-    // log!("- {}: {}x{} {} {} -> {}x{} {} {} ({})", kind, frame.x, frame.y, frame.w, frame.h, offset_x, 0.0, frame.w, frame.h, config.nodes[kind].raw_name);
 
     let x = x1 as f64;
     let y = y1 as f64;
@@ -236,13 +245,12 @@ fn spriter(options: &Options, state: &State, config: &Config, list: Vec<(PartKin
       x, y, w, h
     ).expect("magic!");
 
-    strings.push(format!("# {}\n- gen\n- file: ./export.png\n- x: {}\n- y: {}\n- w: {}\n- h: {}\n", config.nodes[kind].raw_name, sprite_config.frames[frame_index].x, sprite_config.frames[frame_index].y, sprite_config.frames[frame_index].w, sprite_config.frames[frame_index].h));
-
+    let header_maybe = if last_kind == kind { "".to_string() } else { format!("\n# {}\n- gen\n- file: ./export.png\n", config.nodes[kind].raw_name) };
+    strings.push(format!("{}- frame: {}\n- x: {}\n- y: {}\n- w: {}\n- h: {}", header_maybe, frame_index, sprite_config.frames[frame_index].x, sprite_config.frames[frame_index].y, sprite_config.frames[frame_index].w, sprite_config.frames[frame_index].h));
+    last_kind = kind;
 
     // context.stroke_rect(x, y, frame.w, frame.h);
     // context.stroke_text(&config.nodes[kind].raw_name, offset_x, frame.h);
-    //
-    // offset_x += frame.w + SPRITER_PADDING;
     n += 1;
   }
 
