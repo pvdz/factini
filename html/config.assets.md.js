@@ -391,6 +391,8 @@ Public domain from https://opengameart.org/content/yellow-racing-car
 - h: 64
 
 # Asset_Sand
+(This is the background image of the canvas so not used inside rust)
+- unused
 - file: ./img/sand.png
 - w: 128
 - h: 128
@@ -398,6 +400,7 @@ Public domain from https://opengameart.org/content/yellow-racing-car
 # Asset_HelpBlack
 Source: ikea.com via https://www.mentalfloss.com/article/58450/16-out-context-ikea-instructions-help-you-live-better-life
 Used as parody
+- unused
 - file: ./img/help_black.png
 - x: 0
 - y: 0
@@ -434,6 +437,7 @@ Used as parody
 - h: 740
 
 # Asset_Lmb
+- unused
 Source: https://www.flaticon.com/free-icon/mouse-left-button_32041
 Free when with attribution
 - file: ./img/lmb.png
@@ -441,6 +445,7 @@ Free when with attribution
 - h: 50
 
 # Asset_Rmb
+- unused
 Source: https://www.flaticon.com/free-icon/mouse-left-button_32041
 Free when with attribution
 - file: ./img/rmb.png
@@ -448,188 +453,97 @@ Free when with attribution
 - h: 50
 
 # Asset_SaveDark
+- unused
 - file: ./img/save_dark.png
-- y: 0
 - w: 48
 - h: 48
-
 # Asset_SaveLight
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/save_light.png
-- x: 0
-- y: 0
 - w: 48
 - h: 48
-
 # Asset_SaveGrey
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/save_grey.png
-- x: 0
-- y: 0
 - w: 48
 - h: 48
 
 # Asset_TrashDark
-- frame_offset: 0
-- frame_count: 1
+- unused
 - file: ./img/trash_dark_cb.png
-- x: 0
-- y: 0
 - w: 136
 - h: 136
-
 # Asset_TrashLight
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/trash_light_cb.png
-- x: 0
-- y: 0
 - w: 136
 - h: 136
-
 # Asset_TrashGrey
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/trash_grey_cb.png
-- x: 0
-- y: 0
 - w: 136
 - h: 136
-
 # Asset_TrashRed
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/trash_red_cb.png
-- x: 0
-- y: 0
 - w: 136
 - h: 136
-
 # Asset_TrashGreen
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/trash_green_cb.png
-- x: 0
-- y: 0
 - w: 136
 - h: 136
 
 # Asset_BrushGrey
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/brush_grey_cb.png
-- x: 0
-- y: 0
 - w: 128
 - h: 128
-
 # Asset_BrushDark
-- frame_offset: 0
-- frame_count: 1
+- unused
 - file: ./img/brush_dark_cb.png
-- x: 0
-- y: 0
 - w: 128
 - h: 128
-
 # Asset_BrushLight
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/brush_light_cb.png
-- x: 0
-- y: 0
 - w: 128
 - h: 128
-
 # Asset_BrushGreen
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/brush_green_cb.png
-- x: 0
-- y: 0
 - w: 128
 - h: 128
-
 # Asset_BrushRed
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/brush_red_cb_x.png
-- x: 0
-- y: 0
 - w: 128
 - h: 128
 
 # Asset_UndoLight
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/undo_light.png
-- x: 0
-- y: 0
 - w: 128
 - h: 128
-
 # Asset_UndoGrey
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/undo_grey.png
-- x: 0
-- y: 0
 - w: 128
 - h: 128
 
 # Asset_RedoLight
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/redo_light.png
-- x: 0
-- y: 0
 - w: 128
 - h: 128
-
 # Asset_RedoGrey
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/redo_grey.png
-- x: 0
-- y: 0
 - w: 128
 - h: 128
 
 # Asset_QuestFrame
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/quest_frame.png
-- x: 0
-- y: 0
 - w: 490
 - h: 175
 
 # Asset_DoubleArrowRight
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/double_arrow_right.png
-- x: 0
-- y: 0
 - w: 13
 - h: 38
-
 # Asset_SingleArrowDown
-- frame_offset: 0
-- frame_count: 1
+- unused
 - file: ./img/single_arrow_down.png
-- x: 0
-- y: 0
 - w: 18
 - h: 13
-
 # Asset_SingleArrowRight
-- frame_offset: 0
-- frame_count: 1
 - file: ./img/single_arrow_right.png
-- x: 0
-- y: 0
 - w: 13
 - h: 18
 
@@ -760,6 +674,7 @@ See options.show_drm=false
 - h: 16
 
 # Asset_FullScreenBlack
+- unused
 - file: ./img/fullscreen_black_128.png
 - w: 128
 - h: 128
@@ -773,6 +688,7 @@ See options.show_drm=false
 - h: 128
 
 # Asset_PlayBlack
+- unused
 - file: ./img/play_black.png
 - w: 114
 - h: 130
@@ -781,11 +697,13 @@ See options.show_drm=false
 - w: 114
 - h: 130
 # Asset_PlayGrey
+- unused
 - file: ./img/play_grey.png
 - w: 114
 - h: 130
 
 # Asset_BwdBlack
+- unused
 - file: ./img/bwd_black.png
 - w: 113
 - h: 128
@@ -794,11 +712,13 @@ See options.show_drm=false
 - w: 113
 - h: 128
 # Asset_BwdGrey
+- unused
 - file: ./img/bwd_grey.png
 - w: 113
 - h: 128
 
 # Asset_FastBwdBlack
+- unused
 - file: ./img/fast_bwd_black.png
 - w: 183
 - h: 128
@@ -807,11 +727,13 @@ See options.show_drm=false
 - w: 183
 - h: 128
 # Asset_FastBwdGrey
+- unused
 - file: ./img/fast_bwd_grey.png
 - w: 183
 - h: 128
 
 # Asset_FwdBlack
+- unused
 - file: ./img/fwd_black.png
 - w: 113
 - h: 128
@@ -820,6 +742,7 @@ See options.show_drm=false
 - w: 113
 - h: 128
 # Asset_FwdGrey
+- unused
 - file: ./img/fwd_grey.png
 - w: 113
 - h: 128
@@ -833,32 +756,39 @@ See options.show_drm=false
 - w: 182
 - h: 128
 # Asset_FastFwdGrey
+- unused
 - file: ./img/fast_fwd_grey.png
 - w: 182
 - h: 128
 
 # Asset_StopBlack
+- unused
 - file: ./img/stop_black.png
 - w: 121
 - h: 120
 # Asset_StopWhite
+- unused
 - file: ./img/stop_white.png
 - w: 121
 - h: 120
 # Asset_StopGrey
+- unused
 - file: ./img/stop_grey.png
 - w: 121
 - h: 120
 
 # Asset_PauseBlack
+- unused
 - file: ./img/pause_black.png
 - w: 119
 - h: 120
 # Asset_PauseWhite
+- unused
 - file: ./img/pause_white.png
 - w: 119
 - h: 120
 # Asset_PauseGrey
+- unused
 - file: ./img/pause_grey.png
 - w: 119
 - h: 120

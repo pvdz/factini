@@ -424,6 +424,7 @@ pub struct ConfigNode {
   pub kind: ConfigNodeKind,
   pub name: String,
   pub raw_name: String,
+  pub unused: bool,
 
   // Story
   pub story_index: usize, // Index on config.stories[]. If not a Story then this node belongs to the Story pointed to.
@@ -586,6 +587,7 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
               },
               name: name.to_string(),
               raw_name: rest.to_string(),
+              unused: false,
               story_index: active_story_index,
               quest_index: 0,
               quest_init_status: QuestStatus::Waiting,
@@ -968,6 +970,28 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
             "desc" => {
               // For story lines
             },
+            "unused" => {
+              // Do not load this image. Do not include in sprite map when running spriter.
+              nodes[current_node_index].unused = true;
+            }
+            "gen" => {
+              // This is generated (by the Spriter, presumably).
+              // Remove the currently parsed frames.
+              // TODO: keep them around for debugging purposes, like viewing "raw" frames
+
+              first_frame = true;
+              // Reset frames to initial state
+              nodes[current_node_index].sprite_config.frames.clear();
+              nodes[current_node_index].sprite_config.frames.push(SpriteFrame {
+                file: "".to_string(),
+                name: "untitled frame".to_string(),
+                file_canvas_cache_index: 0,
+                x: 0.0,
+                y: 0.0,
+                w: 0.0,
+                h: 0.0
+              });
+            }
             _ => panic!("Unsupported node option. Node options must be one of a hard coded set but was `{:?}`", label),
           }
         }
@@ -1226,6 +1250,10 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
   nodes.iter_mut().enumerate().for_each(|(i, node)| {
     if i == 0 || node.name == "None" {
       // Do not add a sprite map for the None part; we should never be painting it.
+      return;
+    }
+    if node.unused {
+      // Do not load frames marked as unused
       return;
     }
 
@@ -2196,6 +2224,7 @@ fn config_node_part(index: PartKind, name: String, icon: char) -> ConfigNode {
     kind: ConfigNodeKind::Part,
     name,
     raw_name,
+    unused: false,
     unlocks_after_by_name: vec!(),
     unlocks_after_by_index: vec!(),
     unlocks_todo_by_index: vec!(),
@@ -2252,6 +2281,7 @@ fn config_node_belt(index: PartKind, name: &str) -> ConfigNode {
     kind: ConfigNodeKind::Belt,
     name: name.to_string(),
     raw_name,
+    unused: false,
     unlocks_after_by_name: vec!(),
     unlocks_after_by_index: vec!(),
     unlocks_todo_by_index: vec!(),
@@ -2306,6 +2336,7 @@ fn config_node_asset(index: PartKind, name: &str) -> ConfigNode {
     kind: ConfigNodeKind::Asset,
     name: name.to_string(),
     raw_name,
+    unused: false,
     unlocks_after_by_name: vec!(),
     unlocks_after_by_index: vec!(),
     unlocks_todo_by_index: vec!(),
@@ -2360,6 +2391,7 @@ fn config_node_story(index: PartKind, name: &str) -> ConfigNode {
     kind: ConfigNodeKind::Story,
     name: name.to_string(),
     raw_name,
+    unused: false,
     unlocks_after_by_name: vec!(),
     unlocks_after_by_index: vec!(),
     unlocks_todo_by_index: vec!(),

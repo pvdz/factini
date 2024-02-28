@@ -1,6 +1,8 @@
 // This file should only be included for `wasm-pack build --target web`
 // The main.rs will include this file when `#[cfg(target_arch = "wasm32")]`
 
+// Bug
+// - creating a demander and deleting it isa crash?
 
 // Compile with --profile to try and get some sense of shit
 
@@ -5547,6 +5549,7 @@ fn paint_segment_part_from_config_bug(options: &Options, state: &State, config: 
     return false;
   }
 
+  if config.nodes[part_kind].unused { log!("Warning: Part {} was marked as unused but painted anyways...", config.nodes[part_kind].raw_name); }
   assert!(config.nodes[part_kind].kind == ConfigNodeKind::Part, "segment parts should refer to part nodes but received index: {}, kind: {:?}, node: {:?}", part_kind, config.nodes[part_kind].kind, config.nodes[part_kind]);
 
   let (spx, spy, spw, sph, canvas) = part_to_sprite_coord_from_config(config, options, part_kind);
@@ -5588,6 +5591,7 @@ fn paint_asset_raw(options: &Options, state: &State, config: &Config, context: &
   let dw = dw.floor();
   let dh = dh.floor();
 
+  if config.nodes[config_node_index].unused { log!("Warning: Asset {} was marked as unused but painted anyways...", config.nodes[config_node_index].raw_name); }
   assert!(
     config.nodes[config_node_index].kind == ConfigNodeKind::Asset
     , "assets should refer to Asset nodes but received index: {}, kind: {:?}, node: {:?}", config_node_index, config.nodes[config_node_index].kind, config.nodes[config_node_index]);

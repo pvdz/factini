@@ -62,7 +62,7 @@ pub fn spriter_assets(options: &Options, state: &State, config: &Config) -> Resu
       let kind = index as PartKind;
       let node = &config.nodes[index];
 
-      if node.kind == t {
+      if node.kind == t && !node.unused {
         let len = config.nodes[kind].sprite_config.frames.len();
         for f in 0..len {
           let frame = &config.nodes[kind].sprite_config.frames[f];
@@ -250,7 +250,7 @@ fn spriter(options: &Options, state: &State, config: &Config, list: Vec<(PartKin
     last_kind = kind;
 
     // context.stroke_rect(x, y, frame.w, frame.h);
-    // context.stroke_text(&config.nodes[kind].raw_name, offset_x, frame.h);
+    // context.stroke_text(&config.nodes[kind].raw_name, x, y);
     n += 1;
   }
 
