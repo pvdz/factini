@@ -26,18 +26,18 @@ use super::log;
 
 pub const CONFIG_NODE_PART_NONE: PartKind = 0;
 pub const CONFIG_NODE_PART_TRASH: PartKind = 1;
-pub const CONFIG_NODE_SUPPLY_UP: usize = 2;
-pub const CONFIG_NODE_SUPPLY_RIGHT: usize = 3;
-pub const CONFIG_NODE_SUPPLY_DOWN: usize = 4;
-pub const CONFIG_NODE_SUPPLY_LEFT: usize = 5;
-pub const CONFIG_NODE_DEMAND_UP: usize = 6;
-pub const CONFIG_NODE_DEMAND_RIGHT: usize = 7;
-pub const CONFIG_NODE_DEMAND_DOWN: usize = 8;
-pub const CONFIG_NODE_DEMAND_LEFT: usize = 9;
-pub const CONFIG_NODE_DOCK_UP: usize = 10;
-pub const CONFIG_NODE_DOCK_RIGHT: usize = 11;
-pub const CONFIG_NODE_DOCK_DOWN: usize = 12;
-pub const CONFIG_NODE_DOCK_LEFT: usize = 13;
+pub const CONFIG_NODE_ASSET_SUPPLY_UP: usize = 2;
+pub const CONFIG_NODE_ASSET_SUPPLY_RIGHT: usize = 3;
+pub const CONFIG_NODE_ASSET_SUPPLY_DOWN: usize = 4;
+pub const CONFIG_NODE_ASSET_SUPPLY_LEFT: usize = 5;
+pub const CONFIG_NODE_ASSET_DEMAND_UP: usize = 6;
+pub const CONFIG_NODE_ASSET_DEMAND_RIGHT: usize = 7;
+pub const CONFIG_NODE_ASSET_DEMAND_DOWN: usize = 8;
+pub const CONFIG_NODE_ASSET_DEMAND_LEFT: usize = 9;
+pub const CONFIG_NODE_ASSET_DOCK_UP: usize = 10;
+pub const CONFIG_NODE_ASSET_DOCK_RIGHT: usize = 11;
+pub const CONFIG_NODE_ASSET_DOCK_DOWN: usize = 12;
+pub const CONFIG_NODE_ASSET_DOCK_LEFT: usize = 13;
 pub const CONFIG_NODE_MACHINE_1X1: usize = 14;
 pub const CONFIG_NODE_MACHINE_2X2: usize = 15;
 pub const CONFIG_NODE_MACHINE_3X3: usize = 16;
@@ -464,9 +464,6 @@ pub enum ConfigNodeKind {
   Asset,
   Part,
   Quest,
-  Supply,
-  Demand,
-  Dock,
   Machine,
   Belt,
   Story,
@@ -584,10 +581,10 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
                 "Asset" => ConfigNodeKind::Asset,
                 "Quest" => ConfigNodeKind::Quest,
                 "Part" => ConfigNodeKind::Part,
-                "Demand" => ConfigNodeKind::Demand,
-                "Supply" => ConfigNodeKind::Supply,
-                "Dock" => ConfigNodeKind::Dock,
-                "Machine" => ConfigNodeKind::Dock,
+                // "Demand" => ConfigNodeKind::Demand,
+                // "Supply" => ConfigNodeKind::Supply,
+                // "Dock" => ConfigNodeKind::Dock,
+                "Machine" => ConfigNodeKind::Machine,
                 "Belt" => ConfigNodeKind::Belt,
                 "Story" => ConfigNodeKind::Story,
                 _ => panic!("Unsupported node kind. Node headers should be composed like Kind_Name and the kind can only be Quest, Part, Supply, Demand, Machine, Belt, or Dock. But it was {:?} (`{}`)", kind, rest),
@@ -1325,9 +1322,6 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
           ConfigNodeKind::Asset => {}
           ConfigNodeKind::Part => {}
           ConfigNodeKind::Quest => log!("  - Quest {}, quest init status: {:?}", node.raw_name, node.quest_init_status),
-          ConfigNodeKind::Demand => {}
-          ConfigNodeKind::Supply => {}
-          ConfigNodeKind::Dock => {}
           ConfigNodeKind::Machine => {}
           ConfigNodeKind::Belt => {}
           ConfigNodeKind::Story => {}
@@ -1353,9 +1347,6 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
   let mut assets = 0;
   let mut parts = 0;
   let mut quests = 0;
-  let mut demanders = 0;
-  let mut suppliers = 0;
-  let mut docks = 0;
   let mut machines = 0;
   let mut belts = 0;
   let mut stories_count = 0;
@@ -1364,16 +1355,13 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
       ConfigNodeKind::Asset => assets += 1,
       ConfigNodeKind::Part => parts += 1,
       ConfigNodeKind::Quest => quests += 1,
-      ConfigNodeKind::Demand => demanders += 1,
-      ConfigNodeKind::Supply => suppliers += 1,
-      ConfigNodeKind::Dock => docks += 1,
       ConfigNodeKind::Machine => machines += 1,
       ConfigNodeKind::Belt => belts += 1,
       ConfigNodeKind::Story => stories_count += 1,
     }
   });
 
-  log!("Config has {} nodes with: {} stories, {} assets, {} parts, {} quests, {} demanders, {} suppliers, {} docks, {} machines, and {} belts", nodes.len(), stories_count, assets, parts, quests, demanders, suppliers, docks, machines, belts);
+  log!("Config has {} nodes with: {} stories, {} assets, {} parts, {} quests, {} machines, and {} belts", nodes.len(), stories_count, assets, parts, quests, machines, belts);
 
   // log!("parsed nodes: {:?}", &nodes[1..]);
   if trace_parse_config_md { log!("parsed map: {:?}", node_name_to_index); }
@@ -1500,18 +1488,18 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Asset_Battery" => CONFIG_NODE_ASSET_BATTERY,
     "Part_None" => CONFIG_NODE_PART_NONE,
     "Part_Trash" => CONFIG_NODE_PART_TRASH,
-    "Supply_Up" => CONFIG_NODE_SUPPLY_UP,
-    "Supply_Right" => CONFIG_NODE_SUPPLY_RIGHT,
-    "Supply_Down" => CONFIG_NODE_SUPPLY_DOWN,
-    "Supply_Left" => CONFIG_NODE_SUPPLY_LEFT,
-    "Demand_Up" => CONFIG_NODE_DEMAND_UP,
-    "Demand_Right" => CONFIG_NODE_DEMAND_RIGHT,
-    "Demand_Down" => CONFIG_NODE_DEMAND_DOWN,
-    "Demand_Left" => CONFIG_NODE_DEMAND_LEFT,
-    "Dock_Up" => CONFIG_NODE_DOCK_UP,
-    "Dock_Right" => CONFIG_NODE_DOCK_RIGHT,
-    "Dock_Down" => CONFIG_NODE_DOCK_DOWN,
-    "Dock_Left" => CONFIG_NODE_DOCK_LEFT,
+    "Asset_SupplyUp" => CONFIG_NODE_ASSET_SUPPLY_UP,
+    "Asset_SupplyRight" => CONFIG_NODE_ASSET_SUPPLY_RIGHT,
+    "Asset_SupplyDown" => CONFIG_NODE_ASSET_SUPPLY_DOWN,
+    "Asset_SupplyLeft" => CONFIG_NODE_ASSET_SUPPLY_LEFT,
+    "Asset_DemandUp" => CONFIG_NODE_ASSET_DEMAND_UP,
+    "Asset_DemandRight" => CONFIG_NODE_ASSET_DEMAND_RIGHT,
+    "Asset_DemandDown" => CONFIG_NODE_ASSET_DEMAND_DOWN,
+    "Asset_DemandLeft" => CONFIG_NODE_ASSET_DEMAND_LEFT,
+    "Asset_DockUp" => CONFIG_NODE_ASSET_DOCK_UP,
+    "Asset_DockRight" => CONFIG_NODE_ASSET_DOCK_RIGHT,
+    "Asset_DockDown" => CONFIG_NODE_ASSET_DOCK_DOWN,
+    "Asset_DockLeft" => CONFIG_NODE_ASSET_DOCK_LEFT,
     "Machine_3x3" => CONFIG_NODE_MACHINE_3X3,
     "Belt_None" => CONFIG_NODE_BELT_NONE,
     "Belt_Unknown" => CONFIG_NODE_BELT_UNKNOWN,
@@ -1790,18 +1778,18 @@ fn get_system_nodes() -> Vec<ConfigNode> {
   let v = vec!(
     config_node_part(CONFIG_NODE_PART_NONE, "None".to_string(), ' '),
     config_node_part(CONFIG_NODE_PART_TRASH, "Trash".to_string(), 't'),
-    config_node_supply(CONFIG_NODE_SUPPLY_UP, "Up".to_string()),
-    config_node_supply(CONFIG_NODE_SUPPLY_RIGHT, "Right".to_string()),
-    config_node_supply(CONFIG_NODE_SUPPLY_DOWN, "Down".to_string()),
-    config_node_supply(CONFIG_NODE_SUPPLY_LEFT, "Left".to_string()),
-    config_node_demand(CONFIG_NODE_DEMAND_UP, "Up".to_string()),
-    config_node_demand(CONFIG_NODE_DEMAND_RIGHT, "Right".to_string()),
-    config_node_demand(CONFIG_NODE_DEMAND_DOWN, "Down".to_string()),
-    config_node_demand(CONFIG_NODE_DEMAND_LEFT, "Left".to_string()),
-    config_node_dock(CONFIG_NODE_DOCK_UP, "Up".to_string()),
-    config_node_dock(CONFIG_NODE_DOCK_RIGHT, "Right".to_string()),
-    config_node_dock(CONFIG_NODE_DOCK_DOWN, "Down".to_string()),
-    config_node_dock(CONFIG_NODE_DOCK_LEFT, "Left".to_string()),
+    config_node_asset(CONFIG_NODE_ASSET_SUPPLY_UP, "SupplyUp"),
+    config_node_asset(CONFIG_NODE_ASSET_SUPPLY_RIGHT, "SupplyRight"),
+    config_node_asset(CONFIG_NODE_ASSET_SUPPLY_DOWN, "SupplyDown"),
+    config_node_asset(CONFIG_NODE_ASSET_SUPPLY_LEFT, "SupplyLeft"),
+    config_node_asset(CONFIG_NODE_ASSET_DEMAND_UP, "DemandUp"),
+    config_node_asset(CONFIG_NODE_ASSET_DEMAND_RIGHT, "DemandRight"),
+    config_node_asset(CONFIG_NODE_ASSET_DEMAND_DOWN, "DemandDown"),
+    config_node_asset(CONFIG_NODE_ASSET_DEMAND_LEFT, "DemandLeft"),
+    config_node_asset(CONFIG_NODE_ASSET_DOCK_UP, "DockUp"),
+    config_node_asset(CONFIG_NODE_ASSET_DOCK_RIGHT, "DockRight"),
+    config_node_asset(CONFIG_NODE_ASSET_DOCK_DOWN, "DockDown"),
+    config_node_asset(CONFIG_NODE_ASSET_DOCK_LEFT, "DockLeft"),
     config_node_machine(CONFIG_NODE_MACHINE_1X1, "1x1", "./img/machines/machine_1_1.png"),
     config_node_machine(CONFIG_NODE_MACHINE_2X2, "2x2", "./img/machines/machine_2_2.png"),
     config_node_machine(CONFIG_NODE_MACHINE_3X3, "3x3", "./img/machines/machine_3_3.png"),
@@ -2256,168 +2244,6 @@ fn config_node_part(index: PartKind, name: String, icon: char) -> ConfigNode {
           y: 0.0,
           w: 0.0,
           h: 0.0,
-        }
-      )
-    },
-  };
-}
-fn config_node_supply(index: PartKind, name: String) -> ConfigNode {
-  let raw_name = format!("Supply_{}", name);
-  return ConfigNode {
-    index,
-    story_index: 0,
-    quest_index: 0,
-    quest_init_status: QuestStatus::Waiting,
-    kind: ConfigNodeKind::Supply,
-    name,
-    raw_name,
-    unlocks_after_by_name: vec!(),
-    unlocks_after_by_index: vec!(),
-    unlocks_todo_by_index: vec!(),
-    starting_part_by_name: vec!(),
-    starting_part_by_index: vec!(),
-    pattern_unique_kinds: vec!(),
-    production_target_by_name: vec!(),
-    production_target_by_index: vec!(),
-    required_by_quest_indexes: vec!(),
-    pattern_by_index: vec!(),
-    pattern_by_name: vec!(),
-    pattern_by_icon: vec!(),
-    pattern: "".to_string(),
-    icon: '?',
-    machine_width: 0,
-    machine_height: 0,
-    machine_asset_name: "Asset_Machine_3_3".to_string(),
-    machine_asset_index: CONFIG_NODE_ASSET_MACHINE_3_3,
-    special: ('n', 0),
-
-    drm: false,
-    sprite_config: SpriteConfig {
-      frame_offset: 0,
-      frame_count: 1,
-      frame_direction: SpriteConfigDirection::Right,
-      initial_delay: 10,
-      frame_delay: 0,
-      looping: true,
-      loop_delay: 0,
-      loop_backwards: false,
-      frames: vec!(
-        SpriteFrame {
-          file: "./img/supply.png".to_string(),
-          name: "do not use me; supply".to_string(),
-          file_canvas_cache_index: 0,
-          x: 0.0,
-          y: 0.0,
-          w: 32.0,
-          h: 32.0,
-        }
-      )
-    },
-  };
-}
-fn config_node_demand(index: PartKind, name: String) -> ConfigNode {
-  let raw_name = format!("Demand_{}", name);
-  return ConfigNode {
-    index,
-    story_index: 0,
-    quest_index: 0,
-    quest_init_status: QuestStatus::Waiting,
-    kind: ConfigNodeKind::Demand,
-    name,
-    raw_name,
-    unlocks_after_by_name: vec!(),
-    unlocks_after_by_index: vec!(),
-    unlocks_todo_by_index: vec!(),
-    starting_part_by_name: vec!(),
-    starting_part_by_index: vec!(),
-    pattern_unique_kinds: vec!(),
-    production_target_by_name: vec!(),
-    production_target_by_index: vec!(),
-    required_by_quest_indexes: vec!(),
-    pattern_by_index: vec!(),
-    pattern_by_name: vec!(),
-    pattern_by_icon: vec!(),
-    pattern: "".to_string(),
-    icon: '?',
-    machine_width: 0,
-    machine_height: 0,
-    machine_asset_name: "Asset_Machine_3_3".to_string(),
-    machine_asset_index: CONFIG_NODE_ASSET_MACHINE_3_3,
-    special: ('n', 0),
-
-    drm: false,
-    sprite_config: SpriteConfig {
-      frame_offset: 0,
-      frame_count: 1,
-      frame_direction: SpriteConfigDirection::Right,
-      initial_delay: 10,
-      frame_delay: 0,
-      looping: true,
-      loop_delay: 0,
-      loop_backwards: false,
-      frames: vec!(
-        SpriteFrame {
-          file: "./img/demand.png".to_string(),
-          name: "do not use me; demand".to_string(),
-          file_canvas_cache_index: 0,
-          x: 0.0,
-          y: 0.0,
-          w: 32.0,
-          h: 32.0,
-        }
-      )
-    },
-  };
-}
-fn config_node_dock(index: PartKind, name: String) -> ConfigNode {
-  let raw_name = format!("Dock_{}", name);
-  return ConfigNode {
-    index,
-    story_index: 0,
-    quest_index: 0,
-    quest_init_status: QuestStatus::Waiting,
-    kind: ConfigNodeKind::Dock,
-    name,
-    raw_name,
-    unlocks_after_by_name: vec!(),
-    unlocks_after_by_index: vec!(),
-    unlocks_todo_by_index: vec!(),
-    starting_part_by_name: vec!(),
-    starting_part_by_index: vec!(),
-    pattern_unique_kinds: vec!(),
-    production_target_by_name: vec!(),
-    production_target_by_index: vec!(),
-    required_by_quest_indexes: vec!(),
-    pattern_by_index: vec!(),
-    pattern_by_name: vec!(),
-    pattern_by_icon: vec!(),
-    pattern: "".to_string(),
-    icon: '?',
-    machine_width: 0,
-    machine_height: 0,
-    machine_asset_name: "Asset_Machine_3_3".to_string(),
-    machine_asset_index: CONFIG_NODE_ASSET_MACHINE_3_3,
-    special: ('n', 0),
-
-    drm: false,
-    sprite_config: SpriteConfig {
-      frame_offset: 0,
-      frame_count: 1,
-      frame_direction: SpriteConfigDirection::Right,
-      initial_delay: 10,
-      frame_delay: 0,
-      looping: true,
-      loop_delay: 0,
-      loop_backwards: false,
-      frames: vec!(
-        SpriteFrame {
-          file: "./img/dock.png".to_string(),
-          name: "do not use me; dock".to_string(),
-          file_canvas_cache_index: 0,
-          x: 0.0,
-          y: 0.0,
-          w: 64.0,
-          h: 64.0,
         }
       )
     },

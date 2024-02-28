@@ -37,6 +37,256 @@ This should be the main menu screen.
 - w: 800
 - h: 571
 
+# Asset_SupplyUp
+- frame_offset: 0
+- frame_delay: 150
+- loop_delay: 50
+- looping: false
+- frame: 1
+  - file: ./img/supplier_up_anim_v2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
+
+# Asset_SupplyRight
+- frame_offset: 0
+- frame_delay: 150
+- loop_delay: 50
+- looping: false
+- frame: 1
+  - file: ./img/supplier_right_anim_v2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
+
+# Asset_SupplyDown
+- frame_offset: 0
+- frame_delay: 150
+- loop_delay: 50
+- looping: false
+- frame: 1
+  - file: ./img/supplier_down_anim_v2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
+
+# Asset_SupplyLeft
+- frame_offset: 0
+- frame_delay: 150
+- loop_delay: 50
+- looping: false
+- frame: 1
+  - file: ./img/supplier_left_anim_v2.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
+
+
+
+
+
+# Asset_DemandUp
+- frame_offset: 0
+- frame_delay: 100
+- loop_delay: 50
+- loop_backwards: true
+- looping: false
+- frame: 1
+  - file: ./img/demander_anim_up.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
+
+# Asset_DemandRight
+- frame_offset: 0
+- frame_delay: 100
+- loop_delay: 50
+- loop_backwards: true
+- looping: false
+- frame: 1
+  - file: ./img/demander_anim_right.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
+
+# Asset_DemandDown
+- frame_offset: 0
+- frame_delay: 100
+- loop_backwards: true
+- loop_delay: 50
+- looping: false
+- frame: 1
+  - file: ./img/demander_anim_down.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
+
+# Asset_DemandLeft
+- frame_offset: 0
+- frame_delay: 200
+- loop_backwards: true
+- loop_delay: 50
+- looping: false
+- frame: 1
+  - file: ./img/demander_anim_left.png
+  - y: 0
+  - x: 0
+  - w: 32
+  - h: 32
+- frame: 2
+  - x: 32
+- frame: 3
+  - x: 64
+- frame: 4
+  - x: 96
+- frame: 5
+  - x: 128
+- frame: 6
+  - x: 160
+- frame: 7
+  - x: 192
+- frame: 8
+  - x: 224
+
+
+
+
+# Asset_DockUp
+This is the edge area where suppliers and demanders can be placed
+- file: ./img/dock.png
+- x: 0
+- y: 0
+- w: 64
+- h: 64
+
+# Asset_DockRight
+- file: ./img/dock.png
+- x: 0
+- y: 0
+- w: 64
+- h: 64
+
+# Asset_DockDown
+- file: ./img/dock.png
+- x: 0
+- y: 0
+- w: 64
+- h: 64
+
+# Asset_DockLeft
+- file: ./img/dock.png
+- x: 0
+- y: 0
+- w: 64
+- h: 64
+
+
+
 # Asset_WeeWoo
 This is an animated alarm (like the rotating light on a police car or ambulance)
 - frame_offset: 0

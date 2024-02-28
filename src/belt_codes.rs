@@ -12,18 +12,18 @@ pub const fn belt_code_from_ports(up: Port, right: Port, down: Port, left: Port)
 pub const BELT_CODES: [&'static str; 275] = [
   "Oob_Invalid", // PART_NONE
   "Oob_Invalid", // PART_TRASH
-  "Oob_Invalid", // CONFIG_NODE_SUPPLY_UP
-  "Oob_Invalid", // CONFIG_NODE_SUPPLY_RIGHT
-  "Oob_Invalid", // CONFIG_NODE_SUPPLY_DOWN
-  "Oob_Invalid", // CONFIG_NODE_SUPPLY_LEFT
-  "Oob_Invalid", // CONFIG_NODE_DEMAND_UP
-  "Oob_Invalid", // CONFIG_NODE_DEMAND_RIGHT
-  "Oob_Invalid", // CONFIG_NODE_DEMAND_DOWN
-  "Oob_Invalid", // CONFIG_NODE_DEMAND_LEFT
-  "Oob_Invalid", // CONFIG_NODE_DOCK_UP
-  "Oob_Invalid", // CONFIG_NODE_DOCK_RIGHT
-  "Oob_Invalid", // CONFIG_NODE_DOCK_DOWN
-  "Oob_Invalid", // CONFIG_NODE_DOCK_LEFT
+  "Oob_Invalid", // CONFIG_NODE_ASSET_SUPPLY_UP
+  "Oob_Invalid", // CONFIG_NODE_ASSET_SUPPLY_RIGHT
+  "Oob_Invalid", // CONFIG_NODE_ASSET_SUPPLY_DOWN
+  "Oob_Invalid", // CONFIG_NODE_ASSET_SUPPLY_LEFT
+  "Oob_Invalid", // CONFIG_NODE_ASSET_DEMAND_UP
+  "Oob_Invalid", // CONFIG_NODE_ASSET_DEMAND_RIGHT
+  "Oob_Invalid", // CONFIG_NODE_ASSET_DEMAND_DOWN
+  "Oob_Invalid", // CONFIG_NODE_ASSET_DEMAND_LEFT
+  "Oob_Invalid", // CONFIG_NODE_ASSET_DOCK_UP
+  "Oob_Invalid", // CONFIG_NODE_ASSET_DOCK_RIGHT
+  "Oob_Invalid", // CONFIG_NODE_ASSET_DOCK_DOWN
+  "Oob_Invalid", // CONFIG_NODE_ASSET_DOCK_LEFT
   "Oob_Invalid", // CONFIG_NODE_MACHINE_1X1
   "Oob_Invalid", // CONFIG_NODE_MACHINE_2X2
   "Oob_Invalid", // CONFIG_NODE_MACHINE_3X3

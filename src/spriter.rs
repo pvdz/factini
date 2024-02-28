@@ -48,9 +48,6 @@ pub fn spriter_assets(options: &Options, state: &State, config: &Config) -> Resu
   let types: Vec<ConfigNodeKind> = vec!(
     ConfigNodeKind::Asset,
     ConfigNodeKind::Belt,
-    ConfigNodeKind::Demand,
-    ConfigNodeKind::Dock,
-    ConfigNodeKind::Supply,
     ConfigNodeKind::Machine,
     ConfigNodeKind::Part
   );

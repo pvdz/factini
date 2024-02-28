@@ -1149,14 +1149,11 @@ fn load_config(trace_img_loader: bool, config: &mut Config) {
   else { log!("Queued up {} sprite files to load...", config.sprite_cache_canvas.len()); }
 
   {
-    let kinds: JsValue = [ConfigNodeKind::Part, ConfigNodeKind::Quest, ConfigNodeKind::Supply, ConfigNodeKind::Demand, ConfigNodeKind::Dock, ConfigNodeKind::Machine, ConfigNodeKind::Belt].iter().map(|&kind| {
+    let kinds: JsValue = [ConfigNodeKind::Part, ConfigNodeKind::Quest, ConfigNodeKind::Machine, ConfigNodeKind::Belt].iter().map(|&kind| {
       return JsValue::from(match kind {
         ConfigNodeKind::Asset => "Asset",
         ConfigNodeKind::Part => "Part",
         ConfigNodeKind::Quest => "Quest",
-        ConfigNodeKind::Supply => "Supply",
-        ConfigNodeKind::Demand => "Demand",
-        ConfigNodeKind::Dock => "Dock",
         ConfigNodeKind::Machine => "Machine",
         ConfigNodeKind::Belt => "Belt",
         ConfigNodeKind::Story => "Story",
@@ -3196,13 +3193,13 @@ fn paint_supply_and_part_for_edge(options: &Options, state: &State, config: &Con
   let oy = UI_FLOOR_OFFSET_Y + CELL_H * (cy as f64);
   let supply_config_node =
     if cy == 0 {
-      CONFIG_NODE_SUPPLY_UP
+      CONFIG_NODE_ASSET_SUPPLY_UP
     } else if cx == FLOOR_CELLS_W-1 {
-      CONFIG_NODE_SUPPLY_RIGHT
+      CONFIG_NODE_ASSET_SUPPLY_RIGHT
     } else if cy == FLOOR_CELLS_H-1 {
-      CONFIG_NODE_SUPPLY_DOWN
+      CONFIG_NODE_ASSET_SUPPLY_DOWN
     } else if cx == 0 {
-      CONFIG_NODE_SUPPLY_LEFT
+      CONFIG_NODE_ASSET_SUPPLY_LEFT
     } else {
       panic!("no");
     };
@@ -3479,13 +3476,13 @@ fn paint_background_tiles1(
         // edge?
         let dock_target =
           if cy == 0 {
-            CONFIG_NODE_DOCK_UP
+            CONFIG_NODE_ASSET_DOCK_UP
           } else if cx == FLOOR_CELLS_W - 1 {
-            CONFIG_NODE_DOCK_RIGHT
+            CONFIG_NODE_ASSET_DOCK_RIGHT
           } else if cy == FLOOR_CELLS_H - 1 {
-            CONFIG_NODE_DOCK_DOWN
+            CONFIG_NODE_ASSET_DOCK_DOWN
           } else if cx == 0 {
-            CONFIG_NODE_DOCK_LEFT
+            CONFIG_NODE_ASSET_DOCK_LEFT
           } else {
             continue;
           };
@@ -4451,7 +4448,7 @@ fn paint_border_hint(options: &Options, state: &State, config: &Config, factory:
   let x = mx + (factory.edge_hint.2.0 - mx) * progress;
   let y = my + (factory.edge_hint.2.1 - my) * progress;
 
-  paint_dock_stripes(options, state, config, factory, context, CONFIG_NODE_DOCK_UP, x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
+  paint_dock_stripes(options, state, config, factory, context, CONFIG_NODE_ASSET_DOCK_UP, x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
   let px = x + (UI_WOTOM_WIDTH / 2.0) - (CELL_W / 2.0);
   let py = y + (UI_WOTOM_HEIGHT / 2.0) - (CELL_H / 2.0);
   paint_segment_part_from_config(options, state, config, context, factory.edge_hint.0, px, py, CELL_W, CELL_H);
@@ -4655,7 +4652,7 @@ fn paint_atom(
     context.set_fill_style(&MACHINE_ORANGE.into());
     context.fill_rect(x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
   } else {
-    paint_dock_stripes(options, state, config, factory, context, CONFIG_NODE_DOCK_UP, x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
+    paint_dock_stripes(options, state, config, factory, context, CONFIG_NODE_ASSET_DOCK_UP, x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
   }
 
   let px = x + (UI_WOTOM_WIDTH / 2.0) - (UI_WOTOM_ICON_SIZE / 2.0);
@@ -4710,7 +4707,7 @@ fn paint_woop(
     context.set_fill_style(&MACHINE_ORANGE.into());
     context.fill_rect(x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
   } else {
-    paint_dock_stripes(options, state, config, factory, context, CONFIG_NODE_DOCK_UP, x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
+    paint_dock_stripes(options, state, config, factory, context, CONFIG_NODE_ASSET_DOCK_UP, x, y, UI_WOTOM_WIDTH, UI_WOTOM_HEIGHT);
   }
 
   let px = x + (UI_WOTOM_WIDTH / 2.0) - (UI_WOTOM_ICON_SIZE / 2.0);
@@ -5593,11 +5590,8 @@ fn paint_asset_raw(options: &Options, state: &State, config: &Config, context: &
   let dh = dh.floor();
 
   assert!(
-    config.nodes[config_node_index].kind == ConfigNodeKind::Asset ||
-    config.nodes[config_node_index].kind == ConfigNodeKind::Dock ||
-    config.nodes[config_node_index].kind == ConfigNodeKind::Supply ||
-    config.nodes[config_node_index].kind == ConfigNodeKind::Demand
-    , "assets should refer to Asset, Dock, Supply, or Demand nodes but received index: {}, kind: {:?}, node: {:?}", config_node_index, config.nodes[config_node_index].kind, config.nodes[config_node_index]);
+    config.nodes[config_node_index].kind == ConfigNodeKind::Asset
+    , "assets should refer to Asset nodes but received index: {}, kind: {:?}, node: {:?}", config_node_index, config.nodes[config_node_index].kind, config.nodes[config_node_index]);
 
   let (spx, spy, spw, sph, canvas) = config_get_sprite_details(config, options, config_node_index, 0, ticks);
 
@@ -6286,13 +6280,13 @@ fn paint_supplier(options: &Options, state: &State, config: &Config, factory: &F
   let (x, y) = to_xy(coord);
   let supply_config_node =
     if y == 0 {
-      CONFIG_NODE_SUPPLY_UP
+      CONFIG_NODE_ASSET_SUPPLY_UP
     } else if x == FLOOR_CELLS_W-1 {
-      CONFIG_NODE_SUPPLY_RIGHT
+      CONFIG_NODE_ASSET_SUPPLY_RIGHT
     } else if y == FLOOR_CELLS_H-1 {
-      CONFIG_NODE_SUPPLY_DOWN
+      CONFIG_NODE_ASSET_SUPPLY_DOWN
     } else if x == 0 {
-      CONFIG_NODE_SUPPLY_LEFT
+      CONFIG_NODE_ASSET_SUPPLY_LEFT
     } else {
       panic!("no");
     };
@@ -6303,13 +6297,13 @@ fn paint_demander(options: &Options, state: &State, config: &Config, factory: &F
   let (x, y) = to_xy(coord);
   let demand_config_node =
     if y == 0 {
-      CONFIG_NODE_DEMAND_UP
+      CONFIG_NODE_ASSET_DEMAND_UP
     } else if x == FLOOR_CELLS_W-1 {
-      CONFIG_NODE_DEMAND_RIGHT
+      CONFIG_NODE_ASSET_DEMAND_RIGHT
     } else if y == FLOOR_CELLS_H-1 {
-      CONFIG_NODE_DEMAND_DOWN
+      CONFIG_NODE_ASSET_DEMAND_DOWN
     } else if x == 0 {
-      CONFIG_NODE_DEMAND_LEFT
+      CONFIG_NODE_ASSET_DEMAND_LEFT
     } else {
       panic!("no");
     };
