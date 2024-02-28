@@ -45,12 +45,13 @@ pub fn spriter_assets(options: &Options, state: &State, config: &Config) -> Resu
   // - remember positions
   // - write config segment
 
-  let types: Vec<ConfigNodeKind> = vec!(
-    ConfigNodeKind::Asset,
-    ConfigNodeKind::Belt,
-    ConfigNodeKind::Part
+  // (kind, init_height)
+  let types: Vec<( ConfigNodeKind, u64 )> = vec!(
+    (ConfigNodeKind::Asset, 0),
+    (ConfigNodeKind::Belt, 1000),
+    (ConfigNodeKind::Part, 500),
   );
-  for t in types {
+  for ( t, init_height ) in types {
     let mut list: Vec<(
       PartKind,
       &SpriteConfig
@@ -80,14 +81,14 @@ pub fn spriter_assets(options: &Options, state: &State, config: &Config) -> Resu
 
     // log!("result: {:?}", list);
 
-    spriter(options, state, config, list);
+    spriter(options, state, config, list, init_height);
   }
 
 
   return Ok(());
 }
 
-fn spriter(options: &Options, state: &State, config: &Config, list: Vec<(PartKind, &SpriteConfig)>) -> Result<(), JsValue> {
+fn spriter(options: &Options, state: &State, config: &Config, list: Vec<(PartKind, &SpriteConfig)>, init_height: u64) -> Result<(), JsValue> {
   // For each image, pick the smallest dimension and start trying to put it within the current canvas, left to right, top to bottom or the other way around (whichever is smaller)
   // If there's no existing hole, extend the direction that is the biggest?
 
@@ -107,7 +108,7 @@ fn spriter(options: &Options, state: &State, config: &Config, list: Vec<(PartKin
 
   let mut n = 0;
   let mut maxw: u64 = 0;
-  let mut maxh: u64 = 0;
+  let mut maxh: u64 = init_height;
   for l in 0..list_by_h.len() {
     if l == until { verbose = true; }
     if l > until { break; }
