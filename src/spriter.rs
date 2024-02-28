@@ -1,5 +1,6 @@
 use wasm_bindgen::{JsCast, JsValue};
 
+
 use super::atom::*;
 use super::auto::*;
 use super::belt::*;
@@ -46,12 +47,13 @@ pub fn spriter_assets(options: &Options, state: &State, config: &Config) -> Resu
   // - write config segment
 
   // (kind, init_height)
-  let types: Vec<( ConfigNodeKind, u64 )> = vec!(
-    (ConfigNodeKind::Asset, 0),
-    (ConfigNodeKind::Belt, 1000),
-    (ConfigNodeKind::Part, 500),
+  let types: Vec<( ConfigNodeKind, u64, &str )> = vec!(
+    (ConfigNodeKind::Asset, 0, "sprite_map_assets.png"),
+    (ConfigNodeKind::Belt, 1000, "sprite_map_belts.png"),
+    (ConfigNodeKind::Part, 500, "sprite_map_parts.png"),
   );
-  for ( t, init_height ) in types {
+  let mut strings: Vec<String> = vec!();
+  for ( t, init_height, fname ) in types {
     let mut list: Vec<(
       PartKind,
       &SpriteConfig
@@ -72,23 +74,32 @@ pub fn spriter_assets(options: &Options, state: &State, config: &Config) -> Resu
           // log!("frame {}/{} of kind {} ({}) has size: {}x{}, total width now at: {}", f+1, len, kind, node.raw_name, frame.w, frame.h, total_width);
         }
 
-        list.push((
-          kind,
-          &config.nodes[kind].sprite_config
-        ));
+        list.push(( kind,  &config.nodes[kind].sprite_config ));
       }
     }
 
     // log!("result: {:?}", list);
 
-    spriter(options, state, config, list, init_height);
+    let r = spriter(options, state, config, list, init_height, fname).expect("it to work");
+    strings.push(r);
   }
 
+
+  // let md = md.as_str();
+  let md = JsValue::from_str(&format!("const SPRITE_MAP = `\n{}\n`;\n", strings.join(" ")));
+  let md = js_sys::Array::from(&md); // Blob expects an array of strings here
+  let blob = web_sys::Blob::new_with_str_sequence(&md).unwrap();
+  let url = web_sys::Url::create_object_url_with_blob(&blob).unwrap();
+  let a = document().create_element("a")?.dyn_into::<web_sys::HtmlElement>()?;
+  a.set_inner_html(&"Download md.js");
+  a.set_attribute("href", &url);
+  a.set_attribute("download", "sprite_map.md.js");
+  document().get_element_by_id("$main_game").unwrap().append_child(&a)?;
 
   return Ok(());
 }
 
-fn spriter(options: &Options, state: &State, config: &Config, list: Vec<(PartKind, &SpriteConfig)>, init_height: u64) -> Result<(), JsValue> {
+fn spriter(options: &Options, state: &State, config: &Config, list: Vec<(PartKind, &SpriteConfig)>, init_height: u64, fname: &str) -> Result<String, JsValue> {
   // For each image, pick the smallest dimension and start trying to put it within the current canvas, left to right, top to bottom or the other way around (whichever is smaller)
   // If there's no existing hole, extend the direction that is the biggest?
 
@@ -97,8 +108,6 @@ fn spriter(options: &Options, state: &State, config: &Config, list: Vec<(PartKin
 
   let p = SPRITER_PADDING as u64;
 
-  let mut rng = xorshift(123456789);
-
   // Order the list by vertical size of their first frame (usually the same), biggest first
   let mut list_by_h = list;
   list_by_h.sort_by(|(_, a), (_, b)| b.frames[0].h.total_cmp(&a.frames[0].h));
@@ -106,7 +115,6 @@ fn spriter(options: &Options, state: &State, config: &Config, list: Vec<(PartKin
   let mut verbose = false;
   let until = 1000000; // Set high enough to act like "never"
 
-  let mut n = 0;
   let mut maxw: u64 = 0;
   let mut maxh: u64 = init_height;
   for l in 0..list_by_h.len() {
@@ -212,6 +220,7 @@ fn spriter(options: &Options, state: &State, config: &Config, list: Vec<(PartKin
   canvas.style().set_property("max-height", format!("{}px", CANVAS_CSS_INITIAL_HEIGHT as u32).as_str())?;
   // We shouldn't be scaling so I don't think this property matters here...
   canvas.style().set_property("image-rendering", "pixelated").expect("should work");
+  canvas.set_attribute("download", "fname");
 
   // // Background image on this canvas is irrelevant so slightly optimize it.
   // let context_options = js_sys::Object::new();
@@ -250,22 +259,23 @@ fn spriter(options: &Options, state: &State, config: &Config, list: Vec<(PartKin
       x, y, w, h
     ).expect("magic!");
 
-    let header_maybe = if last_kind == kind { "".to_string() } else { format!("\n# {}\n- gen\n- file: ./export.png\n", config.nodes[kind].raw_name) };
-    strings.push(format!("{}- frame: {}\n- x: {}\n- y: {}\n- w: {}\n- h: {}", header_maybe, frame_index, sprite_config.frames[frame_index].x, sprite_config.frames[frame_index].y, sprite_config.frames[frame_index].w, sprite_config.frames[frame_index].h));
+    let header_maybe = if last_kind == kind { "".to_string() } else { format!("\n# {}\n- gen\n- file: ./img/{}\n", config.nodes[kind].raw_name, fname) };
+    strings.push(format!(
+      "{}- frame: {}\n- x: {}\n- y: {}\n- w: {}\n- h: {}",
+      header_maybe, frame_index,
+      x, y, sprite_config.frames[frame_index].w, sprite_config.frames[frame_index].h
+    ));
     last_kind = kind;
 
     if options.spriter_paint_rect { context.stroke_rect(x, y, frame.w, frame.h); }
-    if options.spriter_paint_name { context.fill_text(&config.nodes[kind].raw_name, x, y + 10.0); }
+    if options.spriter_paint_name { context.fill_text(&config.nodes[kind].raw_name, x, y + 10.0).expect("it to work"); }
     n += 1;
   }
 
   log!("drew {} frames", n);
 
-  let ta = document.create_element("textarea")?.dyn_into::<web_sys::HtmlTextAreaElement>()?;
-  document.get_element_by_id("$main_game").unwrap().append_child(&ta)?;
-  ta.set_value(&strings.join("\n"));
-
-  return Ok(());
+  let md = strings.join("\n");
+  return Ok(md);
 }
 
 fn spriter_overlap(x1: u64, y1: u64, x2: u64, y2: u64, x3: u64, y3: u64, x4: u64, y4: u64) -> bool {
