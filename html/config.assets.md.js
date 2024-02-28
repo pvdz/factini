@@ -728,30 +728,30 @@ Free when with attribution
 - h: 160
 
 # Asset_CopyWhite
-- file: ./img/copy_white.png
-- w: 48
-- h: 48
+- file: ./img/copy_white_128.png
+- w: 128
+- h: 128
 # Asset_CopyGrey
-- file: ./img/copy_grey.png
-- w: 512
-- h: 512
+- file: ./img/copy_grey_128.png
+- w: 128
+- h: 128
 # Asset_CopyGreen
-- file: ./img/copy_green.png
-- w: 48
-- h: 48
+- file: ./img/copy_green_128.png
+- w: 128
+- h: 128
 
 # Asset_PasteWhite
-- file: ./img/download_white.png
-- w: 512
-- h: 512
+- file: ./img/paste_white_128.png
+- w: 128
+- h: 128
 # Asset_PasteGrey
-- file: ./img/download_grey.png
-- w: 512
-- h: 512
+- file: ./img/paste_grey_128.png
+- w: 128
+- h: 128
 # Asset_PasteGreen
-- file: ./img/download_green.png
-- w: 48
-- h: 48
+- file: ./img/paste_green_128.png
+- w: 128
+- h: 128
 
 # Asset_DrmPlaceholder
 See options.show_drm=false
@@ -760,19 +760,17 @@ See options.show_drm=false
 - h: 16
 
 # Asset_FullScreenBlack
-- file: ./img/fullscreen_black.png
-- w: 512
-- h: 512
-
+- file: ./img/fullscreen_black_128.png
+- w: 128
+- h: 128
 # Asset_FullScreenWhite
-- file: ./img/fullscreen_white.png
-- w: 512
-- h: 512
-
+- file: ./img/fullscreen_white_128.png
+- w: 128
+- h: 128
 # Asset_FullScreenGrey
-- file: ./img/fullscreen_grey.png
-- w: 512
-- h: 512
+- file: ./img/fullscreen_grey_128.png
+- w: 128
+- h: 128
 
 # Asset_PlayBlack
 - file: ./img/play_black.png
