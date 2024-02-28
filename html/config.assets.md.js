@@ -180,7 +180,7 @@ Used as parody
 
 # Asset_Manual
 - file: ./img/manual.png
-- w: 740
+- w: 649
 - h: 740
 
 # Asset_Lmb

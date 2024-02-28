@@ -38,6 +38,7 @@ pub mod prio;
 pub mod quest_state;
 pub mod quick_save;
 pub mod quest;
+pub mod spriter;
 pub mod sprite_config;
 pub mod sprite_frame;
 pub mod state;

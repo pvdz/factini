@@ -89,6 +89,7 @@ use super::quest_state::*;
 use super::quick_save::*;
 use super::quest::*;
 use super::state::*;
+use super::spriter::*;
 use super::supply::*;
 use super::truck::*;
 use super::utils::*;
@@ -1384,7 +1385,6 @@ fn update_mouse_state(
 
   // on mouse down
   if last_mouse_was_down {
-    log!("ok something down...");
     mouse_state.last_down_event_type = if state.event_type_swapped { if last_down_event_type == EventSourceType::Touch { EventSourceType::Mouse } else { EventSourceType::Touch } } else { if last_down_event_type == EventSourceType::Mouse { EventSourceType::Mouse } else { EventSourceType::Touch } };
     mouse_state.last_down_button = last_mouse_down_button;
     mouse_state.last_down_canvas_x = last_mouse_down_x;
@@ -2793,8 +2793,8 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
       }
     }
     MenuButton::Row3Button3 => {
-      log!("(Test button)");
-      log!("noop");
+      log!("Running spriter...");
+      spriter_assets(options, state, config).expect("ok(())");
     }
     MenuButton::Row3Button4 => {
       log!("Clearing the unlock status so you can start again");
@@ -5404,7 +5404,7 @@ fn paint_ui_buttons2(options: &Options, state: &State, context: &Rc<web_sys::Can
   paint_ui_button2(context, mouse_state, 0.0, if state.event_type_swapped { "Touch" } else { "Mouse" }, state.event_type_swapped, true, MenuButton::Row3Button0);
   paint_ui_button2(context, mouse_state, 1.0, "Select", state.mouse_mode_selecting, true, MenuButton::Row3Button1);
   paint_ui_button2(context, mouse_state, 2.0, if state.selected_area_copy.len() > 0{ "Stamp" } else { "Copy" }, state.selected_area_copy.len() > 0, state.mouse_mode_selecting, MenuButton::Row3Button2);
-  paint_ui_button2(context, mouse_state, 3.0, "Test", false, true, MenuButton::Row3Button3);
+  paint_ui_button2(context, mouse_state, 3.0, "Sprite", false, true, MenuButton::Row3Button3);
   paint_ui_button2(context, mouse_state, 4.0, "Again", false, true, MenuButton::Row3Button4);
   paint_ui_button2(context, mouse_state, 5.0, "Panic", false, true, MenuButton::Row3Button5);
   // paint_ui_button2(context, mouse_state, 6.0, "Panic");
@@ -6332,20 +6332,6 @@ fn request_animation_frame(f: &Closure<dyn FnMut(f64)>) {
   window()
     .request_animation_frame(f.as_ref().unchecked_ref())
     .expect("should register `requestAnimationFrame` OK");
-}
-
-fn window() -> web_sys::Window {
-  web_sys::window().expect("no global `window` exists")
-}
-fn document() -> web_sys::Document {
-  window()
-    .document()
-    .expect("should have a document on window")
-    // // Convert to a HtmlDocument, which is different (richer) from Document. Requires HtmlDocument feature in cargo.toml
-    // .dyn_into::<web_sys::HtmlDocument>().unwrap()
-}
-fn body() -> web_sys::HtmlElement {
-  document().body().expect("document should have a body")
 }
 
 fn ins_outs_to_str(list: &Vec<(Direction, usize, usize, Direction)>) -> String {

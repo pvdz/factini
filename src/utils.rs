@@ -62,6 +62,7 @@ pub fn line_check(n: f64, a: f64, b: f64) -> bool {
 }
 
 pub fn xorshift(z: usize) -> usize {
+  if z == 0 { log!("Warning: do not init xorshift with zero"); }
   // "xorshift" "prng" => https://en.wikipedia.org/wiki/Xorshift
   let z = z ^ z << 13;
   let z = z ^ z >> 17;
@@ -101,4 +102,18 @@ pub fn ease_progress(a: f64, b: f64, p: f64, ease: Ease) -> f64 {
     Ease::Out => ease_out(p),
   };
   return a + p * (b - a);
+}
+
+pub fn window() -> web_sys::Window {
+  web_sys::window().expect("no global `window` exists")
+}
+pub fn document() -> web_sys::Document {
+  window()
+    .document()
+    .expect("should have a document on window")
+  // // Convert to a HtmlDocument, which is different (richer) from Document. Requires HtmlDocument feature in cargo.toml
+  // .dyn_into::<web_sys::HtmlDocument>().unwrap()
+}
+pub fn body() -> web_sys::HtmlElement {
+  document().body().expect("document should have a body")
 }
