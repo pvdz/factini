@@ -1149,12 +1149,11 @@ fn load_config(trace_img_loader: bool, config: &mut Config) {
   else { log!("Queued up {} sprite files to load...", config.sprite_cache_canvas.len()); }
 
   {
-    let kinds: JsValue = [ConfigNodeKind::Part, ConfigNodeKind::Quest, ConfigNodeKind::Machine, ConfigNodeKind::Belt].iter().map(|&kind| {
+    let kinds: JsValue = [ConfigNodeKind::Part, ConfigNodeKind::Quest, ConfigNodeKind::Belt].iter().map(|&kind| {
       return JsValue::from(match kind {
         ConfigNodeKind::Asset => "Asset",
         ConfigNodeKind::Part => "Part",
         ConfigNodeKind::Quest => "Quest",
-        ConfigNodeKind::Machine => "Machine",
         ConfigNodeKind::Belt => "Belt",
         ConfigNodeKind::Story => "Story",
       });
@@ -3730,7 +3729,7 @@ fn paint_background_tiles3(
           if weewoo {
             paint_asset(options, state, config, context, CONFIG_NODE_ASSET_WEE_WOO, factory.ticks,
               ox + mconfig.wee_woo_x * CELL_W, oy + mconfig.wee_woo_y * CELL_H,
-              config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].w, config.nodes[CONFIG_NODE_MACHINE_3X3].sprite_config.frames[0].h
+              config.nodes[CONFIG_NODE_ASSET_WEE_WOO].sprite_config.frames[0].w, config.nodes[CONFIG_NODE_ASSET_WEE_WOO].sprite_config.frames[0].h
             );
           }
         }

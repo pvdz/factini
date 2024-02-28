@@ -38,9 +38,9 @@ pub const CONFIG_NODE_ASSET_DOCK_UP: usize = 10;
 pub const CONFIG_NODE_ASSET_DOCK_RIGHT: usize = 11;
 pub const CONFIG_NODE_ASSET_DOCK_DOWN: usize = 12;
 pub const CONFIG_NODE_ASSET_DOCK_LEFT: usize = 13;
-pub const CONFIG_NODE_MACHINE_1X1: usize = 14;
-pub const CONFIG_NODE_MACHINE_2X2: usize = 15;
-pub const CONFIG_NODE_MACHINE_3X3: usize = 16;
+pub const CONFIG_NODE_MACHINE_1X1: usize = 14; // unused
+pub const CONFIG_NODE_MACHINE_2X2: usize = 15; // unused
+pub const CONFIG_NODE_MACHINE_3X3: usize = 16; // unused
 pub const CONFIG_NODE_BELT_NONE: usize = 17;
 pub const CONFIG_NODE_BELT_UNKNOWN: usize = 18;
 pub const CONFIG_NODE_BELT_INVALID: usize = 19;
@@ -464,7 +464,6 @@ pub enum ConfigNodeKind {
   Asset,
   Part,
   Quest,
-  Machine,
   Belt,
   Story,
 }
@@ -581,13 +580,9 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
                 "Asset" => ConfigNodeKind::Asset,
                 "Quest" => ConfigNodeKind::Quest,
                 "Part" => ConfigNodeKind::Part,
-                // "Demand" => ConfigNodeKind::Demand,
-                // "Supply" => ConfigNodeKind::Supply,
-                // "Dock" => ConfigNodeKind::Dock,
-                "Machine" => ConfigNodeKind::Machine,
                 "Belt" => ConfigNodeKind::Belt,
                 "Story" => ConfigNodeKind::Story,
-                _ => panic!("Unsupported node kind. Node headers should be composed like Kind_Name and the kind can only be Quest, Part, Supply, Demand, Machine, Belt, or Dock. But it was {:?} (`{}`)", kind, rest),
+                _ => panic!("Unsupported node kind. Node headers should be composed like Kind_Name and the kind can only be Quest, Part, or Belt. But it was {:?} (`{}`)", kind, rest),
               },
               name: name.to_string(),
               raw_name: rest.to_string(),
@@ -1322,7 +1317,6 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
           ConfigNodeKind::Asset => {}
           ConfigNodeKind::Part => {}
           ConfigNodeKind::Quest => log!("  - Quest {}, quest init status: {:?}", node.raw_name, node.quest_init_status),
-          ConfigNodeKind::Machine => {}
           ConfigNodeKind::Belt => {}
           ConfigNodeKind::Story => {}
         }
@@ -1347,7 +1341,6 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
   let mut assets = 0;
   let mut parts = 0;
   let mut quests = 0;
-  let mut machines = 0;
   let mut belts = 0;
   let mut stories_count = 0;
   nodes.iter().for_each(|node| {
@@ -1355,13 +1348,12 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
       ConfigNodeKind::Asset => assets += 1,
       ConfigNodeKind::Part => parts += 1,
       ConfigNodeKind::Quest => quests += 1,
-      ConfigNodeKind::Machine => machines += 1,
       ConfigNodeKind::Belt => belts += 1,
       ConfigNodeKind::Story => stories_count += 1,
     }
   });
 
-  log!("Config has {} nodes with: {} stories, {} assets, {} parts, {} quests, {} machines, and {} belts", nodes.len(), stories_count, assets, parts, quests, machines, belts);
+  log!("Config has {} nodes with: {} stories, {} assets, {} parts, {} quests, and {} belts", nodes.len(), stories_count, assets, parts, quests, belts);
 
   // log!("parsed nodes: {:?}", &nodes[1..]);
   if trace_parse_config_md { log!("parsed map: {:?}", node_name_to_index); }
@@ -1500,7 +1492,6 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Asset_DockRight" => CONFIG_NODE_ASSET_DOCK_RIGHT,
     "Asset_DockDown" => CONFIG_NODE_ASSET_DOCK_DOWN,
     "Asset_DockLeft" => CONFIG_NODE_ASSET_DOCK_LEFT,
-    "Machine_3x3" => CONFIG_NODE_MACHINE_3X3,
     "Belt_None" => CONFIG_NODE_BELT_NONE,
     "Belt_Unknown" => CONFIG_NODE_BELT_UNKNOWN,
     "Belt_Invalid" => CONFIG_NODE_BELT_INVALID,
@@ -1790,9 +1781,9 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_asset(CONFIG_NODE_ASSET_DOCK_RIGHT, "DockRight"),
     config_node_asset(CONFIG_NODE_ASSET_DOCK_DOWN, "DockDown"),
     config_node_asset(CONFIG_NODE_ASSET_DOCK_LEFT, "DockLeft"),
-    config_node_machine(CONFIG_NODE_MACHINE_1X1, "1x1", "./img/machines/machine_1_1.png"),
-    config_node_machine(CONFIG_NODE_MACHINE_2X2, "2x2", "./img/machines/machine_2_2.png"),
-    config_node_machine(CONFIG_NODE_MACHINE_3X3, "3x3", "./img/machines/machine_3_3.png"),
+    config_node_part(CONFIG_NODE_MACHINE_1X1, "None".to_string(), ' '), // obsolete
+    config_node_part(CONFIG_NODE_MACHINE_2X2, "None".to_string(), ' '), // obsolete
+    config_node_part(CONFIG_NODE_MACHINE_3X3, "None".to_string(), ' '), // obsolete
     config_node_belt(CONFIG_NODE_BELT_NONE, "None"),
     config_node_belt(CONFIG_NODE_BELT_UNKNOWN, "Unknown"),
     config_node_belt(CONFIG_NODE_BELT_INVALID, "Invalid"),
@@ -2244,60 +2235,6 @@ fn config_node_part(index: PartKind, name: String, icon: char) -> ConfigNode {
           y: 0.0,
           w: 0.0,
           h: 0.0,
-        }
-      )
-    },
-  };
-}
-fn config_node_machine(index: PartKind, name: &str, file: &str) -> ConfigNode {
-  let raw_name = format!("Machine_{}", name);
-  return ConfigNode {
-    index,
-    story_index: 0,
-    quest_index: 0,
-    quest_init_status: QuestStatus::Waiting,
-    kind: ConfigNodeKind::Machine,
-    name: name.to_string(),
-    raw_name,
-    unlocks_after_by_name: vec!(),
-    unlocks_after_by_index: vec!(),
-    unlocks_todo_by_index: vec!(),
-    starting_part_by_name: vec!(),
-    starting_part_by_index: vec!(),
-    pattern_unique_kinds: vec!(),
-    production_target_by_name: vec!(),
-    production_target_by_index: vec!(),
-    required_by_quest_indexes: vec!(),
-    pattern_by_index: vec!(),
-    pattern_by_name: vec!(),
-    pattern_by_icon: vec!(),
-    pattern: "".to_string(),
-    icon: '?',
-    machine_width: 0,
-    machine_height: 0,
-    machine_asset_name: "Asset_Machine_3_3".to_string(),
-    machine_asset_index: CONFIG_NODE_ASSET_MACHINE_3_3,
-    special: ('n', 0),
-
-    drm: false,
-    sprite_config: SpriteConfig {
-      frame_offset: 0,
-      frame_count: 1,
-      frame_direction: SpriteConfigDirection::Right,
-      initial_delay: 10,
-      frame_delay: 0,
-      looping: true,
-      loop_delay: 0,
-      loop_backwards: false,
-      frames: vec!(
-        SpriteFrame {
-          file: file.to_string(),
-          name: "do not use me; machine".to_string(),
-          file_canvas_cache_index: 0,
-          x: 5.0,
-          y: 5.0,
-          w: 5.0,
-          h: 5.0,
         }
       )
     },
