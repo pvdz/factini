@@ -740,9 +740,17 @@ pub fn start() -> Result<(), JsValue> {
         }
       }
       if !pregame && (state.pregame || options.splash_keep_main) && !options.splash_no_main {
-        paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_SCREEN_MAIN, factory.ticks,
+
+
+        paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_SCREEN_LOADER, factory.ticks,
           100.0, 100.0,
           800.0, 600.0
+        );
+        context.set_fill_style(&"#faffff".into()); // Match background color of loader screen
+        context.fill_rect(100.0 + 126.0, 100.0 + 329.0, 173.0, 63.0); // Remove the "loading" text
+        paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_SCREEN_PLAY, factory.ticks,
+          100.0 + 88.0, 100.0 + 240.0,
+          138.0, 61.0
         );
 
         let was_up = last_mouse_was_up.get();

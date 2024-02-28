@@ -333,7 +333,7 @@ pub const CONFIG_NODE_ASSET_DOUBLE_ARROW_RIGHT: usize = 305;
 pub const CONFIG_NODE_ASSET_SINGLE_ARROW_DOWN: usize = 306;
 pub const CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT: usize = 307;
 pub const CONFIG_NODE_ASSET_SCREEN_LOADER: usize = 308;
-pub const CONFIG_NODE_ASSET_SCREEN_MAIN: usize = 309;
+pub const CONFIG_NODE_ASSET_SCREEN_PLAY: usize = 309;
 pub const CONFIG_NODE_ASSET_BUTTON_UP_1: usize = 310; // 9-slice, in order
 pub const CONFIG_NODE_ASSET_BUTTON_UP_2: usize = 311;
 pub const CONFIG_NODE_ASSET_BUTTON_UP_3: usize = 312;
@@ -1443,7 +1443,7 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Asset_QuestFrame" => CONFIG_NODE_ASSET_QUEST_FRAME,
     "Asset_DoubleArrowRight" => CONFIG_NODE_ASSET_DOUBLE_ARROW_RIGHT,
     "Asset_ScreenLoader" => CONFIG_NODE_ASSET_SCREEN_LOADER,
-    "Asset_ScreenMain" => CONFIG_NODE_ASSET_SCREEN_MAIN,
+    "Asset_ScreenPlay" => CONFIG_NODE_ASSET_SCREEN_PLAY,
     "Asset_ButtonUp1" => CONFIG_NODE_ASSET_BUTTON_UP_1,
     "Asset_ButtonUp2" => CONFIG_NODE_ASSET_BUTTON_UP_2,
     "Asset_ButtonUp3" => CONFIG_NODE_ASSET_BUTTON_UP_3,
@@ -2104,7 +2104,7 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_asset(CONFIG_NODE_ASSET_SINGLE_ARROW_DOWN, "Single_Arrow_Down"),
     config_node_asset(CONFIG_NODE_ASSET_SINGLE_ARROW_RIGHT, "Single_Arrow_Right"),
     config_node_asset(CONFIG_NODE_ASSET_SCREEN_LOADER, "Screen_Loader"),
-    config_node_asset(CONFIG_NODE_ASSET_SCREEN_MAIN, "Screen_Main"),
+    config_node_asset(CONFIG_NODE_ASSET_SCREEN_PLAY, "Screen_Main"),
     config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_1, "Button_Up_1"),
     config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_2, "Button_Up_2"),
     config_node_asset(CONFIG_NODE_ASSET_BUTTON_UP_3, "Button_Up_3"),

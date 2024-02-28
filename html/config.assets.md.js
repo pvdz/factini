@@ -31,11 +31,11 @@ This should be the cover screen. It should be at the top so it starts to load fi
 - w: 800
 - h: 571
 
-# Asset_ScreenMain
-This should be the main menu screen.
-- file: ./img/screen_main.png
-- w: 800
-- h: 571
+# Asset_ScreenPlay
+This is the "play" part for the main loading screen. We paint it over the "loading" part.
+- file: ./img/screen_play.png
+- w: 138
+- h: 61
 
 # Asset_SupplyUp
 - frame_offset: 0
