@@ -137,6 +137,9 @@ pub struct Options {
   pub dbg_show_bottom_info: bool,
   pub dbg_show_fps: bool,
 
+  pub spriter_paint_rect: bool,
+  pub spriter_paint_name: bool,
+
   pub test: u64, // just a temporary flag
 }
 
@@ -232,6 +235,9 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     dbg_show_secret_menu: true,
     dbg_show_bottom_info: true,
     dbg_show_fps: false,
+    spriter_paint_rect: false,
+    spriter_paint_name: false,
+
     test: 0,
   };
 }
@@ -428,6 +434,8 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "dbg_show_secret_menu" => options.dbg_show_secret_menu = parse_bool(value, name, strict, options.dbg_show_secret_menu, verbose),
             "dbg_show_bottom_info" => options.dbg_show_bottom_info = parse_bool(value, name, strict, options.dbg_show_bottom_info, verbose),
             "dbg_show_fps" => options.dbg_show_fps = parse_bool(value, name, strict, options.dbg_show_fps, verbose),
+            "spriter_paint_rect" => options.spriter_paint_rect = parse_bool(value, name, strict, options.spriter_paint_rect, verbose),
+            "spriter_paint_name" => options.spriter_paint_name = parse_bool(value, name, strict, options.spriter_paint_name, verbose),
             "test" => options.test = parse_u64(value, name, strict, options.test, verbose),
             _ => {
               log!("  - ignoring `{}` because it is an unknown option or because it needs to be added to the options parser", name);
@@ -532,6 +540,8 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- dbg_show_secret_menu: {}", options.dbg_show_secret_menu));
   arr.push(format!("- dbg_show_bottom_info: {}", options.dbg_show_bottom_info));
   arr.push(format!("- dbg_show_fps: {}", options.dbg_show_fps));
+  arr.push(format!("- spriter_paint_rect: {}", options.spriter_paint_rect));
+  arr.push(format!("- spriter_paint_name: {}", options.spriter_paint_name));
   arr.push(format!("- test: {}", options.test));
   return arr.join("\n");
 }

@@ -345,6 +345,9 @@ Source of cog unclear: https://pixelartmaker.com/art/b1c49e7f345d87d
 - w: 50
 - h: 50
 
+# Asset_Machine_1_1
+- unused
+
 # Asset_Machine_1_2
 - file: ./img/machines/machine_1_2.png
 - w: 64
@@ -352,6 +355,12 @@ Source of cog unclear: https://pixelartmaker.com/art/b1c49e7f345d87d
 - file: ./img/machines/machine_orange.png
 - w: 128
 - h: 128
+
+# Asset_Machine_1_3
+- unused
+
+# Asset_Machine_1_4
+- unused
 
 # Asset_Machine_2_1
 - file: ./img/machines/machine_2_1.png
@@ -369,6 +378,18 @@ Source of cog unclear: https://pixelartmaker.com/art/b1c49e7f345d87d
 - w: 128
 - h: 128
 
+# Asset_Machine_2_3
+- unused
+
+# Asset_Machine_2_4
+- unused
+
+# Asset_Machine_3_1
+- unused
+
+# Asset_Machine_3_2
+- unused
+
 # Asset_Machine_3_3
 - file: ./img/machines/machine_3_3.png
 - w: 320
@@ -376,6 +397,24 @@ Source of cog unclear: https://pixelartmaker.com/art/b1c49e7f345d87d
 - file: ./img/machines/machine_orange.png
 - w: 128
 - h: 128
+
+# Asset_Machine_3_4
+- unused
+
+# Asset_Machine_4_1
+- unused
+
+# Asset_Machine_4_2
+- unused
+
+# Asset_Machine_4_3
+- unused
+
+# Asset_Machine_4_4
+- unused
+
+# Asset_Machine_Fallback
+- unused
 
 # Asset_Factory
 - file: ./img/machines/machine_3_3.png

@@ -228,6 +228,10 @@ fn spriter(options: &Options, state: &State, config: &Config, list: Vec<(PartKin
     return frame_index1.cmp(frame_index2);
   });
 
+  context.set_fill_style(&"black".into());
+  context.set_font(&"10px monospace");
+  context.set_stroke_style(&"black".into());
+
   let mut n = 0;
   let mut strings = vec!();
   let mut last_kind = usize::MAX; // Let's never use this as a part kind ;)
@@ -249,8 +253,8 @@ fn spriter(options: &Options, state: &State, config: &Config, list: Vec<(PartKin
     strings.push(format!("{}- frame: {}\n- x: {}\n- y: {}\n- w: {}\n- h: {}", header_maybe, frame_index, sprite_config.frames[frame_index].x, sprite_config.frames[frame_index].y, sprite_config.frames[frame_index].w, sprite_config.frames[frame_index].h));
     last_kind = kind;
 
-    // context.stroke_rect(x, y, frame.w, frame.h);
-    // context.stroke_text(&config.nodes[kind].raw_name, x, y);
+    if options.spriter_paint_rect { context.stroke_rect(x, y, frame.w, frame.h); }
+    if options.spriter_paint_name { context.fill_text(&config.nodes[kind].raw_name, x, y + 10.0); }
     n += 1;
   }
 
