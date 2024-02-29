@@ -66,6 +66,7 @@ pub struct Options {
   pub dbg_paint_port_arrows: bool, // Draw the port directional arrows?
   pub paint_belts: bool, // Paint the belt background tiles?
   pub dbg_paint_belt_id: bool, // Draw the belt id on top of each belt? "dl_r" etc
+  pub dbg_paint_belt_frame_index: bool, // Draw the belt animation frame index being painted
 
   pub dbg_paint_zone_hovers: bool, // Draw a rect on the area where the mouse is detected
   pub dbg_paint_zone_borders: bool, // Draw a guide around each grid section of the ui?
@@ -179,6 +180,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     dbg_paint_port_arrows: false,
     paint_belts: true,
     dbg_paint_belt_id: false,
+    dbg_paint_belt_frame_index: false,
     dbg_paint_zone_hovers: false,
     dbg_paint_zone_borders: false,
     dbg_zone_border_color: "white".to_string(),
@@ -380,6 +382,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "dbg_paint_port_arrows" => options.dbg_paint_port_arrows = parse_bool(value, name, strict, options.dbg_paint_port_arrows, verbose),
             "paint_belts" => options.paint_belts = parse_bool(value, name, strict, options.paint_belts, verbose),
             "dbg_paint_belt_id" => options.dbg_paint_belt_id = parse_bool(value, name, strict, options.dbg_paint_belt_id, verbose),
+            "dbg_paint_belt_frame_index" => options.dbg_paint_belt_frame_index = parse_bool(value, name, strict, options.dbg_paint_belt_frame_index, verbose),
             "dbg_paint_zone_hovers" => options.dbg_paint_zone_hovers = parse_bool(value, name, strict, options.dbg_paint_zone_hovers, verbose),
             "dbg_paint_zone_borders" => options.dbg_paint_zone_borders = parse_bool(value, name, strict, options.dbg_paint_zone_borders, verbose),
             "dbg_zone_border_color" => options.dbg_zone_border_color = parse_string(value.to_string(), name, strict, options.dbg_zone_border_color.clone(), verbose),
@@ -487,6 +490,7 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- dbg_paint_port_arrows: {}", options.dbg_paint_port_arrows));
   arr.push(format!("- paint_belts: {}", options.paint_belts));
   arr.push(format!("- dbg_paint_belt_id: {}", options.dbg_paint_belt_id));
+  arr.push(format!("- dbg_paint_belt_frame_index: {}", options.dbg_paint_belt_frame_index));
   arr.push(format!("- dbg_paint_zone_hovers: {}", options.dbg_paint_zone_hovers));
   arr.push(format!("- dbg_paint_zone_borders: {}", options.dbg_paint_zone_borders));
   arr.push(format!("- dbg_zone_border_color: '{}'", options.dbg_zone_border_color));

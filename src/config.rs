@@ -2447,20 +2447,11 @@ fn config_node_story(index: PartKind, name: &str) -> ConfigNode {
   };
 }
 
-pub fn config_get_sprite_details<'x>(config: &'x Config, options: &Options, config_index: usize, sprite_start_at: u64, ticks: u64) -> (f64, f64, f64, f64, &'x web_sys::HtmlImageElement) {
-  assert!(config_index < config.nodes.len(), "config_index should be a node index: {} < {}", config_index, config.nodes.len());
-  let mut node = &config.nodes[config_index];
-  if node.drm && !options.show_drm {
-    node = &config.nodes[CONFIG_NODE_ASSET_DRM_PLACEHOLDER];
-  }
-  let sprite_config = &node.sprite_config;
-
+pub fn config_get_sprite_frame_index(config: &Config, options: &Options, sprite_config: &SpriteConfig, sprite_start_at: u64, ticks: u64) -> usize {
   let frame_offset = sprite_config.frame_offset;
-  // if CONFIG_NODE_BELT__D == config_index { log!("test: {:?}", frame_offset); }
 
   if sprite_start_at - ticks < sprite_config.initial_delay {
-    let sprite = &node.sprite_config.frames[frame_offset];
-    return ( sprite.x, sprite.y, sprite.w, sprite.h, &config.sprite_cache_canvas[sprite.file_canvas_cache_index] );
+    return frame_offset;
   }
 
   let frame_count = sprite_config.frames.len();
@@ -2481,9 +2472,19 @@ pub fn config_get_sprite_details<'x>(config: &'x Config, options: &Options, conf
   // Move pointer to compensate for starting frame
   let frame_index3 = (frame_index2 + frame_offset) % frame_count;
   // If backward then flip the index
-  let frame_index4 = if sprite_config.loop_backwards { (frame_count - 1) - frame_index2 } else { frame_index2 };
+  let frame_index4 = if sprite_config.loop_backwards { (frame_count - 1) - frame_index3 } else { frame_index3 };
 
-  let sprite = &node.sprite_config.frames[frame_index4];
+  return frame_index4;
+}
+
+pub fn config_get_sprite_details<'x>(config: &'x Config, options: &Options, config_index: usize, sprite_start_at: u64, ticks: u64) -> (f64, f64, f64, f64, &'x web_sys::HtmlImageElement) {
+  assert!(config_index < config.nodes.len(), "config_index should be a node index: {} < {}", config_index, config.nodes.len());
+  let node = &config.nodes[config_index];
+  let node = if node.drm && !options.show_drm { &config.nodes[CONFIG_NODE_ASSET_DRM_PLACEHOLDER] } else { node };
+
+  let frame_index = config_get_sprite_frame_index(config, options, &node.sprite_config, sprite_start_at, ticks);
+  let sprite = &node.sprite_config.frames[frame_index];
+
   return ( sprite.x, sprite.y, sprite.w, sprite.h, &config.sprite_cache_canvas[sprite.file_canvas_cache_index] );
 }
 
@@ -2563,6 +2564,6 @@ pub fn config_to_jsvalue(config: &Config) -> JsValue {
   }).collect::<js_sys::Array>().into();
 }
 
-pub fn config_get_sprite_for_belt_type<'x>(config: &'x Config, options: &Options, belt_type: BeltType, sprite_start_at: u64, ticks: u64) -> (f64, f64, f64, f64, &'x web_sys::HtmlImageElement) {
+pub fn config_get_sprite_for_belt_type<'x>(config: &'x Config, options: &Options, belt_type: BeltType, sprite_start_at: u64, ticks: u64) -> ( f64, f64, f64, f64, &'x web_sys::HtmlImageElement ) {
   return config_get_sprite_details(config, options, belt_type as usize, sprite_start_at, ticks);
 }

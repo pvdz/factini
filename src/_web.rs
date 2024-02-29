@@ -3,7 +3,6 @@
 
 // Bug
 // - creating a demander and deleting it isa crash?
-// - frame_offset ignored?
 
 // Compile with --profile to try and get some sense of shit
 
@@ -3821,25 +3820,16 @@ fn paint_port_arrows(options: &Options, state: &State, config: &Config, context:
   }
 }
 fn paint_belt_debug(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory) {
-  if !options.dbg_paint_belt_id {
-    return;
-  }
+  if options.dbg_paint_belt_id {
+    context.set_fill_style(&"white".into());
 
-  // "draw arrows"
-  context.set_stroke_style(&"white".into());
+    // Adjust for font size such that it gets centered. API falls a little short in this regard.
+    let font_centering_delta_x: f64 = -5.0;
+    let font_centering_delta_y: f64 = 4.0;
 
-  // Adjust for font size such that it gets centered. API falls a little short in this regard.
-  let font_centering_delta_x: f64 = -5.0;
-  let font_centering_delta_y: f64 = 4.0;
-
-  for coord in 0..FLOOR_CELLS_WH {
-    let (x, y) = to_xy(coord);
-    if factory.floor[coord].kind != CellKind::Empty {
-      // For each cell only paint the right and bottom port
-      // Otherwise we're just gonna paint each port twice
-
+    for coord in 0..FLOOR_CELLS_WH {
       if factory.floor[coord].kind == CellKind::Belt {
-        context.set_fill_style(&"white".into());
+        let (x, y) = to_xy(coord);
         let mut wat = factory.floor[coord].belt.meta.dbg.split('_');
         // let prefix = wat.next().unwrap();
         let ins = wat.next().or(Some("")).unwrap().trim();
@@ -3851,6 +3841,31 @@ fn paint_belt_debug(options: &Options, state: &State, config: &Config, context: 
       }
     }
   }
+  if options.dbg_paint_belt_frame_index {
+    context.set_fill_style(&"white".into());
+
+    // Adjust for font size such that it gets centered. API falls a little short in this regard.
+    let font_centering_delta_x: f64 = 12.0;
+    let font_centering_delta_y: f64 = 20.0;
+
+    for coord in 0..FLOOR_CELLS_WH {
+      if factory.floor[coord].kind == CellKind::Belt {
+        let (x, y) = to_xy(coord);
+
+        let belt_type = factory.floor[coord].belt.meta.btype;
+
+        let node = &config.nodes[belt_type as usize];
+        let node = if node.drm && !options.show_drm { &config.nodes[CONFIG_NODE_ASSET_DRM_PLACEHOLDER] } else { node };
+
+        let sprite_start_at = factory.floor[coord].belt.sprite_start_at;
+        let sprite_config = &node.sprite_config;
+        let frame_index = config_get_sprite_frame_index(config, options, sprite_config, sprite_start_at, factory.ticks);
+
+        context.fill_text(format!("{}", frame_index).as_str(), UI_FLOOR_OFFSET_X + (x as f64) * CELL_W + font_centering_delta_x, UI_FLOOR_OFFSET_Y + (y as f64) * CELL_H + font_centering_delta_y).expect("should work");
+      }
+    }
+  }
+
 }
 fn paint_mouse_cursor(options: &Options, state: &State, config: &Config, factory: &Factory, context: &Rc<web_sys::CanvasRenderingContext2d>, mouse_state: &MouseState) {
   // paint_mouse_position
@@ -5580,7 +5595,7 @@ fn paint_segment_part_from_config_bug(options: &Options, state: &State, config: 
   if config.nodes[part_kind].unused { log!("Warning: Part {} was marked as unused but painted anyways...", config.nodes[part_kind].raw_name); }
   assert!(config.nodes[part_kind].kind == ConfigNodeKind::Part, "segment parts should refer to part nodes but received index: {}, kind: {:?}, node: {:?}", part_kind, config.nodes[part_kind].kind, config.nodes[part_kind]);
 
-  let (spx, spy, spw, sph, canvas) = part_to_sprite_coord_from_config(config, options, part_kind);
+  let (spx, spy, spw, sph, canvas ) = part_to_sprite_coord_from_config(config, options, part_kind);
   if bug { log!("meh? {} {} {} {}: {:?} --> {:?}", spx, spy, spw, sph, part_kind, config.nodes[part_kind]); }
 
   context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
@@ -5624,7 +5639,7 @@ fn paint_asset_raw(options: &Options, state: &State, config: &Config, context: &
     config.nodes[config_node_index].kind == ConfigNodeKind::Asset
     , "assets should refer to Asset nodes but received index: {}, kind: {:?}, node: {:?}", config_node_index, config.nodes[config_node_index].kind, config.nodes[config_node_index]);
 
-  let (spx, spy, spw, sph, canvas) = config_get_sprite_details(config, options, config_node_index, 0, ticks);
+  let (spx, spy, spw, sph, canvas ) = config_get_sprite_details(config, options, config_node_index, 0, ticks);
 
   context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
     &canvas,
@@ -6297,7 +6312,7 @@ fn paint_belt_tile(options: &Options, state: &State, config: &Config, context: &
   let dw = dw.floor();
   let dh = dh.floor();
 
-  let (spx, spy, spw, sph, canvas) = config_get_sprite_for_belt_type(config, options, belt_type, sprite_start_at, ticks);
+  let (spx, spy, spw, sph, canvas ) = config_get_sprite_for_belt_type(config, options, belt_type, sprite_start_at, ticks);
 
   context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
     &canvas,

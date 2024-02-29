@@ -145,7 +145,7 @@ Note: These belt names are hardcoded.
 - h: 32
 
 # Belt__D
-- frame_offset: 4
+- frame_offset: 6
 - frame_delay: 156
 - frame: 1
   - file: ./img/belt/anim/_d.png
