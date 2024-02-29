@@ -18,13 +18,13 @@ use super::truck::*;
 use super::utils::*;
 use super::log;
 
-pub fn init(options: &mut Options, config: &mut Config, map_str: String) -> ( State, Factory ) {
+pub fn init(options: &mut Options, config: &mut Config, map_str: String, is_debug: bool) -> ( State, Factory ) {
   // General app state
   let mut state = state_create(options, config.initial_active_story_index);
 
   let mut factory = create_factory(options, &mut state, config, map_str);
-  log!("available_atoms (4): {:?}", factory.available_atoms.iter().map(|(p, b)| config.nodes[*p].raw_name.clone()).collect::<Vec<String>>());
-  log!("available_woops (4): {:?}", factory.available_woops.iter().map(|(p, b)| config.nodes[*p].raw_name.clone()).collect::<Vec<String>>());
+  if is_debug { log!("available_atoms (4): {:?}", factory.available_atoms.iter().map(|(p, b)| config.nodes[*p].raw_name.clone()).collect::<Vec<String>>()); }
+    if is_debug { log!("available_woops (4): {:?}", factory.available_woops.iter().map(|(p, b)| config.nodes[*p].raw_name.clone()).collect::<Vec<String>>()); }
 
   factory.changed = true; // Store the initial map
 

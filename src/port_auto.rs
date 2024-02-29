@@ -122,7 +122,7 @@ pub fn auto_ins_outs_floor(options: &Options, state: &mut State, config: &Config
   // Clear .ins and .outs and discover them for the entire floor.
   // Only checks own ports, not if they're actually connected.
 
-  log!("auto_ins_outs_floor()");
+  if state.is_debug { log!("auto_ins_outs_floor()"); }
 
   for coord in 0..FLOOR_CELLS_WH {
     floor[coord].ins.clear();
@@ -619,7 +619,7 @@ fn auto_port_convert_machine_unknown_to(options: &Options, state: &mut State, fa
 }
 
 pub fn keep_auto_porting(options: &Options, state: &mut State, factory: &mut Factory) {
-  log!("keep_auto_porting(options.trace_porting_step = {})", options.trace_porting_step);
+  if state.is_debug { log!("keep_auto_porting(options.trace_porting_step = {})", options.trace_porting_step); }
   // Start at demands, mark connected belts
   // From connected belts, mark any other connected belt if it is connected to only one unmarked
   // belt. If it is connected to a machine or belt with no unmarked neighbors, then it is looping.

@@ -88,7 +88,7 @@ pub struct MazeRunner {
   pub volume_now: u64, // absolute number of gold pieces you are carrying
 }
 
-pub fn create_maze(seed: u64) -> Vec<MazeCell> {
+pub fn create_maze(options: &Options, state: &State, seed: u64) -> Vec<MazeCell> {
   let mut z: usize = seed as usize;
   let mut n = 0;
   let mut vertices = [(); VERTICE_COUNT].map(|_| {
@@ -212,7 +212,7 @@ pub fn create_maze(seed: u64) -> Vec<MazeCell> {
   // of each of those sections to fill with the special.
   // Specials could be bonuses, points, or obstacles. TBD.
 
-  log!("MAX_ROCK_COUNT={} MAX_TREASURE_COUNT={} vertices.len()={}", MAX_ROCK_COUNT, MAX_TREASURE_COUNT, vertices.len());
+  if options.trace_maze { log!("maze: MAX_ROCK_COUNT={} MAX_TREASURE_COUNT={} vertices.len()={}", MAX_ROCK_COUNT, MAX_TREASURE_COUNT, vertices.len()); }
 
   let len = vertices.len();
   let mut n = 0;
@@ -285,7 +285,7 @@ pub fn tick_maze(options: &mut Options, state: &mut State, config: &Config, fact
       let ( e, s, p, v) = factory.maze_prep;
       if e >= 10 && s >= 10 && p >= 10 && v >= 10 {
         if !options.enable_maze_full {
-          log!("Have at least one in each bar. Now enabling the full maze");
+          if options.trace_maze { log!("Have at least one in each bar. Now enabling the full maze"); }
           state_set_ui_unlock_progress(options, state, 6);
           factory.changed = true; // Store unlock stage in map
         }
@@ -319,7 +319,7 @@ pub fn tick_maze(options: &mut Options, state: &mut State, config: &Config, fact
 
   if factory.maze_runner.maze_restart_at > 0 {
     if factory.ticks - factory.maze_runner.maze_restart_at > maze_get_refuel_time(options) {
-      log!("Maze runner finished refueling. Starting new run");
+      if options.trace_maze { log!("Maze runner finished refueling. Starting new run"); }
       // Start the next maze runner.
 
       let ( e, s, p, v ) = factory.fuel_in_flight;
@@ -337,7 +337,7 @@ pub fn tick_maze(options: &mut Options, state: &mut State, config: &Config, fact
       factory.maze_runner.x = 0;
       factory.maze_runner.y = 0;
 
-      factory.maze = create_maze(factory.maze_seed);
+      factory.maze = create_maze(options, state, factory.maze_seed);
 
       factory.fuel_in_flight = ( 0, 0, 0, 0 );
     }
@@ -347,7 +347,7 @@ pub fn tick_maze(options: &mut Options, state: &mut State, config: &Config, fact
   if factory.maze_runner.energy_now > 0 {
     factory.maze_runner.energy_now -= 1;
     if factory.maze_runner.energy_now == 0 {
-      log!("Maze runner ran out of energy... {}", factory.maze_runner.energy_now);
+      if options.trace_maze { log!("Maze runner ran out of energy... {}", factory.maze_runner.energy_now); }
       factory.maze_runner.maze_finish_at = factory.ticks;
     }
   }
@@ -365,19 +365,19 @@ pub fn tick_maze(options: &mut Options, state: &mut State, config: &Config, fact
     let can_down = factory.maze[index].has_down && factory.maze[factory.maze[index].down_index].up && factory.maze[factory.maze[index].down_index].state < 255 && (has_power || factory.maze[factory.maze[index].down_index].special != MAZE_ROCK);
     let can_left = factory.maze[index].has_left && factory.maze[index].left && factory.maze[factory.maze[index].left_index].state < 255 && (has_power || factory.maze[factory.maze[index].left_index].special != MAZE_ROCK);
 
-    // log!("maze runner @ {}: can go up: {}, right: {}, down: {}, left: {}", index, can_up, can_right, can_down, can_left);
+    // if options.trace_maze { log!("maze runner @ {}: can go up: {}, right: {}, down: {}, left: {}", index, can_up, can_right, can_down, can_left); }
 
-    let mut options = vec!();
+    let mut ways = vec!();
     let mut min = 255;
     let mut sum = 0;
     if can_up {
       sum += 1;
       if factory.maze[factory.maze[index].up_index].state <= min {
         if factory.maze[factory.maze[index].up_index].state < min {
-          options = vec!(0);
+          ways = vec!(0);
           min = factory.maze[factory.maze[index].up_index].state;
         } else {
-          options.push(0);
+          ways.push(0);
         }
       }
     }
@@ -385,10 +385,10 @@ pub fn tick_maze(options: &mut Options, state: &mut State, config: &Config, fact
       sum += 1;
       if factory.maze[factory.maze[index].right_index].state <= min {
         if factory.maze[factory.maze[index].right_index].state < min {
-          options = vec!(1);
+          ways = vec!(1);
           min = factory.maze[factory.maze[index].right_index].state;
         } else {
-          options.push(1);
+          ways.push(1);
         }
       }
     }
@@ -396,10 +396,10 @@ pub fn tick_maze(options: &mut Options, state: &mut State, config: &Config, fact
       sum += 1;
       if factory.maze[factory.maze[index].down_index].state <= min {
         if factory.maze[factory.maze[index].down_index].state < min {
-          options = vec!(2);
+          ways = vec!(2);
           min = factory.maze[factory.maze[index].down_index].state;
         } else {
-          options.push(2);
+          ways.push(2);
         }
       }
     }
@@ -407,21 +407,21 @@ pub fn tick_maze(options: &mut Options, state: &mut State, config: &Config, fact
       sum += 1;
       if factory.maze[factory.maze[index].left_index].state <= min {
         if factory.maze[factory.maze[index].left_index].state < min {
-          options = vec!(3);
+          ways = vec!(3);
           // min = factory.maze[factory.maze[index].left_index].state;
         } else {
-          options.push(3);
+          ways.push(3);
         }
       }
     }
 
     if sum == 0 {
-      log!("Maze runner got stuck!!");
+      if options.trace_maze { log!("Maze runner got stuck!!"); }
       factory.maze[index].state = 255;
       factory.maze_runner.maze_finish_at = factory.ticks;
     } else {
       if sum <= 1 {
-        // log!("maze runner - marking {} as dead end", index);
+        // if options.trace_maze { log!("maze runner - marking {} as dead end", index); }
         // Dead end. Go back if possible. Otherwise we don't move.
         factory.maze[index].state = 255;
       } else {
@@ -430,7 +430,7 @@ pub fn tick_maze(options: &mut Options, state: &mut State, config: &Config, fact
         }
       }
 
-      let offset = options[(factory.ticks as usize) % options.len()];
+      let offset = ways[(factory.ticks as usize) % ways.len()];
       if offset == 0 {
         factory.maze_runner.y -= 1;
       } else if offset == 1 {

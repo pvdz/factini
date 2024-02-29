@@ -52,16 +52,16 @@ pub fn port_disconnect_cell(options: &Options, state: &State, config: &Config, f
       Direction::Left => cell_set_port_l_to(options, state, config, factory, coord, Port::None, ocoord),
     }
 
-    change_none_belt_to_empty_cell(config, factory, coord);
-    change_none_belt_to_empty_cell(config, factory, ocoord);
+    change_none_belt_to_empty_cell(state, config, factory, coord);
+    change_none_belt_to_empty_cell(state, config, factory, ocoord);
   }
 
   belt_receive_part(factory, coord, Direction::Up, part_none(config));
 }
-pub fn change_none_belt_to_empty_cell(config: &Config, factory: &mut Factory, coord: usize) {
+pub fn change_none_belt_to_empty_cell(state: &State, config: &Config, factory: &mut Factory, coord: usize) {
   if factory.floor[coord].kind == CellKind::Belt && factory.floor[coord].belt.meta.btype == BeltType::NONE {
     // TOFIX: this should be done in a special step during the factory.changed check
-    log!("change_none_belt_to_empty_cell: changing @{} to empty cell because it is a none belt", coord);
+    if state.is_debug { log!("change_none_belt_to_empty_cell: changing @{} to empty cell because it is a none belt", coord); }
     let (x, y) = to_xy(coord);
     factory.floor[coord] = empty_cell(config, x, y);
     factory.changed = true;

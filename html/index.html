@@ -19,6 +19,7 @@
   var queuedAction = '';
   var queuedPaste = '';
 
+  function getPage() { return 'index.html'; }
   // Exports
   function getGameConfig() { return GAME_CONFIG_ASSETS + GAME_CONFIG_BELTS + CONFIG_BUCKET_QUEST + SPRITE_MAP; }
   function getGameMap() { return GAME_MAP; }
@@ -73,7 +74,12 @@
       navigator
         .clipboard
         .writeText(str)
-        .then((ok) => console.log('(js) copyToClipboard ok:', ok), (err) => console.log('(js) copyToClipboard err:', err));
+        .then(
+          (ok) => {
+            //console.log('(js) copyToClipboard ok:', ok);
+          },
+          (err) => console.log('(js) copyToClipboard err:', err),
+        );
       return true;
     } catch (e) {
       console.log('(js) copyToClipboard threw error:', e);
@@ -83,17 +89,17 @@
 </script>
 <script type="module">
   Error.stackTraceLimit = Infinity;
-  console.log('(html) start');
+  //console.log('(html) start');
   import('../pkg/factini.js').then(x => {
-    console.log('(html) loaded, starting Factini now');
+    //console.log('(html) loaded, starting Factini now');
     x.default();
   }, (e) => console.error(e));
-  console.log('(html) after import');
+  //console.log('(html) after import');
 
   window.addEventListener('paste', e => {
     // Ironically, this works fine even in firefox. :shrug:
     e.preventDefault();
-    console.log('(js) received paste event with', e.clipboardData?.items?.length, 'items');
+    //console.log('(js) received paste event with', e.clipboardData?.items?.length, 'items');
     e.clipboardData.items[0].getAsString(s => {
       queuedPaste = s;
       queuedAction = 'paste';
@@ -103,7 +109,7 @@
   window.addEventListener('copy', e => {
     // Ironically, this works fine even in firefox. :shrug:
     e.preventDefault();
-    console.log('(js) received copy event');
+    //console.log('(js) received copy event');
     queuedAction = 'copy';
   });
 </script>

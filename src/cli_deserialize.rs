@@ -29,7 +29,7 @@ const SPACE: &char = &' ';
 
 pub fn floor_from_str(options: &Options, state: &mut State, config: &Config, str: &String) -> ( [Cell; FLOOR_CELLS_WH], Vec<PartKind>, Vec<String>, u8, u64, usize ) {
   if str.trim().len() == 0 {
-    return ( floor_empty(config), vec!(), vec!(), 0, 0, state.active_story_index );
+    return ( floor_empty(options, state, config), vec!(), vec!(), 0, 0, state.active_story_index );
   }
 
   // Require a Factini header and proper map here. User input should handle an error sooner.
@@ -133,7 +133,7 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
 
   let mut seed: u64 = 0;
   let mut story_index = state.active_story_index;
-  let mut floor: [Cell; FLOOR_CELLS_WH] = floor_empty(config);
+  let mut floor: [Cell; FLOOR_CELLS_WH] = floor_empty(options, state, config);
   let mut finished_quests: Vec<String> = vec!();
   let mut map_unlocked_parts: Vec<PartKind> = vec!();
 
@@ -321,7 +321,7 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
               };
             // The speed and cooldown of the supply have to be added below the floor so use placeholder values for now; TODO: wire that up
             if options.trace_map_parsing { log!("Supply"); }
-            let cell = supply_cell(config, i, j, part_c(config, 't'), options.default_supply_speed, options.default_supply_cooldown, 1);
+            let cell = supply_cell(state, config, i, j, part_c(config, 't'), options.default_supply_speed, options.default_supply_cooldown, 1);
             floor[coord] = cell;
             if options.trace_map_parsing { log!("This was a supplier"); }
           }
@@ -861,7 +861,7 @@ fn str_to_floor(options: &Options, state: &mut State, config: &Config, str: &Str
               let c = line.next().or(Some('#')).unwrap();
               if c >= '0' && c <= '9' {
                 ui_unlock_progress = (c as u8) - ('0' as u8);
-                log!("  - Progress starts at {}", ui_unlock_progress);
+                if options.trace_map_parsing { log!("  - Unlock progress starts at step {}", ui_unlock_progress); }
               } else {
                 panic!("The @ should be followed by a digit, found `{}` ({}), at line {}", c, c as u8, line_no);
               }

@@ -143,8 +143,8 @@ fn should_be_marked_for_cell_sorting_non_machine(options: &Options, cell: &Cell,
   }
 }
 
-pub fn create_prio_list(options: &Options, config: &Config, floor: &mut [Cell; FLOOR_CELLS_WH]) -> Vec<usize> {
-  log!("create_prio_list()... options.trace_priority_step={}", options.trace_priority_step);
+pub fn create_prio_list(options: &Options, state: &State, config: &Config, floor: &mut [Cell; FLOOR_CELLS_WH]) -> Vec<usize> {
+  if state.is_debug { log!("create_prio_list()... options.trace_priority_step={}", options.trace_priority_step); }
   // Collect cells by marking them and putting their coords in a vec. In the end the vec must have
   // all non-empty cells and the factory game tick should traverse cells in that order. This way
   // you work around the belt wanting to unload onto another belt that is currently full but would

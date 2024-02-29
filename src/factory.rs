@@ -111,7 +111,7 @@ pub fn create_factory(options: &mut Options, state: &mut State, config: &mut Con
     edge_hint: (CONFIG_NODE_PART_NONE, (0.0, 0.0), (0.0, 0.0), 0, 0),
     quests,
     quest_updated: true,
-    maze: create_maze(maze_seed),
+    maze: create_maze(options, state, maze_seed),
     maze_seed,
     maze_runner: create_maze_runner(0, 0),
     maze_prep: (0, 0, 0, 0),
@@ -127,8 +127,8 @@ pub fn create_factory(options: &mut Options, state: &mut State, config: &mut Con
 
   auto_layout(options, state, config, &mut factory);
   auto_ins_outs(options, state, config, &mut factory);
-  factory.machines = factory_collect_machines(&factory.floor);
-  let prio = create_prio_list(options, config, &mut factory.floor);
+  factory.machines = factory_collect_machines(state, &factory.floor);
+  let prio = create_prio_list(options, state, config, &mut factory.floor);
 
   factory.prio = prio;
   factory.changed = false;
@@ -402,8 +402,8 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
               if factory.quests[quest_index].production_part_kind == received_part_kind {
                 factory.quests[quest_index].production_progress += received_count;
                 if factory.quests[quest_index].production_progress >= factory.quests[quest_index].production_target {
-                  log!("quest_update_status: production progress exceeds target, we finished {}", config.nodes[factory.quests[quest_index].config_node_index].raw_name);
-                  quest_update_status(factory, quest_index, QuestStatus::FadingAndBouncing, factory.ticks);
+                  if options.trace_quest_status { log!("quest_update_status: production progress exceeds target, we finished {}", config.nodes[factory.quests[quest_index].config_node_index].raw_name); }
+                  quest_update_status(options, factory, quest_index, QuestStatus::FadingAndBouncing, factory.ticks);
                   factory.quests[quest_index].bouncer.bounce_from_index = visible_index;
                   factory.quests[quest_index].bouncer.bouncing_at = factory.ticks;
                 }
@@ -423,8 +423,8 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
 
               let fade_progress = ((factory.ticks - factory.quests[quest_index].status_at) as f64 / QUEST_FADE_TIME as f64).min(1.0);
               if fade_progress >= 1.0 {
-                log!("quest_update_status: fade finished {}", config.nodes[factory.quests[quest_index].config_node_index].raw_name);
-                quest_update_status(factory, quest_index, QuestStatus::Finished, factory.ticks);
+                if options.trace_quest_status { log!("quest_update_status: fade finished {}", config.nodes[factory.quests[quest_index].config_node_index].raw_name); }
+                quest_update_status(options, factory, quest_index, QuestStatus::Finished, factory.ticks);
                 update_game_ui_after_quest_finish(options, state);
                 factory.changed = true; // Update saved map
               }
@@ -446,20 +446,20 @@ pub fn factory_collect_stats(config: &Config, options: &mut Options, state: &mut
 
 pub fn update_game_ui_after_quest_finish(options: &mut Options, state: &mut State) {
   if state.ui_unlock_progress == 0 {
-    log!("Moving to UI stage 1; {} {} {}", options.enable_speed_menu, options.enable_quick_save_menu, options.enable_maze_full);
+    if state.is_debug { log!("Moving to UI stage 1; {} {} {}", options.enable_speed_menu, options.enable_quick_save_menu, options.enable_maze_full); }
     state_set_ui_unlock_progress(options, state, 1);
   }
   else if state.ui_unlock_progress == 2 {
-    log!("Moving to UI stage 2");
+    if state.is_debug { log!("Moving to UI stage 2"); }
     state_set_ui_unlock_progress(options, state, 3);
   }
   else if state.ui_unlock_progress == 4 {
     // TODO: Probably want the user to use a bigger machine for that
     // TODO: should first unlock the meter. The maze should unlock once each input on the meter has at least one bar.
-    log!("Moving to UI stage 3");
+    if state.is_debug { log!("Moving to UI stage 4"); }
     state_set_ui_unlock_progress(options, state, 5);
   } else {
-    log!("Increasing if state.ui_unlock_progress from {} to {}", state.ui_unlock_progress, state.ui_unlock_progress + 1);
+    if state.is_debug { log!("Increasing if state.ui_unlock_progress from {} to {}", state.ui_unlock_progress, state.ui_unlock_progress + 1); }
     state_set_ui_unlock_progress(options, state, state.ui_unlock_progress + 1);
   }
   // Note: enable_maze_full is set once you have at least one cell in all four bars
@@ -491,9 +491,9 @@ pub fn factory_load_map(options: &mut Options, state: &mut State, config: &mut C
   if options.trace_quest_status { log!("new current_active_quests: {:?}", factory.quests.iter().map(|quest| config.nodes[quest.config_node_index as usize].name.clone()).collect::<Vec<String>>().join(", ")); }
   auto_layout(options, state, config, factory);
   auto_ins_outs(options, state, config, factory);
-  factory.machines = factory_collect_machines(&factory.floor);
+  factory.machines = factory_collect_machines(state, &factory.floor);
   // TODO: I think we can move this (and other steps) to the factory.changed steps but there's some time between this place and the changed place
-  let prio = create_prio_list(options, config, &mut factory.floor);
+  let prio = create_prio_list(options, state, config, &mut factory.floor);
   factory.prio = prio;
   factory.changed = true;
   state.reset_next_frame = false;
@@ -517,7 +517,7 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
       let fade_progress = ((factory.ticks - factory.quests[quest_current_index].status_at) as f64 / (QUEST_FADE_TIME as f64 * options.speed_modifier_ui)).min(1.0);
       if fade_progress >= 1.0 {
         if options.trace_quest_status { log!("quest_update_status: fade also finished {}", config.nodes[factory.quests[quest_current_index].config_node_index].raw_name); }
-        quest_update_status(factory, quest_current_index, QuestStatus::Bouncing, factory.ticks);
+        quest_update_status(options, factory, quest_current_index, QuestStatus::Bouncing, factory.ticks);
       }
     }
 
@@ -536,7 +536,7 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
       // TODO: remove from tick loop and move to paint loop
       if factory.quests[quest_current_index].status == QuestStatus::Bouncing && factory.quests[quest_current_index].bouncer.frames.len() == 0 {
         if options.trace_quest_status { log!("Quest {} ({}) finished bouncing. Marking as Finished", quest_current_index, factory.quests[quest_current_index].name); }
-        quest_update_status(factory, quest_current_index, QuestStatus::Finished, factory.ticks);
+        quest_update_status(options, factory, quest_current_index, QuestStatus::Finished, factory.ticks);
         update_game_ui_after_quest_finish(options, state);
         factory.changed = true;
 
@@ -562,12 +562,14 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
               factory.quests[quest_unlock_search_index].unlocks_todo.remove(unlock_index);
               if options.trace_quest_status { log!("  - this quest depends on it, checking if it's still waiting for other quests to complete... {:?}", factory.quests[quest_unlock_search_index].unlocks_todo.iter().map(|index| factory.quests[*index].name.clone()).collect::<Vec<String>>()); }
               if factory.quests[quest_unlock_search_index].unlocks_todo.len() == 0 {
-                log!("quest_update_status: unlocks todo is zero so it goes brrr {}; targets {:?} unlocks {:?}",
-                  config.nodes[factory.quests[quest_unlock_search_index].config_node_index].raw_name,
-                  config.nodes[factory.quests[quest_unlock_search_index].config_node_index].production_target_by_index,
-                  config.nodes[factory.quests[quest_unlock_search_index].config_node_index].starting_part_by_index
-                );
-                quest_update_status(factory, quest_unlock_search_index, QuestStatus::Active, factory.ticks);
+                if options.trace_quest_status {
+                  log!("quest_update_status: unlocks todo is zero so it goes brrr {}; targets {:?} unlocks {:?}",
+                    config.nodes[factory.quests[quest_unlock_search_index].config_node_index].raw_name,
+                    config.nodes[factory.quests[quest_unlock_search_index].config_node_index].production_target_by_index,
+                    config.nodes[factory.quests[quest_unlock_search_index].config_node_index].starting_part_by_index
+                  );
+                }
+                quest_update_status(options, factory, quest_unlock_search_index, QuestStatus::Active, factory.ticks);
                 // Add target parts to the new list
                 for i in 0..config.nodes[factory.quests[quest_unlock_search_index].config_node_index].production_target_by_index.len() {
                   let part = config.nodes[factory.quests[quest_unlock_search_index].config_node_index].production_target_by_index[i].1;
@@ -619,12 +621,12 @@ pub fn factory_tick_bouncers(options: &mut Options, state: &mut State, config: &
           }
         }
 
-        log!("Creating trucks for these new parts: {:?}", new_parts);
+        if state.is_debug { log!("Creating trucks for these new parts: {:?}", new_parts); }
 
         // We now have a set of available quests and any starting parts that they enabled.
         // Let's create quests and trucks for them and add them to the lists.
         new_parts.iter().enumerate().for_each(|(index, &new_part_kind)| {
-          log!("Adding truck {} for {}", index, new_part_kind);
+          if state.is_debug { log!("Adding truck {} for {}", index, new_part_kind); }
           factory.trucks.push(truck_create(
             factory.ticks,
             (((index + 1) as f64 * ONE_SECOND as f64) * options.speed_modifier_floor) as u64,
@@ -650,14 +652,14 @@ pub fn factory_tick_trucks(options: &mut Options, state: &mut State, config: &Co
     if factory.trucks[t].delay > 0 {
       factory.trucks[t].delay -= 1;
       if factory.trucks[t].delay == 0 {
-        log!("Okay! truck {} is now ready to go!", t);
+        if state.is_debug { log!("Okay! truck {} is now ready to go!", t); }
         factory.trucks[t].created_at = factory.ticks;
       }
     }
   }
 }
 
-pub fn factory_collect_machines(floor: &[Cell; FLOOR_CELLS_WH]) -> Vec<usize> {
+pub fn factory_collect_machines(state: &State, floor: &[Cell; FLOOR_CELLS_WH]) -> Vec<usize> {
   let mut unique = 0;
   let machines =
     floor
@@ -673,7 +675,7 @@ pub fn factory_collect_machines(floor: &[Cell; FLOOR_CELLS_WH]) -> Vec<usize> {
     .map(|(index, cell)| { return index; })
     .collect::<Vec<usize>>();
 
-  log!("factory_collect_machines(): cells: {}, unique: {}", machines.len(), unique);
+  if state.is_debug { log!("factory_collect_machines(): cells: {}, unique: {}", machines.len(), unique); }
 
   return machines;
 }
@@ -708,7 +710,7 @@ pub fn set_edge_to_part(options: &Options, state: &State, config: &Config, facto
     // Must be supply or demand
     // We should be able to replace this one with the new tile without having to update
     // the neighbors (if any). We do have to update the prio list (in case demand->supply).
-    log!(" - Removing old edge cell...");
+    if state.is_debug { log!(" - Removing old edge cell..."); }
     floor_delete_cell_at_partial(options, state, config, factory, coord);
   }
 
@@ -717,9 +719,9 @@ pub fn set_edge_to_part(options: &Options, state: &State, config: &Config, facto
 
 pub fn set_empty_edge_to_supplier(options: &Options, state: &State, config: &Config, factory: &mut Factory, dragged_part_kind: PartKind, coord: usize, dir: Direction) {
   // Note: this does not deal with existing state and it does not (re)connect the demander to the neighbor belt. Caller must do this.
-  log!("set_empty_edge_to_supplier(@{}, {:?}, {})", coord, dir, dragged_part_kind);
+  if state.is_debug { log!("set_empty_edge_to_supplier(@{}, {:?}, {})", coord, dir, dragged_part_kind); }
   let (x, y) = to_xy(coord);
-  factory.floor[coord] = supply_cell(config, x, y, part_from_part_kind(config, dragged_part_kind), options.default_supply_speed, options.default_supply_cooldown, 1);
+  factory.floor[coord] = supply_cell(state, config, x, y, part_from_part_kind(config, dragged_part_kind), options.default_supply_speed, options.default_supply_cooldown, 1);
   connect_to_neighbor_dead_end_belts(options, state, config, factory, coord);
   set_dir_to(factory, coord, dir, Port::Outbound);
   factory.changed = true;

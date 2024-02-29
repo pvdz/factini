@@ -553,7 +553,7 @@ pub fn machine_add_to_factory(options: &Options, state: &State, config: &Config,
       }
 
       if i == 0 && j == 0 {
-        log!("Spawning machine that produces {} ({:?}) which require these parts: {:?}", machine_part, part_from_part_kind(config, machine_part), config.nodes[machine_part].pattern_unique_kinds);
+        if state.is_debug { log!("Spawning machine that produces {} ({:?}) which require these parts: {:?}", machine_part, part_from_part_kind(config, machine_part), config.nodes[machine_part].pattern_unique_kinds); }
         // Top-left cell is the main_coord here
         factory.floor[coord] = machine_main_cell(
           options,
@@ -567,7 +567,7 @@ pub fn machine_add_to_factory(options: &Options, state: &State, config: &Config,
           2000,
           1, 1
         );
-        log!("main machine coord: {:?}", factory.floor[coord]);
+        if state.is_debug { log!("main machine coord: {:?}", factory.floor[coord]); }
       } else {
         factory.floor[coord] = machine_sub_cell(options, state, config, found, x, y, ccoord, machine_cell_width, machine_cell_height);
       }

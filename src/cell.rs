@@ -197,7 +197,7 @@ pub fn machine_any_cell(options: &Options, state: &State, config: &Config, id: c
 pub fn machine_main_cell(options: &Options, state: &State, config: &Config, id: char, x: usize, y: usize, cell_width: usize, cell_height: usize, wants: Vec<Part>, output: Part, speed: u64, machine_production_price: i32, machine_trash_price: i32) -> Cell {
   assert!(x > 0 && y > 0 && x < FLOOR_CELLS_W - 1 && y < FLOOR_CELLS_H - 1);
 
-  log!("machine_main_cell({}x{} for {:?} --> {:?})", x, y, wants, output);
+  if state.is_debug { log!("machine_main_cell({}x{} for {:?} --> {:?})", x, y, wants, output); }
 
   let coord = x + y * FLOOR_CELLS_W;
 
@@ -329,8 +329,8 @@ pub fn back_of_the_line(ins_or_outs: &mut Vec<(Direction, usize, usize, Directio
   }
 }
 
-pub fn supply_cell(config: &Config, x: usize, y: usize, part: Part, speed: u64, cooldown: u64, price: i32) -> Cell {
-  log!("supply_cell({}, {}, @ {}x{})", speed, cooldown, x, y);
+pub fn supply_cell(state: &State, config: &Config, x: usize, y: usize, part: Part, speed: u64, cooldown: u64, price: i32) -> Cell {
+  if state.is_debug { log!("supply_cell({}, {}, @ {}x{})", speed, cooldown, x, y); }
   let coord = x + y * FLOOR_CELLS_W;
 
   let coord_u = if y == 0                 { None } else { Some(to_coord_up(coord)) };
@@ -437,7 +437,7 @@ pub fn fix_belt_meta_floor(options: &Options, state: &State, floor: &mut [Cell; 
 
 pub fn connect_belt_to_existing_neighbor_cells(options: &Options, state: &State, config: &Config, factory: &mut Factory, coord: usize) {
   // Note: this still requires factory prio update but it should take care of all the other things
-  log!("connect_belt_to_existing_neighbor_cells({}, options.trace_cell_set_port={})", coord, options.trace_cell_set_port);
+  if state.is_debug { log!("connect_belt_to_existing_neighbor_cells({}, options.trace_cell_set_port={})", coord, options.trace_cell_set_port); }
 
   if let Some(ocoord) = factory.floor[coord].coord_u {
     match factory.floor[ocoord].kind {
@@ -741,7 +741,7 @@ pub fn cell_connect_if_possible(options: &Options, state: &State, config: &Confi
   }
   else if to_kind == CellKind::Empty || from_kind == CellKind::Empty {
     // Ignore :shrug:
-    log!("connecting to empty? nope");
+    if state.is_debug { log!("connecting to empty? nope"); }
     match ( dx, dy ) {
       ( 0 , -1 ) => {
         cell_set_port_u_to(options, state, config, factory, coord_from, Port::None, coord_to);
@@ -1094,7 +1094,7 @@ pub fn apply_action_between_two_cells(state: &State, options: &Options, config: 
   assert!(dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1, "since they are adjacent they must be -1, 0, or 1");
 
   if add_or_remove == Action::Add {
-    log!(" - Connecting the two cells");
+    if state.is_debug { log!(" - Connecting the two cells"); }
 
     // Convert empty cells to belt cells.
     // Create a port between these two cells, but none of the other cells.
@@ -1113,7 +1113,7 @@ pub fn apply_action_between_two_cells(state: &State, options: &Options, config: 
               supply_get_random_atom(options, state, config, factory)
             };
 
-          factory.floor[coord1] = supply_cell(config, cell_x1, cell_y1, part_from_part_kind(config, part_kind), options.default_supply_speed, options.default_supply_cooldown, 0);
+          factory.floor[coord1] = supply_cell(state, config, cell_x1, cell_y1, part_from_part_kind(config, part_kind), options.default_supply_speed, options.default_supply_cooldown, 0);
         }
         else if is_middle(cell_x1 as f64, cell_y1 as f64) {
           factory.floor[coord1] = belt_cell(config, cell_x1, cell_y1, belt_type_to_belt_meta(belt_type1));
@@ -1133,7 +1133,7 @@ pub fn apply_action_between_two_cells(state: &State, options: &Options, config: 
     }
   }
   else if add_or_remove == Action::Remove {
-    log!(" - Disconnecting the two cells");
+    if state.is_debug { log!(" - Disconnecting the two cells"); }
 
     // Delete the port between the two cells but leave everything else alone.
     // The coords must be adjacent to one side.
@@ -1163,7 +1163,7 @@ pub fn apply_action_between_two_cells(state: &State, options: &Options, config: 
   else {
     // Other mouse button or multi-button. ignore for now / ever.
     // (Remember: this was a drag of two cells)
-    log!(" - Not left or right button; ignoring unknown button click");
+    if state.is_debug { log!(" - Not left or right button; ignoring unknown button click"); }
   }
 
   fix_belt_meta(options, state, config, factory, coord1);

@@ -153,7 +153,7 @@ fn tick_belt_one_outbound_dir(options: &mut Options, state: &mut State, config: 
   match factory.floor[to_coord].kind {
     CellKind::Empty => {
       // Note: There is a race condition where a cell is cleared but this state is not finalized until later. This could lead to this situation. wontfix.
-      log!("Unexpected state (acceptable as a one-of right after mutating the floor): Empty cells should not be part of .outs vector; {:?}", factory.floor[curr_coord].outs);
+      if state.is_debug { log!("Unexpected state (acceptable as a one-of right after mutating the floor): Empty cells should not be part of .outs vector; {:?}", factory.floor[curr_coord].outs); }
       return false;
     },
     CellKind::Belt => {
@@ -170,7 +170,7 @@ fn tick_belt_one_outbound_dir(options: &mut Options, state: &mut State, config: 
       // There appears to be some kind of bug (a race condition of sorts?) where this triggers.
       // I was able to produce it by adding random demanders to the right-middle of the floor
       // At some point it triggered this bug. Not sure how. Also not sure whether I should just ignore this case rather than panic it.
-      log!("Unexpected state (acceptable as a one-of right after mutating the floor): Supply can not be part of .outs vector; {:?}", factory.floor[curr_coord].outs);
+      if state.is_debug { log!("Unexpected state (acceptable as a one-of right after mutating the floor): Supply can not be part of .outs vector; {:?}", factory.floor[curr_coord].outs); }
       return false;
     }
     CellKind::Demand => {
@@ -186,7 +186,7 @@ fn tick_belt_one_inbound_dir(options: &mut Options, state: &mut State, config: &
     CellKind::Empty => {
       // panic!("empty cells should not be part of .ins vector")
       if !state.test {
-        log!("TODO: empty cells should not be part of .ins vector");
+        if state.is_debug { log!("TODO: empty cells should not be part of .ins vector"); }
         state.test = true;
       }
       return false;

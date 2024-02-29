@@ -19,8 +19,8 @@ use super::utils::*;
 use super::log;
 
 // Edge cells can only be demand/supply/empty, other cells can only be belt/machine/empty
-pub fn floor_empty(config: &Config) -> [Cell; FLOOR_CELLS_WH] {
-  log!("floor_empty()");
+pub fn floor_empty(options: &Options, state: &State, config: &Config) -> [Cell; FLOOR_CELLS_WH] {
+  if state.is_debug { log!("floor_empty()"); }
 
 
   // // error[E0658]: use of unstable library feature 'array_map'
@@ -426,7 +426,7 @@ pub fn floor_delete_cell_at_partial(options: &Options, state: &State, config: &C
 
   if factory.floor[coord].kind == CellKind::Machine {
     let main_coord = factory.floor[coord].machine.main_coord;
-    log!("Dropping entire machine, {} cells", factory.floor[main_coord].machine.coords.len());
+    if state.is_debug { log!("Dropping entire machine, {} cells", factory.floor[main_coord].machine.coords.len()); }
     // Special case: we have to remove the entire machine, not just this cell
     // For every part of it we have to remove all ports relating to it.
     for index in 0..factory.floor[main_coord].machine.coords.len() {
@@ -437,7 +437,7 @@ pub fn floor_delete_cell_at_partial(options: &Options, state: &State, config: &C
     }
     // Do main coord last since we indirectly reference it while removing the other subs
     floor_delete_cell_at_partial_sub(options, state, config, factory, main_coord);
-    log!("-- machine dropped");
+    if state.is_debug { log!("-- machine dropped"); }
   } else {
     floor_delete_cell_at_partial_sub(options, state, config, factory, coord);
   }

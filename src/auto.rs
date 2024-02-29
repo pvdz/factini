@@ -138,7 +138,7 @@ pub fn auto_build_next_step(options: &Options, state: &State, config: &Config, f
   auto_build_init(options, state, config, factory);
 
   if factory.auto_build.phase == AutoBuildPhase::None {
-    log!("Marking factory as dirty so the final state is pushed onto the undo stack");
+    if state.is_debug { log!("Marking factory as dirty so the final state is pushed onto the undo stack"); }
     // This will cause the last state to be popped onto the undo stack
     // We need to do this because it will be disabled while auto-build is on
     factory.changed = true;
@@ -146,7 +146,7 @@ pub fn auto_build_next_step(options: &Options, state: &State, config: &Config, f
 }
 
 pub fn auto_build_start(options: &Options, state: &State, config: &Config, factory: &mut Factory, ox: f64, oy: f64) {
-  log!("auto_build_start(options.trace_auto_builder={})", options.trace_auto_builder);
+  if state.is_debug { log!("auto_build_start(options.trace_auto_builder={})", options.trace_auto_builder); }
 
   factory.auto_build.phase = AutoBuildPhase::Startup;
   // Hold the cursor in place. It's no longer controlled by the player.

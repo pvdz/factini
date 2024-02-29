@@ -3,6 +3,7 @@
 
 // Bug
 // - creating a demander and deleting it isa crash?
+// - whats up with the example belts not working
 
 // Compile with --profile to try and get some sense of shit
 
@@ -131,6 +132,7 @@ const MACHINE_ORANGE: &str = "#c99110";
 // I think all natives are exposed in js_sys or web_sys somehow so not sure we need this at all.
 #[wasm_bindgen]
 extern {
+  pub fn getPage() -> String; // index.html or debug.html
   pub fn getGameConfig() -> String; // GAME_CONFIG
   pub fn getGameMap() -> String; // GAME_MAP
   pub fn getGameOptions() -> String; // GAME_OPTIONS
@@ -170,7 +172,10 @@ pub fn start() -> Result<(), JsValue> {
   panic::set_hook(Box::new(console_error_panic_hook::hook));
   // console_error_panic_hook::set_once();
 
-  log!("web start...");
+  log!("web start...!");
+
+  let is_debug = getPage() == "debug.html";
+
   let document = document();
   let canvas = document
     .create_element("canvas")?
@@ -201,13 +206,13 @@ pub fn start() -> Result<(), JsValue> {
   let mut options = create_options(1.0, 1.0);
   // If there are options in localStorage, apply them now
   let saved_options = {
-    log!("onload: Reading options from localStorage");
+    if is_debug { log!("onload: Reading options from localStorage"); }
     let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
     local_storage.get_item(LS_OPTIONS).unwrap()
   };
   let ( option_string, options_started_from_source ) = match saved_options {
     Some(str) => {
-      log!("Using options json from localStorage ({} bytes)", str.len());
+      if is_debug { log!("Using options json from localStorage ({} bytes)", str.len()); }
       ( str, false )
     },
     None => ( getGameOptions(), true ),
@@ -216,7 +221,7 @@ pub fn start() -> Result<(), JsValue> {
   parse_and_save_options_string(option_string.clone(), &mut options, true, options_started_from_source, true);
 
   let mut config = parse_config_md(options.trace_parse_config_md, getGameConfig());
-  load_config(options.trace_img_loader, &mut config);
+  load_config(options.trace_img_loader, &mut config, is_debug);
 
   let h = if options.dbg_show_bottom_info { CANVAS_CSS_INITIAL_HEIGHT } else { CANVAS_CSS_INITIAL_HEIGHT - GRID_BOTTOM_DEBUG_HEIGHT - GRID_PADDING } as u32;
   canvas.set_height(h);
@@ -260,7 +265,7 @@ pub fn start() -> Result<(), JsValue> {
       let mx = event.offset_x() as f64;
       let my = event.offset_y() as f64;
 
-      log!("mouse down: {}x{}, button: {:?}", mx, my, event.buttons());
+      if is_debug { log!("mouse down: {}x{}, button: {:?}", mx, my, event.buttons()); }
 
       last_mouse_was_down.set(true);
       mouse_x.set(mx);
@@ -306,7 +311,7 @@ pub fn start() -> Result<(), JsValue> {
       let mx = event.offset_x() as f64;
       let my = event.offset_y() as f64;
 
-      log!("mouse up: {}x{}, button: {:?}", mx, my, event.buttons());
+      if is_debug { log!("mouse up: {}x{}, button: {:?}", mx, my, event.buttons()); }
 
       last_mouse_was_up.set(true);
       last_mouse_up_x.set(mx);
@@ -339,7 +344,7 @@ pub fn start() -> Result<(), JsValue> {
       event.stop_propagation();
       event.prevent_default();
 
-      log!("touch start: number of touches: {}", event.changed_touches().length());
+      if is_debug { log!("touch start: number of touches: {}", event.changed_touches().length()); }
 
       last_down_event_type.set(EventSourceType::Touch);
 
@@ -397,7 +402,7 @@ pub fn start() -> Result<(), JsValue> {
       event.stop_propagation();
       event.prevent_default();
 
-      log!("touch end: number of touches: {}", event.changed_touches().length());
+      if is_debug { log!("touch end: number of touches: {}", event.changed_touches().length()); }
       let bound = canvas.get_bounding_client_rect();
       let event = event.changed_touches().get(0).unwrap();
 
@@ -447,12 +452,12 @@ pub fn start() -> Result<(), JsValue> {
     let last_map = local_storage.get_item(LS_LAST_MAP).unwrap();
     match last_map {
       Some(last_map) => {
-        log!("Init map: Loading last known map from local storage...");
+        if is_debug { log!("Init map: Loading last known map from local storage..."); }
         initial_map_from_source = false;
         last_map
       },
       None => {
-        log!("Init map: Loading default map from source...");
+        if is_debug { log!("Init map: Loading default map from source..."); }
         initial_map_from_source = true;
         getGameMap()
       },
@@ -460,12 +465,13 @@ pub fn start() -> Result<(), JsValue> {
   };
   let initial_map_from_source = if initial_map_from_source { 0 } else { initial_map.len() as u64 };
   options.initial_map_from_source = initial_map_from_source;
-  let ( mut state, mut factory ) = init(&mut options, &mut config, initial_map);
+  let ( mut state, mut factory ) = init(&mut options, &mut config, initial_map, is_debug);
+  state.is_debug = is_debug;
   state.showing_debug_bottom = options.dbg_show_bottom_info;
   let mut quick_saves: [Option<QuickSave>; 9] = [(); 9].map(|_| None);
 
   // Update UI to reflect actually loaded map
-  log!("setGameOptions() (After loading map from localStorage)");
+  if is_debug { log!("setGameOptions() (After loading map from localStorage)"); }
   setGameOptions(options_serialize(&options).into(), true.into());
 
   state_add_examples(getExamples(), &mut state);
@@ -507,7 +513,7 @@ pub fn start() -> Result<(), JsValue> {
 
   {
     let start_time: f64 = perf.now(); // perf.now is almost same as date.now except; it's not based on system clock (so changing system time affects date.now and does not change perf.now: https://developer.mozilla.org/en-US/docs/Web/API/Performance/now)
-    log!("start time: {}", start_time);
+    if is_debug { log!("start time: {}", start_time); }
 
     let context = context.clone();
 
@@ -722,7 +728,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_debug_auto_build(&options, &state, &context, &factory, &mouse_state);
 
         if loading == 0 {
-          log!("Loaded all {} images!", config.sprite_cache_canvas.len());
+          if is_debug { log!("Loaded all {} images!", config.sprite_cache_canvas.len()); }
           config.sprite_cache_loading = false;
 
           let was_up = last_mouse_was_up.get();
@@ -768,7 +774,7 @@ pub fn start() -> Result<(), JsValue> {
 
         if was_up {
           if is_over_reset {
-            log!("clicked on reset part. Clearing local storage.");
+            if is_debug { log!("clicked on reset part. Clearing local storage."); }
 
             let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
             // local_storage.remove_item(LS_OPTIONS).unwrap(); // Don't think we need to do this for non-debug
@@ -776,7 +782,7 @@ pub fn start() -> Result<(), JsValue> {
             // Keep loading screen. I don't think users expect the click to close the banner.
             pregame = true;
           } else {
-            log!("clicked on main splash and not the reset. closing it.");
+            if is_debug { log!("clicked on main splash and not the reset. closing it."); }
             state.pregame = false; // Click anywhere to continue
             options.splash_keep_main = false;
           }
@@ -788,7 +794,7 @@ pub fn start() -> Result<(), JsValue> {
       if state.load_example_next_frame {
         state.load_example_next_frame = false;
         let map = state.examples[state.example_pointer % state.examples.len()].clone();
-        log!("Loading example[{}]; size: {} bytes", state.example_pointer, map.len());
+        if is_debug { log!("Loading example[{}]; size: {} bytes", state.example_pointer, map.len()); }
         factory_load_map(&mut options, &mut state, &mut config, &mut factory, map);
         state.example_pointer += 1;
       }
@@ -796,10 +802,10 @@ pub fn start() -> Result<(), JsValue> {
         state.reset_next_frame = false;
         let map = getGameMap();
         if map.trim().len() > 0 {
-          log!("Loading getGameMap(); size: {} bytes", map.len());
+          if is_debug { log!("Loading getGameMap(); size: {} bytes", map.len()); }
           factory_load_map(&mut options, &mut state, &mut config, &mut factory, map);
         } else {
-          log!("Skipped attempt at loading an empty map");
+          if is_debug { log!("Skipped attempt at loading an empty map"); }
         }
       }
       if state.load_paste_next_frame {
@@ -820,7 +826,7 @@ pub fn start() -> Result<(), JsValue> {
             log!("Error: Input is not a Factini map. Should start with a line `# Factini map` and it didn't...");
             state.load_paste_hint_kind = LoadPasteHint::Invalid;
           } else {
-            log!("Loading map from paste; size: {} bytes", paste.len());
+            if is_debug { log!("Loading map from paste; size: {} bytes", paste.len()); }
             factory_load_map(&mut options, &mut state, &mut config, &mut factory, paste);
             state.load_paste_hint_kind = LoadPasteHint::Success;
           }
@@ -829,12 +835,12 @@ pub fn start() -> Result<(), JsValue> {
       if state.load_snapshot_next_frame {
         // Note: state.load_snapshot_next_frame remains true because factory.changed has special undo-stack behavior for it
         let map = state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].clone();
-        log!("Loading snapshot[{} / {}]; size: {} bytes", state.snapshot_undo_pointer, state.snapshot_pointer, map.len());
+        if is_debug { log!("Loading snapshot[{} / {}]; size: {} bytes", state.snapshot_undo_pointer, state.snapshot_pointer, map.len()); }
         factory_load_map(&mut options, &mut state, &mut config, &mut factory, map);
       }
 
       let queued_action = getAction();
-      if queued_action != "" { log!("getAction() had `{}`", queued_action); }
+      if queued_action != "" { if is_debug { log!("getAction() had `{}`", queued_action); } }
       let options_started_from_source = options.options_started_from_source; // Don't change this value here.
       match queued_action.as_str() {
         "apply_options" => {
@@ -854,7 +860,7 @@ pub fn start() -> Result<(), JsValue> {
         "load_map" => state.reset_next_frame = true, // implicitly will call getGameMap() which loads the map from UI indirectly
         "load_config" => {
           let mut config = parse_config_md(options.trace_parse_config_md, getGameConfig());
-          load_config(options.trace_img_loader, &mut config);
+          load_config(options.trace_img_loader, &mut config, is_debug);
         }, // Might crash the game
         "paste" => { // When you ctrl+v (or otherwise paste) in the window. This action will be triggered from the html.
           state.paste_to_load = getLastPaste();
@@ -868,7 +874,7 @@ pub fn start() -> Result<(), JsValue> {
       }
 
       if !config.sprite_cache_loading && todo_create_buttons {
-        log!("Filling in button styles now...");
+        if is_debug { log!("Filling in button styles now..."); }
         todo_create_buttons = false;
         prerender_button_stage2(&options, &state, &config, UI_UNREDO_WIDTH, UI_UNREDO_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_SMALL_SQUARE_UP].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), true);
         prerender_button_stage2(&options, &state, &config, UI_UNREDO_WIDTH, UI_UNREDO_HEIGHT, &(button_canvii[BUTTON_PRERENDER_INDEX_SMALL_SQUARE_DOWN].get_context("2d").expect("get context must work").unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap()), false);
@@ -943,10 +949,10 @@ pub fn start() -> Result<(), JsValue> {
           // Must use the boxed canvas ref
           let fse = document.fullscreen_element();
           if let Some(_) = fse {
-            log!("Leaving full screen mode...");
+            if is_debug { log!("Leaving full screen mode..."); }
             document.exit_fullscreen(); // This will panic hard if browser does not support it... Like on old safari on (unupdated?) ipads.
           } else {
-            log!("Entering full screen mode...");
+            if is_debug { log!("Entering full screen mode..."); }
             match ref_counted_canvas.request_fullscreen() {
               Ok(_) => {}
               Err(msg) => {
@@ -967,18 +973,18 @@ pub fn start() -> Result<(), JsValue> {
           // snapshot to the front of the stack before adding a new state to it
           if state.load_snapshot_next_frame && state.snapshot_pointer != state.snapshot_undo_pointer {
             let snap = state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].clone();
-            log!("Pushing current undo/redo snapshot to the front of the stack; size: {} bytes, undo pointer: {}, pointer: {}", snap.len(), state.snapshot_undo_pointer, state.snapshot_pointer + 1);
+            if is_debug { log!("Pushing current undo/redo snapshot to the front of the stack; size: {} bytes, undo pointer: {}, pointer: {}", snap.len(), state.snapshot_undo_pointer, state.snapshot_pointer + 1); }
             state.snapshot_stack[(state.snapshot_pointer + 1) % UNDO_STACK_SIZE] = snap;
           }
 
           if options.trace_porting_step { log!("Auto porting after modification"); }
           keep_auto_porting(&mut options, &mut state, &mut factory);
           fix_ins_and_outs_for_all_belts_and_machines(&options, &mut factory);
-          factory.machines = factory_collect_machines(&factory.floor);
+          factory.machines = factory_collect_machines(&state, &factory.floor);
 
           // Recreate cell traversal order
-          let prio: Vec<usize> = create_prio_list(&mut options, &config, &mut factory.floor);
-          log!("Updated prio list: {:?}", prio);
+          let prio: Vec<usize> = create_prio_list(&mut options, &state, &config, &mut factory.floor);
+          if is_debug { log!("Updated prio list: {:?}", prio); }
           factory.prio = prio;
 
           if state.load_snapshot_next_frame {
@@ -987,7 +993,7 @@ pub fn start() -> Result<(), JsValue> {
             // Do not change for bot changes
           } else {
             if state.snapshot_undo_pointer != state.snapshot_pointer {
-              log!("snapshot pointer was in the past({} < {}). its snapshot should be one ahead. move past it to {}", state.snapshot_undo_pointer, state.snapshot_pointer, state.snapshot_pointer + 1);
+              if is_debug { log!("snapshot pointer was in the past({} < {}). its snapshot should be one ahead. move past it to {}", state.snapshot_undo_pointer, state.snapshot_pointer, state.snapshot_pointer + 1); }
               state.snapshot_pointer += 1;
               state.snapshot_undo_pointer = state.snapshot_pointer;
             }
@@ -995,7 +1001,7 @@ pub fn start() -> Result<(), JsValue> {
             // Create snapshot in history, except for unredo
             let snap = generate_floor_dump(&options, &state, &config, &factory, dnow()).join("\n");
             if options.dbg_onchange_dump_snapshot { log!("Snapshot:\n{}", snap); }
-            log!("Pushed snapshot to the front of the stack; size: {} bytes, undo pointer: {}, pointer: {}", snap.len(), state.snapshot_undo_pointer, state.snapshot_pointer);
+            if is_debug { log!("Pushed snapshot to the front of the stack; size: {} bytes, undo pointer: {}, pointer: {}", snap.len(), state.snapshot_undo_pointer, state.snapshot_pointer); }
 
             state.snapshot_pointer += 1;
             state.snapshot_undo_pointer = state.snapshot_pointer;
@@ -1008,7 +1014,7 @@ pub fn start() -> Result<(), JsValue> {
           factory.trashed = 0;
           factory.supplied = 0;
           if state.load_snapshot_next_frame {
-            log!("now unsetting state.load_snapshot_next_frame");
+            if is_debug { log!("now unsetting state.load_snapshot_next_frame"); }
             state.load_snapshot_next_frame = false;
           }
 
@@ -1019,9 +1025,9 @@ pub fn start() -> Result<(), JsValue> {
 
           let last_map = state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].as_str();
           let local_storage = window.local_storage().unwrap().unwrap();
-          log!("Wanting to do a last map: {}", last_map);
+          if is_debug { log!("Wanting to do a last map: {}", last_map); }
           local_storage.set_item(LS_LAST_MAP, last_map).unwrap();
-          log!("Stored last map to local storage ({} bytes) into `{}`", last_map.len(), LS_LAST_MAP);
+          if is_debug { log!("Stored last map to local storage ({} bytes) into `{}`", last_map.len(), LS_LAST_MAP); }
           // log!("Map:\n{}", last_map);
           if options.trace_map_parsing { log!("Stored map:\n{}", last_map); }
         }
@@ -1137,7 +1143,7 @@ pub fn start() -> Result<(), JsValue> {
   Ok(())
 }
 
-fn load_config(trace_img_loader: bool, config: &mut Config) {
+fn load_config(trace_img_loader: bool, config: &mut Config, is_debug: bool) {
   log!("load_config(options.trace_img_loader={})", trace_img_loader);
 
   if trace_img_loader {
@@ -1175,7 +1181,7 @@ fn load_config(trace_img_loader: bool, config: &mut Config) {
   config.sprite_cache_loading = true;
 
   if trace_img_loader { log!("Queued up {} sprite files for these parts: {:?}", config.sprite_cache_canvas.len(), config.sprite_cache_lookup); }
-  else { log!("Queued up {} sprite files to load...", config.sprite_cache_canvas.len()); }
+  else if is_debug { log!("Queued up {} sprite files to load...", config.sprite_cache_canvas.len()); }
 
   {
     let kinds: JsValue = [ConfigNodeKind::Part, ConfigNodeKind::Quest, ConfigNodeKind::Belt].iter().map(|&kind| {
@@ -1425,7 +1431,7 @@ fn update_mouse_state(
     mouse_state.was_down = true; // Unset after this frame
 
     mouse_state.down_zone = coord_to_zone(options, state, config, mouse_state.last_down_world_x, mouse_state.last_down_world_y, is_machine_selected, factory, cell_selection.coord);
-    log!("DOWN event (type={:?}) in zone {:?}, screen {}x{}, world {}x{}", if mouse_state.last_down_event_type == EventSourceType::Mouse { "Mouse" } else { "Touch" }, mouse_state.down_zone, mouse_state.world_x, mouse_state.world_y, mouse_state.last_down_cell_x, mouse_state.last_down_cell_y);
+    if state.is_debug { log!("DOWN event (type={:?}) in zone {:?}, screen {}x{}, world {}x{}", if mouse_state.last_down_event_type == EventSourceType::Mouse { "Mouse" } else { "Touch" }, mouse_state.down_zone, mouse_state.world_x, mouse_state.world_y, mouse_state.last_down_cell_x, mouse_state.last_down_cell_y); }
 
     match mouse_state.down_zone {
       Zone::None => panic!("cant be down on no zone"),
@@ -1445,7 +1451,7 @@ fn update_mouse_state(
             mouse_state.down_save_map_index = button_index;
           }
         } else {
-          log!("Ignoring map save down");
+          if state.is_debug { log!("Ignoring map save down"); }
         }
       }
       Zone::BottomBottomLeft => {}
@@ -1460,7 +1466,7 @@ fn update_mouse_state(
           mouse_state.down_menu_button = MenuButton::AutoBuildButton;
         }
         else {
-          log!("missed buttons on down in top-left")
+          if state.is_debug { log!("missed buttons on down in top-left") }
         }
       }
       Zone::Top => {
@@ -1474,17 +1480,17 @@ fn update_mouse_state(
           mouse_state.down_menu_button = MenuButton::RedoButton;
         }
         else if !options.enable_speed_menu {
-          log!("Speed menu disabled, ignoring down");
+          if state.is_debug { log!("Speed menu disabled, ignoring down"); }
         } else {
           let menu_button = hit_test_menu_speed_buttons(mouse_state.last_down_world_x, mouse_state.last_down_world_y);
           if menu_button != MenuButton::None {
             // time controls, first, second row of menu buttons
             mouse_state.down_menu_button = menu_button;
           } else {
-            log!("Did not hit a top menu button on down");
+            if state.is_debug { log!("Did not hit a top menu button on down"); }
           }
         }
-        log!("Top menu button down: {:?}", mouse_state.down_menu_button);
+        if state.is_debug { log!("Top menu button down: {:?}", mouse_state.down_menu_button); }
       }
       Zone::TopRight => {
         if hit_test_paint_toggle(mouse_state.last_down_world_x, mouse_state.last_down_world_y) {
@@ -1496,7 +1502,7 @@ fn update_mouse_state(
             // time controls, first, second row of menu buttons
             mouse_state.down_menu_button = menu_button;
           } else {
-            log!("Ignored top-right down event");
+            if state.is_debug { log!("Ignored top-right down event"); }
           }
         }
       }
@@ -1520,9 +1526,9 @@ fn update_mouse_state(
           mouse_state.down_menu_button = MenuButton::PasteFactory;
         }
         else {
-          log!("Ignored down event in bottom");
+          if state.is_debug { log!("Ignored down event in bottom"); }
         }
-        log!("Bottom menu button down: {:?}", mouse_state.down_menu_button);
+        if state.is_debug { log!("Bottom menu button down: {:?}", mouse_state.down_menu_button); }
       }
       Zone::BottomBottom => {}
       Zone::Right => {
@@ -1535,7 +1541,7 @@ fn update_mouse_state(
       Zone::BottomBottomRight => {}
       Zone::Margin => {}
     }
-    log!("DOWN menu button: {:?}", mouse_state.down_menu_button);
+    if state.is_debug { log!("DOWN menu button: {:?}", mouse_state.down_menu_button); }
   }
 
   // on drag start (maybe)
@@ -1544,20 +1550,20 @@ fn update_mouse_state(
   // we consider a mouse down to mouse up to be dragging. But once we do, we stick to it.)
   if mouse_state.is_down && !mouse_state.is_dragging && mouse_state.moved_since_start && ((mouse_state.last_down_world_x - mouse_state.world_x).abs() > 5.0 || (mouse_state.last_down_world_y - mouse_state.world_y).abs() > 5.0) {
     // 5 world pixels? sensitivity tbd
-    log!("is_drag_start from zone {:?}, down at {}x{}, now at {}x{}", mouse_state.down_zone, mouse_state.last_down_world_x, mouse_state.last_down_world_y, mouse_state.world_x, mouse_state.world_y);
+    if state.is_debug { log!("is_drag_start from zone {:?}, down at {}x{}, now at {}x{}", mouse_state.down_zone, mouse_state.last_down_world_x, mouse_state.last_down_world_y, mouse_state.world_x, mouse_state.world_y); }
     mouse_state.is_drag_start = true;
     mouse_state.is_dragging = true;
 
     match mouse_state.down_zone {
       ZONE_FLOOR => {
-        log!("drag start, floor");
+        if state.is_debug { log!("drag start, floor"); }
         let is_machine_selected = cell_selection.on && factory.floor[cell_selection.coord].kind == CellKind::Machine;
         if is_machine_selected {
           cell_selection.on = false;
         }
       }
       _ => {
-        log!("drag start, non-floor");
+        if state.is_debug { log!("drag start, non-floor"); }
       }
     }
   }
@@ -1583,7 +1589,7 @@ fn update_mouse_state(
     }
 
     mouse_state.up_zone = coord_to_zone(options, state, config, mouse_state.last_up_world_x, mouse_state.last_up_world_y, is_machine_selected, factory, cell_selection.coord);
-    log!("UP event (type={:?}) in zone {:?}, was down in zone {:?}, screen {}x{}, world {}x{}", if mouse_state.last_down_event_type == EventSourceType::Mouse { "Mouse" } else { "Touch" }, mouse_state.up_zone, mouse_state.down_zone, mouse_state.world_x, mouse_state.world_y, mouse_state.last_up_cell_x, mouse_state.last_up_cell_y);
+    if state.is_debug { log!("UP event (type={:?}) in zone {:?}, was down in zone {:?}, screen {}x{}, world {}x{}", if mouse_state.last_down_event_type == EventSourceType::Mouse { "Mouse" } else { "Touch" }, mouse_state.up_zone, mouse_state.down_zone, mouse_state.world_x, mouse_state.world_y, mouse_state.last_up_cell_x, mouse_state.last_up_cell_y); }
 
     match mouse_state.up_zone {
       Zone::None => panic!("cant be up on no zone"),
@@ -1603,7 +1609,7 @@ fn update_mouse_state(
             mouse_state.up_save_map_index = button_index;
           }
         } else {
-          log!("Ignoring map save up");
+          if state.is_debug { log!("Ignoring map save up"); }
         }
       }
       Zone::BottomBottomLeft => {}
@@ -1615,7 +1621,7 @@ fn update_mouse_state(
           mouse_state.up_menu_button = MenuButton::FullScreenButton;
         }
         else {
-          log!("missed buttons on down in top-left")
+          if state.is_debug { log!("missed buttons on down in top-left"); }
         }
       }
       Zone::Top => {
@@ -1629,7 +1635,7 @@ fn update_mouse_state(
           mouse_state.up_menu_button = MenuButton::RedoButton;
         }
         else if !options.enable_speed_menu {
-          log!("Speed menu disabled, ignoring up");
+          if state.is_debug { log!("Speed menu disabled, ignoring up"); }
         }
         else {
           let menu_button = hit_test_menu_speed_buttons(mouse_state.last_up_world_x, mouse_state.last_up_world_y);
@@ -1637,10 +1643,10 @@ fn update_mouse_state(
             // time controls, first, second row of menu buttons
             mouse_state.up_menu_button = menu_button;
           } else {
-            log!("Did not hit a top menu button on up");
+            if state.is_debug { log!("Did not hit a top menu button on up"); }
           }
         }
-        log!("Top menu button up: {:?}", mouse_state.up_menu_button);
+        if state.is_debug { log!("Top menu button up: {:?}", mouse_state.up_menu_button); }
       }
       Zone::TopRight => {
         if hit_test_paint_toggle(mouse_state.last_up_world_x, mouse_state.last_up_world_y) {
@@ -1652,15 +1658,15 @@ fn update_mouse_state(
             // time controls, first, second row of menu buttons
             mouse_state.up_menu_button = menu_button;
           } else {
-            log!("Ignored top-right up event");
+            if state.is_debug { log!("Ignored top-right up event"); }
           }
         } else {
           if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_DEBUG_UNLOCK_X, UI_DEBUG_UNLOCK_Y, UI_DEBUG_UNLOCK_X + UI_DEBUG_UNLOCK_W, UI_DEBUG_UNLOCK_Y + UI_DEBUG_UNLOCK_H) {
-            log!("Forward UI progress");
+            if state.is_debug { log!("Forward UI progress"); }
             update_game_ui_after_quest_finish(options, state);
           }
           else if bounds_check(mouse_state.last_up_world_x, mouse_state.last_up_world_y, UI_DEBUG_SECRET_X, UI_DEBUG_SECRET_Y, UI_DEBUG_SECRET_X + UI_DEBUG_SECRET_W, UI_DEBUG_SECRET_Y + UI_DEBUG_SECRET_H) {
-            log!("Enabling secret debug menu...");
+            if state.is_debug { log!("Enabling secret debug menu..."); }
             options.dbg_show_secret_menu = true;
           }
         }
@@ -1674,9 +1680,9 @@ fn update_mouse_state(
           mouse_state.up_menu_button = MenuButton::PasteFactory;
         }
         else {
-          log!("Ignored bottom up event");
+          if state.is_debug { log!("Ignored bottom up event"); }
         }
-        log!("Bottom menu button up: {:?}", mouse_state.up_menu_button);
+        if state.is_debug { log!("Bottom menu button up: {:?}", mouse_state.up_menu_button); }
       }
       Zone::BottomBottom => {}
       Zone::Right => {}
@@ -1685,7 +1691,7 @@ fn update_mouse_state(
       Zone::Margin => {}
     }
 
-    log!("UP menu button: {:?}", mouse_state.up_menu_button);
+    if state.is_debug { log!("UP menu button: {:?}", mouse_state.up_menu_button); }
   }
 }
 fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, quick_saves: &mut [Option<QuickSave>; 9]) {
@@ -1694,7 +1700,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
     if mouse_state.is_up {
       state.manual_open = false;
     }
-    log!("Ignoring most mouse/touch input while manual is open");
+    if state.is_debug { log!("Ignoring most mouse/touch input while manual is open"); }
     return;
   }
 
@@ -1716,7 +1722,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
   else if mouse_state.was_down {
     match mouse_state.down_zone {
       ZONE_FLOOR => {
-        on_down_floor(mouse_state);
+        on_down_floor(state, mouse_state);
       }
       ZONE_QUESTS => {
         if mouse_state.down_quest {
@@ -1754,7 +1760,7 @@ fn handle_input(cell_selection: &mut CellSelection, mouse_state: &mut MouseState
             on_drag_end_machine_over_floor(options, state, config, factory, mouse_state);
           }
           else {
-            log!("Was not dragging a known machine size... {}x{}", mouse_state.dragging_machine_w, mouse_state.dragging_machine_h);
+            if state.is_debug { log!("Was not dragging a known machine size... {}x{}", mouse_state.dragging_machine_w, mouse_state.dragging_machine_h); }
             on_drag_end_floor(options, state, config, factory, cell_selection, mouse_state);
           }
         }
@@ -1868,17 +1874,17 @@ fn on_after_resize_event(options: &Options, state: &mut State, config: &Config, 
   if options.trace_size_changes { log!("(size) Internal css size now: {}x{}, canvas pixels: {}x{}", state.canvas_css_width, state.canvas_css_height, state.canvas_pixel_width, state.canvas_pixel_height); }
 }
 fn on_click_help(options: &Options, state: &mut State, config: &Config) {
-  log!("on_click_help()");
+  if state.is_debug { log!("on_click_help()"); }
   state.manual_open = !state.manual_open;
 }
-fn on_down_floor(mouse_state: &mut MouseState) {
-  log!("on_down_floor_after(); type = {}", if mouse_state.last_down_event_type == EventSourceType::Mouse { "Mouse" } else { "Touch" });
+fn on_down_floor(state: &State, mouse_state: &mut MouseState) {
+  if state.is_debug { log!("on_down_floor_after(); type = {}", if mouse_state.last_down_event_type == EventSourceType::Mouse { "Mouse" } else { "Touch" }); }
   // Set the current cell as the last coord so we can track the next
   mouse_state.last_cell_x = mouse_state.last_down_cell_x_floored;
   mouse_state.last_cell_y = mouse_state.last_down_cell_y_floored;
 }
 fn on_up_floor_zone(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &mut MouseState) {
-  log!("on_up_floor_zone()");
+  if state.is_debug { log!("on_up_floor_zone()"); }
   on_click_inside_floor_zone(options, state, config, factory, cell_selection, mouse_state);
 }
 fn on_drag_floor(options: &Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState) {
@@ -1928,40 +1934,40 @@ fn on_drag_floor(options: &Options, state: &mut State, config: &Config, factory:
         }
       }
     } else {
-      log!(" - Disconnecting the two cells, c1=@{}, c2=@{}", coord1, coord2);
+      if state.is_debug { log!(" - Disconnecting the two cells, c1=@{}, c2=@{}", coord1, coord2); }
 
       // Delete the port between the two cells but leave everything else alone.
       // (If a neighbor cell ends up as BeltType::NONE then it'll become CellKind::Empty as usual)
       // The coords must be adjacent to one side.
 
       if factory.floor[coord1].kind != CellKind::Empty {
-        log!("Deleting stub @{} after rmb click", coord1);
+        if state.is_debug { log!("Deleting stub @{} after rmb click", coord1); }
         floor_delete_cell_at_partial(options, state, config, factory, coord1);
       }
     }
   }
 }
 fn on_drag_end_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
-  log!("on_drag_end_floor()");
+  if state.is_debug { log!("on_drag_end_floor()"); }
   on_drag_end_floor_other(options, state, config, factory, cell_selection, mouse_state);
 }
 fn on_drag_start_atom(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
-  log!("on_drag_start_atom()");
+  if state.is_debug { log!("on_drag_start_atom()"); }
   // Is that atom visible / interactive yet?
   if atom_is_visible(factory, mouse_state.atom_down_atom_index) {
     // Need to remember which atom we are currently dragging (-> atom_down_atom_index).
-    log!("is_drag_start from atom {} ({:?})", mouse_state.atom_down_atom_index, factory.available_atoms[mouse_state.atom_down_atom_index].0);
+    if state.is_debug { log!("is_drag_start from atom {} ({:?})", mouse_state.atom_down_atom_index, factory.available_atoms[mouse_state.atom_down_atom_index].0); }
     mouse_state.dragging_atom = true;
     state.mouse_mode_selecting = false;
-    log!("not closing machine while dragging atomic part");
+    if state.is_debug { log!("not closing machine while dragging atomic part"); }
   }
 }
 fn on_drag_start_woop(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
-  log!("on_drag_start_woop()");
+  if state.is_debug { log!("on_drag_start_woop()"); }
   // Is that woop visible / interactive yet?
   if woop_is_visible(factory, mouse_state.woop_down_woop_index) {
     // Need to remember which woop we are currently dragging (-> woop_down_woop_index).
-    log!("is_drag_start from woop {} ({:?})", mouse_state.woop_down_woop_index, factory.available_woops[mouse_state.woop_down_woop_index].0);
+    if state.is_debug {  log!("is_drag_start from woop {} ({:?})", mouse_state.woop_down_woop_index, factory.available_woops[mouse_state.woop_down_woop_index].0); }
 
     // Config determines which machine to use and what asset
     let node = &config.nodes[factory.available_woops[mouse_state.woop_down_woop_index].0];
@@ -1972,7 +1978,7 @@ fn on_drag_start_woop(options: &mut Options, state: &mut State, config: &Config,
   }
 }
 fn on_up_atom(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
-  log!("on_up_atom({} -> {})", mouse_state.atom_down_atom_index, mouse_state.atom_hover_atom_index);
+  if state.is_debug { log!("on_up_atom({} -> {})", mouse_state.atom_down_atom_index, mouse_state.atom_hover_atom_index); }
 
   let ( _part_kind, visible ) = factory.available_atoms[mouse_state.atom_down_atom_index];
   if !visible {
@@ -1985,17 +1991,17 @@ fn on_up_atom(options: &Options, state: &State, config: &Config, factory: &Facto
   }
 
   if mouse_state.atom_selected && mouse_state.atom_selected_index == mouse_state.atom_hover_atom_index {
-    log!("Deselecting atom {}", mouse_state.atom_hover_atom_index);
+    if state.is_debug { log!("Deselecting atom {}", mouse_state.atom_hover_atom_index); }
     mouse_state.atom_selected = false;
   } else {
-    log!("Selecting atom {}", mouse_state.atom_hover_atom_index);
+    if state.is_debug {  log!("Selecting atom {}", mouse_state.atom_hover_atom_index); }
     mouse_state.woop_selected = false;
     mouse_state.atom_selected = true;
     mouse_state.atom_selected_index = mouse_state.atom_hover_atom_index;
   }
 }
 fn on_up_woop(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
-  log!("on_up_woop({} -> {})", mouse_state.woop_down_woop_index, mouse_state.woop_hover_woop_index);
+  if state.is_debug { log!("on_up_woop({} -> {})", mouse_state.woop_down_woop_index, mouse_state.woop_hover_woop_index); }
 
   let ( _part_kind, visible ) = factory.available_woops[mouse_state.woop_down_woop_index];
   if !visible {
@@ -2008,10 +2014,10 @@ fn on_up_woop(options: &Options, state: &State, config: &Config, factory: &Facto
   }
 
   if mouse_state.woop_selected && mouse_state.woop_selected_index == mouse_state.woop_hover_woop_index {
-    log!("Deselecting woop {}", mouse_state.woop_hover_woop_index);
+    if state.is_debug { log!("Deselecting woop {}", mouse_state.woop_hover_woop_index); }
     mouse_state.woop_selected = false;
   } else {
-    log!("Selecting woop {}", mouse_state.woop_hover_woop_index);
+    if state.is_debug { log!("Selecting woop {}", mouse_state.woop_hover_woop_index); }
     mouse_state.atom_selected = false;
     mouse_state.woop_selected = true;
     mouse_state.woop_selected_index = mouse_state.woop_hover_woop_index;
@@ -2020,7 +2026,7 @@ fn on_up_woop(options: &Options, state: &State, config: &Config, factory: &Facto
 fn on_click_inside_floor_zone(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &mut MouseState) {
   let last_mouse_up_cell_x = mouse_state.last_up_cell_x.floor();
   let last_mouse_up_cell_y = mouse_state.last_up_cell_y.floor();
-  log!("on_click_inside_floor_zone(), {} {}", last_mouse_up_cell_x, last_mouse_up_cell_y);
+  if state.is_debug { log!("on_click_inside_floor_zone(), {} {}", last_mouse_up_cell_x, last_mouse_up_cell_y); }
   if bounds_check(
     last_mouse_up_cell_x, last_mouse_up_cell_y,
     0.0, 0.0, FLOOR_CELLS_W as f64, FLOOR_CELLS_H as f64
@@ -2029,7 +2035,7 @@ fn on_click_inside_floor_zone(options: &mut Options, state: &mut State, config: 
   }
 }
 fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &mut MouseState, last_mouse_up_cell_x: f64, last_mouse_up_cell_y: f64) {
-  log!("on_click_inside_floor()");
+  if state.is_debug { log!("on_click_inside_floor()"); }
   let action = mouse_button_to_action(state, mouse_state);
 
   if action == Action::Remove {
@@ -2038,7 +2044,7 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
 
     if is_edge_not_corner(last_mouse_up_cell_x, last_mouse_up_cell_y) {
       // Remove supplier/demander
-      log!("Deleting edge cell @{} after rmb click", coord);
+      if state.is_debug { log!("Deleting edge cell @{} after rmb click", coord); }
       floor_delete_cell_at_partial(options, state, config, factory, coord);
       factory.changed = true;
     } else {
@@ -2048,14 +2054,14 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
       if factory.floor[coord].port_d != Port::None { ports += 1; }
       if factory.floor[coord].port_l != Port::None { ports += 1; }
       if ports <= 1 || factory.floor[coord].kind == CellKind::Machine {
-        log!("Deleting stub @{} after rmb click", coord);
+        if state.is_debug { log!("Deleting stub @{} after rmb click", coord); }
         floor_delete_cell_at_partial(options, state, config, factory, coord);
         factory.changed = true;
       }
 
       // If this wasn't a belt (ports=999) or the belt had more than 1 ports, then just drop its part.
       if ports > 1 {
-        log!("Clearing part from @{} after rmb click (ports={})", coord, ports);
+        if state.is_debug { log!("Clearing part from @{} after rmb click (ports={})", coord, ports); }
         clear_part_from_cell(options, state, config, factory, coord);
       }
     }
@@ -2066,10 +2072,10 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
 
     let coord = to_coord(last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
 
-    log!("clicked {} {} cell selection before: {:?}, belt: {:?}", last_mouse_up_cell_x, last_mouse_up_cell_y, cell_selection, factory.floor[coord].belt);
+    if state.is_debug { log!("clicked {} {} cell selection before: {:?}, belt: {:?}", last_mouse_up_cell_x, last_mouse_up_cell_y, cell_selection, factory.floor[coord].belt); }
 
     if mouse_state.last_down_event_type == EventSourceType::Touch && mouse_state.woop_selected {
-      log!("Touched inside floor with woop selected. Creating machine there now.");
+      if state.is_debug { log!("Touched inside floor with woop selected. Creating machine there now."); }
 
       let machine_part = factory.available_woops[mouse_state.woop_selected_index].0;
       let machine_cell_width = config.nodes[machine_part].machine_width;
@@ -2109,7 +2115,7 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
           }
         }
         // It seems new_part is the next available zero-pattern part :)
-        log!("Going to change part of supplier @{} from {:?} to {:?}", coord, config.nodes[current_part].raw_name, config.nodes[new_part].raw_name);
+        if state.is_debug { log!("Going to change part of supplier @{} from {:?} to {:?}", coord, config.nodes[current_part].raw_name, config.nodes[new_part].raw_name); }
         factory.floor[coord].supply.gives = part_from_part_kind(config, new_part);
         factory.changed = true;
       } else {
@@ -2118,7 +2124,7 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
     }
     else if factory.floor[coord].kind == CellKind::Empty {
       if is_edge_not_corner(last_mouse_up_cell_x, last_mouse_up_cell_y) {
-        log!("Clicked on empty edge. Not selecting it. Removing current selection. Showing user edge drag hint.");
+        if state.is_debug { log!("Clicked on empty edge. Not selecting it. Removing current selection. Showing user edge drag hint."); }
         cell_selection.on = false;
 
         // - find the first visible unlocked part that has no pattern (an atom)
@@ -2148,10 +2154,10 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
         let (x, y) = to_xy(coord);
         let neighbor_coord = get_edge_neighbor(x, y, coord);
         if factory.floor[neighbor_coord.0].kind != CellKind::Empty && !port_has_outbound(&factory, coord) {
-          log!("Neighbor of edge is not empty but has no outgoing; creating a demander here");
+          if state.is_debug { log!("Neighbor of edge is not empty but has no outgoing; creating a demander here"); }
           set_empty_edge_to_demander(options, state, config, factory, part_kind, coord, dir);
         } else {
-          log!("Neighbor of edge is empty or has outgoing; creating a supplier here");
+          if state.is_debug { log!("Neighbor of edge is empty or has outgoing; creating a supplier here"); }
 
           if let Some(atom_index) = atom_index {
             factory.edge_hint = (
@@ -2161,13 +2167,13 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
               factory.ticks,
               2 * (ONE_SECOND as f64 * options.speed_modifier_ui) as u64
             );
-            log!("edge_hint is now: {:?}", factory.edge_hint);
+            if state.is_debug { log!("edge_hint is now: {:?}", factory.edge_hint); }
           }
 
           set_empty_edge_to_supplier(options, state, config, factory, part_kind, coord, dir);
         }
       } else {
-        log!("Clicked on empty cell. Not selecting it. Removing current selection.");
+        if state.is_debug { log!("Clicked on empty cell. Not selecting it. Removing current selection."); }
         cell_selection.on = false;
       }
     }
@@ -2180,7 +2186,7 @@ fn on_click_inside_floor(options: &mut Options, state: &mut State, config: &Conf
   }
 }
 fn on_up_undo(options: &Options, state: &mut State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
-  log!("on_up_undo()");
+  if state.is_debug { log!("on_up_undo()"); }
   // keep stack of n snapshots
   // when undoing, put pointer backwards on the existing stack
   // when redoing, move it forward
@@ -2191,16 +2197,16 @@ fn on_up_undo(options: &Options, state: &mut State, config: &Config, factory: &F
   // means we have to track an undo pointer as well, which is a temporary pointer as long as it is not equal to the real pointer
 
   if state.snapshot_undo_pointer > 0 {
-    log!("Going back one snapshot from {} to {}, setting load_snapshot_next_frame=true", state.snapshot_undo_pointer, state.snapshot_undo_pointer - 1);
+    if state.is_debug { log!("Going back one snapshot from {} to {}, setting load_snapshot_next_frame=true", state.snapshot_undo_pointer, state.snapshot_undo_pointer - 1); }
     state.snapshot_undo_pointer -= 1;
     state.load_snapshot_next_frame = true;
   } else {
-    log!("ignored because there is no prior undo history");
+    if state.is_debug { log!("ignored because there is no prior undo history"); }
   }
 }
 fn on_up_trash(options: &Options, state: &State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState) {
-  log!("on_up_trash()");
-  log!("Removing all cells from the factory...");
+  if state.is_debug { log!("on_up_trash()"); }
+  if state.is_debug { log!("Removing all cells from the factory..."); }
   for coord in 0..factory.floor.len() {
     let (x, y) = to_xy(coord);
     factory.floor[coord] = empty_cell(config, x, y);
@@ -2209,43 +2215,43 @@ fn on_up_trash(options: &Options, state: &State, config: &Config, factory: &mut 
   factory.changed = true;
 }
 fn on_up_redo(options: &Options, state: &mut State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
-  log!("on_up_redo()");
+  if state.is_debug { log!("on_up_redo()"); }
   // if state.snapshot_undo_pointer is not equal to state.snapshot_pointer
   // move the pointer forward. otherwise assume that you can't go forward
   if state.snapshot_undo_pointer != state.snapshot_pointer {
-    log!("Increasing snapshot pointer to {}, setting load_snapshot_next_frame=true", state.snapshot_undo_pointer + 1);
+    if state.is_debug { log!("Increasing snapshot pointer to {}, setting load_snapshot_next_frame=true", state.snapshot_undo_pointer + 1); }
     state.snapshot_undo_pointer += 1;
     state.load_snapshot_next_frame = true;
   } else {
-    log!("ignored because {} == {}", state.snapshot_undo_pointer, state.snapshot_pointer)
+    if state.is_debug { log!("ignored because {} == {}", state.snapshot_undo_pointer, state.snapshot_pointer); }
   }
 }
 fn on_down_quest(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &mut MouseState) {
-  log!("on_down_quest({}). questss: {}", mouse_state.down_quest_visible_index, factory.quests.iter().filter(|q| q.status == QuestStatus::Active).collect::<Vec<_>>().len());
+  if state.is_debug { log!("on_down_quest({}). questss: {}", mouse_state.down_quest_visible_index, factory.quests.iter().filter(|q| q.status == QuestStatus::Active).collect::<Vec<_>>().len()); }
 }
 fn on_up_quest(options: &Options, state: &State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState) {
-  log!("on_up_quest({}), quests: {}, down on {:?} {}", mouse_state.up_quest_visible_index, factory.quests.iter().filter(|q| q.status == QuestStatus::Active).collect::<Vec<_>>().len(), mouse_state.down_zone, mouse_state.down_quest_visible_index);
+  if state.is_debug { log!("on_up_quest({}), quests: {}, down on {:?} {}", mouse_state.up_quest_visible_index, factory.quests.iter().filter(|q| q.status == QuestStatus::Active).collect::<Vec<_>>().len(), mouse_state.down_zone, mouse_state.down_quest_visible_index); }
 
   if options.dbg_clickable_quests && mouse_state.down_quest && mouse_state.down_quest_visible_index == mouse_state.up_quest_visible_index {
-    log!("  clicked on this quest (down=up). Completing it now...");
+    if state.is_debug { log!("  clicked on this quest (down=up). Completing it now..."); }
 
     let quest_index = quest_visible_index_to_quest_index(options, state, config, factory, mouse_state.up_quest_visible_index);
     if let Some(quest_index) = quest_index {
-      log!("  quest_update_status: satisfying quest {} to production target", quest_index);
+      if state.is_debug { log!("  quest_update_status: satisfying quest {} to production target", quest_index); }
       factory.quests[quest_index].production_progress = factory.quests[quest_index].production_target;
-      quest_update_status(factory, quest_index, QuestStatus::FadingAndBouncing, factory.ticks);
+      quest_update_status(options, factory, quest_index, QuestStatus::FadingAndBouncing, factory.ticks);
       factory.quests[quest_index].bouncer.bounce_from_index = mouse_state.up_quest_visible_index;
       factory.quests[quest_index].bouncer.bouncing_at = factory.ticks;
     } else {
-      log!("Clicked on a quest index that doesnt exist right now. mouse_state.down_quest_visible_index={}, mouse_state.up_quest_visible_index={}", mouse_state.down_quest_visible_index, mouse_state.up_quest_visible_index);
+      if state.is_debug { log!("Clicked on a quest index that doesnt exist right now. mouse_state.down_quest_visible_index={}, mouse_state.up_quest_visible_index={}", mouse_state.down_quest_visible_index, mouse_state.up_quest_visible_index); }
     }
   }
 }
 fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, quick_saves: &mut [Option<QuickSave>; 9]) {
-  log!("on_up_save_map()");
+  if state.is_debug { log!("on_up_save_map()"); }
 
   if !mouse_state.down_save_map || mouse_state.down_save_map_index != mouse_state.up_save_map_index {
-    log!("  down != up, bailing: {} {} {}", mouse_state.down_save_map, mouse_state.down_save_map_index, mouse_state.up_save_map_index);
+    if state.is_debug { log!("  down != up, bailing: {} {} {}", mouse_state.down_save_map, mouse_state.down_save_map_index, mouse_state.up_save_map_index); }
     return;
   }
 
@@ -2260,21 +2266,21 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
     let pressed_delete_area = hit_test_save_map_delete_part(mouse_state.world_x, mouse_state.world_y, row, col);
 
     if pressed_delete_area {
-      log!("  deleting saved map");
+      if state.is_debug { log!("  deleting saved map"); }
       quick_saves[mouse_state.up_save_map_index] = None;
       let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
       local_storage.remove_item(format!("{}{}", LS_SAVE_SNAPX, mouse_state.up_save_map_index).as_str()).unwrap();
       local_storage.remove_item(format!("{}{}", LS_SAVE_PNGX, mouse_state.up_save_map_index).as_str()).unwrap();
     }
     else {
-      log!("  loading saved map, snapshot pointer to {}, undo pointer too, setting load_snapshot_next_frame=true", state.snapshot_pointer);
+      if state.is_debug { log!("  loading saved map, snapshot pointer to {}, undo pointer too, setting load_snapshot_next_frame=true", state.snapshot_pointer); }
       state.snapshot_pointer += 1;
       state.snapshot_undo_pointer = state.snapshot_pointer;
       state.snapshot_stack[state.snapshot_pointer % UNDO_STACK_SIZE] = quick_save.snapshot.clone();
       state.load_snapshot_next_frame = true;
     }
   } else {
-    log!("  storing saved map");
+    if state.is_debug { log!("  storing saved map"); }
     let document = document();
 
     // This element is created in this file but it's just easier to query it from the DOM ;)
@@ -2322,8 +2328,8 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
     // It does not have the close button yet because that's hover sensitive so we paint that at runtime.
 
     let png: String = thumb_canvas.to_data_url_with_type(&"img/png").unwrap(); // https://rustwasm.github.io/wasm-bindgen/api/web_sys/struct.HtmlCanvasElement.html#method.to_data_url
-    log!("len: {}", png.len());
-    log!("png: {}", png);
+    if state.is_debug { log!("len: {}", png.len()); }
+    if state.is_debug { log!("png: {}", png); }
 
     // Get string of map
     let map_snapshot = generate_floor_dump(&options, &state, &config, &factory, dnow()).join("\n");
@@ -2337,7 +2343,7 @@ fn on_up_save_map(options: &Options, state: &mut State, config: &Config, factory
   }
 }
 fn on_copy_factory(options: &Options, state: &mut State, config: &Config, factory: &Factory) {
-  log!("on_copy_factory()");
+  if state.is_debug { log!("on_copy_factory()"); }
   let ok = copyToClipboard(generate_floor_dump(options, state, config, factory, dnow()).join("\n").into());
   if ok {
     state.load_copy_hint_kind = LoadCopyHint::Success;
@@ -2345,7 +2351,7 @@ fn on_copy_factory(options: &Options, state: &mut State, config: &Config, factor
   }
 }
 fn on_paste_factory(options: &Options, state: &mut State, config: &Config, factory: &mut Factory) {
-  log!("on_paste_factory()");
+  if state.is_debug { log!("on_paste_factory()"); }
 
   // Unfortunately, at the time of writing all clipboard access in Rust requires enabling unsafe api's
   // Alternative ways don't seem to work. So I'm handling clipboard read/write from JS and
@@ -2353,7 +2359,7 @@ fn on_paste_factory(options: &Options, state: &mut State, config: &Config, facto
   getCurrentPaste(); // -> see index.html definition
 }
 fn on_drag_end_atom_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState, cell_selection: &mut CellSelection) {
-  log!("on_drag_end_atom_over_floor()");
+  if state.is_debug { log!("on_drag_end_atom_over_floor()"); }
 
   let last_mouse_up_cell_x = mouse_state.last_up_cell_x.floor();
   let last_mouse_up_cell_y = mouse_state.last_up_cell_y.floor();
@@ -2362,31 +2368,31 @@ fn on_drag_end_atom_over_floor(options: &mut Options, state: &mut State, config:
   let dragged_part_kind = factory.available_atoms[mouse_state.atom_down_atom_index].0;
 
   if is_edge_not_corner(last_mouse_up_cell_x, last_mouse_up_cell_y) {
-    log!("Dropped an atom as supply on an edge cell that is not corner. Deploying... {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize);
-    log!("Drag started from atom {} ({:?})", mouse_state.atom_down_atom_index, dragged_part_kind);
+    if state.is_debug { log!("Dropped an atom as supply on an edge cell that is not corner. Deploying... {} {}", last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize); }
+    if state.is_debug { log!("Drag started from atom {} ({:?})", mouse_state.atom_down_atom_index, dragged_part_kind); }
     set_edge_to_part(options, state, config, factory, last_mouse_up_cell_x as usize, last_mouse_up_cell_y as usize, dragged_part_kind);
   }
   else if is_middle(last_mouse_up_cell_x, last_mouse_up_cell_y) {
     // There's currently no reason to drop atoms on machines
-    log!("Dropped an atom in the middle of the floor. Ignoring");
+    if state.is_debug { log!("Dropped an atom in the middle of the floor. Ignoring"); }
   }
   else {
-    log!("Dropped an atom on an edge corner. Ignoring");
+    if state.is_debug { log!("Dropped an atom on an edge corner. Ignoring"); }
   }
 }
 fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, cell_selection: &mut CellSelection, mouse_state: &MouseState) {
-  log!("on_drag_end_floor_other()");
+  if state.is_debug { log!("on_drag_end_floor_other()"); }
 
   // If both x and y are on the edge then they're in a corner
   if !mouse_state.over_floor_not_corner || !mouse_state.down_floor_not_corner {
-    log!("mouse not over or down floor");
+    if state.is_debug { log!("mouse not over or down floor"); }
     // Corner cell of the floor. Consider oob and ignore.
     return;
   }
 
   if mouse_state.last_down_event_type == EventSourceType::Touch {
     // Do nothing here
-    log!("ignoring on_drag_end_floor event for touch");
+    if state.is_debug { log!("ignoring on_drag_end_floor event for touch"); }
     return;
   }
 
@@ -2399,7 +2405,7 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
     mouse_state.cell_y_floored,
   );
 
-  if options.trace_track_gen { log!("track to solidify: {:?}, button {}", track, mouse_state.last_down_button); }
+  if options.trace_track_gen { if state.is_debug { log!("track to solidify: {:?}, button {}", track, mouse_state.last_down_button); } }
 
   // Special cases:
   // - len=1
@@ -2438,14 +2444,14 @@ fn on_drag_end_floor_other(options: &mut Options, state: &mut State, config: &Co
   factory.changed = true;
 }
 fn on_drag_end_floor_one_cell(state: &State, options: &Options, config: &Config, factory: &mut Factory, mouse_state: &MouseState, track: Vec<((usize, usize), BeltType, Direction, Direction)>) {
-  log!("One cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_mirrored);
+  if state.is_debug { log!("One cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_mirrored); }
 
   let action = mouse_button_to_action(state, mouse_state);
 
   if action == Action::Add {
-    log!(" - Ignore click on a single cell, as well as dragging across one cell. Allows you to cancel a drag.");
+    if state.is_debug { log!(" - Ignore click on a single cell, as well as dragging across one cell. Allows you to cancel a drag."); }
   } else if action == Action::Remove {
-    log!(" - Removing the cell");
+    if state.is_debug { log!(" - Removing the cell"); }
     // Clear the cell if that makes sense for it
     // Do not delete a cell, not even stubs, because this would be a drag-cancel
     // (Regular click would delete stubs)
@@ -2455,11 +2461,11 @@ fn on_drag_end_floor_one_cell(state: &State, options: &Options, config: &Config,
   } else {
     // Other mouse button. ignore for now / ever.
     // I think this allows you to cancel a drag by pressing the rmb
-    log!(" - Not left or right button; ignoring unknown button click");
+    if state.is_debug { log!(" - Not left or right button; ignoring unknown button click"); }
   }
 }
 fn on_drag_end_floor_two_cells(state: &State, options: &Options, config: &Config, factory: &mut Factory, mouse_state: &MouseState, track: Vec<((usize, usize), BeltType, Direction, Direction)>) {
-  log!("Two cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_mirrored);
+  if state.is_debug { log!("Two cell path with button {} and erase mode {}", mouse_state.last_down_button, state.mouse_mode_mirrored); }
   let ((cell_x1, cell_y1), belt_type1, _unused, _port_out_dir1) = track[0]; // First element has no inbound port here
   let ((cell_x2, cell_y2), belt_type2, _port_in_dir2, _unused) = track[1]; // Last element has no outbound port here
 
@@ -2507,7 +2513,7 @@ fn on_drag_end_floor_multi_cells(state: &State, options: &Options, config: &Conf
           // Create a trash on the previous (edge) cell if that cell is empty.
           if factory.floor[pcoord].kind == CellKind::Empty {
             let part_kind = supply_get_default_part(options, state, config, factory, mouse_state);
-            factory.floor[pcoord] = supply_cell(config, px, py, part_from_part_kind(config, part_kind), options.default_supply_speed, options.default_supply_cooldown, 0);
+            factory.floor[pcoord] = supply_cell(state, config, px, py, part_from_part_kind(config, part_kind), options.default_supply_speed, options.default_supply_cooldown, 0);
           }
           still_starting_on_edge = false;
         }
@@ -2577,8 +2583,8 @@ fn on_drag_end_floor_multi_cells(state: &State, options: &Options, config: &Conf
   }
 }
 fn on_up_paint_toggle(state: &mut State) {
-  log!("on_up_paint_toggle()");
-  log!("inverting state.mouse_mode_mirrored");
+  if state.is_debug { log!("on_up_paint_toggle()"); }
+  if state.is_debug { log!("inverting state.mouse_mode_mirrored"); }
   state.mouse_mode_mirrored = !state.mouse_mode_mirrored;
   // state.mouse_mode_selecting = false;
   // cell_selection.area = false;
@@ -2586,22 +2592,22 @@ fn on_up_paint_toggle(state: &mut State) {
   // state.selected_area_copy = vec!(); // Or retain this?
 }
 fn on_up_fullscreen_button(options: &Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
-  log!("on_up_fullscreen_button()");
+  if state.is_debug { log!("on_up_fullscreen_button()"); }
   state.request_fullscreen = true;
 }
 fn on_up_auto_build_button(options: &Options, state: &State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
-  log!("on_up_auto_build_button, factory.auto_build.phase={:?}", factory.auto_build.phase);
+  if state.is_debug { log!("on_up_auto_build_button, factory.auto_build.phase={:?}", factory.auto_build.phase); }
 
   if factory.auto_build.phase == AutoBuildPhase::None {
-    log!("Starting AutoBuild...");
+    if state.is_debug { log!("Starting AutoBuild..."); }
     auto_build_start(options, state, config, factory, mouse_state.world_x, mouse_state.world_y);
   } else {
-    log!("Stopping AutoBuild...");
+    if state.is_debug { log!("Stopping AutoBuild..."); }
     factory.auto_build.phase = AutoBuildPhase::None;
   }
 }
 fn on_drag_start_machine(options: &mut Options, state: &mut State, config: &Config, mouse_state: &mut MouseState, cell_selection: &mut CellSelection, w: usize, h: usize, part: PartKind) {
-  log!("on_drag_start_machine({}x{}, {})", w, h, part);
+  if state.is_debug { log!("on_drag_start_machine({}x{}, {})", w, h, part); }
   mouse_state.is_dragging_machine = true;
   mouse_state.dragging_machine_w = w as u8;
   mouse_state.dragging_machine_h = h as u8;
@@ -2612,7 +2618,7 @@ fn on_drag_start_machine(options: &mut Options, state: &mut State, config: &Conf
   cell_selection.on = false;
 }
 fn on_drag_end_machine_over_floor(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &MouseState) {
-  log!("on_drag_end_machine_over_floor({}, {}, {}, {})", mouse_state.last_up_cell_x, mouse_state.last_up_cell_y, mouse_state.dragging_machine_w, mouse_state.dragging_machine_h);
+  if state.is_debug { log!("on_drag_end_machine_over_floor({}, {}, {}, {})", mouse_state.last_up_cell_x, mouse_state.last_up_cell_y, mouse_state.dragging_machine_w, mouse_state.dragging_machine_h); }
   assert!(mouse_state.last_up_cell_x >= 0.0 && mouse_state.last_up_cell_y >= 0.0, "should not call this when mouse is oob. usize cant be negative");
 
   let machine_cell_width = mouse_state.dragging_machine_w;
@@ -2631,24 +2637,24 @@ fn on_drag_end_machine_over_floor(options: &mut Options, state: &mut State, conf
   }
   else if is_edge_not_corner(mouse_state.last_up_cell_x, mouse_state.last_up_cell_y) {
     if options.dbg_supply_allow_woop {
-      log!("Dropped a woop on an edge but options.dbg_supply_allow_woop=true.");
-      log!("Drag started from woop {} ({:?})", mouse_state.woop_down_woop_index, machine_part);
+      if state.is_debug { log!("Dropped a woop on an edge but options.dbg_supply_allow_woop=true."); }
+      if state.is_debug { log!("Drag started from woop {} ({:?})", mouse_state.woop_down_woop_index, machine_part); }
       set_edge_to_part(options, state, config, factory, mouse_state.last_up_cell_x as usize, mouse_state.last_up_cell_y as usize, machine_part);
     } else {
-      log!("Dropped woop on edge, options.dbg_supply_allow_woop=false, so drop was ignored");
+      if state.is_debug { log!("Dropped woop on edge, options.dbg_supply_allow_woop=false, so drop was ignored"); }
     }
   } else {
-    log!("Machine not dropped inside the floor. Ignoring. {} {}", mouse_state.last_up_cell_x, mouse_state.last_up_cell_y);
+    if state.is_debug { log!("Machine not dropped inside the floor. Ignoring. {} {}", mouse_state.last_up_cell_x, mouse_state.last_up_cell_y); }
   }
 }
 fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory) {
-  log!("on_up_menu() down: {:?}, up: {:?}", mouse_state.down_menu_button, mouse_state.up_menu_button);
+  if state.is_debug { log!("on_up_menu() down: {:?}, up: {:?}", mouse_state.down_menu_button, mouse_state.up_menu_button); }
 
   if mouse_state.down_menu_button != mouse_state.up_menu_button {
     if mouse_state.up_menu_button == MenuButton::None {
-      log!("  Was up in menu region but not on a button so ignoring it");
+      if state.is_debug { log!("  Was up in menu region but not on a button so ignoring it"); }
     } else {
-      log!("  Was up on a menu button but not down on the same button so ignoring it");
+      if state.is_debug { log!("  Was up on a menu button but not down on the same button so ignoring it"); }
     }
     return;
   }
@@ -2679,12 +2685,12 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
     MenuButton::SpeedMin => {
       let m = options.speed_modifier_floor;
       options.speed_modifier_floor = options.speed_modifier_floor.min(0.5) * 0.5;
-      log!("pressed time minus, from {} to {}", m, options.speed_modifier_floor);
+      if state.is_debug { log!("pressed time minus, from {} to {}", m, options.speed_modifier_floor); }
     }
     MenuButton::SpeedHalf => {
       let m = options.speed_modifier_floor;
       options.speed_modifier_floor = 0.5;
-      log!("pressed time half, from {} to {}", m, options.speed_modifier_floor);
+      if state.is_debug { log!("pressed time half, from {} to {}", m, options.speed_modifier_floor); }
     }
     MenuButton::SpeedPlayPause => {
       let m = options.speed_modifier_floor;
@@ -2695,20 +2701,20 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
         options.speed_modifier_floor = 1.0;
         state.paused = false;
       }
-      log!("pressed time one, from {} to {}", m, options.speed_modifier_floor);
+      if state.is_debug { log!("pressed time one, from {} to {}", m, options.speed_modifier_floor); }
     }
     MenuButton::SpeedDouble => {
       let m = options.speed_modifier_floor;
       options.speed_modifier_floor = 2.0;
-      log!("pressed time two, from {} to {}", m, options.speed_modifier_floor);
+      if state.is_debug { log!("pressed time two, from {} to {}", m, options.speed_modifier_floor); }
     }
     MenuButton::SpeedPlus => {
       let m = options.speed_modifier_floor;
       options.speed_modifier_floor = options.speed_modifier_floor.max(2.0) * 1.5;
-      log!("pressed time plus, from {} to {}", m, options.speed_modifier_floor);
+      if state.is_debug { log!("pressed time plus, from {} to {}", m, options.speed_modifier_floor); }
     }
     MenuButton::Row2Button0 => {
-      log!("pressed blow button. blowing the localStorage cache");
+      if state.is_debug { log!("pressed blow button. blowing the localStorage cache"); }
       let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
       local_storage.remove_item(LS_OPTIONS).unwrap();
       local_storage.remove_item(LS_LAST_MAP).unwrap();
@@ -2720,11 +2726,11 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
       local_storage.remove_item(LS_SAVE_PNG2).unwrap();
       local_storage.remove_item(LS_SAVE_SNAP3).unwrap();
       local_storage.remove_item(LS_SAVE_PNG3).unwrap();
-      log!("Done! Must reload to take effect");
+      if state.is_debug { log!("Done! Must reload to take effect"); }
     }
     MenuButton::Row2Button1 => {
       // Unbelt
-      log!("Removing all belts from the factory");
+      if state.is_debug { log!("Removing all belts from the factory"); }
       for coord in 0..factory.floor.len() {
         let (x, y) = to_xy(coord);
         match factory.floor[coord].kind {
@@ -2744,12 +2750,12 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
     }
     MenuButton::Row2Button2 => {
       // Unpart
-      log!("Removing all part data from the factory");
+      if state.is_debug { log!("Removing all part data from the factory"); }
       unpart(options, state, config, factory, false);
     }
     MenuButton::Row2Button3 => {
       // Undir
-      log!("Applying undir...");
+      if state.is_debug { log!("Applying undir..."); }
       for coord in 0..factory.floor.len() {
         let (x, y) = to_xy(coord);
         if factory.floor[coord].kind != CellKind::Supply && factory.floor[coord].kind != CellKind::Demand {
@@ -2772,29 +2778,29 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
     }
     MenuButton::Row2Button4 => {
       // Sample
-      log!("pressed sample button");
+      if state.is_debug { log!("pressed sample button"); }
       state.load_example_next_frame = true;
     }
     MenuButton::Row2Button5 => {
-      log!("(no button here)");
+      if state.is_debug { log!("(no button here)"); }
     }
     MenuButton::Row2Button6 => {
-      log!("(no button here)");
+      if state.is_debug { log!("(no button here)"); }
     }
     MenuButton::Row3Button0 => {
-      log!("pressed toggle for mouse / touch event swapping, will be {}", !state.event_type_swapped);
+      if state.is_debug { log!("pressed toggle for mouse / touch event swapping, will be {}", !state.event_type_swapped); }
       state.event_type_swapped = !state.event_type_swapped;
     }
     MenuButton::Row3Button1 => {
       // Select
-      log!("Toggle selection mode");
+      if state.is_debug { log!("Toggle selection mode"); }
       state.mouse_mode_selecting = !state.mouse_mode_selecting;
       cell_selection.area = state.mouse_mode_selecting;
       cell_selection.on = false;
       state.selected_area_copy = vec!(); // Or retain this?
     }
     MenuButton::Row3Button2 => {
-      log!("Copy selection");
+      if state.is_debug { log!("Copy selection"); }
       if state.mouse_mode_selecting && cell_selection.on {
         // If there's no clipboard, fill it now. Otherwise clear the clipboard.
         if state.selected_area_copy.len() == 0 {
@@ -2818,18 +2824,18 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
       }
     }
     MenuButton::Row3Button3 => {
-      log!("Running spriter...");
+      if state.is_debug { log!("Running spriter..."); }
       spriter_assets(options, state, config).expect("ok(())");
     }
     MenuButton::Row3Button4 => {
-      log!("Clearing the unlock status so you can start again");
+      if state.is_debug { log!("Clearing the unlock status so you can start again"); }
       quest_reset_progress(options, state, config, factory);
     }
     MenuButton::Row3Button5 => {
       panic!("Hit the panic button. Or another button without implementation.")
     }
     MenuButton::Row3Button6 => {
-      log!("(no button here)");
+      if state.is_debug { log!("(no button here)"); }
     }
 
     MenuButton::CopyFactory => {
@@ -2841,15 +2847,15 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
   }
 }
 fn on_up_selecting(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, mouse_state: &mut MouseState, cell_selection: &mut CellSelection) {
-  log!("mouse up on floor with selection mode enabled...");
+  if state.is_debug { log!("mouse up on floor with selection mode enabled..."); }
   if mouse_state.down_zone == ZONE_FLOOR {
     // Moving while there's stuff on the clipboard? This mouse up is a paste / stamp.
     if state.selected_area_copy.len() > 0 {
-      log!("    clipboard has data so we stamp it now");
+      if state.is_debug { log!("    clipboard has data so we stamp it now"); }
       paste(options, state, config, factory, mouse_state.cell_x_floored as usize, mouse_state.cell_y_floored as usize);
     }
     else {
-      log!("  was down in floor, too. ok!");
+      if state.is_debug { log!("  was down in floor, too. ok!"); }
       let now_cell_x = mouse_state.cell_x_floored;
       let now_cell_y = mouse_state.cell_y_floored;
       let down_cell_x = mouse_state.last_down_cell_x_floored;
@@ -2863,7 +2869,7 @@ fn on_up_selecting(options: &mut Options, state: &mut State, config: &Config, fa
       cell_selection.coord = to_coord(cell_selection.x as usize, cell_selection.y as usize);
     }
   } else {
-    log!("mouse up with selection mode enabled but the down was not on the floor, ignoring");
+    if state.is_debug { log!("mouse up with selection mode enabled but the down was not on the floor, ignoring"); }
   }
 }
 
@@ -5167,7 +5173,7 @@ fn paint_atom_truck_at_age(options: &Options, state: &State, config: &Config, co
     if factory.available_atoms.len() > target_menu_part_position {
       factory.available_atoms[target_menu_part_position].1 = true;
     } else {
-      log!("Must be testing but target_menu_part_position ({}) was oob on (factory.available_atoms ({})", target_menu_part_position, factory.available_atoms.len())
+      if state.is_debug { log!("Must be testing but target_menu_part_position ({}) was oob on (factory.available_atoms ({})", target_menu_part_position, factory.available_atoms.len()) }
     }
     return true;
   }
@@ -5262,7 +5268,7 @@ fn paint_woop_truck_at_age(options: &Options, state: &State, config: &Config, co
     if factory.available_woops.len() > target_menu_part_position {
       factory.available_woops[target_menu_part_position].1 = true;
     } else {
-      log!("Must be testing but target_menu_part_position ({}) was oob on (factory.available_woops ({})", target_menu_part_position, factory.available_woops.len())
+      if state.is_debug { log!("Must be testing but target_menu_part_position ({}) was oob on (factory.available_woops ({})", target_menu_part_position, factory.available_woops.len()) }
     }
 
     return true;
@@ -6390,7 +6396,7 @@ fn unpart(options: &mut Options, state: &mut State, config: &Config, factory: &m
 }
 
 fn parse_and_save_options_string(option_string: String, options: &mut Options, strict: bool, options_started_from_source: u64, on_load: bool) {
-  log!("parse_and_save_options_string(options.dbg_dump_options_string = {}) {} (len = {})", options.dbg_dump_options_string, if options_started_from_source > 0 { "from source" } else { "compiled defaults" }, option_string.len());
+  if options.dbg_dump_options_string {  log!("parse_and_save_options_string() {} (len = {})", if options_started_from_source > 0 { "from source" } else { "compiled defaults" }, option_string.len()); }
   let bak = options.initial_map_from_source;
   parse_options_into(option_string.clone(), options, true);
   options.options_started_from_source = options_started_from_source; // This prop will be overwritten by the above, first
@@ -6401,12 +6407,12 @@ fn parse_and_save_options_string(option_string: String, options: &mut Options, s
 
   let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
   if !on_load {
-    log!("parse_and_save_options_string: Storing options into browser localStorage... ({} bytes)", exp.len());
+    if options.dbg_dump_options_string { log!("parse_and_save_options_string: Storing options into browser localStorage... ({} bytes)", exp.len()); }
     local_storage.set_item(LS_OPTIONS, exp.as_str()).unwrap();
   }
 
   // Update UI to reflect actually loaded options
-  log!("setGameOptions() (After loading them from localStorage)");
+  if options.dbg_dump_options_string { log!("setGameOptions() (After loading them from localStorage)"); }
   setGameOptions(exp.into(), on_load.into());
 }
 

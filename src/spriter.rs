@@ -205,7 +205,7 @@ fn spriter(options: &Options, state: &State, config: &Config, list: Vec<(PartKin
   }
 
   // log!("v2 placement: {:?}", placed);
-  log!("Canvas size: {}x{}", maxw, maxh);
+  if state.is_debug { log!("Canvas size: {}x{}", maxw, maxh); }
 
 
   let document = document();
@@ -271,7 +271,7 @@ fn spriter(options: &Options, state: &State, config: &Config, list: Vec<(PartKin
     n += 1;
   }
 
-  log!("drew {} frames", n);
+  if state.is_debug { log!("drew {} frames", n); }
 
   let md = strings.join("\n");
   return Ok(md);

@@ -115,14 +115,14 @@ pub fn supply_clear_part(factory: &mut Factory, supply_coord: usize) {
 
 pub fn supply_get_default_part(options: &Options, state: &State, config: &Config, factory: &Factory, mouse_state: &MouseState) -> PartKind {
   if options.default_supply_trash {
-    log!("supply_get_default_part(options.default_supply_trash=true)");
+    if state.is_debug { log!("supply_get_default_part(options.default_supply_trash=true)"); }
     // This is a special case part that may be used while debugging
     return CONFIG_NODE_PART_TRASH;
   }
 
   // Prefer the selected atom, if any
   if mouse_state.atom_selected {
-    log!("supply_get_default_part(mouse_state.atom_selected=true, {})", mouse_state.atom_selected_index);
+    if state.is_debug { log!("supply_get_default_part(mouse_state.atom_selected=true, {})", mouse_state.atom_selected_index); }
     return factory.available_atoms[mouse_state.atom_selected_index].0 as PartKind;
   }
 
@@ -141,7 +141,7 @@ pub fn supply_get_random_atom(options: &Options, state: &State, config: &Config,
   let rng = xorshift(factory.ticks as usize);
   let n = rng % available.len();
 
-  log!("supply_get_default_part(rng={})", available[n]);
+  if state.is_debug { log!("supply_get_default_part(rng={})", available[n]); }
 
   return available[n];
 }

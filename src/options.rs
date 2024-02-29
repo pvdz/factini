@@ -53,6 +53,7 @@ pub struct Options {
   pub trace_story_changes: bool,
   pub trace_size_changes: bool,
   pub trace_track_gen: bool, // Creating new belt tracks
+  pub trace_maze: bool,
 
   pub dbg_paint_tile_priority: bool, // Print the prio index of a tile in the game (debug, web)
   pub dbg_onload_dump_factory: bool, // Print the CLI version of the floor after generating it initially?
@@ -150,7 +151,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     options_started_from_source: 0, // Updated elsewhere
     initial_map_from_source: 0, // Updated elsewhere
 
-    dbg_dump_options_string: true,
+    dbg_dump_options_string: false,
     trace_all_moves: false,
     trace_moves_belt: false,
     trace_moves_machine: false,
@@ -169,6 +170,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     trace_story_changes: false,
     trace_size_changes: false,
     trace_track_gen: false,
+    trace_maze: false,
     dbg_paint_tile_priority: false,
     dbg_onload_dump_factory: false,
     dbg_onchange_dump_snapshot: false,
@@ -259,7 +261,7 @@ fn parse_bool(value: &str, key: &str, strict: bool, def: bool, verbose: bool) ->
       }
     },
   };
-  if out != def && verbose{
+  if out != def && verbose {
     log!("Changed value for options.{}: from: {}, to: {}", key, def, out);
   }
   return out;
@@ -371,6 +373,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "trace_story_changes" => options.trace_story_changes = parse_bool(value, name, strict, options.trace_story_changes, verbose),
             "trace_size_changes" => options.trace_size_changes = parse_bool(value, name, strict, options.trace_size_changes, verbose),
             "trace_track_gen" => options.trace_track_gen = parse_bool(value, name, strict, options.trace_track_gen, verbose),
+            "trace_maze" => options.trace_maze = parse_bool(value, name, strict, options.trace_maze, verbose),
             "dbg_paint_tile_priority" => options.dbg_paint_tile_priority = parse_bool(value, name, strict, options.dbg_paint_tile_priority, verbose),
             "dbg_onload_dump_factory" => options.dbg_onload_dump_factory = parse_bool(value, name, strict, options.dbg_onload_dump_factory, verbose),
             "dbg_onchange_dump_snapshot" => options.dbg_onchange_dump_snapshot = parse_bool(value, name, strict, options.dbg_onchange_dump_snapshot, verbose),
@@ -479,6 +482,7 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- trace_story_changes: {}", options.trace_story_changes));
   arr.push(format!("- trace_size_changes: {}", options.trace_size_changes));
   arr.push(format!("- trace_track_gen: {}", options.trace_track_gen));
+  arr.push(format!("- trace_maze: {}", options.trace_maze));
   arr.push(format!("- dbg_paint_tile_priority: {}", options.dbg_paint_tile_priority));
   arr.push(format!("- dbg_onload_dump_factory: {}", options.dbg_onload_dump_factory));
   arr.push(format!("- dbg_onchange_dump_snapshot: {}", options.dbg_onchange_dump_snapshot));

@@ -70,6 +70,8 @@ pub struct State {
   pub ui_unlock_progress: u8, // Used to track how much of the UI to unlock
   pub ui_speed_menu_anim_progress: u64, // Animation progress. Ticks left, relative to options.save_menu_animation_time
   pub ui_save_menu_anim_progress: u64, // Animation progress. Ticks left, relative to options.speed_menu_animation_time
+
+  pub is_debug: bool, // Is this debug.html ? In that case we are a little more verbose in console
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -294,6 +296,7 @@ pub fn state_create(options: &Options, active_story_index: usize) -> State {
     ui_unlock_progress: 0,
     ui_speed_menu_anim_progress: 0,
     ui_save_menu_anim_progress: 0,
+    is_debug: false,
   };
 }
 

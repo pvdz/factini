@@ -1385,7 +1385,7 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
     }
   });
 
-  log!("Config has {} nodes with: {} stories, {} assets, {} parts, {} quests, and {} belts", nodes.len(), stories_count, assets, parts, quests, belts);
+  if trace_parse_config_md { log!("Config has {} nodes with: {} stories, {} assets, {} parts, {} quests, and {} belts", nodes.len(), stories_count, assets, parts, quests, belts); }
 
   // log!("parsed nodes: {:?}", &nodes[1..]);
   if trace_parse_config_md { log!("parsed map: {:?}", node_name_to_index); }
