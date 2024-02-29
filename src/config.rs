@@ -405,6 +405,9 @@ pub const CONFIG_NODE_ASSET_PASTE_WHITE: usize = 377;
 pub const CONFIG_NODE_ASSET_HELP_WHITE: usize = 378;
 pub const CONFIG_NODE_ASSET_HELP_GREY: usize = 379;
 pub const CONFIG_NODE_ASSET_BATTERY: usize = 380;
+pub const CONFIG_NODE_ASSET_SCREEN_RESET: usize = 381;
+pub const CONFIG_NODE_ASSET_SCREEN_PLAY_I: usize = 382;
+pub const CONFIG_NODE_ASSET_SCREEN_RESET_I: usize = 383;
 
 #[derive(Debug)]
 pub struct Config {
@@ -932,6 +935,7 @@ pub fn parse_config_md(trace_parse_config_md: bool, config: String) -> Config {
             }
             "frame_offset" => {
               nodes[current_node_index].sprite_config.frame_offset = value_raw.parse::<u64>().or::<Result<u32, &str>>(Ok(0)).unwrap() as usize;
+              // log!("Parsed frame offset {} for {} ({})", nodes[current_node_index].sprite_config.frame_offset, nodes[current_node_index].raw_name, current_node_index == CONFIG_NODE_BELT__D);
             }
             "frame_count" => {
               // The total number of frames this sprite is expected to have
@@ -1444,6 +1448,9 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Asset_DoubleArrowRight" => CONFIG_NODE_ASSET_DOUBLE_ARROW_RIGHT,
     "Asset_ScreenLoader" => CONFIG_NODE_ASSET_SCREEN_LOADER,
     "Asset_ScreenPlay" => CONFIG_NODE_ASSET_SCREEN_PLAY,
+    "Asset_ScreenPlayI" => CONFIG_NODE_ASSET_SCREEN_PLAY_I,
+    "Asset_ScreenReset" => CONFIG_NODE_ASSET_SCREEN_RESET,
+    "Asset_ScreenResetI" => CONFIG_NODE_ASSET_SCREEN_RESET_I,
     "Asset_ButtonUp1" => CONFIG_NODE_ASSET_BUTTON_UP_1,
     "Asset_ButtonUp2" => CONFIG_NODE_ASSET_BUTTON_UP_2,
     "Asset_ButtonUp3" => CONFIG_NODE_ASSET_BUTTON_UP_3,
@@ -2176,6 +2183,9 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_asset(CONFIG_NODE_ASSET_HELP_WHITE, "HelpWhite"),
     config_node_asset(CONFIG_NODE_ASSET_HELP_GREY, "HelpGrey"),
     config_node_asset(CONFIG_NODE_ASSET_BATTERY, "Battery"),
+    config_node_asset(CONFIG_NODE_ASSET_SCREEN_RESET, "ScreenReset"),
+    config_node_asset(CONFIG_NODE_ASSET_SCREEN_PLAY_I, "ScreenPlayI"),
+    config_node_asset(CONFIG_NODE_ASSET_SCREEN_RESET_I, "ScreenResetI"),
   );
 
   v.iter().enumerate().for_each(|(i, node)| assert!(node.index == i, "system node indexes must match their global constant value; mismatch for index {} in get_system_nodes(), node.index= {}", i, node.index));
@@ -2446,6 +2456,7 @@ pub fn config_get_sprite_details<'x>(config: &'x Config, options: &Options, conf
   let sprite_config = &node.sprite_config;
 
   let frame_offset = sprite_config.frame_offset;
+  // if CONFIG_NODE_BELT__D == config_index { log!("test: {:?}", frame_offset); }
 
   if sprite_start_at - ticks < sprite_config.initial_delay {
     let sprite = &node.sprite_config.frames[frame_offset];
@@ -2519,6 +2530,15 @@ fn config_node_to_jsvalue(node: &ConfigNode) -> JsValue {
     convert_js_to_pair("pattern", JsValue::from(node.pattern.clone())),
     convert_js_to_pair("pattern_unique_kinds", convert_vec_usize_to_jsvalue(&node.pattern_unique_kinds)),
     convert_string_to_pair("icon", format!("{}", node.icon).as_str()),
+
+    convert_js_to_pair("initial_delay", JsValue::from(node.sprite_config.initial_delay)),
+    // convert_js_to_pair("frame_direction", convert_vec_usize_to_jsvalue(&node.sprite_config.frame_direction)),
+    convert_js_to_pair("frame_count", JsValue::from(node.sprite_config.frame_count)),
+    convert_js_to_pair("frame_offset", JsValue::from(node.sprite_config.frame_offset)),
+    convert_js_to_pair("frame_delay", JsValue::from(node.sprite_config.frame_delay)),
+    convert_js_to_pair("looping", JsValue::from(node.sprite_config.looping)),
+    convert_js_to_pair("loop_delay", JsValue::from(node.sprite_config.loop_delay)),
+    convert_js_to_pair("loop_backwards", JsValue::from(node.sprite_config.loop_backwards)),
 
     convert_js_to_pair(
       "sprite_config",

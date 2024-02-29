@@ -99,6 +99,7 @@ pub struct Options {
   pub dbg_maze_paint_stats_text: bool, // Show actual numbers of prepared maze stats?
 
   pub splash_keep_loader: bool, // Keep showing the loader screen, even when loading is complete
+  pub splash_keep_loading: bool, // Keep showing the loader screen and fake a "still loading" message, even when loading is complete
   pub splash_no_loader: bool, // Skip the loader screen and go straight to the game
   pub splash_keep_main: bool, // Show main menu?
   pub splash_no_main: bool, // Skip main menu?
@@ -204,6 +205,7 @@ pub fn create_options(speed_modifier_floor: f64, speed_modifier_ui: f64) -> Opti
     dbg_maze_enable_runner: true,
     dbg_maze_paint_stats_text: false,
     splash_keep_loader: false,
+    splash_keep_loading: false,
     splash_no_loader: false,
     splash_keep_main: false,
     splash_no_main: false,
@@ -397,6 +399,7 @@ pub fn parse_options_into(input: String, options: &mut Options, strict: bool) {
             "dbg_maze_enable_runner" => options.dbg_maze_enable_runner = parse_bool(value, name, strict, options.dbg_maze_enable_runner, verbose),
             "dbg_maze_paint_stats_text" => options.dbg_maze_paint_stats_text = parse_bool(value, name, strict, options.dbg_maze_paint_stats_text, verbose),
             "splash_keep_loader" => options.splash_keep_loader = parse_bool(value, name, strict, options.splash_keep_loader, verbose),
+            "splash_keep_loading" => options.splash_keep_loading = parse_bool(value, name, strict, options.splash_keep_loading, verbose),
             "splash_no_loader" => options.splash_no_loader = parse_bool(value, name, strict, options.splash_no_loader, verbose),
             "splash_keep_main" => options.splash_keep_main = parse_bool(value, name, strict, options.splash_keep_main, verbose),
             "splash_no_main" => options.splash_no_main = parse_bool(value, name, strict, options.splash_no_main, verbose),
@@ -510,6 +513,7 @@ pub fn options_serialize(options: &Options) -> String {
   arr.push(format!("- dbg_maze_enable_runner: {}", options.dbg_maze_enable_runner));
   arr.push(format!("- dbg_maze_paint_stats_text: {}", options.dbg_maze_paint_stats_text));
   arr.push(format!("- splash_keep_loader: {}", options.splash_keep_loader));
+  arr.push(format!("- splash_keep_loading: {}", options.splash_keep_loading));
   arr.push(format!("- splash_no_loader: {}", options.splash_no_loader));
   arr.push(format!("- splash_keep_main: {}", options.splash_keep_main));
   arr.push(format!("- splash_no_main: {}", options.splash_no_main));

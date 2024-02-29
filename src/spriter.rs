@@ -84,7 +84,6 @@ pub fn spriter_assets(options: &Options, state: &State, config: &Config) -> Resu
     strings.push(r);
   }
 
-
   // let md = md.as_str();
   let md = JsValue::from_str(&format!("const SPRITE_MAP = `\n{}\n`;\n", strings.join(" ")));
   let md = js_sys::Array::from(&md); // Blob expects an array of strings here
@@ -92,8 +91,8 @@ pub fn spriter_assets(options: &Options, state: &State, config: &Config) -> Resu
   let url = web_sys::Url::create_object_url_with_blob(&blob).unwrap();
   let a = document().create_element("a")?.dyn_into::<web_sys::HtmlElement>()?;
   a.set_inner_html(&"Download md.js");
-  a.set_attribute("href", &url);
-  a.set_attribute("download", "sprite_map.md.js");
+  a.set_attribute("href", &url).expect("it should work");
+  a.set_attribute("download", "sprite_map.md.js").expect("it should work");
   document().get_element_by_id("$main_game").unwrap().append_child(&a)?;
 
   return Ok(());
@@ -220,7 +219,7 @@ fn spriter(options: &Options, state: &State, config: &Config, list: Vec<(PartKin
   canvas.style().set_property("max-height", format!("{}px", CANVAS_CSS_INITIAL_HEIGHT as u32).as_str())?;
   // We shouldn't be scaling so I don't think this property matters here...
   canvas.style().set_property("image-rendering", "pixelated").expect("should work");
-  canvas.set_attribute("download", "fname");
+  canvas.set_attribute("download", "fname").expect("it should work");
 
   // // Background image on this canvas is irrelevant so slightly optimize it.
   // let context_options = js_sys::Object::new();

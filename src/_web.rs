@@ -3,6 +3,7 @@
 
 // Bug
 // - creating a demander and deleting it isa crash?
+// - frame_offset ignored?
 
 // Compile with --profile to try and get some sense of shit
 
@@ -709,15 +710,13 @@ pub fn start() -> Result<(), JsValue> {
 
         // Find the sprite that is the first frame of the loader. If it is loaded, paint the loading screen. Otherwise paint an ugly loading bar.
         if config.sprite_cache_canvas[config.nodes[CONFIG_NODE_ASSET_SCREEN_LOADER].sprite_config.frames[0].file_canvas_cache_index].complete() {
-          paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_SCREEN_LOADER, factory.ticks,
-            100.0, 100.0,
-            800.0, 600.0
-          );
+          paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_SCREEN_LOADER, factory.ticks, UI_MAIN_SCREEN_X, UI_MAIN_SCREEN_Y, UI_MAIN_SCREEN_WIDTH, UI_MAIN_SCREEN_HEIGHT);
         }
 
         context.set_font(&"24px monospace");
         context.set_fill_style(&"red".into());
-        context.fill_text(format!("Images {}: {} of {}", if loading == 0 { "loaded" } else { "loading" }, config.sprite_cache_canvas.len() - loading, config.sprite_cache_canvas.len()).as_str(), UI_FLOOR_OFFSET_X + (UI_FLOOR_WIDTH / 2.0) - 150.0, UI_FLOOR_OFFSET_Y + (UI_FLOOR_HEIGHT / 2.0) + 35.0 + 200.0).expect("it to work");
+        let viz_loading = if loading > 0 || !options.splash_keep_loading { loading } else { 2 }; // When setting is on, show at least two pending
+        context.fill_text(format!("Images {}: {} of {}", if viz_loading == 0 { "loaded" } else { "loading" }, config.sprite_cache_canvas.len() as f64 - viz_loading as f64, config.sprite_cache_canvas.len()).as_str(), UI_MAIN_SCREEN_X + 50.0, UI_MAIN_SCREEN_Y + 470.0).expect("it to work");
 
         context.set_font(&"12px monospace");
         paint_debug_app(&options, &state, &config, &context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
@@ -740,29 +739,50 @@ pub fn start() -> Result<(), JsValue> {
         }
       }
       if !pregame && (state.pregame || options.splash_keep_main) && !options.splash_no_main {
-
-
-        paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_SCREEN_LOADER, factory.ticks,
-          100.0, 100.0,
-          800.0, 600.0
-        );
-        context.set_fill_style(&"#faffff".into()); // Match background color of loader screen
-        context.fill_rect(100.0 + 126.0, 100.0 + 329.0, 173.0, 63.0); // Remove the "loading" text
-        paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_SCREEN_PLAY, factory.ticks,
-          100.0 + 88.0, 100.0 + 240.0,
-          138.0, 61.0
-        );
-
+        let mx = mouse_x.get();
+        let my = mouse_y.get();
         let was_up = last_mouse_was_up.get();
+
+        paint_asset(&options, &state, &config, &context, CONFIG_NODE_ASSET_SCREEN_LOADER, factory.ticks, UI_MAIN_SCREEN_X, UI_MAIN_SCREEN_Y, UI_MAIN_SCREEN_WIDTH, UI_MAIN_SCREEN_HEIGHT);
+        context.set_fill_style(&"#faffff".into()); // Match background color of loader screen
+        context.fill_rect(UI_MAIN_SCREEN_X + 126.0, UI_MAIN_SCREEN_Y + 310.0, 173.0, 63.0); // Remove the "loading" text
+
+        let px = UI_MAIN_SCREEN_X + 88.0;
+        let py = UI_MAIN_SCREEN_Y + 240.0;
+        let pw = 138.0;
+        let ph = 61.0;
+        let rx = UI_MAIN_SCREEN_X + 88.0;
+        let ry = UI_MAIN_SCREEN_Y + 300.0;
+        let rw = 174.0;
+        let rh = 42.0;
+
+        let is_over_play = bounds_check(mx, my, px, py, px + pw, py + ph);
+        let is_over_reset = !is_over_play && bounds_check(mx, my,rx, ry, rx+rw, ry+rh);
+
+        paint_asset(&options, &state, &config, &context, if is_over_play { CONFIG_NODE_ASSET_SCREEN_PLAY_I } else { CONFIG_NODE_ASSET_SCREEN_PLAY }, factory.ticks, UI_MAIN_SCREEN_X + 88.0, UI_MAIN_SCREEN_Y + 240.0, 138.0, 61.0);
+
+        // If there is progress stored then display the option to reset it
+        paint_asset(&options, &state, &config, &context, if is_over_reset { CONFIG_NODE_ASSET_SCREEN_RESET_I } else { CONFIG_NODE_ASSET_SCREEN_RESET }, factory.ticks, rx, ry, rw, rh);
+
         last_mouse_was_down.set(false);
         last_mouse_was_up.set(false);
 
         if was_up {
-          log!("clicked on main splash. closing it.");
-          state.pregame = false; // Click anywhere to continue
-          options.splash_keep_main = false;
+          if is_over_reset {
+            log!("clicked on reset part. Clearing local storage.");
+
+            let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+            // local_storage.remove_item(LS_OPTIONS).unwrap(); // Don't think we need to do this for non-debug
+            local_storage.remove_item(LS_LAST_MAP).unwrap();
+            // Keep loading screen. I don't think users expect the click to close the banner.
+            pregame = true;
+          } else {
+            log!("clicked on main splash and not the reset. closing it.");
+            state.pregame = false; // Click anywhere to continue
+            options.splash_keep_main = false;
+          }
         } else {
-          pregame = true; // Handle config updates etc but shedule a new raF and return before the game loop
+          pregame = true; // Handle config updates etc but schedule a new raF and return before the game loop
         }
       }
 

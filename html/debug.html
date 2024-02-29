@@ -186,6 +186,11 @@
       $config_node_kind.innerText = node.kind;
       $config_node_name.innerText = node.name;
       $config_node_raw_name.innerText = node.raw_name;
+      $config_node_frame_offset.innerText = node.frame_offset;
+      $config_node_frame_delay.innerText = node.frame_delay;
+      $config_node_frame_looping.innerText = node.looping;
+      $config_node_loop_delay.innerText = node.loop_delay;
+      $config_node_loop_backwards.innerText = node.loop_backwards;
 
       $sprite_preview.innerHTML = '(no sprite)';
       function showSprite() {
@@ -608,6 +613,11 @@
           <div id="$p_config_node_icon" style="white-space: pre;"><span class="key">icon:</span><span id="$config_node_icon" class="value"></span></div>
           <div id="$p_config_node_file"><span class="key">file:</span><span id="$config_node_file" class="value"></span></div>
           <div id="$p_config_node_file_canvas_cache_index" style="white-space: pre;"><span class="key">file_canvas_cache_index:</span><span id="$config_node_file_canvas_cache_index" class="value"></span></div>
+          <div id="$p_config_node_frame_offset" style="white-space: pre;"><span class="key">frame_offset:</span><span id="$config_node_frame_offset" class="value"></span></div>
+          <div id="$p_config_node_frame_delay" style="white-space: pre;"><span class="key">frame_delay:</span><span id="$config_node_frame_delay" class="value"></span></div>
+          <div id="$p_config_node_frame_looping" style="white-space: pre;"><span class="key">looping:</span><span id="$config_node_frame_looping" class="value"></span></div>
+          <div id="$p_config_node_loop_delay" style="white-space: pre;"><span class="key">loop delay:</span><span id="$config_node_loop_delay" class="value"></span></div>
+          <div id="$p_config_node_loop_backwards" style="white-space: pre;"><span class="key">loop backwards:</span><span id="$config_node_loop_backwards" class="value"></span></div>
           <div id="$p_config_node_x" style="white-space: pre;"><span class="key">x:</span><span id="$config_node_x" class="value"></span></div>
           <div id="$p_config_node_y" style="white-space: pre;"><span class="key">y:</span><span id="$config_node_y" class="value"></span></div>
           <div id="$p_config_node_w" style="white-space: pre;"><span class="key">w:</span><span id="$config_node_w" class="value"></span></div>

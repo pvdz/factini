@@ -36,6 +36,11 @@ pub const GRID_PADDING: f64 = 5.0; // Spacing of grid blocks from edge and betwe
 
 pub const FLOOR_PATH_SPACING: f64 = 20.0;
 
+pub const UI_MAIN_SCREEN_WIDTH: f64 = 801.0;
+pub const UI_MAIN_SCREEN_HEIGHT: f64 = 570.0;
+pub const UI_MAIN_SCREEN_X: f64 = ((GRID_X3 / 2.0 - UI_MAIN_SCREEN_WIDTH / 2.0) as u64) as f64;
+pub const UI_MAIN_SCREEN_Y: f64 = ((GRID_Y3 / 2.0 - UI_MAIN_SCREEN_HEIGHT / 2.0) as u64) as f64;
+
 // The Floor is the main game area
 // The floor_offset is where the actual floor starts (opposed to the floor zone)
 pub const UI_FLOOR_OFFSET_X: f64 = GRID_X1 + FLOOR_PATH_SPACING;

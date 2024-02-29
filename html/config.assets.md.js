@@ -37,6 +37,24 @@ This is the "play" part for the main loading screen. We paint it over the "loadi
 - w: 138
 - h: 61
 
+# Asset_ScreenPlayI
+The "invert" of the play text
+- file: ./img/screen_play_i.png
+- w: 138
+- h: 61
+
+# Asset_ScreenReset
+This is the "reset" part for the main loading screen. We paint it over the "loading" part.
+- file: ./img/screen_reset.png
+- w: 174
+- h: 42
+
+# Asset_ScreenResetI
+The "invert" of the reset text
+- file: ./img/screen_reset_i.png
+- w: 174
+- h: 42
+
 # Asset_SupplyUp
 - frame_offset: 0
 - frame_delay: 150
