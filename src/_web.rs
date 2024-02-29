@@ -1058,7 +1058,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_background_tiles2(&options, &state, &config, &factory, &context);
         paint_background_tiles3(&options, &state, &config, &factory, &context);
         paint_port_arrows(&options, &state, &config, &context, &factory);
-        paint_belt_dbg_id(&options, &state, &config, &context, &factory);
+        paint_belt_debug(&options, &state, &config, &context, &factory);
         paint_machine_craft_menu(&options, &state, &config, &context, &factory, &cell_selection, &mouse_state);
         paint_ui_atom_woop_hover_droptarget_hint_conditionally(&options, &state, &config, &context, &mut factory, &mouse_state, &cell_selection);
         paint_debug_app(&options, &state, &config, &context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
@@ -3820,7 +3820,7 @@ fn paint_port_arrows(options: &Options, state: &State, config: &Config, context:
     }
   }
 }
-fn paint_belt_dbg_id(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory) {
+fn paint_belt_debug(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, factory: &Factory) {
   if !options.dbg_paint_belt_id {
     return;
   }
