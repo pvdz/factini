@@ -5991,7 +5991,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 2236
+- x: 1783
 - y: 165
 - w: 0
 - h: 0
@@ -6000,43 +6000,16 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 0
-- y: 0
-- w: 512
-- h: 512
-
-# Part_None
-- gen
-- file: ./img/spritemaps/sprite_map_parts.png
-- frame: 0
-- x: 2241
+- x: 1650
 - y: 165
-- w: 0
-- h: 0
-
-# Part_None
-- gen
-- file: ./img/spritemaps/sprite_map_parts.png
-- frame: 0
-- x: 2246
-- y: 165
-- w: 0
-- h: 0
-
-# Part_None
-- gen
-- file: ./img/spritemaps/sprite_map_parts.png
-- frame: 0
-- x: 2251
-- y: 165
-- w: 0
-- h: 0
+- w: 128
+- h: 128
 
 # Part_BucketRed
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 517
+- x: 0
 - y: 0
 - w: 160
 - h: 160
@@ -6045,7 +6018,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 517
+- x: 0
 - y: 165
 - w: 160
 - h: 160
@@ -6054,7 +6027,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 517
+- x: 0
 - y: 330
 - w: 160
 - h: 160
@@ -6063,7 +6036,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 682
+- x: 165
 - y: 0
 - w: 160
 - h: 160
@@ -6072,7 +6045,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 682
+- x: 165
 - y: 165
 - w: 160
 - h: 160
@@ -6081,7 +6054,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 682
+- x: 165
 - y: 330
 - w: 160
 - h: 160
@@ -6090,7 +6063,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 847
+- x: 330
 - y: 0
 - w: 160
 - h: 160
@@ -6099,7 +6072,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 847
+- x: 330
 - y: 165
 - w: 160
 - h: 160
@@ -6108,7 +6081,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 847
+- x: 330
 - y: 330
 - w: 160
 - h: 160
@@ -6117,7 +6090,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 1012
+- x: 495
 - y: 0
 - w: 160
 - h: 160
@@ -6126,7 +6099,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 1012
+- x: 495
 - y: 165
 - w: 160
 - h: 160
@@ -6135,8 +6108,8 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 2167
-- y: 165
+- x: 1650
+- y: 298
 - w: 64
 - h: 64
 
@@ -6144,7 +6117,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 1012
+- x: 495
 - y: 330
 - w: 160
 - h: 160
@@ -6153,7 +6126,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 1177
+- x: 660
 - y: 0
 - w: 160
 - h: 160
@@ -6162,7 +6135,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 1177
+- x: 660
 - y: 165
 - w: 160
 - h: 160
@@ -6171,7 +6144,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 1177
+- x: 660
 - y: 330
 - w: 160
 - h: 160
@@ -6180,7 +6153,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 1342
+- x: 825
 - y: 0
 - w: 160
 - h: 160
@@ -6189,7 +6162,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 1342
+- x: 825
 - y: 165
 - w: 160
 - h: 160
@@ -6198,7 +6171,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 1342
+- x: 825
 - y: 330
 - w: 160
 - h: 160
@@ -6207,7 +6180,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 1507
+- x: 990
 - y: 0
 - w: 160
 - h: 160
@@ -6216,7 +6189,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 1507
+- x: 990
 - y: 165
 - w: 160
 - h: 160
@@ -6225,7 +6198,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 1507
+- x: 990
 - y: 330
 - w: 160
 - h: 160
@@ -6234,7 +6207,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 1672
+- x: 1155
 - y: 0
 - w: 160
 - h: 160
@@ -6243,7 +6216,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 1672
+- x: 1155
 - y: 165
 - w: 160
 - h: 160
@@ -6252,7 +6225,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 1672
+- x: 1155
 - y: 330
 - w: 160
 - h: 160
@@ -6261,7 +6234,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 1837
+- x: 1320
 - y: 0
 - w: 160
 - h: 160
@@ -6270,7 +6243,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 1837
+- x: 1320
 - y: 165
 - w: 160
 - h: 160
@@ -6279,7 +6252,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 1837
+- x: 1320
 - y: 330
 - w: 160
 - h: 160
@@ -6288,7 +6261,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 2002
+- x: 1485
 - y: 0
 - w: 160
 - h: 160
@@ -6297,7 +6270,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 2002
+- x: 1485
 - y: 165
 - w: 160
 - h: 160
@@ -6306,7 +6279,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 2002
+- x: 1485
 - y: 330
 - w: 160
 - h: 160
@@ -6315,7 +6288,7 @@ const SPRITE_MAP = `
 - gen
 - file: ./img/spritemaps/sprite_map_parts.png
 - frame: 0
-- x: 2167
+- x: 1650
 - y: 0
 - w: 160
 - h: 160

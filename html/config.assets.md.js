@@ -16,8 +16,8 @@ Hardcoded node. Debug only. This definition can appear anywhere. This is the tra
 This is something that looks like a grey rock.
 - char: t
 - file: ./img/bag.png
-- w: 512
-- h: 512
+- w: 128
+- h: 128
 
 # Asset_Logo
 - file: ./img/logo75.png
