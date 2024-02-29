@@ -770,11 +770,12 @@ pub fn start() -> Result<(), JsValue> {
 
         if was_up {
           if is_over_reset {
-            if is_debug { log!("clicked on reset part. Clearing local storage."); }
+            log!("Clearing local storage.");
 
             let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
             // local_storage.remove_item(LS_OPTIONS).unwrap(); // Don't think we need to do this for non-debug
             local_storage.remove_item(LS_LAST_MAP).unwrap();
+            factory_load_map(&mut options, &mut state, &mut config, &mut factory, "".to_string());
             // Keep loading screen. I don't think users expect the click to close the banner.
             pregame = true;
           } else {
@@ -2824,7 +2825,7 @@ fn on_up_menu(cell_selection: &mut CellSelection, mouse_state: &mut MouseState, 
       spriter_assets(options, state, config).expect("ok(())");
     }
     MenuButton::Row3Button4 => {
-      if state.is_debug { log!("Clearing the unlock status so you can start again"); }
+      if state.is_debug { log!("Clearing the unlock status so you can start again. Does not call state_set_ui_unlock_progress() so UI progress is unaffected."); }
       quest_reset_progress(options, state, config, factory);
     }
     MenuButton::Row3Button5 => {

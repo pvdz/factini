@@ -184,6 +184,7 @@ pub fn quest_get_active_indexes(options: &Options, state: &State, config: &Confi
 }
 
 pub fn quest_reset_progress(options: &Options, state: &State, config: &Config, factory: &mut Factory) {
+  // Note; does not call state_set_ui_unlock_progress() ! So UI progress is not reset here.
   if options.trace_quest_status { log!("quest_reset_progress()"); }
   let available_part_kinds = config_get_initial_unlocks(options, state, config, state.active_story_index);
   let all_available_in_this_story = available_part_kinds.iter().map(|part_kind| ( *part_kind, true ) ).filter(|(part, _visible)| {

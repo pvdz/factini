@@ -315,6 +315,13 @@ pub fn mouse_button_to_action(state: &State, mouse_state: &MouseState) -> Action
 
 pub fn state_set_ui_unlock_progress(options: &mut Options, state: &mut State, ui_unlock_progress: u8) {
   state.ui_unlock_progress = ui_unlock_progress;
+  if ui_unlock_progress == 0 {
+    // Reset
+    options.enable_speed_menu = false;
+    options.enable_quick_save_menu = false;
+    options.enable_maze_roundway_and_collection = false;
+    options.enable_maze_full = false;
+  }
   if ui_unlock_progress == 1 {
     state.ui_speed_menu_anim_progress = options.speed_menu_animation_time;
     state.ui_unlock_progress += 1; // This makes it so that the animation does not restart when loading at this unlock progress step
