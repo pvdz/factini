@@ -1,4 +1,6 @@
-const GAME_CONFIG_PRELUDE = `
+// Do not put any real config in this file. It is not included in production.
+
+const GAME_CONFIG_MD_DOCS = `
 This is a set of game config node.
 
 ## Dynamic declarative definition

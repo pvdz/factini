@@ -7,7 +7,6 @@
 <body>
 <h1>Factini</h1>
 
-<script src="config.md.js" charset="UTF-8"></script>
 <script src="config.assets.md.js" charset="UTF-8"></script>
 <script src="config.belts.md.js" charset="UTF-8"></script>
 <script src="quests/bucket_quest.md.js" charset="UTF-8"></script>
@@ -21,7 +20,7 @@
   var queuedPaste = '';
 
   // Exports
-  function getGameConfig() { return GAME_CONFIG_PRELUDE + GAME_CONFIG_ASSETS + GAME_CONFIG_BELTS + CONFIG_BUCKET_QUEST + SPRITE_MAP; }
+  function getGameConfig() { return GAME_CONFIG_ASSETS + GAME_CONFIG_BELTS + CONFIG_BUCKET_QUEST + SPRITE_MAP; }
   function getGameMap() { return GAME_MAP; }
   function getGameOptions() { return GAME_OPTIONS; }
   function setGameOptions(optionStr, onLoad) {}
