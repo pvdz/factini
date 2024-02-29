@@ -1,10 +1,6 @@
 // This file should only be included for `wasm-pack build --target web`
 // The main.rs will include this file when `#[cfg(target_arch = "wasm32")]`
 
-// Bug
-// - creating a demander and deleting it isa crash?
-// - whats up with the example belts not working
-
 // Compile with --profile to try and get some sense of shit
 
 // features

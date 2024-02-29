@@ -1816,9 +1816,9 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_asset(CONFIG_NODE_ASSET_DOCK_RIGHT, "DockRight"),
     config_node_asset(CONFIG_NODE_ASSET_DOCK_DOWN, "DockDown"),
     config_node_asset(CONFIG_NODE_ASSET_DOCK_LEFT, "DockLeft"),
-    config_node_part(CONFIG_NODE_MACHINE_1X1, "None".to_string(), ' '), // obsolete
-    config_node_part(CONFIG_NODE_MACHINE_2X2, "None".to_string(), ' '), // obsolete
-    config_node_part(CONFIG_NODE_MACHINE_3X3, "None".to_string(), ' '), // obsolete
+    config_node_unused_asset(CONFIG_NODE_MACHINE_1X1, "Machine1x1"), // obsolete
+    config_node_unused_asset(CONFIG_NODE_MACHINE_2X2, "Machine2x2"), // obsolete
+    config_node_unused_asset(CONFIG_NODE_MACHINE_3X3, "Machine3x3"), // obsolete
     config_node_belt(CONFIG_NODE_BELT_NONE, "None"),
     config_node_belt(CONFIG_NODE_BELT_UNKNOWN, "Unknown"),
     config_node_belt(CONFIG_NODE_BELT_INVALID, "Invalid"),
@@ -2390,6 +2390,11 @@ fn config_node_asset(index: PartKind, name: &str) -> ConfigNode {
       )
     },
   };
+}
+fn config_node_unused_asset(index: PartKind, name: &str) -> ConfigNode {
+  let mut node = config_node_asset(index, name);
+  node.unused = true;
+  return node;
 }
 fn config_node_story(index: PartKind, name: &str) -> ConfigNode {
   let raw_name = format!("Story_{}", name);

@@ -56,6 +56,7 @@ pub fn port_disconnect_cell(options: &Options, state: &State, config: &Config, f
     change_none_belt_to_empty_cell(state, config, factory, ocoord);
   }
 
+  // Clear the part state of the cell
   belt_receive_part(factory, coord, Direction::Up, part_none(config));
 }
 pub fn change_none_belt_to_empty_cell(state: &State, config: &Config, factory: &mut Factory, coord: usize) {
