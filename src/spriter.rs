@@ -48,9 +48,9 @@ pub fn spriter_assets(options: &Options, state: &State, config: &Config) -> Resu
 
   // (kind, init_height)
   let types: Vec<( ConfigNodeKind, u64, &str )> = vec!(
-    (ConfigNodeKind::Asset, 0, "sprite_map_assets.png"),
-    (ConfigNodeKind::Belt, 1000, "sprite_map_belts.png"),
-    (ConfigNodeKind::Part, 500, "sprite_map_parts.png"),
+    (ConfigNodeKind::Asset, 0, "spritemaps/sprite_map_assets.png"),
+    (ConfigNodeKind::Belt, 1000, "spritemaps/sprite_map_belts.png"),
+    (ConfigNodeKind::Part, 500, "spritemaps/sprite_map_parts.png"),
   );
   let mut strings: Vec<String> = vec!();
   for ( t, init_height, fname ) in types {
