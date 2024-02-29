@@ -3329,15 +3329,15 @@ fn paint_floor_round_way(
     // Track above floor
     // Start painting at the offset'th floor-cell. Paint a corner at 25% and then a path to the
     // right side corner.
-    paint_belt(options, state, config, context, x + 2.0 * tsize + offset * 2.0 * tsize, y, tsize, tsize, BeltType::D_R, 0, factory.ticks);
-    paint_belt(options, state, config, context, x + 2.0 * tsize + offset * 2.0 * tsize, y + tsize, tsize, tsize, BeltType::D_U, 0, factory.ticks);
+    paint_belt_tile(options, state, config, context, x + 2.0 * tsize + offset * 2.0 * tsize, y, tsize, tsize, BeltType::D_R, 0, factory.ticks);
+    paint_belt_tile(options, state, config, context, x + 2.0 * tsize + offset * 2.0 * tsize, y + tsize, tsize, tsize, BeltType::D_U, 0, factory.ticks);
 
     for n in (2.0 + offset * 2.0) as usize..=(2 * FLOOR_CELLS_W) {
       if n % 2 == 1 && factory.floor[n/2].kind == CellKind::Demand {
-        paint_belt(options, state, config, context, x + tsize + (n as f64) * tsize, y, tsize, tsize, BeltType::DL_R, 0, factory.ticks);
-        paint_belt(options, state, config, context, x + tsize + (n as f64) * tsize, y + tsize, tsize, tsize, BeltType::D_U, 0, factory.ticks);
+        paint_belt_tile(options, state, config, context, x + tsize + (n as f64) * tsize, y, tsize, tsize, BeltType::DL_R, 0, factory.ticks);
+        paint_belt_tile(options, state, config, context, x + tsize + (n as f64) * tsize, y + tsize, tsize, tsize, BeltType::D_U, 0, factory.ticks);
       } else {
-        paint_belt(options, state, config, context, x + tsize + (n as f64) * tsize, y, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+        paint_belt_tile(options, state, config, context, x + tsize + (n as f64) * tsize, y, tsize, tsize, BeltType::L_R, 0, factory.ticks);
       }
     }
   }
@@ -3361,18 +3361,18 @@ fn paint_floor_round_way(
     // bottom corner.
     if offset == 0.0 {
       // Top-right corner piece
-      paint_belt(options, state, config, context, x + 2.0 * tsize + (FLOOR_CELLS_W as f64 * 2.0 * tsize), y, tsize, tsize, BeltType::L_D, 0, factory.ticks);
+      paint_belt_tile(options, state, config, context, x + 2.0 * tsize + (FLOOR_CELLS_W as f64 * 2.0 * tsize), y, tsize, tsize, BeltType::L_D, 0, factory.ticks);
     } else {
-      paint_belt(options, state, config, context, x + 2.0 * tsize + (FLOOR_CELLS_W as f64 * 2.0 * tsize), y + offset * 2.0 * tsize, tsize, tsize, BeltType::L_D, 0, factory.ticks);
-      paint_belt(options, state, config, context, x + 2.0 * tsize + (FLOOR_CELLS_W as f64 * 2.0 * tsize) - tsize, y + offset * 2.0 * tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+      paint_belt_tile(options, state, config, context, x + 2.0 * tsize + (FLOOR_CELLS_W as f64 * 2.0 * tsize), y + offset * 2.0 * tsize, tsize, tsize, BeltType::L_D, 0, factory.ticks);
+      paint_belt_tile(options, state, config, context, x + 2.0 * tsize + (FLOOR_CELLS_W as f64 * 2.0 * tsize) - tsize, y + offset * 2.0 * tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
     }
 
     for n in (1.0 + offset * 2.0) as usize..=(2 * FLOOR_CELLS_H) + 1 {
       if n % 2 == 0 && factory.floor[(n/2) * FLOOR_CELLS_W - 1].kind == CellKind::Demand {
-        paint_belt(options, state, config, context, x + 2.0 * tsize + (FLOOR_CELLS_W as f64 * 2.0 * tsize), y + (n as f64) * tsize, tsize, tsize, BeltType::LU_D, 0, factory.ticks);
-        paint_belt(options, state, config, context, x + 2.0 * tsize + (FLOOR_CELLS_W as f64 * 2.0 * tsize) - tsize, y + (n as f64) * tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+        paint_belt_tile(options, state, config, context, x + 2.0 * tsize + (FLOOR_CELLS_W as f64 * 2.0 * tsize), y + (n as f64) * tsize, tsize, tsize, BeltType::LU_D, 0, factory.ticks);
+        paint_belt_tile(options, state, config, context, x + 2.0 * tsize + (FLOOR_CELLS_W as f64 * 2.0 * tsize) - tsize, y + (n as f64) * tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
       } else {
-        paint_belt(options, state, config, context, x + 2.0 * tsize + (FLOOR_CELLS_W as f64 * 2.0 * tsize), y + (n as f64) * tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
+        paint_belt_tile(options, state, config, context, x + 2.0 * tsize + (FLOOR_CELLS_W as f64 * 2.0 * tsize), y + (n as f64) * tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
       }
     }
   }
@@ -3391,15 +3391,15 @@ fn paint_floor_round_way(
     // Track left of floor
     // Start painting at the offset'th floor-cell. Paint a corner at 25% and then a path to the
     // bottom corner.
-    paint_belt(options, state, config, context, x, y + 2.0 * tsize + offset2 * 2.0 * tsize, tsize, tsize, BeltType::R_D, 0, factory.ticks);
-    paint_belt(options, state, config, context, x + tsize, y + 2.0 * tsize + offset2 * 2.0 * tsize, tsize, tsize, BeltType::R_L, 0, factory.ticks);
+    paint_belt_tile(options, state, config, context, x, y + 2.0 * tsize + offset2 * 2.0 * tsize, tsize, tsize, BeltType::R_D, 0, factory.ticks);
+    paint_belt_tile(options, state, config, context, x + tsize, y + 2.0 * tsize + offset2 * 2.0 * tsize, tsize, tsize, BeltType::R_L, 0, factory.ticks);
 
     for n in (1.0 + offset2 * 2.0) as usize..(2 * FLOOR_CELLS_H) {
       if n % 2 == 0 && factory.floor[(n/2) * FLOOR_CELLS_W].kind == CellKind::Demand {
-        paint_belt(options, state, config, context, x, y + 2.0 * tsize + (n as f64) * tsize, tsize, tsize, BeltType::RU_D, 0, factory.ticks);
-        paint_belt(options, state, config, context, x + tsize, y + 2.0 * tsize + (n as f64) * tsize, tsize, tsize, BeltType::R_L, 0, factory.ticks);
+        paint_belt_tile(options, state, config, context, x, y + 2.0 * tsize + (n as f64) * tsize, tsize, tsize, BeltType::RU_D, 0, factory.ticks);
+        paint_belt_tile(options, state, config, context, x + tsize, y + 2.0 * tsize + (n as f64) * tsize, tsize, tsize, BeltType::R_L, 0, factory.ticks);
       } else {
-        paint_belt(options, state, config, context, x, y + 2.0 * tsize + (n as f64) * tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
+        paint_belt_tile(options, state, config, context, x, y + 2.0 * tsize + (n as f64) * tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
       }
     }
   }
@@ -3420,22 +3420,22 @@ fn paint_floor_round_way(
     // Track above floor
     if offset2 == 0.0 {
       // Bottom-left corner piece
-      paint_belt(options, state, config, context, x, y + 2.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize, tsize, tsize, BeltType::U_R, 0, factory.ticks);
-      paint_belt(options, state, config, context, x + 1.0 * tsize, y + 2.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
-      paint_belt(options, state, config, context, x + 2.0 * tsize, y + 2.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+      paint_belt_tile(options, state, config, context, x, y + 2.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize, tsize, tsize, BeltType::U_R, 0, factory.ticks);
+      paint_belt_tile(options, state, config, context, x + 1.0 * tsize, y + 2.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+      paint_belt_tile(options, state, config, context, x + 2.0 * tsize, y + 2.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
     } else {
       // Start painting at the offset'th floor-cell. Paint a corner at 25% and then a path to the
       // right side corner.
-      paint_belt(options, state, config, context, x + 2.0 * tsize + offset2 * 2.0 * tsize, y + 2.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize, tsize, tsize, BeltType::U_R, 0, factory.ticks);
-      paint_belt(options, state, config, context, x + 2.0 * tsize + offset2 * 2.0 * tsize, y + 2.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize - tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
+      paint_belt_tile(options, state, config, context, x + 2.0 * tsize + offset2 * 2.0 * tsize, y + 2.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize, tsize, tsize, BeltType::U_R, 0, factory.ticks);
+      paint_belt_tile(options, state, config, context, x + 2.0 * tsize + offset2 * 2.0 * tsize, y + 2.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize - tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
     }
 
     for n in (2.0 + offset2 * 2.0) as usize..=(2 * FLOOR_CELLS_W) {
       if n % 2 == 1 && factory.floor[(FLOOR_CELLS_W * FLOOR_CELLS_H - FLOOR_CELLS_W) + n/2].kind == CellKind::Demand {
-        paint_belt(options, state, config, context, x + tsize + (n as f64) * tsize, y + 3.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize - tsize, tsize, tsize, BeltType::LU_R, 0, factory.ticks);
-        paint_belt(options, state, config, context, x + tsize + (n as f64) * tsize, y + 3.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize - tsize - tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
+        paint_belt_tile(options, state, config, context, x + tsize + (n as f64) * tsize, y + 3.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize - tsize, tsize, tsize, BeltType::LU_R, 0, factory.ticks);
+        paint_belt_tile(options, state, config, context, x + tsize + (n as f64) * tsize, y + 3.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize - tsize - tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
       } else {
-        paint_belt(options, state, config, context, x + tsize + (n as f64) * tsize, y + 3.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize - tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+        paint_belt_tile(options, state, config, context, x + tsize + (n as f64) * tsize, y + 3.0 * tsize + (FLOOR_CELLS_H as f64) * 2.0 * tsize - tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
       }
     }
   }
@@ -3447,28 +3447,28 @@ fn paint_floor_round_way(
       else if offset as usize != FLOOR_CELLS_H { BeltType::U_DR }
       else { BeltType::L_DR };
 
-    paint_belt(options, state, config, context, x + roundway_len_full - tsize, y + roundway_len_full - tsize, tsize, tsize, bt, 0, factory.ticks);
+    paint_belt_tile(options, state, config, context, x + roundway_len_full - tsize, y + roundway_len_full - tsize, tsize, tsize, bt, 0, factory.ticks);
 
     // Down path into the machine
-    paint_belt(options, state, config, context, x + roundway_len_full - tsize, y + roundway_len_full, tsize, tsize, BeltType::U_L, 0, factory.ticks);
-    paint_belt(options, state, config, context, x + roundway_len_full - 2.0 * tsize, y + roundway_len_full, tsize, tsize, BeltType::R_D, 0, factory.ticks);
-    paint_belt(options, state, config, context, x + roundway_len_full - 2.0 * tsize, y + roundway_len_full + tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
+    paint_belt_tile(options, state, config, context, x + roundway_len_full - tsize, y + roundway_len_full, tsize, tsize, BeltType::U_L, 0, factory.ticks);
+    paint_belt_tile(options, state, config, context, x + roundway_len_full - 2.0 * tsize, y + roundway_len_full, tsize, tsize, BeltType::R_D, 0, factory.ticks);
+    paint_belt_tile(options, state, config, context, x + roundway_len_full - 2.0 * tsize, y + roundway_len_full + tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
 
     // Right into the stats
-    paint_belt(options, state, config, context, x + roundway_len_full, y + roundway_len_full - tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
-    paint_belt(options, state, config, context, x + roundway_len_full + tsize, y + roundway_len_full - tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
-    paint_belt(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full - tsize, tsize, tsize, BeltType::L_D, 0, factory.ticks);
-    paint_belt(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full, tsize, tsize, BeltType::U_DR, 0, factory.ticks);
-    paint_belt(options, state, config, context, x + roundway_len_full + 3.0 * tsize, y + roundway_len_full, tsize, tsize, BeltType::L_R, 0, factory.ticks);
-    paint_belt(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full + tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
-    paint_belt(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full + 2.0 * tsize, tsize, tsize, BeltType::U_DR, 0, factory.ticks);
-    paint_belt(options, state, config, context, x + roundway_len_full + 3.0 * tsize, y + roundway_len_full + 2.0 * tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
-    paint_belt(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full + 3.0 * tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
-    paint_belt(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full + 4.0 * tsize, tsize, tsize, BeltType::U_DR, 0, factory.ticks);
-    paint_belt(options, state, config, context, x + roundway_len_full + 3.0 * tsize, y + roundway_len_full + 4.0 * tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
-    paint_belt(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full + 5.0 * tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
-    paint_belt(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full + 6.0 * tsize, tsize, tsize, BeltType::U_R, 0, factory.ticks);
-    paint_belt(options, state, config, context, x + roundway_len_full + 3.0 * tsize, y + roundway_len_full + 6.0 * tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+    paint_belt_tile(options, state, config, context, x + roundway_len_full, y + roundway_len_full - tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+    paint_belt_tile(options, state, config, context, x + roundway_len_full + tsize, y + roundway_len_full - tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+    paint_belt_tile(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full - tsize, tsize, tsize, BeltType::L_D, 0, factory.ticks);
+    paint_belt_tile(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full, tsize, tsize, BeltType::U_DR, 0, factory.ticks);
+    paint_belt_tile(options, state, config, context, x + roundway_len_full + 3.0 * tsize, y + roundway_len_full, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+    paint_belt_tile(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full + tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
+    paint_belt_tile(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full + 2.0 * tsize, tsize, tsize, BeltType::U_DR, 0, factory.ticks);
+    paint_belt_tile(options, state, config, context, x + roundway_len_full + 3.0 * tsize, y + roundway_len_full + 2.0 * tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+    paint_belt_tile(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full + 3.0 * tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
+    paint_belt_tile(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full + 4.0 * tsize, tsize, tsize, BeltType::U_DR, 0, factory.ticks);
+    paint_belt_tile(options, state, config, context, x + roundway_len_full + 3.0 * tsize, y + roundway_len_full + 4.0 * tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
+    paint_belt_tile(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full + 5.0 * tsize, tsize, tsize, BeltType::U_D, 0, factory.ticks);
+    paint_belt_tile(options, state, config, context, x + roundway_len_full + 2.0 * tsize, y + roundway_len_full + 6.0 * tsize, tsize, tsize, BeltType::U_R, 0, factory.ticks);
+    paint_belt_tile(options, state, config, context, x + roundway_len_full + 3.0 * tsize, y + roundway_len_full + 6.0 * tsize, tsize, tsize, BeltType::L_R, 0, factory.ticks);
   }
 
   if offset as usize != FLOOR_CELLS_H || offset2 as usize != FLOOR_CELLS_W {
@@ -3536,13 +3536,13 @@ fn paint_background_tiles1(
         // Bottom layer: paint the belt so it appears to be part of the supplier
         // We need the animation to line up with other belts so we have to use separate sprite layers
         if cy == 0 {
-          paint_belt(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::U_D, 0, factory.ticks);
+          paint_belt_tile(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::U_D, 0, factory.ticks);
         } else if cx == FLOOR_CELLS_W-1 {
-          paint_belt(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::R_L, 0, factory.ticks);
+          paint_belt_tile(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::R_L, 0, factory.ticks);
         } else if cy == FLOOR_CELLS_H-1 {
-          paint_belt(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::D_U, 0, factory.ticks);
+          paint_belt_tile(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::D_U, 0, factory.ticks);
         } else if cx == 0 {
-          paint_belt(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::L_R, 0, factory.ticks);
+          paint_belt_tile(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::L_R, 0, factory.ticks);
         } else {
           panic!("no");
         };
@@ -3551,13 +3551,13 @@ fn paint_background_tiles1(
         // Bottom layer: paint the belt so it appears to be part of the demander
         // We need the animation to line up with other belts so we have to use separate sprite layers
         if cy == 0 {
-          paint_belt(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::D_U, 0, factory.ticks);
+          paint_belt_tile(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::D_U, 0, factory.ticks);
         } else if cx == FLOOR_CELLS_W-1 {
-          paint_belt(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::L_R, 0, factory.ticks);
+          paint_belt_tile(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::L_R, 0, factory.ticks);
         } else if cy == FLOOR_CELLS_H-1 {
-          paint_belt(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::U_D, 0, factory.ticks);
+          paint_belt_tile(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::U_D, 0, factory.ticks);
         } else if cx == 0 {
-          paint_belt(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::R_L, 0, factory.ticks);
+          paint_belt_tile(options, state, config, context, ox, oy, CELL_H, CELL_H, BeltType::R_L, 0, factory.ticks);
         } else {
           panic!("no");
         };
@@ -6274,6 +6274,7 @@ fn paint_maze(options: &Options, state: &State, config: &Config, factory: &Facto
 }
 
 fn paint_factory_belt(options: &Options, state: &State, config: &Config, factory: &Factory, coord: usize, context: &Rc<web_sys::CanvasRenderingContext2d>, dx: f64, dy: f64, dw: f64, dh: f64) {
+  // paint_belt()
   if !options.paint_belts {
     return;
   }
@@ -6281,12 +6282,12 @@ fn paint_factory_belt(options: &Options, state: &State, config: &Config, factory
   let belt_type = factory.floor[coord].belt.meta.btype;
   let sprite_start_at = factory.floor[coord].belt.sprite_start_at;
 
-  paint_belt(options, state, config, context, dx, dy, dw, dh, belt_type, sprite_start_at, factory.ticks);
+  paint_belt_tile(options, state, config, context, dx, dy, dw, dh, belt_type, sprite_start_at, factory.ticks);
 }
 fn paint_zero_belt(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, dx: f64, dy: f64, dw: f64, dh: f64, belt_type: BeltType) {
-  paint_belt(options, state, config, context, dx, dy, dw, dh, belt_type, 0, 0);
+  paint_belt_tile(options, state, config, context, dx, dy, dw, dh, belt_type, 0, 0);
 }
-fn paint_belt(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, dx: f64, dy: f64, dw: f64, dh: f64, belt_type: BeltType, sprite_start_at: u64, ticks: u64) {
+fn paint_belt_tile(options: &Options, state: &State, config: &Config, context: &Rc<web_sys::CanvasRenderingContext2d>, dx: f64, dy: f64, dw: f64, dh: f64, belt_type: BeltType, sprite_start_at: u64, ticks: u64) {
   if !options.paint_belts {
     return;
   }
