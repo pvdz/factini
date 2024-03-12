@@ -42,17 +42,9 @@ console_error_panic_hook = "*"
 # No support for target-specific lib and none is coming any time soon either: https://github.com/rust-lang/cargo/issues/4881
 [lib]
 # Error: crate-type must be cdylib to compile to wasm32-unknown-unknown. Add the following to your Cargo.toml file:
-# meh?
 crate-type = ["cdylib", "rlib"]
 ## can't find library `factini`, rename file to `src/lib.rs` or specify lib.path
-## :facepalm:
 path = "src/main.rs"
-
-#[dependencies.js-sys]
-#version = "0.3.*"
-#features = [
-#    'Date',
-#]
 
 [dependencies.web-sys]
 version = "0.3.67"
