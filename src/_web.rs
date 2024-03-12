@@ -5,6 +5,7 @@
 
 // TODO:
 // - loading none.png?
+// - background of tooltip loads asset sprite map?
 // - fix about page link
 
 // features
