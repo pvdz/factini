@@ -18,7 +18,7 @@ pub struct Story {
   pub quest_nodes: Vec<usize>,
 }
 
-pub fn get_available_parts_from_map_and_story(options: &mut Options, state: &mut State, config: &mut Config, initial_map_unlocked_parts: &Vec<PartKind>, story_index: usize) -> Vec<(PartKind, bool)> {
+pub fn get_available_parts_from_map_and_story(options: &mut Options, state: &mut State, config: &Config, initial_map_unlocked_parts: &Vec<PartKind>, story_index: usize) -> Vec<(PartKind, bool)> {
   let mut initial_unlocked_parts = if options.dbg_no_initial_unlocked_parts { vec!() } else { initial_map_unlocked_parts.clone() };
 
   // Add initial story parts to the unlocked map parts

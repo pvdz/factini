@@ -3,6 +3,10 @@
 
 // Compile with --profile to try and get some sense of shit
 
+// TODO:
+// - loading none.png?
+// - fix about page link
+
 // features
 // - belts
 //   - does snaking bother me when a belt should move all at once or not at all? should we change the algo? probably not that hard to move all connected cells between intersections/entry/exit points at once. if one moves, all move, etc.
@@ -180,11 +184,10 @@ pub fn start() -> Result<(), JsValue> {
   canvas.set_id("$main_game_canvas");
   canvas.set_width(CANVAS_PIXEL_INITIAL_WIDTH as u32);
   canvas.set_height(CANVAS_PIXEL_INITIAL_HEIGHT as u32);
-  canvas.style().set_property("border", "solid")?;
+  // canvas.style().set_property("border", "solid")?;
   canvas.style().set_property("width", format!("{}px", CANVAS_CSS_INITIAL_WIDTH as u32).as_str())?;
   canvas.style().set_property("height", format!("{}px", CANVAS_CSS_INITIAL_HEIGHT as u32).as_str())?;
   canvas.style().set_property("background-image", "url(./img/sand.png)").expect("should work");
-  canvas.style().set_property("id", "sand_bg").expect("should work");
   // This is prettier for us :)
   canvas.style().set_property("image-rendering", "pixelated").expect("should work");
 
@@ -203,7 +206,7 @@ pub fn start() -> Result<(), JsValue> {
   // If there are options in localStorage, apply them now
   let saved_options = {
     if is_debug { log!("onload: Reading options from localStorage"); }
-    let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
+    let local_storage = window().local_storage().unwrap().unwrap();
     local_storage.get_item(LS_OPTIONS).unwrap()
   };
   let ( option_string, options_started_from_source ) = match saved_options {
@@ -461,7 +464,7 @@ pub fn start() -> Result<(), JsValue> {
   };
   let initial_map_from_source = if initial_map_from_source { 0 } else { initial_map.len() as u64 };
   options.initial_map_from_source = initial_map_from_source;
-  let ( mut state, mut factory ) = init(&mut options, &mut config, initial_map, is_debug);
+  let ( mut state, mut factory ) = init(&mut options, &config, initial_map, is_debug);
   state.is_debug = is_debug;
   state.showing_debug_bottom = options.dbg_show_bottom_info;
   let mut quick_saves: [Option<QuickSave>; 9] = [(); 9].map(|_| None);
@@ -752,18 +755,26 @@ pub fn start() -> Result<(), JsValue> {
         let py = UI_MAIN_SCREEN_Y + 240.0;
         let pw = 138.0;
         let ph = 61.0;
-        let rx = UI_MAIN_SCREEN_X + 88.0;
-        let ry = UI_MAIN_SCREEN_Y + 300.0;
+        let rx = px;
+        let ry = py + 60.0;
         let rw = 174.0;
         let rh = 42.0;
+        let ax = rx;
+        let ay = ry + 60.0;
+        let aw = 174.0;
+        let ah = 42.0;
 
         let is_over_play = bounds_check(mx, my, px, py, px + pw, py + ph);
-        let is_over_reset = !is_over_play && bounds_check(mx, my,rx, ry, rx+rw, ry+rh);
+        let is_over_reset = !is_over_play && bounds_check(mx, my, rx, ry, rx+rw, ry+rh);
+        let is_over_about = !is_over_play && bounds_check(mx, my, ax, ay, ax+aw, ay+ah);
 
         paint_asset(&options, &state, &config, &context, if is_over_play { CONFIG_NODE_ASSET_SCREEN_PLAY_I } else { CONFIG_NODE_ASSET_SCREEN_PLAY }, factory.ticks, UI_MAIN_SCREEN_X + 88.0, UI_MAIN_SCREEN_Y + 240.0, 138.0, 61.0);
 
         // If there is progress stored then display the option to reset it
         paint_asset(&options, &state, &config, &context, if is_over_reset { CONFIG_NODE_ASSET_SCREEN_RESET_I } else { CONFIG_NODE_ASSET_SCREEN_RESET }, factory.ticks, rx, ry, rw, rh);
+
+        // Add an external link somehow
+        paint_asset(&options, &state, &config, &context, if is_over_about { CONFIG_NODE_ASSET_SCREEN_ABOUT_I } else { CONFIG_NODE_ASSET_SCREEN_ABOUT }, factory.ticks, ax, ay, aw, ah);
 
         last_mouse_was_down.set(false);
         last_mouse_was_up.set(false);
@@ -775,13 +786,15 @@ pub fn start() -> Result<(), JsValue> {
             let local_storage = web_sys::window().unwrap().local_storage().unwrap().unwrap();
             // local_storage.remove_item(LS_OPTIONS).unwrap(); // Don't think we need to do this for non-debug
             local_storage.remove_item(LS_LAST_MAP).unwrap();
-            factory_load_map(&mut options, &mut state, &mut config, &mut factory, "".to_string());
-            // Keep loading screen. I don't think users expect the click to close the banner.
+            factory_load_map(&mut options, &mut state, &config, &mut factory, "".to_string());
+            state.pregame = false; // Reset and continue
+          } else if is_over_about {
+            if is_debug { log!("clicked on main splash about link. opening in new window"); }
+            window.open_with_url("https://pvdz.ee").expect("magic"); // TODO
             pregame = true;
           } else {
             if is_debug { log!("clicked on main splash and not the reset. closing it."); }
             state.pregame = false; // Click anywhere to continue
-            options.splash_keep_main = false;
           }
         } else {
           pregame = true; // Handle config updates etc but schedule a new raF and return before the game loop
@@ -792,7 +805,7 @@ pub fn start() -> Result<(), JsValue> {
         state.load_example_next_frame = false;
         let map = state.examples[state.example_pointer % state.examples.len()].clone();
         if is_debug { log!("Loading example[{}]; size: {} bytes", state.example_pointer, map.len()); }
-        factory_load_map(&mut options, &mut state, &mut config, &mut factory, map);
+        factory_load_map(&mut options, &mut state, &config, &mut factory, map);
         state.example_pointer += 1;
       }
       if state.reset_next_frame {
@@ -800,7 +813,7 @@ pub fn start() -> Result<(), JsValue> {
         let map = getGameMap();
         if map.trim().len() > 0 {
           if is_debug { log!("Loading getGameMap(); size: {} bytes", map.len()); }
-          factory_load_map(&mut options, &mut state, &mut config, &mut factory, map);
+          factory_load_map(&mut options, &mut state, &config, &mut factory, map);
         } else {
           if is_debug { log!("Skipped attempt at loading an empty map"); }
         }
@@ -824,7 +837,7 @@ pub fn start() -> Result<(), JsValue> {
             state.load_paste_hint_kind = LoadPasteHint::Invalid;
           } else {
             if is_debug { log!("Loading map from paste; size: {} bytes", paste.len()); }
-            factory_load_map(&mut options, &mut state, &mut config, &mut factory, paste);
+            factory_load_map(&mut options, &mut state, &config, &mut factory, paste);
             state.load_paste_hint_kind = LoadPasteHint::Success;
           }
         }
@@ -833,7 +846,7 @@ pub fn start() -> Result<(), JsValue> {
         // Note: state.load_snapshot_next_frame remains true because factory.changed has special undo-stack behavior for it
         let map = state.snapshot_stack[state.snapshot_undo_pointer % UNDO_STACK_SIZE].clone();
         if is_debug { log!("Loading snapshot[{} / {}]; size: {} bytes", state.snapshot_undo_pointer, state.snapshot_pointer, map.len()); }
-        factory_load_map(&mut options, &mut state, &mut config, &mut factory, map);
+        factory_load_map(&mut options, &mut state, &config, &mut factory, map);
       }
 
       let queued_action = getAction();
@@ -1062,7 +1075,7 @@ pub fn start() -> Result<(), JsValue> {
         paint_port_arrows(&options, &state, &config, &context, &factory);
         paint_belt_debug(&options, &state, &config, &context, &factory);
         paint_machine_craft_menu(&options, &state, &config, &context, &factory, &cell_selection, &mouse_state);
-        paint_ui_atom_woop_hover_droptarget_hint_conditionally(&options, &state, &config, &context, &mut factory, &mouse_state, &cell_selection);
+        paint_ui_atom_woop_hover_droptarget_hint_conditionally(&options, &state, &config, &context, &factory, &mouse_state, &cell_selection);
         paint_debug_app(&options, &state, &config, &context, &fps, real_world_ms_at_start_of_curr_frame, real_world_ms_since_start_of_prev_frame, ticks_todo, estimated_fps, rounded_fps, &factory, &mouse_state);
         paint_debug_auto_build(&options, &state, &context, &factory, &mouse_state);
         paint_debug_selected_belt_cell(&context, &factory, &cell_selection, &mouse_state);

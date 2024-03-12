@@ -408,6 +408,8 @@ pub const CONFIG_NODE_ASSET_BATTERY: usize = 380;
 pub const CONFIG_NODE_ASSET_SCREEN_RESET: usize = 381;
 pub const CONFIG_NODE_ASSET_SCREEN_PLAY_I: usize = 382;
 pub const CONFIG_NODE_ASSET_SCREEN_RESET_I: usize = 383;
+pub const CONFIG_NODE_ASSET_SCREEN_ABOUT: usize = 384;
+pub const CONFIG_NODE_ASSET_SCREEN_ABOUT_I: usize = 385;
 
 #[derive(Debug)]
 pub struct Config {
@@ -1451,6 +1453,8 @@ fn config_full_node_name_to_target_index(name: &str, kind: &str, def_index: usiz
     "Asset_ScreenPlayI" => CONFIG_NODE_ASSET_SCREEN_PLAY_I,
     "Asset_ScreenReset" => CONFIG_NODE_ASSET_SCREEN_RESET,
     "Asset_ScreenResetI" => CONFIG_NODE_ASSET_SCREEN_RESET_I,
+    "Asset_ScreenAbout" => CONFIG_NODE_ASSET_SCREEN_ABOUT,
+    "Asset_ScreenAboutI" => CONFIG_NODE_ASSET_SCREEN_ABOUT_I,
     "Asset_ButtonUp1" => CONFIG_NODE_ASSET_BUTTON_UP_1,
     "Asset_ButtonUp2" => CONFIG_NODE_ASSET_BUTTON_UP_2,
     "Asset_ButtonUp3" => CONFIG_NODE_ASSET_BUTTON_UP_3,
@@ -2186,6 +2190,8 @@ fn get_system_nodes() -> Vec<ConfigNode> {
     config_node_asset(CONFIG_NODE_ASSET_SCREEN_RESET, "ScreenReset"),
     config_node_asset(CONFIG_NODE_ASSET_SCREEN_PLAY_I, "ScreenPlayI"),
     config_node_asset(CONFIG_NODE_ASSET_SCREEN_RESET_I, "ScreenResetI"),
+    config_node_asset(CONFIG_NODE_ASSET_SCREEN_ABOUT, "ScreenAbout"),
+    config_node_asset(CONFIG_NODE_ASSET_SCREEN_ABOUT_I, "ScreenAboutI"),
   );
 
   v.iter().enumerate().for_each(|(i, node)| assert!(node.index == i, "system node indexes must match their global constant value; mismatch for index {} in get_system_nodes(), node.index= {}", i, node.index));

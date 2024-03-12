@@ -76,7 +76,7 @@ fn dnow() -> u64 {
   js_sys::Date::now() as u64
 }
 
-pub fn create_factory(options: &mut Options, state: &mut State, config: &mut Config, floor_str: String) -> Factory {
+pub fn create_factory(options: &mut Options, state: &mut State, config: &Config, floor_str: String) -> Factory {
   let ( floor, initial_map_unlocked_parts, initial_finished_quests, ui_unlock_progress, map_seed, map_story_index) = floor_from_str(options, state, config, &floor_str);
 
   // TODO: improve the active story state because doing it in state is way too implicit
@@ -465,7 +465,7 @@ pub fn update_game_ui_after_quest_finish(options: &mut Options, state: &mut Stat
   // Note: enable_maze_full is set once you have at least one cell in all four bars
 }
 
-pub fn factory_load_map(options: &mut Options, state: &mut State, config: &mut Config, factory: &mut Factory, floor_str: String) {
+pub fn factory_load_map(options: &mut Options, state: &mut State, config: &Config, factory: &mut Factory, floor_str: String) {
   let ( floor, initial_map_unlocked_parts, initial_finished_quests, ui_unlock_progress, map_seed, map_story_index) = floor_from_str(options, state, config, &floor_str);
 
   if state.active_story_index != map_story_index {

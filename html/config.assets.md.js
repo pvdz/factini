@@ -55,6 +55,18 @@ The "invert" of the reset text
 - w: 174
 - h: 42
 
+# Asset_ScreenAbout
+This is the "about" part for the main loading screen.
+- file: ./img/screen_about.png
+- w: 174
+- h: 42
+
+# Asset_ScreenAboutI
+The "invert" of the about text
+- file: ./img/screen_about_i.png
+- w: 174
+- h: 42
+
 # Asset_SupplyUp
 - frame_offset: 0
 - frame_delay: 150

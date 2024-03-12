@@ -18,7 +18,7 @@ use super::truck::*;
 use super::utils::*;
 use super::log;
 
-pub fn init(options: &mut Options, config: &mut Config, map_str: String, is_debug: bool) -> ( State, Factory ) {
+pub fn init(options: &mut Options, config: &Config, map_str: String, is_debug: bool) -> ( State, Factory ) {
   // General app state
   let mut state = state_create(options, config.initial_active_story_index);
 
