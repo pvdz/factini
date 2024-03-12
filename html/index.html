@@ -6,6 +6,17 @@
 </head>
 <body style="text-align: center; padding: 0; margin: 0; border: 0; background-image: url(./img/sand.png);">
 
+<script src="../pkg/factini.js" charset="UTF-8" type="module" async></script>
+<script>
+  // Try to pre-load the sprite maps otherwise their fetch starts after the wasm boots
+  //setTimeout(() => {
+  document.createElement('img').src = './img/sand.png';
+  document.createElement('img').src = './img/spritemaps/sprite_map_assets.png';
+  document.createElement('img').src = './img/spritemaps/sprite_map_belts.png';
+  document.createElement('img').src = './img/spritemaps/sprite_map_parts.png';
+  //},10)
+</script>
+
 <script src="config.assets.md.js" charset="UTF-8"></script>
 <script src="config.belts.md.js" charset="UTF-8"></script>
 <script src="quests/bucket_quest.md.js" charset="UTF-8"></script>
@@ -85,7 +96,7 @@
     }
   }
 </script>
-<script type="module">
+<script type="module" async>
   Error.stackTraceLimit = Infinity;
   console.log('(html) start');
   import('../pkg/factini.js').then(x => {
