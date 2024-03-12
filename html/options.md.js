@@ -1,79 +1,10 @@
+// Override any options as defined in src/options.rs
+// Syntax is `- <config property name>: <value`
+// Examples:
+// - dbg_dump_options_string: false
+// - options_started_from_source: 0
+// - dbg_zone_border_color: "white"
+// Order is whatever you load from localStorage, then this file, then hardcoded default from config.rs
+
 const GAME_OPTIONS = `
-- options_started_from_source: 0
-- initial_map_from_source: 0
-
-- dbg_dump_options_string: false
-- trace_all_moves: false
-- trace_moves_belt: false
-- trace_moves_machine: false
-- trace_moves_supply: false
-- trace_moves_demand: false
-- cli_factory_output_interval: 5000
-- trace_auto_layout: false
-- trace_cell_connect: false
-- trace_cell_set_port: false
-- trace_parse_config_md: false
-- trace_get_quote_status: false
-- trace_img_loader: false
-- trace_priority_step: false
-- trace_porting_step: false
-- trace_map_parsing: false
-- trace_story_changes: false
-- dbg_paint_tile_priority: false
-- dbg_onload_dump_factory: false
-- trace_auto_builder: false
-- show_drm: true
-- dbg_paint_part_borders: false
-- dbg_paint_part_char_icon: false
-- dbg_paint_part_kind_id: false
-- dbg_paint_port_arrows: false
-- paint_belts: true
-- dbg_paint_belt_id: false
-- dbg_paint_zone_hovers: false
-- dbg_paint_zone_borders: false
-- dbg_zone_border_color: "white"
-- speed_modifier_floor: 1.0
-- speed_modifier_ui: 0.5
-- touch_drag_compensation: false
-- show_mouse_position: true
-- dropzone_color_offset: 75
-- dropzone_bounce_speed: 100
-- dropzone_bounce_distance: 150
-- bouncer_time_to_factory: 12.0
-- bouncer_decay_rate_modifier: 10.0
-- bouncer_amplitude_decay_rate: 1.9
-- bouncer_wave_decay_rate: 2.5
-- bouncer_initial_angle: 42.83
-- bouncer_angular_freq: 120.0
-- bouncer_trail_time: 3.0
-- bouncer_fade_time: 0.7
-- bouncer_stamp_interval: 60
-- bouncer_stop_after: 0.55
-- bouncer_formula_total_distance: 1200.0
-- dbg_maze_enable_runner: true
-- dbg_maze_paint_stats_text: false
-- splash_keep_loader: false
-- splash_no_loader: false
-- splash_keep_main: false
-- splash_no_main: false
-- dbg_animate_cli_output_in_web: false
-- initial_event_type_swapped: false
-- dbg_trash_is_joker: false
-- dbg_machine_produce_trash: false
-- dbg_clickable_quests: false
-- dbg_print_quest_states: false
-- dbg_auto_builder_zero_pause: false
-- dbg_auto_builder_zero_duration: false
-- dbg_loop_atom_truck: false
-- dbg_loop_woop_truck: false
-- default_demand_speed: 1000
-- default_demand_cooldown: 0
-
-- enable_quick_save_menu: false
-- enable_maze_roundway_and_collection: false
-- enable_maze_full: false
-- enable_speed_menu: false
-
-- dbg_show_secret_menu: false
-- dbg_show_bottom_info: false
 `.trim();

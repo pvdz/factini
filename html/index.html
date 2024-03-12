@@ -4,15 +4,13 @@
   <title>Factini</title>
   <meta charset="utf-8">
 </head>
-<body style="text-align: center; background-image: url(./img/sand.png);">
+<body style="text-align: center; padding: 0; margin: 0; border: 0; background-image: url(./img/sand.png);">
 
 <script src="config.assets.md.js" charset="UTF-8"></script>
 <script src="config.belts.md.js" charset="UTF-8"></script>
 <script src="quests/bucket_quest.md.js" charset="UTF-8"></script>
 <script src="sprites.md.js" charset="UTF-8"></script>
 
-<script src="map.md.js" charset="UTF-8"></script>
-<script src="options.md.js" charset="UTF-8"></script>
 <script src="examples.md.js" charset="UTF-8"></script>
 
 <script>
@@ -22,8 +20,8 @@
   function getPage() { return 'index.html'; }
   // Exports
   function getGameConfig() { return GAME_CONFIG_ASSETS + GAME_CONFIG_BELTS + CONFIG_BUCKET_QUEST + SPRITE_MAP; }
-  function getGameMap() { return GAME_MAP; }
-  function getGameOptions() { return GAME_OPTIONS; }
+  function getGameMap() { return ''; }
+  function getGameOptions() { return ''; }
   function setGameOptions(optionStr, onLoad) {}
   function getExamples() { return GAME_EXAMPLES; }
   function getAction() { let x = queuedAction; queuedAction = ''; return x; }
