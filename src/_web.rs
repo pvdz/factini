@@ -4,7 +4,6 @@
 // Compile with --profile to try and get some sense of shit
 
 // TODO:
-// - loading none.png?
 // - fix about page link
 // - mouse-xy off by 2px?
 

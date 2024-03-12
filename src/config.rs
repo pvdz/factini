@@ -2385,7 +2385,7 @@ fn config_node_asset(index: PartKind, name: &str) -> ConfigNode {
       loop_backwards: false,
       frames: vec!(
         SpriteFrame {
-          file: "./img/none.png".to_string(),
+          file: "".to_string(), // ./img/none.png".to_string(),
           name: "do not use me; belt".to_string(),
           file_canvas_cache_index: 0,
           x: 0.0,
@@ -2445,7 +2445,7 @@ fn config_node_story(index: PartKind, name: &str) -> ConfigNode {
       loop_backwards: false,
       frames: vec!(
         SpriteFrame {
-          file: "./img/none.png".to_string(),
+          file: "".to_string(), // ./img/none.png".to_string(),
           name: "do not use me; story".to_string(),
           file_canvas_cache_index: 0,
           x: 0.0,
