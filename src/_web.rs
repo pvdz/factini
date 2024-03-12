@@ -5,7 +5,6 @@
 
 // TODO:
 // - loading none.png?
-// - background of tooltip loads asset sprite map?
 // - fix about page link
 // - mouse-xy off by 2px?
 
@@ -5050,13 +5049,13 @@ fn paint_woop_tooltip_with_part(options: &Options, state: &State, config: &Confi
   let my = machine_oy + (machine_full_h - machine_h) / 2.0;
 
   // Note: We paint the indicated machine centered within a given box, regardless of actual size
-  let machine_img = &config.sprite_cache_canvas[config.nodes[machine_asset_node_index].sprite_config.frames[0].file_canvas_cache_index];
-  context.draw_image_with_html_image_element_and_dw_and_dh(machine_img,
+  paint_asset_raw_at_frame(options, state, config, &context, machine_asset_node_index, factory.ticks,
     mx.floor(),
     my.floor(),
     machine_w,
-    machine_h
-  ).expect("something error draw_image"); // requires web_sys HtmlImageElement feature
+    machine_h,
+    Some(0) // Use first frame static
+  );
 
   // Next two loops paint a small grid behind the machine to indicate cell size
   let s = machine_w / w as f64;
@@ -5647,6 +5646,9 @@ fn paint_asset(options: &Options, state: &State, config: &Config, context: &Rc<w
   return paint_asset_raw(options, state, config, context, config_node_index, ticks, dx, dy, dw, dh);
 }
 fn paint_asset_raw(options: &Options, state: &State, config: &Config, context: &web_sys::CanvasRenderingContext2d, config_node_index: usize, ticks: u64, dx: f64, dy: f64, dw: f64, dh: f64) -> bool {
+  return paint_asset_raw_at_frame(options, state, config, context, config_node_index, ticks, dx, dy, dw, dh, None);
+}
+fn paint_asset_raw_at_frame(options: &Options, state: &State, config: &Config, context: &web_sys::CanvasRenderingContext2d, config_node_index: usize, ticks: u64, dx: f64, dy: f64, dw: f64, dh: f64, frame_index: Option<usize>) -> bool {
   let dx = dx.floor();
   let dy = dy.floor();
   let dw = dw.floor();
@@ -5657,7 +5659,7 @@ fn paint_asset_raw(options: &Options, state: &State, config: &Config, context: &
     config.nodes[config_node_index].kind == ConfigNodeKind::Asset
     , "assets should refer to Asset nodes but received index: {}, kind: {:?}, node: {:?}", config_node_index, config.nodes[config_node_index].kind, config.nodes[config_node_index]);
 
-  let (spx, spy, spw, sph, canvas ) = config_get_sprite_details(config, options, config_node_index, 0, ticks);
+  let (spx, spy, spw, sph, canvas ) = config_get_sprite_details_for_frame(config, options, config_node_index, 0, ticks, frame_index);
 
   context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
     &canvas,

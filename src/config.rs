@@ -2489,11 +2489,14 @@ pub fn config_get_sprite_frame_index(config: &Config, options: &Options, sprite_
 }
 
 pub fn config_get_sprite_details<'x>(config: &'x Config, options: &Options, config_index: usize, sprite_start_at: u64, ticks: u64) -> (f64, f64, f64, f64, &'x web_sys::HtmlImageElement) {
+  return config_get_sprite_details_for_frame(config, options, config_index, sprite_start_at, ticks, None);
+}
+pub fn config_get_sprite_details_for_frame<'x>(config: &'x Config, options: &Options, config_index: usize, sprite_start_at: u64, ticks: u64, frame_index: Option<usize>) -> (f64, f64, f64, f64, &'x web_sys::HtmlImageElement) {
   assert!(config_index < config.nodes.len(), "config_index should be a node index: {} < {}", config_index, config.nodes.len());
   let node = &config.nodes[config_index];
   let node = if node.drm && !options.show_drm { &config.nodes[CONFIG_NODE_ASSET_DRM_PLACEHOLDER] } else { node };
 
-  let frame_index = config_get_sprite_frame_index(config, options, &node.sprite_config, sprite_start_at, ticks);
+  let frame_index = if let Some(frame_index) = frame_index { frame_index } else { config_get_sprite_frame_index(config, options, &node.sprite_config, sprite_start_at, ticks) };
   let sprite = &node.sprite_config.frames[frame_index];
 
   return ( sprite.x, sprite.y, sprite.w, sprite.h, &config.sprite_cache_canvas[sprite.file_canvas_cache_index] );
