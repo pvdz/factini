@@ -34,9 +34,9 @@ wasm-pack build --target web
 
 You'll need to compile it first (see above). Then;
 
-Open [html/index.html] in a (modern) browser. Due to CORS limitations you'll need to serve it (either locally like with a simple static server, or from some website host online). This needs access to the [resource] (_build output, containing the wasm_) and [src] folders.
+Open [html/index.html](html/index.html) in a (modern) browser. Due to CORS limitations you'll need to serve it (either locally like with a simple static server, or from some website host online). This needs access to the [resource] (_build output, containing the wasm_) and [src] folders.
 
-You can open [html/debug.html] for a wide breadth of options, editor, tech tree status, sprite maps, etc. As the name suggests. It does not depend on a (Rust) debug/prod build (yes, the production build includes all debug code, heh).
+You can open [html/debug.html](html/debug.html) for a wide breadth of options, editor, tech tree status, sprite maps, etc. As the name suggests. It does not depend on a (Rust) debug/prod build (yes, the production build includes all debug code, heh).
 
 Changes to the `.md.js` config files do not require compilation. They are always parsed on (page) startup.
 
