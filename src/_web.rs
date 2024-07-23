@@ -4,7 +4,6 @@
 // Compile with --profile to try and get some sense of shit
 
 // TODO:
-// - fix about page link
 // - mouse-xy off by 2px?
 
 // features
@@ -202,7 +201,7 @@ pub fn start() -> Result<(), JsValue> {
   context.set_image_smoothing_enabled(false);
 
   // Static state configuration (can still be changed by user). Prefer localStorage over options.md
-  let mut options = create_options(1.0, 1.0);
+  let mut options = create_options(1.0, 0.5);
   // If there are options in localStorage, apply them now
   let saved_options = {
     if is_debug { log!("onload: Reading options from localStorage"); }
@@ -790,7 +789,7 @@ pub fn start() -> Result<(), JsValue> {
             state.pregame = false; // Reset and continue
           } else if is_over_about {
             if is_debug { log!("clicked on main splash about link. opening in new window"); }
-            window.open_with_url("https://pvdz.ee").expect("magic"); // TODO
+            window.open_with_url("https://pvdz.ee/weblog/454").expect("magic");
             pregame = true;
           } else {
             if is_debug { log!("clicked on main splash and not the reset. closing it."); }

@@ -59,7 +59,7 @@ fn main() {
   // std::env::set_var("RUST_BACKTRACE", "1");
 
   // Static state configuration (can still be changed by user)
-  let mut options = options::create_options(1.0, 1.0);
+  let mut options = options::create_options(1.0, 0.5);
 
   // General app state
   let mut state = state::State {};
