@@ -5,7 +5,9 @@ Mini factory game.
 Written in Rust. Compiled to WASM to run in the browser using html5 canvas.
 
 GitHub: [github.com/pvdz/factini](https://github.com/pvdz/factini)
+
 Demo: [pvdz.ee/project/factini](https://pvdz.ee/project/factini/)
+
 Blog post: [pvdz.ee/weblog/454](https://pvdz.ee/weblog/454)
 
 # Building from source
